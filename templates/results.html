@@ -3,7 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Resultados del Análisis</title>
+    <title>Evaluation results</title>
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      rel="stylesheet"
+    />
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='css/styles.css') }}"
@@ -11,32 +15,64 @@
     <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
   </head>
   <body>
-    <h1>Resultados del Análisis de la GUI</h1>
-    <h2>Detalles del Consumo Energético</h2>
-    <p>Total de Consumo Energético: {{ results.total_power }} W</p>
-    <p>
-      Huella de Carbono Estimada: {{ results.carbon_footprint }} gramos de CO₂
-    </p>
+    <div class="main-container">
+      <h1>Evaluation results</h1>
 
-    <h2>Detalles de Componentes</h2>
-    <ul>
-      {% for component, count in results.components.items() %}
-      <li>{{ component }}: {{ count }}</li>
-      {% endfor %}
-    </ul>
+      <div class="card-container">
+        <styled-card>
+          <span slot="header">Digital Carbon Rating</span>
+          <span slot="value">{{ results.optimization_rating }}</span>
+          <span slot="description">
+            The optimization rating is based on its carbon footprint and page
+            weight.
+          </span>
+          <span slot="info">More Info</span>
+        </styled-card>
 
-    <h2>Colores Detectados</h2>
-    <table border="1">
-      <tr>
-        <th>Color (RGB)</th>
-        <th>Frecuencia</th>
-      </tr>
-      {% for color_data in results.colors %}
-      <tr>
-        <td>{{ color_data.color }}</td>
-        <td>{{ color_data.count }}</td>
-      </tr>
-      {% endfor %}
-    </table>
+        <styled-card>
+          <span slot="header">Page Emissions</span>
+          <span slot="value">{{ results.carbon_footprint | round(2) }} g</span>
+          <span slot="description">
+            Based on a total energy consumption of {{ results.total_power |
+            round(2) }} W.
+          </span>
+          <span slot="info">More Info</span>
+        </styled-card>
+
+        <styled-card>
+          <span slot="header">Page Weight</span>
+          <span slot="value">{{ results.page_weight }} MB</span>
+          <span slot="description">
+            This page is {{ (results.page_weight / 2) * 100 | round(2) }}%
+            larger than the average web page.
+          </span>
+          <span slot="info">More Info</span>
+        </styled-card>
+      </div>
+
+      <h1>Recommendations</h1>
+      <div class="recommendation-container">
+        <recommendation-item
+          icon="image"
+          title="Optimize Media"
+          score="64 OUT OF 100"
+        ></recommendation-item>
+        <recommendation-item
+          icon="bar_chart"
+          title="Reduce Overall Page Weight"
+          score="62 OUT OF 100"
+        ></recommendation-item>
+        <recommendation-item
+          icon="palette"
+          title="Change colors"
+          score="50 OUT OF 100"
+        ></recommendation-item>
+        <recommendation-item
+          icon="text_fields"
+          title="Change fonts"
+          score="100 OUT OF 100"
+        ></recommendation-item>
+      </div>
+    </div>
   </body>
 </html>

@@ -6,6 +6,7 @@ from utils.color_classifier import classify_colors
 from utils.energy_calculator import EnergyModel
 from utils.file_manager import save_results
 import os
+import random  # Asegúrate de importar el módulo random
 
 app = Flask(__name__)
 UPLOAD_FOLDER = "data/input"
@@ -40,6 +41,10 @@ def upload_file():
     if file.filename == "":
         return redirect(url_for("index"))
     
+    # Validación del tipo de archivo
+    if not file.filename.endswith('.html'):
+        return redirect(url_for("index"))  # Redirigir si no es un archivo HTML
+    
     # Guardar archivo en el servidor
     file_path = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
     file.save(file_path)
@@ -56,12 +61,29 @@ def upload_file():
     # Calcular consumo energético y huella de carbono
     total_power, carbon_footprint = energy_model.calculate_power(color_data)
 
+    # Calcular peso estimado de la página
+    page_weight = round(random.uniform(1, 4), 2)  # Generar un número aleatorio entre 1 y 4 con 2 decimales
+
+    # Calcular nivel de optimización
+    if carbon_footprint < 10 and page_weight < 1:
+        optimization_rating = "A+"
+    elif carbon_footprint < 20 and page_weight < 2:
+        optimization_rating = "A"
+    elif carbon_footprint < 40 and page_weight < 3:
+        optimization_rating = "B"
+    elif carbon_footprint < 60 and page_weight < 4:
+        optimization_rating = "C"
+    else:
+        optimization_rating = "E"
+
     # Guardar resultados en archivo
     results = {
         "components": components,
         "colors": color_data,
         "total_power": total_power,
-        "carbon_footprint": carbon_footprint  # Huella de carbono en gramos
+        "carbon_footprint": carbon_footprint,
+        "page_weight": page_weight,
+        "optimization_rating": optimization_rating
     }
     save_results("data/output/analysis.json", results)
     

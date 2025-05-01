@@ -20,5 +20,7 @@
         }
     ],
     "total_power": 16.8621525072,
-    "carbon_footprint": 6.7448610028800005
+    "carbon_footprint": 6.7448610028800005,
+    "page_weight": 3.9,
+    "optimization_rating": "C"
 }

@@ -5,31 +5,30 @@ body {
   font-weight: 300;
   background-color: black;
   color: white;
+  box-sizing: border-box; /* Incluir padding y border en el cálculo de ancho */
 }
 
 header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 20px 20px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-nav {
-  display: flex;
   align-items: center;
-  gap: 20px;
+  padding: 20px 70px; /* Añadimos 70px de margen lateral */
+  background-color: #000;
+  color: white;
 }
 
-nav a {
+header .logo {
+  max-height: 80px;
+}
+
+header nav a {
   color: white;
   text-decoration: none;
-  font-size: 24px;
+  font-size: 32px;
 }
 
-nav a:hover {
-  color: green;
+header nav a:hover {
+  text-decoration: underline rgb(0, 128, 0);
 }
 
 h1 {
@@ -40,7 +39,10 @@ h1 {
 }
 
 .container {
-  padding: 25px 100px;
+  padding: 20px 70px; /* Ajustar márgenes laterales */
+  max-width: 1200px; /* Limitar ancho máximo para centrar el contenido */
+  margin: 0 auto; /* Centramos horizontalmente */
+  box-sizing: border-box; /* Ajuste de bordes */
 }
 
 p {
@@ -64,11 +66,13 @@ p {
   color: white;
   cursor: pointer;
   position: relative;
-  overflow: hidden; /* Ensures the input stays inside the box */
+  overflow: hidden;
 }
+
 .upload-box:hover {
   background-color: #111;
 }
+
 .upload-box input {
   position: absolute;
   top: 0;
@@ -77,8 +81,9 @@ p {
   height: 100%;
   opacity: 0;
   cursor: pointer;
-  z-index: 2; /* Ensure the input stays above other elements */
+  z-index: 2;
 }
+
 .upload-box p {
   text-align: center;
 }
@@ -95,9 +100,10 @@ p {
   background-color: black;
   color: white;
   cursor: pointer;
-  border-radius: 5px;
+  border-radius: 10px;
   font-weight: 300;
-  font-family: Verdana, Geneva, Tahoma, sans-serif;
+  font-family: Segoe UI;
+  font-size: 32px;
 }
 
 .logo {
@@ -107,4 +113,105 @@ p {
 
 .upload-box.drag-over {
   background-color: #111;
+}
+
+.card-container {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-left: 55px;
+  margin-right: 55px;
+}
+
+styled-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border: 2px solid rgb(0, 128, 0);
+  background-color: black;
+  color: white;
+  border-radius: 10px;
+  padding: 20px;
+  width: 330px;
+  height: 200px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+styled-card span[slot="header"] {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+styled-card span[slot="value"] {
+  font-size: 4rem;
+  font-weight: bold;
+  margin: 10px 0;
+}
+
+styled-card span[slot="description"] {
+  font-size: 1.2rem;
+  margin: 10px 0;
+}
+
+.recommendation-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 20px; /* Separar del resto del contenido */
+  padding: 0 70px; /* Márgenes laterales para alinear con el resto */
+}
+
+:host(recommendation-item) .icon,
+:host(recommendation-item) .action {
+  font-size: 3rem;
+  color: rgb(0, 128, 0);
+  display: inline-block;
+  text-align: center;
+}
+
+:host(recommendation-item) .title,
+:host(recommendation-item) .score {
+  font-size: 1.5rem;
+  color: white;
+  margin: 0 10px;
+}
+
+.recommendation-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px;
+  border: 2px solid rgb(0, 128, 0);
+  border-radius: 10px;
+  background-color: black;
+  color: white;
+  margin-bottom: 10px;
+}
+
+.material-icons {
+  font-family: "Material Icons";
+  font-style: normal;
+  font-weight: normal;
+  font-size: 24px;
+  display: inline-block;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "liga";
+}
+
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  box-sizing: border-box;
 }
