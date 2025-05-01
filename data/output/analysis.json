@@ -12,13 +12,13 @@
     "colors": [
         {
             "color": [
+                0,
                 255,
-                255,
-                255
+                0
             ],
             "count": 1138896
         }
     ],
-    "total_power": 59.9471861076,
-    "carbon_footprint": 23.97887444304
+    "total_power": 16.8621525072,
+    "carbon_footprint": 6.7448610028800005
 }
