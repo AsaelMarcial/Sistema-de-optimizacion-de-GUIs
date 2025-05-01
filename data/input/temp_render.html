@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <!-- Agregar el CSS de Bootstrap -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- Contenedor principal con márgenes -->
+    <div class="container my-5">
+      <div class="row">
+        <div class="col-md-8">
+          <h1 style="background-color: #8d1b0a">
+            Benemérita Escuela Normal Veracruzana
+          </h1>
+        </div>
+        <div class="col-md-4 text-end">
+          <button
+            type="button"
+            class="btn btn-primary"
+            style="
+              background-color: #2b0a8d;
+              color: white;
+              border-color: #2b0a8d;
+            "
+            aria-label="Abrir formulario para modificar sede"
+          >
+            Modificar
+          </button>
+        </div>
+      </div>
+      <div class="card mt-3">
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6 d-flex flex-column justify-content-between">
+              <p>
+                <span class="bold-text">Institución:</span> Benemérita Escuela
+                Normal Veracruzana
+              </p>
+              <p>
+                <span class="bold-text">Nombre de contacto:</span> Sin
+                información
+              </p>
+              <p><span class="bold-text">Teléfono:</span> Sin información</p>
+              <p>
+                <span class="bold-text">Correo electrónico:</span> Sin
+                información
+              </p>
+              <p style="margin-bottom: 0">
+                <span class="bold-text">Página web:</span> Sin información
+              </p>
+            </div>
+            <div class="col-md-6 d-flex flex-column justify-content-between">
+              <p><span class="bold-text">Dirección:</span> Sin información</p>
+              <p><span class="bold-text">Ciudad:</span> Xalapa</p>
+              <p><span class="bold-text">Estado:</span> Veracruz</p>
+              <p style="margin-bottom: 0">
+                <span class="bold-text">Región:</span> Sin información
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="d-flex justify-content-between align-items-center mt-4 mb-4">
+        <h1>Salones</h1>
+        <button
+          type="button"
+          class="btn btn-primary"
+          style="
+            background-color: #138d0a;
+            color: rgb(163, 19, 207);
+            border-color: #8d1b0a;
+          "
+          aria-label="Abrir formulario para agregar salón"
+        >
+          Nuevo salón
+        </button>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Salón</th>
+            <th>Piso</th>
+            <th>Edificio</th>
+            <th>Descripción</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Aula de Medios "Ángel J. Hermida Ruíz"</td>
+            <td>34</td>
+            <td>BENV</td>
+            <td>Pizarrón</td>
+            <td>
+              <button
+                class="btn btn-primary"
+                style="
+                  background-color: #2b0a8d;
+                  color: white;
+                  border-color: #2b0a8d;
+                "
+              >
+                Modificar
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <!-- Agregar el JavaScript de Bootstrap y sus dependencias -->
+      <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
+    </div>
+  </body>
+</html>

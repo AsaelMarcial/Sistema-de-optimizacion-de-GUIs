@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HTML GUI Analyzer</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/styles.css') }}"
+    />
+  </head>
+  <body>
+    <h1>Analizador de Interfaces HTML</h1>
+    <p>
+      Sube un archivo HTML para analizar los componentes y colores de la
+      interfaz gráfica.
+    </p>
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+      <input type="file" name="file" accept=".html" required />
+      <button type="submit">Analizar</button>
+    </form>
+  </body>
+</html>

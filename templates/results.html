@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resultados del análisis</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/styles.css') }}"
+    />
+  </head>
+  <body>
+    <h1>Resultados del análisis</h1>
+
+    <h2>Componentes HTML</h2>
+    <ul>
+      {% for component, count in results['components'].items() %}
+      <li>{{ component }}: {{ count }}</li>
+      {% endfor %}
+    </ul>
+
+    <h2>Colores</h2>
+    <table>
+      <tr>
+        <th>Color</th>
+        <th>Cantidad</th>
+      </tr>
+      {% for color in results['colors'] %}
+      <tr>
+        <td style="width: 50px">{{ color['color'] }}</td>
+        <td>{{ color['count'] }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    <a href="/">Volver</a>
+  </body>
+</html>
