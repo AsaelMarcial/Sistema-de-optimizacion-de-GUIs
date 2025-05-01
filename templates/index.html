@@ -3,21 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>HTML GUI Analyzer</title>
+    <title>Glow - HTML GUI Analyzer</title>
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='css/styles.css') }}"
     />
+    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
   </head>
   <body>
-    <h1>Analizador de Interfaces HTML</h1>
-    <p>
-      Sube un archivo HTML para analizar los componentes y colores de la
-      interfaz gráfica.
-    </p>
-    <form action="/upload" method="POST" enctype="multipart/form-data">
-      <input type="file" name="file" accept=".html" required />
-      <button type="submit">Analizar</button>
+
+    <div class="container">
+      <h1>
+        Make your GUI shine brighter with optimized design and lower carbon
+        emissions
+      </h1>
+    </div>
+
+    <form action="/results" method="POST" enctype="multipart/form-data" id="upload-form">
+      <div class="upload-box" id="upload-box">
+        <p id="file-name">
+        Drag your HTML file here or click to upload and watch the magic happen!
+        </p>
+        <input
+          id="file-input"
+          type="file"
+          name="file"
+          accept=".html"
+          required
+          onchange="showAnalyzeButton()"
+        />
+      </div>
+      <button id="analyze-button" class="analyze-button type="submit">Analyze</button>
     </form>
   </body>
 </html>

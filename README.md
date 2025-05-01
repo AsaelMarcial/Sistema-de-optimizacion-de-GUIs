@@ -1,1 +1,0 @@
-# Sistema-de-optimizacion-de-GUIs

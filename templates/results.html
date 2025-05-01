@@ -3,36 +3,40 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Resultados del análisis</title>
+    <title>Resultados del Análisis</title>
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='css/styles.css') }}"
     />
+    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
   </head>
   <body>
-    <h1>Resultados del análisis</h1>
+    <h1>Resultados del Análisis de la GUI</h1>
+    <h2>Detalles del Consumo Energético</h2>
+    <p>Total de Consumo Energético: {{ results.total_power }} W</p>
+    <p>
+      Huella de Carbono Estimada: {{ results.carbon_footprint }} gramos de CO₂
+    </p>
 
-    <h2>Componentes HTML</h2>
+    <h2>Detalles de Componentes</h2>
     <ul>
-      {% for component, count in results['components'].items() %}
+      {% for component, count in results.components.items() %}
       <li>{{ component }}: {{ count }}</li>
       {% endfor %}
     </ul>
 
-    <h2>Colores</h2>
-    <table>
+    <h2>Colores Detectados</h2>
+    <table border="1">
       <tr>
-        <th>Color</th>
-        <th>Cantidad</th>
+        <th>Color (RGB)</th>
+        <th>Frecuencia</th>
       </tr>
-      {% for color in results['colors'] %}
+      {% for color_data in results.colors %}
       <tr>
-        <td style="width: 50px">{{ color['color'] }}</td>
-        <td>{{ color['count'] }}</td>
+        <td>{{ color_data.color }}</td>
+        <td>{{ color_data.count }}</td>
       </tr>
       {% endfor %}
     </table>
-
-    <a href="/">Volver</a>
   </body>
 </html>
