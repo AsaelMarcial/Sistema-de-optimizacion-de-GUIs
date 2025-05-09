@@ -19,6 +19,17 @@
       </h1>
     </div>
 
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes">
+          {% for category, message in messages %}
+            <li class="flash {{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+
     <form action="/results" method="POST" enctype="multipart/form-data" id="upload-form">
       <div class="upload-box" id="upload-box">
         <p id="file-name">
@@ -28,7 +39,7 @@
           id="file-input"
           type="file"
           name="file"
-          accept=".html"
+          accept=".html,.zip"
           required
           onchange="showAnalyzeButton()"
         />

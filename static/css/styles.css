@@ -215,3 +215,13 @@ main {
   padding: 20px;
   box-sizing: border-box;
 }
+
+.flash.error {
+  background-color: #ff4c4c;
+  color: white;
+  padding: 10px;
+  border-radius: 5px;
+  text-align: center;
+  margin: 10px auto;
+  width: 80%;
+}
