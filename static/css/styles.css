@@ -106,6 +106,19 @@ p {
   font-size: 32px;
 }
 
+.download-button {
+  margin: 25px auto;
+  padding: 10px 20px;
+  border: 2px solid green;
+  background-color: black;
+  color: white;
+  cursor: pointer;
+  border-radius: 10px;
+  font-weight: 300;
+  font-family: Segoe UI;
+  font-size: 32px;
+}
+
 .logo {
   height: 125px;
   width: auto;

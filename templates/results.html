@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Evaluation results</title>
+    <title>Resultados</title>
     <link
       href="https://fonts.googleapis.com/icon?family=Material+Icons"
       rel="stylesheet"
@@ -16,63 +16,64 @@
   </head>
   <body>
     <div class="main-container">
-      <h1>Evaluation results</h1>
+      <h1>Resultados del análisis</h1>
 
       <div class="card-container">
         <styled-card>
-          <span slot="header">Digital Carbon Rating</span>
+          <span slot="header">Carbon Rating</span>
           <span slot="value">{{ results.optimization_rating }}</span>
-          <span slot="description">
-            The optimization rating is based on its carbon footprint and page
-            weight.
-          </span>
-          <span slot="info">More Info</span>
+          <span slot="description"
+            >Evaluación basada en huella de carbono y peso.</span
+          >
         </styled-card>
 
         <styled-card>
-          <span slot="header">Page Emissions</span>
+          <span slot="header">Huella de CO₂</span>
           <span slot="value">{{ results.carbon_footprint | round(2) }} g</span>
-          <span slot="description">
-            Based on a total energy consumption of {{ results.total_power |
-            round(2) }} W.
-          </span>
-          <span slot="info">More Info</span>
+          <span slot="description"
+            >Basado en consumo de {{ results.total_power | round(2) }} W.</span
+          >
         </styled-card>
 
         <styled-card>
-          <span slot="header">Page Weight</span>
+          <span slot="header">Peso de página</span>
           <span slot="value">{{ results.page_weight }} MB</span>
-          <span slot="description">
-            This page is {{ (results.page_weight / 2) * 100 | round(2) }}%
-            larger than the average web page.
-          </span>
-          <span slot="info">More Info</span>
+          <span slot="description">Comparado contra páginas promedio.</span>
         </styled-card>
       </div>
 
-      <h1>Recommendations</h1>
+      <h1>Evaluación heurística</h1>
       <div class="recommendation-container">
+        {% for heuristica in results.heuristicas %}
         <recommendation-item
-          icon="image"
-          title="Optimize Media"
-          score="64 OUT OF 100"
+          icon="check"
+          title="{{ heuristica.nombre }}"
+          score="{{ 'Cumple' if heuristica.cumple else 'No cumple' }}"
         ></recommendation-item>
-        <recommendation-item
-          icon="bar_chart"
-          title="Reduce Overall Page Weight"
-          score="62 OUT OF 100"
-        ></recommendation-item>
-        <recommendation-item
-          icon="palette"
-          title="Change colors"
-          score="50 OUT OF 100"
-        ></recommendation-item>
-        <recommendation-item
-          icon="text_fields"
-          title="Change fonts"
-          score="100 OUT OF 100"
-        ></recommendation-item>
+        {% if heuristica.recomendacion %}
+        <p style="color: orange">⚠ {{ heuristica.recomendacion }}</p>
+        {% endif %} {% endfor %}
       </div>
+
+      <h1>Vista previa del HTML corregido</h1>
+
+      <iframe
+        src="{{ url_for('static', filename='corrected/' + results.session_id + '/' + results.html_name) }}"
+        width="100%"
+        height="400px"
+        style="border: 1px solid #ccc"
+      ></iframe>
+
+      <h2>Descargar proyecto optimizado</h2>
+
+      <a
+        href="{{ url_for('static', filename='corrected/' + results.session_id + '.zip') }}"
+        download
+      >
+        <button class="download-button">
+          Descargar ZIP del proyecto optimizado
+        </button>
+      </a>
     </div>
   </body>
 </html>
