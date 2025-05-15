@@ -45,35 +45,53 @@
       <h1>Evaluación heurística</h1>
       <div class="recommendation-container">
         {% for heuristica in results.heuristicas %}
-        <recommendation-item
-          icon="check"
-          title="{{ heuristica.nombre }}"
-          score="{{ 'Cumple' if heuristica.cumple else 'No cumple' }}"
-        ></recommendation-item>
-        {% if heuristica.recomendacion %}
-        <p style="color: orange">⚠ {{ heuristica.recomendacion }}</p>
-        {% endif %} {% endfor %}
+        <div
+          class="recommendation-card {% if heuristica.cumple %}success{% else %}warning{% endif %}"
+        >
+          <div class="card-header">
+            <h2 class="heuristic-title">{{ heuristica.nombre }}</h2>
+            <span
+              class="status-badge {% if heuristica.cumple %}success{% else %}error{% endif %}"
+            >
+              {{ 'Cumple' if heuristica.cumple else 'No cumple' }}
+            </span>
+          </div>
+          <p class="recommendation-text">{{ heuristica.recomendacion }}</p>
+          {% if heuristica.detalles %}
+          <details class="details-dropdown">
+            <summary>Ver detalles</summary>
+            <ul>
+              {% for detalle in heuristica.detalles %}
+              <li>{{ detalle }}</li>
+              {% endfor %}
+            </ul>
+          </details>
+          {% endif %}
+        </div>
+        {% endfor %}
       </div>
 
-      <h1>Vista previa del HTML corregido</h1>
+      <div class="iframe-header">
+        <h2>Vista previa del HTML corregido</h2>
+        <a
+          href="{{ url_for('static', filename='corrected/' + results.session_id + '.zip') }}"
+          download
+          class="download-button"
+        >
+          Download
+        </a>
+      </div>
 
-      <iframe
-        src="{{ url_for('static', filename='corrected/' + results.session_id + '/' + results.html_name) }}"
-        width="100%"
-        height="400px"
-        style="border: 1px solid #ccc"
-      ></iframe>
-
-      <h2>Descargar proyecto optimizado</h2>
-
-      <a
-        href="{{ url_for('static', filename='corrected/' + results.session_id + '.zip') }}"
-        download
-      >
-        <button class="download-button">
-          Descargar ZIP del proyecto optimizado
-        </button>
-      </a>
+      <div class="iframe-container">
+        <iframe
+          id="previewFrame"
+          src="{{ url_for('static', filename='corrected/' + results.session_id + '/' + results.html_name) }}"
+          width="100%"
+          height="100%"
+          style="border: 1px solid #ccc"
+          scrolling="yes"
+        ></iframe>
+      </div>
     </div>
   </body>
 </html>
