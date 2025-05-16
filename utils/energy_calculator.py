@@ -1,51 +1,62 @@
 class EnergyModel:
     """
-    Clase para calcular el consumo energético de una GUI en pantallas OLED.
+    Energy consumption model for OLED screens (Pixel 4) based on Dong et al. (2012),
+    improved with LinearRGB conversion and real measured data.
     """
-    def __init__(self, coefficients_r, coefficients_g, coefficients_b, constant_c, emission_factor=0.4):
-        self.coefficients_r = coefficients_r
-        self.coefficients_g = coefficients_g
-        self.coefficients_b = coefficients_b
-        self.constant_c = constant_c
-        self.emission_factor = emission_factor  # Factores de emisión de CO₂ por Wh
+
+    def __init__(self, coefficients_r, coefficients_g, coefficients_b, constant_c):
+        self.coefficients_r = coefficients_r  # [a, b, c]
+        self.coefficients_g = coefficients_g  # [a, b, c]
+        self.coefficients_b = coefficients_b  # [a, b, c]
+        self.constant_c = constant_c  # Base consumption (A)
+
+    def linear_rgb(self, value):
+        return (value / 255.0) ** 2.2
 
     def f(self, R):
-        a, b, c, d = self.coefficients_r
-        return a * R**3 + b * R**2 + c * R + d if R > 0 else d
+        R_linear = self.linear_rgb(R)
+        a, b, c = self.coefficients_r
+        return a * R_linear**3 + b * R_linear**2 + c * R_linear
 
     def g(self, G):
-        a, b, c, d = self.coefficients_g
-        return a * G**3 + b * G**2 + c * G + d if G > 0 else d
+        G_linear = self.linear_rgb(G)
+        a, b, c = self.coefficients_g
+        return a * G_linear**3 + b * G_linear**2 + c * G_linear
 
     def h(self, B):
-        a, b, c, d = self.coefficients_b
-        return a * B**3 + b * B**2 + c * B + d if B > 0 else d
+        B_linear = self.linear_rgb(B)
+        a, b, c = self.coefficients_b
+        return a * B_linear**3 + b * B_linear**2 + c * B_linear
 
-    def calculate_power(self, pixel_data, usage_time=1):
-        """
-        Calcula el consumo energético total basado en los datos de los píxeles.
-
-        Args:
-            pixel_data (list): Lista de píxeles {"color": [R, G, B], "count": n}.
-            usage_time (float): Tiempo de uso en horas.
-
-        Returns:
-            tuple: Consumo energético total (W) y huella de carbono (gr).
-        """
-        total_pixels = sum(pixel["count"] for pixel in pixel_data)
+    def calculate_power(self, pixel_data):
         total_power = 0
-
         for pixel in pixel_data:
             R, G, B = pixel["color"]
             count = pixel["count"]
-            power_pixel = count * (self.f(R) + self.g(G) + self.h(B))
-            total_power += power_pixel
+            power_pixel = self.f(R) + self.g(G) + self.h(B)
+            total_power += power_pixel * count
+        total_power += self.constant_c
+        return total_power
 
-        # Agregar el consumo base por toda la pantalla
-        total_power += self.constant_c * total_pixels
 
-        # Convertir a huella de carbono
-        total_power_wh = total_power * usage_time
-        carbon_footprint = total_power_wh * self.emission_factor
+class CarbonFootprintCalculator:
+    def __init__(self, voltage=3.7, emission_factor=0.000475, reference_reduction=0.5):
+        self.voltage = voltage
+        self.emission_factor = emission_factor
+        self.reference_reduction = reference_reduction
 
-        return total_power, carbon_footprint
+    def calculate(self, current_a, time_hours, num_users, daily_uses):
+        energy_wh = current_a * self.voltage * time_hours
+        co2eq = energy_wh * self.emission_factor
+        co2eq_total = co2eq * num_users
+        co2eq_annual_per_user = co2eq * daily_uses * 365
+        reference_energy = energy_wh * self.reference_reduction
+        sci_score = energy_wh / reference_energy if reference_energy != 0 else float('inf')
+
+        return {
+            "energy_wh": energy_wh,
+            "co2eq_per_use": co2eq,
+            "co2eq_total_users": co2eq_total,
+            "co2eq_annual_per_user": co2eq_annual_per_user,
+            "sci_score": sci_score
+        }

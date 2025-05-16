@@ -1,27 +1,26 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
-from services.file_handler import handle_uploaded_file
+from flask import Blueprint, render_template, request, flash, redirect, url_for
 from services.session_cleaner import clean_old_sessions
 from utils.html_parser import parse_html
 from utils.gui_analyzer import analyze_gui
 from utils.pixel_processor import extract_pixels
 from utils.color_classifier import classify_colors
-from utils.energy_calculator import EnergyModel
-from utils.file_manager import save_results
+from utils.energy_calculator import EnergyModel, CarbonFootprintCalculator
 from utils.heuristic_evaluator import evaluar_y_corregir_heuristicas
+from services.file_handler import handle_uploaded_file
 import os
 import uuid
-import random
 import shutil
 
 main = Blueprint("main", __name__)
 
 energy_model = EnergyModel(
-    [1e-12, 1e-11, 1e-10, 0],
-    [8e-13, 8e-12, 8e-11, 0],
-    [1.2e-12, 1e-11, 1e-10, 0],
-    1e-6,
-    emission_factor=0.4
+    [1.804551146759771e-07, -3.0220347704227896e-07, 1.4154405902803595e-07],
+    [9.412383738420182e-08, -1.5781520809511624e-07, 7.546610037732226e-08],
+    [1.3946409007268839e-08, -2.4495186160412765e-08, 1.598790315272048e-08],
+    0.120833
 )
+
+calculator = CarbonFootprintCalculator()
 
 def detectar_html_unico(base_path):
     html_files = []
@@ -73,29 +72,30 @@ def results():
 
     html_content, base_path = result
 
-    # Si base_path tiene solo una subcarpeta, bajamos a ella automáticamente
     subdirs = [d for d in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, d))]
     if len(subdirs) == 1:
         base_path = os.path.join(base_path, subdirs[0])
 
-    # Detectar HTML único
     html_path = detectar_html_unico(base_path)
     html_filename = os.path.basename(html_path)
 
-    # Análisis habitual
     components = parse_html(html_content)
     pixels = analyze_gui(html_content, base_path=base_path)
     color_data = classify_colors(extract_pixels(pixels))
-    total_power, carbon_footprint = energy_model.calculate_power(color_data)
-    page_weight = round(random.uniform(1, 4), 2)
 
-    if carbon_footprint < 10 and page_weight < 1:
+    # Consumo GUI evaluada (por 1 hora, 1 usuario)
+    total_current = energy_model.calculate_power(color_data)
+    footprint = calculator.calculate(total_current, time_hours=1, num_users=1, daily_uses=1)
+    sci_score = footprint["sci_score"]
+
+    # Rating basado solo en SCI Score
+    if sci_score <= 1.2:
         rating = "A+"
-    elif carbon_footprint < 20 and page_weight < 2:
+    elif sci_score <= 1.5:
         rating = "A"
-    elif carbon_footprint < 40 and page_weight < 3:
+    elif sci_score <= 2.0:
         rating = "B"
-    elif carbon_footprint < 60 and page_weight < 4:
+    elif sci_score <= 3.0:
         rating = "C"
     else:
         rating = "E"
@@ -104,31 +104,35 @@ def results():
     static_session_dir = f"static/corrected/{session_id}"
     os.makedirs(static_session_dir, exist_ok=True)
 
-    # Leer el HTML original
-    with open(html_path, "r", encoding="utf-8") as f:
-        html_real = f.read()
-
-    # Aplicar heurísticas
-    resultados_heuristicas = evaluar_y_corregir_heuristicas(html_real, html_path, base_path, session_id)
-
-    # Copiar recursos detectados
+    # Aplicar heurísticas y crear proyecto optimizado
+    resultados_heuristicas = evaluar_y_corregir_heuristicas(html_content, html_path, base_path, session_id)
     copiar_recursos(base_path, static_session_dir)
 
-    # Crear ZIP con el proyecto corregido
+    # Crear ZIP del proyecto optimizado
     zip_output_path = f"static/corrected/{session_id}.zip"
     shutil.make_archive(zip_output_path.replace(".zip", ""), 'zip', static_session_dir)
 
+    # RE-ANALIZAR la GUI optimizada desde el archivo optimizado generado
+    html_optimized_path = os.path.join(static_session_dir, html_filename)
+    with open(html_optimized_path, "r", encoding="utf-8") as f:
+        html_optimized_content = f.read()
+
+    pixels_optimized = analyze_gui(html_optimized_content, base_path=static_session_dir)
+    color_data_optimized = classify_colors(extract_pixels(pixels_optimized))
+    optimized_current = energy_model.calculate_power(color_data_optimized)
+    optimized_footprint = calculator.calculate(optimized_current, time_hours=1, num_users=1, daily_uses=1)
 
     results = {
-        "components": components,
-        "colors": color_data,
-        "total_power": total_power,
-        "carbon_footprint": carbon_footprint,
-        "page_weight": page_weight,
+        "total_current": total_current,
+        "carbon_footprint": footprint["co2eq_per_use"],
+        "energy_wh": footprint["energy_wh"],
+        "sci_score": footprint["sci_score"],
+        "optimized_energy_wh": optimized_footprint["energy_wh"],
+        "optimized_co2eq_per_use": optimized_footprint["co2eq_per_use"],
         "optimization_rating": rating,
-        "heuristicas": resultados_heuristicas,
         "session_id": session_id,
-        "html_name": html_filename
+        "html_name": html_filename,
+        "heuristicas": resultados_heuristicas
     }
 
     return render_template("results.html", results=results)
