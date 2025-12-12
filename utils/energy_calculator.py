@@ -5,10 +5,10 @@ class EnergyModel:
     """
 
     def __init__(self, coefficients_r, coefficients_g, coefficients_b, constant_c):
-        self.coefficients_r = coefficients_r  # [a, b, c]
-        self.coefficients_g = coefficients_g  # [a, b, c]
-        self.coefficients_b = coefficients_b  # [a, b, c]
-        self.constant_c = constant_c  # Base consumption (A)
+        self.coefficients_r = coefficients_r
+        self.coefficients_g = coefficients_g
+        self.coefficients_b = coefficients_b
+        self.constant_c = constant_c
 
     def linear_rgb(self, value):
         return (value / 255.0) ** 2.2
@@ -40,23 +40,42 @@ class EnergyModel:
 
 
 class CarbonFootprintCalculator:
-    def __init__(self, voltage=3.7, emission_factor=0.000475, reference_reduction=0.5):
+    """
+    Calculates energy consumption and SCI score using official Green Software Foundation methodology.
+    """
+
+    def __init__(self, voltage=3.7, emission_factor=475, hardware_emissions=0):
         self.voltage = voltage
         self.emission_factor = emission_factor
-        self.reference_reduction = reference_reduction
+        self.hardware_emissions = hardware_emissions
 
-    def calculate(self, current_a, time_hours, num_users, daily_uses):
+    def calculate(self, current_a, time_hours, r=1, user_count=100, usage_hours=24):
+        # Calcula energía en Wh y kWh
         energy_wh = current_a * self.voltage * time_hours
-        co2eq = energy_wh * self.emission_factor
-        co2eq_total = co2eq * num_users
-        co2eq_annual_per_user = co2eq * daily_uses * 365
-        reference_energy = energy_wh * self.reference_reduction
-        sci_score = energy_wh / reference_energy if reference_energy != 0 else float('inf')
+        energy_kwh = energy_wh / 1000
+
+        # Calcula CO2eq usando el factor de emisión
+        co2eq = energy_kwh * self.emission_factor
+
+        # Calcula SCI Score oficial
+        sci_score = (co2eq + self.hardware_emissions) / r
+
+        # Nuevos cálculos extendidos
+        co2eq_total = co2eq * user_count * usage_hours
+        ahorro = 0  # Se calcula externamente comparando con optimizado
 
         return {
             "energy_wh": energy_wh,
+            "energy_kwh": energy_kwh,
             "co2eq_per_use": co2eq,
-            "co2eq_total_users": co2eq_total,
-            "co2eq_annual_per_user": co2eq_annual_per_user,
-            "sci_score": sci_score
+            "co2eq_total": co2eq_total,
+            "sci_score": sci_score,
+            "emission_factor": self.emission_factor,
+            "user_count": user_count,
+            "usage_hours": usage_hours,
+            "ahorro_potencial": ahorro,
+                "energy_wh": energy_wh,
+                "energy_kwh": energy_kwh,
+                "co2eq_per_use": co2eq,
+                "sci_score": sci_score
         }

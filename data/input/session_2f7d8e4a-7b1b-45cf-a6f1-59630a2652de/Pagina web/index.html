@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Página Completa Ejemplo</title>
+<link href="/static/styles/estilos.css" rel="stylesheet"/>
+<style>
+      header {
+        background-color: rgb(191, 153, 64);
+        color: rgb(64, 191, 164);
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      header h1 {
+        margin: 0;
+      }
+
+      nav {
+        background-color: rgb(191, 64, 166);
+        text-align: center;
+      }
+
+      nav a {
+        color: white;
+        padding: 15px 20px;
+        text-decoration: none;
+        display: inline-block;
+      }
+
+      nav a:hover {
+        background-color: rgb(85, 85, 85);
+      }
+
+      .slider {
+        background-color: rgb(191, 64, 64);
+        color: white;
+        text-align: center;
+        padding: 100px 20px;
+        font-size: 2rem;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 20px auto;
+        padding: 0 20px;
+      }
+
+      .services {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        margin-bottom: 40px;
+      }
+
+      .card {
+        background-color: rgb(64, 191, 81);
+        flex: 1 1 30%;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .testimonials {
+        background-color: rgb(164, 64, 191);
+        padding: 40px 20px;
+        text-align: center;
+      }
+
+      .testimonial {
+        margin-bottom: 20px;
+        font-style: italic;
+      }
+
+      .contact-form {
+        background-color: rgb(64, 64, 191);
+        padding: 20px;
+      }
+
+      .contact-form input,
+      .contact-form textarea {
+        width: 100%;
+        padding: 10px;
+        margin: 10px 0;
+        background-color: rgb(175, 141, 191);
+      }
+
+      footer {
+        background-color: rgb(191, 64, 64);
+        color: white;
+        padding: 20px;
+        text-align: center;
+      }
+
+      footer a {
+        color: rgb(191, 162, 64);
+        margin: 0 10px;
+        text-decoration: none;
+      }
+
+      footer a:hover {
+        color: white;
+      }
+
+      .buttonForm {
+        background-color: rgb(164, 64, 191);
+      }
+    </style>
+</head>
+<body style="background-color: rgb(0, 0, 0)">
+<header>
+<h1>Mi Sitio Web</h1>
+<span>Diseño moderno y simple</span>
+</header>
+<nav>
+<a href="#">Inicio</a>
+<a href="#">Servicios</a>
+<a href="#">Testimonios</a>
+<a href="#">Contacto</a>
+</nav>
+<section class="slider">Bienvenido a nuestra página</section>
+<div class="container">
+<h2>Nuestros Servicios</h2>
+<div class="services">
+<div class="card">
+<h3>Diseño Web</h3>
+<p>Diseñamos sitios atractivos y funcionales para tu negocio.</p>
+</div>
+<div class="card">
+<h3>Marketing Digital</h3>
+<p>Te ayudamos a aumentar tu presencia en línea y redes sociales.</p>
+</div>
+<div class="card">
+<h3>Soporte Técnico</h3>
+<p>Brindamos soporte técnico especializado 24/7.</p>
+</div>
+</div>
+<h2>Testimonios</h2>
+<div class="testimonials">
+<div class="testimonial">
+          "Excelente servicio y atención personalizada."
+        </div>
+<div class="testimonial">
+          "Mi sitio ahora luce profesional y mis ventas aumentaron."
+        </div>
+</div>
+<h2>Contáctanos</h2>
+<form class="contact-form">
+<input placeholder="Tu nombre" required="" type="text"/>
+<input placeholder="Tu correo electrónico" required="" type="email"/>
+<textarea placeholder="Escribe tu mensaje aquí" required="" rows="5"></textarea>
+<button class="buttonForm" type="submit">Enviar</button>
+</form>
+</div>
+<footer>
+<p>© 2025 Mi Sitio Web. Todos los derechos reservados.</p>
+<a href="#">Facebook</a> | <a href="#">Twitter</a> |
+      <a href="#">Instagram</a>
+</footer>
+</body>
+</html>

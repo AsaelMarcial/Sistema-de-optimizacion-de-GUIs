@@ -83,12 +83,12 @@ def results():
     pixels = analyze_gui(html_content, base_path=base_path)
     color_data = classify_colors(extract_pixels(pixels))
 
-    # Consumo GUI evaluada (por 1 hora, 1 usuario)
+    # Consumo GUI evaluada (por 1 hora, 1 usuario fijo)
     total_current = energy_model.calculate_power(color_data)
-    footprint = calculator.calculate(total_current, time_hours=1, num_users=1, daily_uses=1)
+    footprint = calculator.calculate(total_current, time_hours=1)
     sci_score = footprint["sci_score"]
 
-    # Rating basado solo en SCI Score
+    # Rating basado en SCI Score fijo
     if sci_score <= 1.2:
         rating = "A+"
     elif sci_score <= 1.5:
@@ -104,15 +104,12 @@ def results():
     static_session_dir = f"static/corrected/{session_id}"
     os.makedirs(static_session_dir, exist_ok=True)
 
-    # Aplicar heurísticas y crear proyecto optimizado
     resultados_heuristicas = evaluar_y_corregir_heuristicas(html_content, html_path, base_path, session_id)
     copiar_recursos(base_path, static_session_dir)
 
-    # Crear ZIP del proyecto optimizado
     zip_output_path = f"static/corrected/{session_id}.zip"
     shutil.make_archive(zip_output_path.replace(".zip", ""), 'zip', static_session_dir)
 
-    # RE-ANALIZAR la GUI optimizada desde el archivo optimizado generado
     html_optimized_path = os.path.join(static_session_dir, html_filename)
     with open(html_optimized_path, "r", encoding="utf-8") as f:
         html_optimized_content = f.read()
@@ -120,7 +117,7 @@ def results():
     pixels_optimized = analyze_gui(html_optimized_content, base_path=static_session_dir)
     color_data_optimized = classify_colors(extract_pixels(pixels_optimized))
     optimized_current = energy_model.calculate_power(color_data_optimized)
-    optimized_footprint = calculator.calculate(optimized_current, time_hours=1, num_users=1, daily_uses=1)
+    optimized_footprint = calculator.calculate(optimized_current, time_hours=1)
 
     results = {
         "total_current": total_current,

@@ -1,6 +1,6 @@
 def classify_colors(pixel_array):
     """
-    Clasifica los colores predominantes basados en el array de píxeles.
+    Clasifica los colores basados en el array de píxeles.
     """
     from collections import Counter
 

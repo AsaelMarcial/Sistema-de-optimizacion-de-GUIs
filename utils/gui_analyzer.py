@@ -22,7 +22,7 @@ def analyze_gui(html_content, output_image="data/output/gui_screenshot.png", bas
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1280,720")
+    options.add_argument("--window-size=1920,1080")
 
     # Guardar HTML temporal en ruta adecuada
     if base_path:

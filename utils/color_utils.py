@@ -23,11 +23,10 @@ def invert_rgb(rgb):
     return tuple(255 - x for x in rgb)
 
 def is_light_color(rgb):
-    """
-    Determina si un color es claro según su luminancia (> 0.7).
-    """
-    luminance = rgb_to_luminance(rgb)
-    return luminance > 0.7
+    r, g, b = rgb
+    brightness = (r*299 + g*587 + b*114) / 1000  # Fórmula perceptual
+    return brightness > 180
+
 
 def parse_inline_styles(style_str):
     """

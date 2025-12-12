@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Glow - HTML GUI Analyzer</title>
+    <title>Glow - Analizador de GUI en HTML</title>
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='css/styles.css') }}"
@@ -11,29 +11,32 @@
     <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
   </head>
   <body>
-
     <div class="container">
       <h1>
-        Make your GUI shine brighter with optimized design and lower carbon
-        emissions
+        Haz que tu interfaz brille con un diseño optimizado y menor huella de
+        carbono
       </h1>
     </div>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <ul class="flashes">
-          {% for category, message in messages %}
-            <li class="flash {{ category }}">{{ message }}</li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-    {% endwith %}
+    {% with messages = get_flashed_messages(with_categories=true) %} {% if
+    messages %}
+    <ul class="flashes">
+      {% for category, message in messages %}
+      <li class="flash {{ category }}">{{ message }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %} {% endwith %}
 
-
-    <form action="/results" method="POST" enctype="multipart/form-data" id="upload-form">
+    <form
+      action="/results"
+      method="POST"
+      enctype="multipart/form-data"
+      id="upload-form"
+    >
       <div class="upload-box" id="upload-box">
         <p id="file-name">
-        Drag your HTML file here or click to upload and watch the magic happen!
+          Arrastra aquí tu archivo HTML o haz clic para subirlo y ¡observa la
+          magia!
         </p>
         <input
           id="file-input"
@@ -44,7 +47,9 @@
           onchange="showAnalyzeButton()"
         />
       </div>
-      <button id="analyze-button" class="analyze-button type="submit">Analyze</button>
+      <button id="analyze-button" class="analyze-button" type="submit">
+        Analizar
+      </button>
     </form>
   </body>
 </html>

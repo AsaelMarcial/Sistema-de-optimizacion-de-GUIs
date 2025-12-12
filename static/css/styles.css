@@ -132,36 +132,102 @@ p {
   margin-right: 55px;
 }
 
+/* === Responsive Grid: 2 columnas fijas en desktop === */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* Dos columnas simétricas */
+  gap: 32px;
+  margin: 40px auto;
+  box-sizing: border-box;
+  justify-content: center;
+  align-items: stretch;
+  padding: 0 70px;
+}
+
+@media (max-width: 850px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+    padding: 0 24px;
+  }
+}
+
+/* === Card uniforme === */
 styled-card {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
+  justify-content: space-between;
+  background: #0a0a0a;
   border: 2px solid rgb(0, 128, 0);
-  background-color: black;
-  color: white;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 20px;
-  width: 330px;
-  height: 200px;
+  min-height: 300px;
+  position: relative;
+  overflow: hidden;
+  width: 95%;
+  margin: 0%;
 }
 
+/* Title + Value */
 styled-card span[slot="header"] {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: bold;
   margin-bottom: 10px;
+  color: #fff;
 }
-
 styled-card span[slot="value"] {
   font-size: 2rem;
   font-weight: bold;
-  margin: 10px 0;
+  color: #fff;
+  margin-bottom: 10px;
 }
 
+/* Description & Formula */
 styled-card span[slot="description"] {
-  font-size: 1.2rem;
-  margin: 10px 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #ccc;
+}
+
+styled-card span[slot="description"] code {
+  background-color: #1c1c1c;
+  color: #88ff88;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+/* Expandable Calculation Panel */
+styled-card details {
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 8px;
+  margin-top: 12px;
+  padding: 8px 10px;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+styled-card details summary {
+  cursor: pointer;
+  color: rgb(0, 128, 0);
+  font-weight: bold;
+  margin-bottom: 6px;
+  list-style: none;
+}
+
+styled-card details ul {
+  list-style: none;
+  padding-left: 0;
+  font-size: 0.85em;
+}
+
+styled-card details ul li {
+  padding: 4px 0;
+  border-bottom: 1px solid #2c2c2c;
+}
+styled-card details ul li:last-child {
+  border-bottom: none;
 }
 
 .recommendation-container {

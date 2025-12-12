@@ -18,53 +18,123 @@
     <div class="main-container">
       <h1>Resultados del análisis</h1>
 
-      <div class="card-container">
+      <div class="metrics-grid">
+        <!-- SCI SCORE -->
         <styled-card>
           <span slot="header">SCI Score</span>
-          <span slot="value">{{ results.sci_score | round(2) }}</span>
-          <span slot="description"
-            >Comparación frente a Dark Mode (1.0 es óptimo).</span
-          >
+          <span slot="value">{{ results.sci_score | round(3) }}</span>
+          <span slot="description">
+            <strong>¿Qué es?</strong> Sustainable Computing Index (SCI). Mide el
+            impacto ambiental por uso.
+            <br />
+            <strong>Fórmula:</strong> <code>((E × I) + M) / R</code>
+            <details>
+              <summary>Ver cálculo</summary>
+              <ul>
+                <li>
+                  <strong>E:</strong>
+                  <span id="sci-e">{{ results.energy_wh | round(4) }}</span> Wh
+                  =
+                  <span id="sci-ekwh"
+                    >{{ (results.energy_wh / 1000) | round(6) }}</span
+                  >
+                  kWh
+                </li>
+
+                <li>
+                  <strong>E × I = CO₂eq:</strong>
+                  <span id="sci-co2eq"
+                    >{{ results.carbon_footprint | round(4) }}</span
+                  >
+                  kg CO₂eq
+                </li>
+                <li><strong>M:</strong> 0</li>
+                <li><strong>R:</strong> 1</li>
+                <li>
+                  <strong>Resultado:</strong> ({{ results.carbon_footprint |
+                  round(4) }} + 0) ÷ 1 =
+                  <strong>{{ results.sci_score | round(3) }}</strong>
+                </li>
+              </ul>
+            </details>
+            <em
+              >Excelente &lt; 0.3 | Bueno &lt; 0.6 | Regular &lt; 1.0 | Alto
+              &gt; 1.0</em
+            >
+          </span>
         </styled-card>
 
+        <!-- ENERGÍA -->
         <styled-card id="energy_card">
-          <span slot="header">Consumo y huella total</span>
+          <span slot="header">Consumo energético</span>
           <span slot="value">Calculando...</span>
-          <span slot="description"
-            >Consumo energético y huella de carbono total considerando usuarios
-            y días</span
-          >
+          <span slot="description">
+            <strong>Fórmula:</strong> <code>E = e × u × t</code>
+            <details>
+              <summary>Ver cálculo</summary>
+              <ul>
+                <li>
+                  <strong>e:</strong>
+                  <span id="e-unit">{{ results.energy_wh | round(2) }}</span> Wh
+                </li>
+                <li><strong>u:</strong> <span id="e-users">100</span></li>
+                <li><strong>t:</strong> <span id="e-hours">24</span></li>
+                <li><strong>E:</strong> <span id="e-total">-</span> Wh</li>
+              </ul>
+            </details>
+          </span>
         </styled-card>
 
-        <styled-card id="reduction_card">
-          <span slot="header">Ahorro potencial (CO₂eq)</span>
+        <!-- HUELLA -->
+        <styled-card id="carbon_card">
+          <span slot="header">Huella de carbono</span>
           <span slot="value">Calculando...</span>
-          <span slot="description"
-            >Ahorro estimado de huella de carbono aplicando
-            optimizaciones.</span
-          >
+          <span slot="description">
+            <strong>Fórmula:</strong> <code>CO₂eq = (E / 1000) × 0.475</code>
+            <details>
+              <summary>Ver cálculo</summary>
+              <ul>
+                <li><strong>E:</strong> <span id="c-e">-</span> Wh</li>
+                <li><strong>CO₂eq:</strong> <span id="c-total">-</span> kg</li>
+              </ul>
+            </details>
+          </span>
+        </styled-card>
+
+        <!-- AHORRO -->
+        <styled-card id="reduction_card">
+          <span slot="header">Ahorro potencial</span>
+          <span slot="value">Calculando...</span>
+          <span slot="description">
+            <strong>Fórmula:</strong> <code>ΔCO₂eq = CO₂eq - CO₂eqₒₚₜ</code>
+            <details>
+              <summary>Ver cálculo</summary>
+              <ul>
+                <li>
+                  <strong>Original:</strong> <span id="a-orig">-</span> kg
+                </li>
+                <li>
+                  <strong>Optimizado:</strong> <span id="a-opt">-</span> kg
+                </li>
+                <li><strong>Δ:</strong> <span id="a-total">-</span> kg</li>
+              </ul>
+            </details>
+          </span>
         </styled-card>
       </div>
 
-      <div
-        style="
-          display: flex;
-          gap: 20px;
-          margin-bottom: 20px;
-          justify-content: center;
-        "
-      >
+      <div style="display: flex; gap: 20px; justify-content: center">
         <div>
           <label for="user_count"><strong>Número de usuarios:</strong></label>
-          <input type="number" id="user_count" value="1000" min="1" />
+          <input type="number" id="user_count" value="100" min="1" />
         </div>
         <div>
-          <label for="usage_days"><strong>Días de uso:</strong></label>
-          <input type="number" id="usage_days" value="31" min="1" />
+          <label for="usage_hours"><strong>Horas de uso:</strong></label>
+          <input type="number" id="usage_hours" value="24" min="1" />
         </div>
-        <buttonb class="updateButton" onclick="updateImpact()"
-          >Actualizar</buttonb
-        >
+        <button class="updateButton" onclick="updateImpact()">
+          Actualizar
+        </button>
       </div>
 
       <h1>Evaluación heurística y optimizaciones</h1>
@@ -82,7 +152,6 @@
             </span>
           </div>
           <p class="recommendation-text">{{ heuristica.recomendacion }}</p>
-
           {% if heuristica.detalles %}
           <details class="details-dropdown">
             <summary>Ver detalles</summary>
@@ -112,7 +181,7 @@
           download
           class="download-button"
         >
-          Download
+          Descargar
         </a>
       </div>
 
@@ -127,41 +196,56 @@
         ></iframe>
       </div>
     </div>
+
     <script>
       function updateImpact() {
         let users = parseInt(document.getElementById("user_count").value);
-        let days = parseInt(document.getElementById("usage_days").value);
-        let hours_per_day = 24;
+        let hours = parseInt(document.getElementById("usage_hours").value);
 
         let energy_wh = parseFloat("{{ results.energy_wh | round(4) }}");
         let co2eq_per_use = parseFloat(
           "{{ results.carbon_footprint | round(6) }}"
         );
-
         let optimized_co2eq_per_use = parseFloat(
           "{{ results.optimized_co2eq_per_use | round(6) }}"
         );
 
-        let total_energy = energy_wh * users * days * hours_per_day;
-        let total_co2eq = co2eq_per_use * users * days * hours_per_day;
-        let total_optimized_co2eq =
-          optimized_co2eq_per_use * users * days * hours_per_day;
-
+        let total_energy = energy_wh * users * hours;
+        let total_co2eq = co2eq_per_use * users * hours;
+        let total_optimized_co2eq = optimized_co2eq_per_use * users * hours;
         let reduction_co2eq = total_co2eq - total_optimized_co2eq;
 
-        // Solo consumo evaluado y huella
+        // Tarjetas
         document
           .getElementById("energy_card")
-          .querySelector('span[slot="value"]').innerHTML = `
-          ${total_energy.toFixed(2)} Wh = ${total_co2eq.toFixed(4)} kg CO₂eq
-        `;
-
-        // Solo ahorro de CO₂eq
+          .querySelector(
+            'span[slot="value"]'
+          ).innerHTML = `${total_energy.toFixed(2)} Wh`;
+        document
+          .getElementById("carbon_card")
+          .querySelector(
+            'span[slot="value"]'
+          ).innerHTML = `${total_co2eq.toFixed(4)} kg CO₂eq`;
         document
           .getElementById("reduction_card")
-          .querySelector('span[slot="value"]').innerHTML = `
-          ${reduction_co2eq.toFixed(4)} kg CO₂eq
-        `;
+          .querySelector(
+            'span[slot="value"]'
+          ).innerHTML = `${reduction_co2eq.toFixed(4)} kg CO₂eq`;
+
+        // Detalles dinámicos
+        document.getElementById("e-users").textContent = users;
+        document.getElementById("e-hours").textContent = hours;
+        document.getElementById("e-total").textContent =
+          total_energy.toFixed(2);
+
+        document.getElementById("c-e").textContent = total_energy.toFixed(2);
+        document.getElementById("c-total").textContent = total_co2eq.toFixed(4);
+
+        document.getElementById("a-orig").textContent = total_co2eq.toFixed(4);
+        document.getElementById("a-opt").textContent =
+          total_optimized_co2eq.toFixed(4);
+        document.getElementById("a-total").textContent =
+          reduction_co2eq.toFixed(4);
       }
 
       window.onload = updateImpact;
