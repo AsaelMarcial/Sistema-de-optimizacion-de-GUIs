@@ -435,3 +435,40 @@ main {
   overflow-x: auto;
   max-height: 280px; /* evita que ocupe toda la pantalla */
 }
+
+/* Preview tabs (no interactivo) */
+.preview-tabs {
+  border: 1px solid rgba(0, 255, 120, 0.25);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(255,255,255,0.02);
+}
+
+.tabs-header {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.tab-btn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,255,120,0.25);
+  background: rgba(0,0,0,0.25);
+  color: #cfead6;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.tab-btn.active {
+  background: rgba(0,255,120,0.15);
+  border-color: rgba(0,255,120,0.5);
+}
+
+.tabs-body img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+}

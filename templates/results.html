@@ -23,6 +23,43 @@
         </details>
       {% endif %}
 
+      {% if results.debug_top_colors_original and results.debug_top_colors_optimized %}
+      <details class="debug-panel">
+        <summary><strong>Top colores (debug temporal)</strong></summary>
+    
+        <h4 style="margin-top:10px;">Original</h4>
+        <table style="width:100%; font-size:12px;">
+          <tr><th>RGB</th><th>Count</th><th>Muestra</th></tr>
+          {% for item in results.debug_top_colors_original %}
+            <tr>
+              <td>{{ item.color }}</td>
+              <td>{{ item.count }}</td>
+              <td>
+                <span style="display:inline-block;width:18px;height:18px;border:1px solid #333;
+                  background: rgb({{ item.color[0] }}, {{ item.color[1] }}, {{ item.color[2] }});"></span>
+              </td>
+            </tr>
+          {% endfor %}
+        </table>
+    
+        <h4 style="margin-top:16px;">Optimizada</h4>
+        <table style="width:100%; font-size:12px;">
+          <tr><th>RGB</th><th>Count</th><th>Muestra</th></tr>
+          {% for item in results.debug_top_colors_optimized %}
+            <tr>
+              <td>{{ item.color }}</td>
+              <td>{{ item.count }}</td>
+              <td>
+                <span style="display:inline-block;width:18px;height:18px;border:1px solid #333;
+                  background: rgb({{ item.color[0] }}, {{ item.color[1] }}, {{ item.color[2] }});"></span>
+              </td>
+            </tr>
+          {% endfor %}
+        </table>
+      </details>
+    {% endif %}
+    
+
       <h1>Resultados del análisis</h1>
 
       <div class="metrics-grid">
@@ -181,7 +218,7 @@
         {% endfor %} {% endif %}
       </div>
 
-      <div class="iframe-header">
+      <div class="iframe-header"> 
         <h2>Vista previa del HTML corregido</h2>
         <a
           href="{{ url_for('static', filename='corrected/' + results.session_id + '.zip') }}"
@@ -191,17 +228,24 @@
           Descargar
         </a>
       </div>
-
+      
       <div class="iframe-container">
-        <iframe
-          id="previewFrame"
-          src="{{ url_for('static', filename='corrected/' + results.session_id + '/' + results.html_name) }}"
-          width="100%"
-          height="100%"
-          style="border: 1px solid #ccc"
-          scrolling="yes"
-        ></iframe>
+        <div class="preview-tabs">
+          <div class="tabs-header">
+            <button type="button" class="tab-btn active" data-target="original">Original</button>
+            <button type="button" class="tab-btn" data-target="optimized">Optimizada</button>
+          </div>
+      
+          <div class="tabs-body">
+            <img
+              id="previewImage"
+              src="{{ url_for('static', filename=results.debug_screenshots.original) }}"
+              alt="Vista previa"
+            />
+          </div>
+        </div>
       </div>
+      
     </div>
 
     <script>
@@ -256,6 +300,24 @@
       }
 
       window.onload = updateImpact;
+
+      (function () {
+        const btns = document.querySelectorAll(".tab-btn");
+        const img = document.getElementById("previewImage");
+
+        const srcOriginal = "{{ url_for('static', filename=results.debug_screenshots.original) }}";
+        const srcOptimized = "{{ url_for('static', filename=results.debug_screenshots.optimized) }}";
+
+        btns.forEach(btn => {
+          btn.addEventListener("click", () => {
+            btns.forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+
+            const target = btn.getAttribute("data-target");
+            img.src = (target === "optimized") ? srcOptimized : srcOriginal;
+          });
+        });
+      })();
     </script>
   </body>
 </html>

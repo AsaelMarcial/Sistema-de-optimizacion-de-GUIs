@@ -31,6 +31,7 @@ energy_model = EnergyModel(
 
 calculator = CarbonFootprintCalculator()
 
+
 @main.route("/")
 def index():
     return render_template("index.html")
@@ -45,7 +46,6 @@ def header():
 def results():
     clean_old_sessions()
 
-    # Debug temporal para UI
     trace = DebugTrace(enabled=True)
 
     file = request.files.get("file")
@@ -64,7 +64,6 @@ def results():
     html_content, base_path = result
     trace.add_step("upload.handled", {"base_path": base_path})
 
-    # Protección: análisis completo requiere base_path (ZIP con recursos)
     if not base_path:
         flash("Para análisis completo (CSS/imagenes), sube un ZIP con el HTML y sus recursos.", "error")
         trace.add_step("upload.missing_base_path", {})
@@ -73,19 +72,28 @@ def results():
     base_path = normalize_base_path_for_single_subdir(base_path)
     trace.add_step("project.base_path", {"base_path": base_path})
 
-    # Detectar HTML único
     html_path = detectar_html_unico(base_path)
     html_filename = os.path.basename(html_path)
     trace.add_step("project.html_detected", {"html_path": html_path, "html_name": html_filename})
 
-    # Parse HTML (componentes)
+    # Crear sesión YA para guardar screenshots (original y optimizada)
+    session_id = str(uuid.uuid4())[:8]
+    static_session_dir = f"static/corrected/{session_id}"
+    os.makedirs(static_session_dir, exist_ok=True)
+    trace.add_step("session.created", {"session_id": session_id, "static_session_dir": static_session_dir})
+
+    # Parse HTML (componentes) - se mantiene
     components = parse_html(html_content)
     trace.add_step("analysis.html_parsed", {"components_type": str(type(components))})
 
-    # --- GUI ORIGINAL ---
+    # --- GUI ORIGINAL (screenshot) ---
+    original_screenshot_rel = f"corrected/{session_id}/debug_original.png"
+    original_screenshot_abs = os.path.join("static", original_screenshot_rel)
+
     color_data = analyze_gui_to_color_data(
         html_content=html_content,
         base_path=base_path,
+        output_image=original_screenshot_abs,
         trace=trace,
         label="original"
     )
@@ -93,7 +101,6 @@ def results():
     total_current = energy_model.calculate_power(color_data)
     footprint = calculator.calculate(total_current, time_hours=1)
     sci_score = footprint["sci_score"]
-
     rating = compute_rating_from_sci(sci_score)
 
     trace.add_step("metrics.original", {
@@ -105,11 +112,6 @@ def results():
     })
 
     # --- OPTIMIZACIÓN ---
-    session_id = str(uuid.uuid4())[:8]
-    static_session_dir = f"static/corrected/{session_id}"
-    os.makedirs(static_session_dir, exist_ok=True)
-    trace.add_step("opt.session_created", {"session_id": session_id, "static_session_dir": static_session_dir})
-
     resultados_heuristicas = evaluar_y_corregir_heuristicas(html_content, html_path, base_path, session_id)
     trace.add_step("opt.heuristics_applied", {
         "heuristics_count": len(resultados_heuristicas) if hasattr(resultados_heuristicas, "__len__") else None
@@ -128,10 +130,14 @@ def results():
         html_optimized_content = f.read()
     trace.add_step("opt.html_loaded", {"html_optimized_path": html_optimized_path})
 
-    # --- GUI OPTIMIZADA ---
+    # --- GUI OPTIMIZADA (screenshot) ---
+    optimized_screenshot_rel = f"corrected/{session_id}/debug_optimized.png"
+    optimized_screenshot_abs = os.path.join("static", optimized_screenshot_rel)
+
     color_data_optimized = analyze_gui_to_color_data(
         html_content=html_optimized_content,
         base_path=static_session_dir,
+        output_image=optimized_screenshot_abs,
         trace=trace,
         label="optimized"
     )
@@ -146,8 +152,13 @@ def results():
         "optimized_sci_score": optimized_footprint.get("sci_score"),
     })
 
-    # --- RESULTADOS (mantener contrato) ---
+    # Debug: top colores (temporal)
+    top_n = 30
+    debug_top_colors_original = color_data[:top_n] if hasattr(color_data, "__len__") else []
+    debug_top_colors_optimized = color_data_optimized[:top_n] if hasattr(color_data_optimized, "__len__") else []
+
     results = {
+        # (mantener contrato existente)
         "total_current": total_current,
         "carbon_footprint": footprint["co2eq_per_use"],
         "energy_wh": footprint["energy_wh"],
@@ -158,7 +169,17 @@ def results():
         "session_id": session_id,
         "html_name": html_filename,
         "heuristicas": resultados_heuristicas,
-        "debug": trace.to_dict()
+
+        # debug UI (ya existía)
+        "debug": trace.to_dict(),
+
+        # NUEVO: screenshots + tablas
+        "debug_screenshots": {
+            "original": original_screenshot_rel,
+            "optimized": optimized_screenshot_rel
+        },
+        "debug_top_colors_original": debug_top_colors_original,
+        "debug_top_colors_optimized": debug_top_colors_optimized
     }
 
     return render_template("results.html", results=results)

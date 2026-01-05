@@ -1,45 +1,71 @@
 import os
+import time
 import numpy as np
 from PIL import Image
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-import chromedriver_autoinstaller
 
-def analyze_gui(html_content, output_image="data/output/gui_screenshot.png", base_path=None):
+
+def analyze_gui(
+    html_content: str,
+    base_path: str,
+    output_image: str,
+    wait_seconds: float = 1.0
+):
     """
-    Renderiza el HTML proporcionado usando Selenium y genera una captura de pantalla.
-    Luego convierte la imagen en una matriz de píxeles (np.ndarray).
-
-    Args:
-        html_content (str): Contenido HTML a renderizar.
-        output_image (str): Ruta de salida para la captura de pantalla.
-        base_path (str, opcional): Ruta base si el HTML necesita recursos locales.
-
-    Returns:
-        np.ndarray: Matriz de píxeles de la GUI renderizada.
+    Renderiza el HTML en Selenium tomando como raíz `base_path`,
+    para que los recursos relativos (CSS/imagenes) resuelvan correctamente.
+    Devuelve matriz (H, W, 3) RGB y guarda screenshot en `output_image`.
     """
-    chromedriver_autoinstaller.install()
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
+    if not base_path or not os.path.isdir(base_path):
+        raise ValueError("analyze_gui requiere un base_path válido para resolver recursos (CSS/imagenes).")
 
-    # Guardar HTML temporal en ruta adecuada
-    if base_path:
-        temp_html_path = os.path.join(base_path, "temp_render.html")
-    else:
-        temp_html_path = "data/input/temp_render.html"
+    # Asegurar output dir
+    out_dir = os.path.dirname(output_image)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
 
-    with open(temp_html_path, "w", encoding="utf-8") as temp_html_file:
-        temp_html_file.write(html_content)
+    # Escribir HTML temporal DENTRO del proyecto (clave para CSS/imagenes relativos)
+    temp_html_path = os.path.join(base_path, "__glow_render__.html")
+    with open(temp_html_path, "w", encoding="utf-8") as f:
+        f.write(html_content)
 
-    # Lanzar navegador y capturar imagen
-    with webdriver.Chrome(options=options) as driver:
-        driver.get(f"file://{os.path.abspath(temp_html_path)}")
+    chrome_options = Options()
+    chrome_options.add_argument("--headless=new")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--hide-scrollbars")
+    chrome_options.add_argument("--window-size=1920,1080")
+
+    driver = webdriver.Chrome(options=chrome_options)
+
+    try:
+        file_url = "file:///" + os.path.abspath(temp_html_path).replace("\\", "/")
+        driver.get(file_url)
+
+        # Espera simple (luego lo refinamos con Playwright/networkidle)
+        time.sleep(wait_seconds)
+
+        # Ocultar overflow para evitar barras
+        driver.execute_script("""
+            document.documentElement.style.overflow = 'hidden';
+            document.body.style.overflow = 'hidden';
+        """)
+
         driver.save_screenshot(output_image)
 
-    # Convertir imagen en matriz de píxeles
-    with Image.open(output_image) as img:
-        pixel_array = np.array(img)
+        # Forzar RGB (P-LMLR usa solo RGB)
+        with Image.open(output_image) as img:
+            img = img.convert("RGB")
+            pixel_array = np.array(img)
 
-    return pixel_array
+        return pixel_array
+
+    finally:
+        driver.quit()
+        # Limpieza del temp (no queremos basura dentro del proyecto)
+        try:
+            os.remove(temp_html_path)
+        except Exception:
+            pass
