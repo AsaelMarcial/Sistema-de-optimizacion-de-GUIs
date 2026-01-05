@@ -16,6 +16,13 @@
   </head>
   <body>
     <div class="main-container">
+      {% if results.debug %}
+        <details class="debug-panel">
+          <summary><strong>Debug (temporal)</strong></summary>
+          <pre class="debug-json">{{ results.debug | tojson(indent=2) }}</pre>
+        </details>
+      {% endif %}
+
       <h1>Resultados del análisis</h1>
 
       <div class="metrics-grid">
