@@ -79,6 +79,7 @@ def evaluar_y_corregir_heuristicas(html_content, output_path, base_path, session
         if body:
             body['style'] = f"background-color: rgb(0,0,0)"
 
+    # Función auxiliar para procesar colores RGB
     def procesar_rgb(rgb, contexto, tipo=None, original_valor=None):
         nonlocal colores_bril
         if is_energy_intensive(rgb):
@@ -91,6 +92,7 @@ def evaluar_y_corregir_heuristicas(html_content, output_path, base_path, session
             return rgb_mod
         return rgb
 
+    # Optimización de CSS inline    
     for tag in soup.find_all(style=True):
         styles = {k.strip(): v.strip() for k,v in [x.split(":") for x in tag['style'].split(";") if ":" in x]}
         new_styles = {}
@@ -137,6 +139,8 @@ def evaluar_y_corregir_heuristicas(html_content, output_path, base_path, session
         else:
             del tag['style']
 
+
+    # Optimización de CSS embebido
     for style_tag in soup.find_all("style"):
         if not style_tag.string:
             continue
@@ -172,6 +176,8 @@ def evaluar_y_corregir_heuristicas(html_content, output_path, base_path, session
             new_lines.append(line)
         style_tag.string = "\n".join(new_lines)
 
+
+    # Optimización de CSS externo
     for link in soup.find_all("link", href=True):
         if link["href"].endswith(".css"):
             ruta_css = os.path.join(base_path, link["href"])

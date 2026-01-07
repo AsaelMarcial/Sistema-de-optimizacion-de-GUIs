@@ -22,6 +22,7 @@ from utils.debug_logger import DebugTrace
 
 main = Blueprint("main", __name__)
 
+#es dummy
 energy_model = EnergyModel(
     [1.804551146759771e-07, -3.0220347704227896e-07, 1.4154405902803595e-07],
     [9.412383738420182e-08, -1.5781520809511624e-07, 7.546610037732226e-08],
@@ -134,6 +135,7 @@ def results():
     optimized_screenshot_rel = f"corrected/{session_id}/debug_optimized.png"
     optimized_screenshot_abs = os.path.join("static", optimized_screenshot_rel)
 
+    # Aqui se analiza la GUI optimizada
     color_data_optimized = analyze_gui_to_color_data(
         html_content=html_optimized_content,
         base_path=static_session_dir,
@@ -152,13 +154,13 @@ def results():
         "optimized_sci_score": optimized_footprint.get("sci_score"),
     })
 
-    # Debug: top colores (temporal)
+    # Debug: top colores (temporal, no le hagas caso, es para el seguimiento del flujo de datos, lo eliminaré al final, quería comprobar si se estaban contando bien los pixeles)
     top_n = 30
     debug_top_colors_original = color_data[:top_n] if hasattr(color_data, "__len__") else []
     debug_top_colors_optimized = color_data_optimized[:top_n] if hasattr(color_data_optimized, "__len__") else []
 
     results = {
-        # (mantener contrato existente)
+        # Aqui se llena todo lo de la estimacion del consumo energético y la huella de carbono
         "total_current": total_current,
         "carbon_footprint": footprint["co2eq_per_use"],
         "energy_wh": footprint["energy_wh"],
@@ -166,18 +168,26 @@ def results():
         "optimized_energy_wh": optimized_footprint["energy_wh"],
         "optimized_co2eq_per_use": optimized_footprint["co2eq_per_use"],
         "optimization_rating": rating,
+        
+        # Aqui se llena el ID de la sesión
         "session_id": session_id,
+
+        # Aqui se llena el nombre del HTML
         "html_name": html_filename,
+
+        # Aqui se llena el resultado de las heurísticas
         "heuristicas": resultados_heuristicas,
 
-        # debug UI (ya existía)
+        # debug UI  -- alch no se que hace, ya estaba
         "debug": trace.to_dict(),
 
-        # NUEVO: screenshots + tablas
+        # No es debug, es para mostrar las capturas de pantalla original y optimizada pero ya no le quise cambiar el nombre porque ya estaba funcionando y no quiero romper nada
         "debug_screenshots": {
             "original": original_screenshot_rel,
             "optimized": optimized_screenshot_rel
         },
+
+        # Aqui se llena el resultado de los top colores
         "debug_top_colors_original": debug_top_colors_original,
         "debug_top_colors_optimized": debug_top_colors_optimized
     }

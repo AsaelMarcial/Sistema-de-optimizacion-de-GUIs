@@ -202,15 +202,7 @@
             <ul>
               {% for detalle in heuristica.detalles %}
               <li>{{ detalle }}</li>
-              {% endfor %} {% if heuristica.comparativas %} {% for comp in
-              heuristica.comparativas %}
-              <li>
-                <strong>{{ comp.nombre }}</strong><br />
-                Antes (RGB): {{ comp.antes }}<br />
-                Después (RGB): {{ comp.despues }}<br />
-                Ahorro estimado: {{ comp.ahorro }}%
-              </li>
-              {% endfor %} {% endif %}
+              {% endfor %} 
             </ul>
           </details>
           {% endif %}
