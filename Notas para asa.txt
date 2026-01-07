@@ -22,10 +22,16 @@ Cosas que tienes que saber antes:
 * alch no se como funciona el debug logger con sus trace y si se muestra, eso lo puse hace unos días y en este momento no tengo cerebro
 * hay un parse_html en html_parser que identifica tipos de componentes y se le llama en main_routes pero nunca se usa para nada lol, creo que fue algo que deje inconcluso hace mucho
 
+Archivos como input para que pruebas (en la carpeta GUIs para usar como prueba):
+*El bueno 1
+*El bueno 2
+Estos fueron con los que estuve probando, uno tiene una interfaz "real" otro tiene diferentes cosas feas para probar, los demás no se que tienen pro igual te los mande
+
+Checalo, si no logras implementar tal cual lo de percepción que al menos se acerque 
+
 Cosas en donde necesito ayuda:
 De diccionario de datos (solo pido consultas plis en donde dice importante, por si sabes como le podría hacer)
-1.- Archivos de prueba
-2.- Diccionario de datos 
+1.- Diccionario de datos 
 	*Generar todos los colores a probar
 	*Checar lo de potencia/consumo
 	*Agregar lo de mínimos cuadrados
