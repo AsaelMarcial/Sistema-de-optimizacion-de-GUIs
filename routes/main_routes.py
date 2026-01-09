@@ -182,9 +182,6 @@ def results():
             "optimized": optimized_screenshot_rel
         },
 
-        # Aqui se llena el resultado de los top colores
-        "debug_top_colors_original": debug_top_colors_original,
-        "debug_top_colors_optimized": debug_top_colors_optimized
     }
 
     return render_template("results.html", results=results)
