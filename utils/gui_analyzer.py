@@ -1,22 +1,23 @@
 import os
-import time
 import numpy as np
 from PIL import Image
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from playwright.sync_api import sync_playwright
 
 
 def analyze_gui(
     html_content: str,
     base_path: str,
     output_image: str,
-    wait_seconds: float = 1.0
+    viewport_width: int = 1440,
+    viewport_height: int = 900,
+    wait_ms: int = 1000,
 ):
     """
-    Renderiza el HTML en Selenium tomando como raíz `base_path`,
-    para que los recursos relativos (CSS/imagenes) resuelvan correctamente.
-    Devuelve matriz (H, W, 3) RGB y guarda screenshot en `output_image`.
+    Renderiza HTML usando Playwright y genera captura REAL full-page.
+    Retorna np.ndarray (H, W, 3) en RGB.
+    P-LMLR usa solo RGB.
     """
+
     if not base_path or not os.path.isdir(base_path):
         raise ValueError("analyze_gui requiere un base_path válido para resolver recursos (CSS/imagenes).")
 
@@ -25,37 +26,38 @@ def analyze_gui(
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
 
-    # Escribir HTML temporal DENTRO del proyecto (clave para CSS/imagenes relativos)
+    # HTML temporal dentro del base_path (clave para rutas relativas)
     temp_html_path = os.path.join(base_path, "__glow_render__.html")
     with open(temp_html_path, "w", encoding="utf-8") as f:
         f.write(html_content)
 
-    chrome_options = Options()
-    chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--hide-scrollbars")
-    chrome_options.add_argument("--window-size=1920,1080")
-
-    driver = webdriver.Chrome(options=chrome_options)
+    abs_temp = os.path.abspath(temp_html_path)
 
     try:
-        file_url = "file:///" + os.path.abspath(temp_html_path).replace("\\", "/")
-        driver.get(file_url)
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
 
-        # Espera simple (luego lo refinamos con Playwright/networkidle)
-        time.sleep(wait_seconds)
+            page = browser.new_page(
+                viewport={"width": viewport_width, "height": viewport_height}
+            )
 
-        # Ocultar overflow para evitar barras
-        driver.execute_script("""
-            document.documentElement.style.overflow = 'hidden';
-            document.body.style.overflow = 'hidden';
-        """)
+            page.goto(f"file://{abs_temp}", wait_until="load")
 
-        driver.save_screenshot(output_image)
+            # Quitar scrollbars / evitar que afecten conteo
+            page.evaluate("""
+                document.body.style.overflow = 'hidden';
+                document.documentElement.style.overflow = 'hidden';
+            """)
 
-        # Forzar RGB (P-LMLR usa solo RGB)
+            # Espera simple (después podemos cambiar a networkidle si quieres)
+            page.wait_for_timeout(wait_ms)
+
+            # Full page real
+            page.screenshot(path=output_image, full_page=True)
+
+            browser.close()
+
+        # Convertir a RGB para pipeline (evita RGBA)
         with Image.open(output_image) as img:
             img = img.convert("RGB")
             pixel_array = np.array(img)
@@ -63,8 +65,7 @@ def analyze_gui(
         return pixel_array
 
     finally:
-        driver.quit()
-        # Limpieza del temp (no queremos basura dentro del proyecto)
+        # Limpieza del temporal
         try:
             os.remove(temp_html_path)
         except Exception:
