@@ -154,11 +154,6 @@ def results():
         "optimized_sci_score": optimized_footprint.get("sci_score"),
     })
 
-    # Debug: top colores (temporal, no le hagas caso, es para el seguimiento del flujo de datos, lo eliminaré al final, quería comprobar si se estaban contando bien los pixeles)
-    top_n = 30
-    debug_top_colors_original = color_data[:top_n] if hasattr(color_data, "__len__") else []
-    debug_top_colors_optimized = color_data_optimized[:top_n] if hasattr(color_data_optimized, "__len__") else []
-
     results = {
         # Aqui se llena todo lo de la estimacion del consumo energético y la huella de carbono
         "total_current": total_current,

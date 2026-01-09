@@ -23,43 +23,6 @@
         </details>
       {% endif %}
 
-      {% if results.debug_top_colors_original and results.debug_top_colors_optimized %}
-      <details class="debug-panel">
-        <summary><strong>Top colores (debug temporal)</strong></summary>
-    
-        <h4 style="margin-top:10px;">Original</h4>
-        <table style="width:100%; font-size:12px;">
-          <tr><th>RGB</th><th>Count</th><th>Muestra</th></tr>
-          {% for item in results.debug_top_colors_original %}
-            <tr>
-              <td>{{ item.color }}</td>
-              <td>{{ item.count }}</td>
-              <td>
-                <span style="display:inline-block;width:18px;height:18px;border:1px solid #333;
-                  background: rgb({{ item.color[0] }}, {{ item.color[1] }}, {{ item.color[2] }});"></span>
-              </td>
-            </tr>
-          {% endfor %}
-        </table>
-    
-        <h4 style="margin-top:16px;">Optimizada</h4>
-        <table style="width:100%; font-size:12px;">
-          <tr><th>RGB</th><th>Count</th><th>Muestra</th></tr>
-          {% for item in results.debug_top_colors_optimized %}
-            <tr>
-              <td>{{ item.color }}</td>
-              <td>{{ item.count }}</td>
-              <td>
-                <span style="display:inline-block;width:18px;height:18px;border:1px solid #333;
-                  background: rgb({{ item.color[0] }}, {{ item.color[1] }}, {{ item.color[2] }});"></span>
-              </td>
-            </tr>
-          {% endfor %}
-        </table>
-      </details>
-    {% endif %}
-    
-
       <h1>Resultados del análisis</h1>
 
       <div class="metrics-grid">
