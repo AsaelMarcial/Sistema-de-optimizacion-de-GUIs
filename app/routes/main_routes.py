@@ -11,9 +11,10 @@ import os
 import uuid
 import shutil
 
-from services.session_cleaner import clean_old_sessions
-from services.file_handler import handle_uploaded_file
-from services.project_assets import (
+from app.config import STATIC_CORRECTED_SUBDIR
+from engine.file_handling.services.session_cleaner import clean_old_sessions
+from engine.file_handling.services.file_handler import handle_uploaded_file
+from engine.file_handling.services.project_assets import (
     normalize_base_path_for_single_subdir,
     detectar_html_unico,
     copiar_recursos,
@@ -88,7 +89,7 @@ def results():
     # Crear sesión YA para guardar screenshots (original y optimizada)
     session_id = str(uuid.uuid4())[:8]
     static_root = current_app.static_folder
-    static_session_dir = os.path.join(static_root, "corrected", session_id)
+    static_session_dir = os.path.join(static_root, STATIC_CORRECTED_SUBDIR, session_id)
     os.makedirs(static_session_dir, exist_ok=True)
     trace.add_step("session.created", {"session_id": session_id, "static_session_dir": static_session_dir})
 
@@ -97,7 +98,7 @@ def results():
     trace.add_step("analysis.html_parsed", {"components_type": str(type(components))})
 
     # --- GUI ORIGINAL (screenshot) ---
-    original_screenshot_rel = f"corrected/{session_id}/debug_original.png"
+    original_screenshot_rel = f"{STATIC_CORRECTED_SUBDIR}/{session_id}/debug_original.png"
     original_screenshot_abs = os.path.join(static_root, original_screenshot_rel)
 
     color_data = analyze_gui_to_color_data(
@@ -130,7 +131,7 @@ def results():
     copiar_recursos(base_path, static_session_dir)
     trace.add_step("opt.resources_copied", {})
 
-    zip_output_path = os.path.join(static_root, "corrected", f"{session_id}.zip")
+    zip_output_path = os.path.join(static_root, STATIC_CORRECTED_SUBDIR, f"{session_id}.zip")
     shutil.make_archive(zip_output_path.replace(".zip", ""), 'zip', static_session_dir)
     trace.add_step("opt.zip_created", {"zip_output_path": zip_output_path})
 
@@ -141,7 +142,7 @@ def results():
     trace.add_step("opt.html_loaded", {"html_optimized_path": html_optimized_path})
 
     # --- GUI OPTIMIZADA (screenshot) ---
-    optimized_screenshot_rel = f"corrected/{session_id}/debug_optimized.png"
+    optimized_screenshot_rel = f"{STATIC_CORRECTED_SUBDIR}/{session_id}/debug_optimized.png"
     optimized_screenshot_abs = os.path.join(static_root, optimized_screenshot_rel)
 
     # Aqui se analiza la GUI optimizada

@@ -2,7 +2,7 @@ import os
 import time
 import shutil
 
-from app.config import SESSION_EXPIRE_MINUTES
+from app.config import SESSION_EXPIRE_MINUTES, INPUT_SESSIONS_DIR, STATIC_CORRECTED_DIR
 
 
 # archivos temporales que pueden quedar si hubo crash durante render
@@ -21,13 +21,13 @@ def clean_old_sessions():
     now = time.time()
 
     # 1) /data/input/session_*
-    _clean_dirs(base_dir="data/input", prefix="session_", now=now)
+    _clean_dirs(base_dir=INPUT_SESSIONS_DIR, prefix="session_", now=now)
 
     # 2) /static/corrected/<session_id> (carpetas)
-    _clean_dirs(base_dir="static/corrected", prefix="", now=now)
+    _clean_dirs(base_dir=STATIC_CORRECTED_DIR, prefix="", now=now)
 
     # 3) /static/corrected/<session_id>.zip
-    _clean_zips(base_dir="static/corrected", now=now)
+    _clean_zips(base_dir=STATIC_CORRECTED_DIR, now=now)
 
 
 def _clean_dirs(base_dir: str, prefix: str, now: float) -> None:

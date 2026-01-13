@@ -4,7 +4,7 @@ import uuid
 
 from werkzeug.utils import secure_filename
 
-from app.config import ALLOWED_EXTENSIONS, ALLOWED_ZIP_CONTENT
+from app.config import ALLOWED_EXTENSIONS, ALLOWED_ZIP_CONTENT, INPUT_SESSIONS_DIR
 
 
 def allowed_file(filename: str) -> bool:
@@ -72,7 +72,7 @@ def handle_uploaded_file(file):
         return "Archivo no permitido"
 
     session_id = str(uuid.uuid4())
-    base_path = os.path.join("data", "input", f"session_{session_id}")
+    base_path = os.path.join(INPUT_SESSIONS_DIR, f"session_{session_id}")
     os.makedirs(base_path, exist_ok=True)
 
     # Guardar upload
