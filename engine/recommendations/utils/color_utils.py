@@ -1,4 +1,8 @@
-from utils.colour_math import rgb_to_luminance, contrast_ratio, adjust_color_brightness
+from engine.recommendations.utils.colour_math import (
+    rgb_to_luminance,
+    contrast_ratio,
+    adjust_color_brightness,
+)
 
 
 def parse_rgb(css_value):

@@ -17,8 +17,8 @@ El objetivo es moverlos por responsabilidad real (IO, análisis, rendering, mét
 
 ### `engine/core/`
 - Pipeline central que orquesta el flujo transversal del motor (coordinación de análisis/rendering/métricas).
-- El pipeline actual existe en `utils/gui_pipeline.py` y se moverá a `engine/core/pipeline/`.
- - El pipeline actual en `routes/main_routes.py` se migrará por etapas para mantener el sistema funcional.
+- El pipeline actual existe en `engine/core/pipeline/gui_pipeline.py`. ✅ Migrado.
+- El pipeline actual en `routes/main_routes.py` se migrará por etapas para mantener el sistema funcional.
 
 ### `engine/file_handling/`
 - `services/file_handler.py` → `engine/file_handling/services/` (validación y extracción de uploads). ✅ Migrado.
@@ -26,7 +26,8 @@ El objetivo es moverlos por responsabilidad real (IO, análisis, rendering, mét
 - `services/project_assets.py` → `engine/file_handling/services/` (copiado y normalización de recursos del proyecto). ✅ Migrado.
 
 ### `engine/analysis/`
-- `utils/html_parser.py` → `engine/analysis/utils/` (parsing HTML y extracción de componentes). ⏳ Pendiente (sigue en `utils/`).
+- `utils/html_parser.py` → `engine/analysis/utils/` (parsing HTML y extracción de componentes). ✅ Migrado.
+- `utils/file_manager.py` → `engine/analysis/utils/` (serialización de resultados y utilidades base). ✅ Migrado.
 - Nuevas tareas futuras: inventario de estilos y análisis previo a optimización.
 
 ### `engine/rendering/`
@@ -37,17 +38,18 @@ El objetivo es moverlos por responsabilidad real (IO, análisis, rendering, mét
 
 ### `engine/recommendations/`
 - Este módulo se refactorizará al final por complejidad.
-- `utils/colour_math.py` → `engine/recommendations/utils/` (si se usa para decisiones de recomendaciones). ⏳ Pendiente (sigue en `utils/`).
-- `utils/color_utils.py` → `engine/recommendations/utils/` (si se usa para recomendaciones). ⏳ Pendiente (sigue en `utils/`).
+- `utils/colour_math.py` → `engine/recommendations/utils/` (si se usa para decisiones de recomendaciones). ✅ Migrado.
+- `utils/color_utils.py` → `engine/recommendations/utils/` (si se usa para recomendaciones). ✅ Migrado.
 
 ### `engine/transformation/`
 - Responsable de aplicar cambios sobre HTML/CSS/recursos, separado de la lógica de recomendaciones.
-- Partes de `utils/heuristic_evaluator.py` que reescriben archivos irán aquí. ⏳ Pendiente (sigue en `utils/`).
+- `utils/heuristic_evaluator.py` → `engine/transformation/services/` (aplicación de heurísticas y cambios sugeridos). ✅ Migrado.
+- Adapter de heurísticas en `engine/transformation/heuristics.py`. ✅ Migrado.
 
 ### `engine/metrics/`
-- `utils/sci_rating.py` → `engine/metrics/services/`. ⏳ Pendiente (sigue en `utils/`).
-- `utils/evaluation_metrics.py` → `engine/metrics/services/` (si aplica). ⏳ Pendiente (sigue en `utils/`).
-- `utils/energy_calculator.py` → `engine/metrics/services/` (la lógica de cálculo se queda aquí). ⏳ Pendiente (sigue en `utils/`).
+- `utils/sci_rating.py` → `engine/metrics/services/`. ✅ Migrado.
+- `utils/evaluation_metrics.py` → `engine/metrics/services/` (si aplica). ✅ Migrado.
+- `utils/energy_calculator.py` → `engine/metrics/services/` (la lógica de cálculo se queda aquí). ✅ Migrado.
   - El `EnergyModel` actual puede seguir usándose temporalmente hasta integrar `energy_model.json`.
 
 ### `engine/energy-model/`
@@ -62,40 +64,27 @@ El objetivo es moverlos por responsabilidad real (IO, análisis, rendering, mét
 - `engine/file_handling/services/file_handler.py`.
 - `engine/file_handling/services/session_cleaner.py`.
 - `engine/file_handling/services/project_assets.py`.
+- `engine/analysis/utils/html_parser.py`.
+- `engine/analysis/utils/file_manager.py`.
+- `engine/metrics/services/sci_rating.py`.
+- `engine/metrics/services/evaluation_metrics.py`.
+- `engine/metrics/services/energy_calculator.py`.
+- `engine/recommendations/utils/colour_math.py`.
+- `engine/recommendations/utils/color_utils.py`.
+- `engine/core/pipeline/gui_pipeline.py`.
+- `engine/core/utils/debug_logger.py`.
+- `engine/transformation/services/heuristic_evaluator.py`.
+- `engine/transformation/heuristics.py`.
 
 ### Siguen en `utils/` (pendientes de migración)
-- `utils/file_manager.py`
-- `utils/sci_rating.py`
-- `utils/evaluation_metrics.py`
-- `utils/energy_calculator.py`
-- `utils/debug_logger.py`
-- `utils/color_utils.py`
-- `utils/gui_pipeline.py`
-- `utils/heuristic_evaluator.py`
-- `utils/html_parser.py`
-- `utils/colour_math.py`
+- `utils/__pycache__/` (archivos residuales de ejecución).
 
 ### Rutas faltantes / por completar
-- `engine/analysis/utils/html_parser.py` (pendiente: `utils/html_parser.py`).
-- `engine/metrics/services/` (pendiente: `utils/sci_rating.py`, `utils/evaluation_metrics.py`, `utils/energy_calculator.py`).
-- `engine/recommendations/utils/` (pendiente: `utils/colour_math.py`, `utils/color_utils.py`).
-- `engine/transformation/services/` (pendiente: porciones de `utils/heuristic_evaluator.py`).
-- `engine/core/pipeline/` (pendiente: `utils/gui_pipeline.py` y la orquestación en `routes/main_routes.py`).
 - `engine/energy-model/energy_model.json` (pendiente: todavía no existe el archivo).
 
 ### Archivos detectados (inventario real)
 
 **`utils/`**
-- `utils/file_manager.py`
-- `utils/sci_rating.py`
-- `utils/evaluation_metrics.py`
-- `utils/energy_calculator.py`
-- `utils/debug_logger.py`
-- `utils/color_utils.py`
-- `utils/gui_pipeline.py`
-- `utils/heuristic_evaluator.py`
-- `utils/html_parser.py`
-- `utils/colour_math.py`
 - `utils/__pycache__/evaluation_metrics.cpython-312.pyc`
 - `utils/__pycache__/pixel_processor.cpython-314.pyc`
 - `utils/__pycache__/colour_math.cpython-314.pyc`
@@ -139,6 +128,8 @@ El objetivo es moverlos por responsabilidad real (IO, análisis, rendering, mét
 - `engine/file_handling/validators/.gitkeep`
 - `engine/file_handling/utils/.gitkeep`
 - `engine/transformation/services/.gitkeep`
+- `engine/transformation/services/heuristic_evaluator.py`
+- `engine/transformation/heuristics.py`
 - `engine/transformation/models/.gitkeep`
 - `engine/transformation/validators/.gitkeep`
 - `engine/transformation/utils/.gitkeep`
@@ -147,14 +138,23 @@ El objetivo es moverlos por responsabilidad real (IO, análisis, rendering, mét
 - `engine/analysis/models/.gitkeep`
 - `engine/analysis/validators/.gitkeep`
 - `engine/analysis/utils/.gitkeep`
+- `engine/analysis/utils/html_parser.py`
+- `engine/analysis/utils/file_manager.py`
 - `engine/metrics/services/.gitkeep`
+- `engine/metrics/services/energy_calculator.py`
+- `engine/metrics/services/evaluation_metrics.py`
+- `engine/metrics/services/sci_rating.py`
 - `engine/metrics/models/.gitkeep`
 - `engine/metrics/validators/.gitkeep`
 - `engine/metrics/utils/.gitkeep`
 - `engine/core/pipeline/.gitkeep`
+- `engine/core/pipeline/gui_pipeline.py`
 - `engine/core/models/.gitkeep`
 - `engine/core/validators/.gitkeep`
 - `engine/core/utils/.gitkeep`
+- `engine/core/utils/debug_logger.py`
+- `engine/recommendations/utils/colour_math.py`
+- `engine/recommendations/utils/color_utils.py`
 
 **`app/`**
 - `app/__init__.py`
@@ -208,7 +208,7 @@ El objetivo es moverlos por responsabilidad real (IO, análisis, rendering, mét
 - Las carpetas `input/`, `output/` y `artifacts/` viven dentro de cada sesión: `workspace/sessions/session_<key>/`.
 
 ## Tests (`tests/`)
-- `utils/debug_logger.py` → `tests/debug/` (herramientas de traza/debug).
+- `engine/core/utils/debug_logger.py` (herramientas de traza/debug reutilizadas por la web).
 
 ## Docs (`docs/`)
 - Este archivo y documentación de arquitectura.
