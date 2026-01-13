@@ -1,0 +1,365 @@
+diff --git a/app.py b/app.py
+deleted file mode 100644
+index 77c1cfc2b7e39a8ef4c4ddc4046deb242a294e8b..0000000000000000000000000000000000000000
+--- a/app.py
++++ /dev/null
+@@ -1,18 +0,0 @@
+-import os
+-
+-from flask import Flask
+-
+-from app.config import MAX_CONTENT_LENGTH
+-from routes.main_routes import main
+-
+-app = Flask(__name__)
+-app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
+-
+-# ✅ Clave secreta segura generada con urandom
+-app.secret_key = os.urandom(24)
+-
+-# Registrar Blueprint
+-app.register_blueprint(main)
+-
+-if __name__ == "__main__":
+-    app.run(debug=True)
+diff --git a/app/__init__.py b/app/__init__.py
+index 36b8e57b3266b83b73896c991665d7165fde67bc..754786701f3da018045d481338f3b9ead0ec4710 100644
+--- a/app/__init__.py
++++ b/app/__init__.py
+@@ -1 +1,21 @@
+ """App package."""
++
++import os
++
++from flask import Flask
++
++from app.config import MAX_CONTENT_LENGTH
++from app.routes.main_routes import main
++
++
++def create_app():
++    app = Flask(__name__, template_folder="templates", static_folder="static")
++    app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
++
++    # Clave secreta segura generada con urandom
++    app.secret_key = os.urandom(24)
++
++    # Registrar Blueprint
++    app.register_blueprint(main)
++
++    return app
+diff --git a/app/app.py b/app/app.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e9d3a5903e7d64c7d6bc5890792573088f8f4f63
+--- /dev/null
++++ b/app/app.py
+@@ -0,0 +1,7 @@
++from app import create_app
++
++app = create_app()
++
++
++if __name__ == "__main__":
++    app.run(debug=True)
+diff --git a/routes/main_routes.py b/app/routes/main_routes.py
+similarity index 93%
+rename from routes/main_routes.py
+rename to app/routes/main_routes.py
+index 556ab93a633a01395b59c99f5ebc0309a70f2489..22b814d8033fc65f48be7198d36a7fd17282e72e 100644
+--- a/routes/main_routes.py
++++ b/app/routes/main_routes.py
+@@ -1,26 +1,34 @@
+-from flask import Blueprint, render_template, request, flash, redirect, url_for
++from flask import (
++    Blueprint,
++    render_template,
++    request,
++    flash,
++    redirect,
++    url_for,
++    current_app,
++)
+ import os
+ import uuid
+ import shutil
+ 
+ from services.session_cleaner import clean_old_sessions
+ from services.file_handler import handle_uploaded_file
+ from services.project_assets import (
+     normalize_base_path_for_single_subdir,
+     detectar_html_unico,
+     copiar_recursos,
+ )
+ 
+ from utils.html_parser import parse_html
+ from utils.energy_calculator import EnergyModel, CarbonFootprintCalculator
+ from utils.heuristic_evaluator import evaluar_y_corregir_heuristicas
+ 
+ from utils.sci_rating import compute_rating_from_sci
+ from utils.gui_pipeline import analyze_gui_to_color_data
+ from utils.debug_logger import DebugTrace
+ 
+ 
+ main = Blueprint("main", __name__)
+ 
+ #es dummy
+ energy_model = EnergyModel(
+@@ -57,105 +65,106 @@ def results():
+     trace.add_step("upload.received", {"filename": file.filename})
+ 
+     result = handle_uploaded_file(file)
+     if isinstance(result, str):
+         flash(result, "error")
+         trace.add_step("upload.error", {"message": result})
+         return redirect(url_for("main.index"))
+ 
+     html_content, base_path = result
+     trace.add_step("upload.handled", {"base_path": base_path})
+ 
+     if not base_path:
+         flash("Para análisis completo (CSS/imagenes), sube un ZIP con el HTML y sus recursos.", "error")
+         trace.add_step("upload.missing_base_path", {})
+         return redirect(url_for("main.index"))
+ 
+     base_path = normalize_base_path_for_single_subdir(base_path)
+     trace.add_step("project.base_path", {"base_path": base_path})
+ 
+     html_path = detectar_html_unico(base_path)
+     html_filename = os.path.basename(html_path)
+     trace.add_step("project.html_detected", {"html_path": html_path, "html_name": html_filename})
+ 
+     # Crear sesión YA para guardar screenshots (original y optimizada)
+     session_id = str(uuid.uuid4())[:8]
+-    static_session_dir = f"static/corrected/{session_id}"
++    static_root = current_app.static_folder
++    static_session_dir = os.path.join(static_root, "corrected", session_id)
+     os.makedirs(static_session_dir, exist_ok=True)
+     trace.add_step("session.created", {"session_id": session_id, "static_session_dir": static_session_dir})
+ 
+     # Parse HTML (componentes) - se mantiene
+     components = parse_html(html_content)
+     trace.add_step("analysis.html_parsed", {"components_type": str(type(components))})
+ 
+     # --- GUI ORIGINAL (screenshot) ---
+     original_screenshot_rel = f"corrected/{session_id}/debug_original.png"
+-    original_screenshot_abs = os.path.join("static", original_screenshot_rel)
++    original_screenshot_abs = os.path.join(static_root, original_screenshot_rel)
+ 
+     color_data = analyze_gui_to_color_data(
+         html_content=html_content,
+         base_path=base_path,
+         output_image=original_screenshot_abs,
+         trace=trace,
+         label="original"
+     )
+ 
+     total_current = energy_model.calculate_power(color_data)
+     footprint = calculator.calculate(total_current, time_hours=1)
+     sci_score = footprint["sci_score"]
+     rating = compute_rating_from_sci(sci_score)
+ 
+     trace.add_step("metrics.original", {
+         "total_current": total_current,
+         "energy_wh": footprint.get("energy_wh"),
+         "co2eq_per_use": footprint.get("co2eq_per_use"),
+         "sci_score": sci_score,
+         "rating": rating
+     })
+ 
+     # --- OPTIMIZACIÓN ---
+     resultados_heuristicas = evaluar_y_corregir_heuristicas(html_content, html_path, base_path, session_id)
+     trace.add_step("opt.heuristics_applied", {
+         "heuristics_count": len(resultados_heuristicas) if hasattr(resultados_heuristicas, "__len__") else None
+     })
+ 
+     copiar_recursos(base_path, static_session_dir)
+     trace.add_step("opt.resources_copied", {})
+ 
+-    zip_output_path = f"static/corrected/{session_id}.zip"
++    zip_output_path = os.path.join(static_root, "corrected", f"{session_id}.zip")
+     shutil.make_archive(zip_output_path.replace(".zip", ""), 'zip', static_session_dir)
+     trace.add_step("opt.zip_created", {"zip_output_path": zip_output_path})
+ 
+     # Leer HTML optimizado final
+     html_optimized_path = os.path.join(static_session_dir, html_filename)
+     with open(html_optimized_path, "r", encoding="utf-8") as f:
+         html_optimized_content = f.read()
+     trace.add_step("opt.html_loaded", {"html_optimized_path": html_optimized_path})
+ 
+     # --- GUI OPTIMIZADA (screenshot) ---
+     optimized_screenshot_rel = f"corrected/{session_id}/debug_optimized.png"
+-    optimized_screenshot_abs = os.path.join("static", optimized_screenshot_rel)
++    optimized_screenshot_abs = os.path.join(static_root, optimized_screenshot_rel)
+ 
+     # Aqui se analiza la GUI optimizada
+     color_data_optimized = analyze_gui_to_color_data(
+         html_content=html_optimized_content,
+         base_path=static_session_dir,
+         output_image=optimized_screenshot_abs,
+         trace=trace,
+         label="optimized"
+     )
+ 
+     optimized_current = energy_model.calculate_power(color_data_optimized)
+     optimized_footprint = calculator.calculate(optimized_current, time_hours=1)
+ 
+     trace.add_step("metrics.optimized", {
+         "optimized_current": optimized_current,
+         "optimized_energy_wh": optimized_footprint.get("energy_wh"),
+         "optimized_co2eq_per_use": optimized_footprint.get("co2eq_per_use"),
+         "optimized_sci_score": optimized_footprint.get("sci_score"),
+     })
+ 
+     results = {
+         # Aqui se llena todo lo de la estimacion del consumo energético y la huella de carbono
+         "total_current": total_current,
+         "carbon_footprint": footprint["co2eq_per_use"],
+         "energy_wh": footprint["energy_wh"],
+diff --git a/static/corrected/3769ccc4.zip b/app/static/corrected/3769ccc4.zip
+similarity index 100%
+rename from static/corrected/3769ccc4.zip
+rename to app/static/corrected/3769ccc4.zip
+diff --git a/static/corrected/3769ccc4/assets/imagen-prueba.jpg b/app/static/corrected/3769ccc4/assets/imagen-prueba.jpg
+similarity index 100%
+rename from static/corrected/3769ccc4/assets/imagen-prueba.jpg
+rename to app/static/corrected/3769ccc4/assets/imagen-prueba.jpg
+diff --git a/static/corrected/3769ccc4/debug_optimized.png b/app/static/corrected/3769ccc4/debug_optimized.png
+similarity index 100%
+rename from static/corrected/3769ccc4/debug_optimized.png
+rename to app/static/corrected/3769ccc4/debug_optimized.png
+diff --git a/static/corrected/3769ccc4/debug_original.png b/app/static/corrected/3769ccc4/debug_original.png
+similarity index 100%
+rename from static/corrected/3769ccc4/debug_original.png
+rename to app/static/corrected/3769ccc4/debug_original.png
+diff --git a/static/corrected/3769ccc4/index.html b/app/static/corrected/3769ccc4/index.html
+similarity index 100%
+rename from static/corrected/3769ccc4/index.html
+rename to app/static/corrected/3769ccc4/index.html
+diff --git a/static/corrected/3769ccc4/styles/estilos.css b/app/static/corrected/3769ccc4/styles/estilos.css
+similarity index 100%
+rename from static/corrected/3769ccc4/styles/estilos.css
+rename to app/static/corrected/3769ccc4/styles/estilos.css
+diff --git a/static/corrected/55f14742.zip b/app/static/corrected/55f14742.zip
+similarity index 100%
+rename from static/corrected/55f14742.zip
+rename to app/static/corrected/55f14742.zip
+diff --git a/static/corrected/55f14742/assets/imagen-prueba.jpg b/app/static/corrected/55f14742/assets/imagen-prueba.jpg
+similarity index 100%
+rename from static/corrected/55f14742/assets/imagen-prueba.jpg
+rename to app/static/corrected/55f14742/assets/imagen-prueba.jpg
+diff --git a/static/corrected/55f14742/debug_optimized.png b/app/static/corrected/55f14742/debug_optimized.png
+similarity index 100%
+rename from static/corrected/55f14742/debug_optimized.png
+rename to app/static/corrected/55f14742/debug_optimized.png
+diff --git a/static/corrected/55f14742/debug_original.png b/app/static/corrected/55f14742/debug_original.png
+similarity index 100%
+rename from static/corrected/55f14742/debug_original.png
+rename to app/static/corrected/55f14742/debug_original.png
+diff --git a/static/corrected/55f14742/index.html b/app/static/corrected/55f14742/index.html
+similarity index 100%
+rename from static/corrected/55f14742/index.html
+rename to app/static/corrected/55f14742/index.html
+diff --git a/static/corrected/55f14742/styles/estilos.css b/app/static/corrected/55f14742/styles/estilos.css
+similarity index 100%
+rename from static/corrected/55f14742/styles/estilos.css
+rename to app/static/corrected/55f14742/styles/estilos.css
+diff --git a/static/corrected/9af2bafc.zip b/app/static/corrected/9af2bafc.zip
+similarity index 100%
+rename from static/corrected/9af2bafc.zip
+rename to app/static/corrected/9af2bafc.zip
+diff --git a/static/corrected/9af2bafc/css/estilos.css b/app/static/corrected/9af2bafc/css/estilos.css
+similarity index 100%
+rename from static/corrected/9af2bafc/css/estilos.css
+rename to app/static/corrected/9af2bafc/css/estilos.css
+diff --git a/static/corrected/9af2bafc/debug_optimized.png b/app/static/corrected/9af2bafc/debug_optimized.png
+similarity index 100%
+rename from static/corrected/9af2bafc/debug_optimized.png
+rename to app/static/corrected/9af2bafc/debug_optimized.png
+diff --git a/static/corrected/9af2bafc/debug_original.png b/app/static/corrected/9af2bafc/debug_original.png
+similarity index 100%
+rename from static/corrected/9af2bafc/debug_original.png
+rename to app/static/corrected/9af2bafc/debug_original.png
+diff --git a/static/corrected/9af2bafc/imagenes/imagen-prueba.jpg b/app/static/corrected/9af2bafc/imagenes/imagen-prueba.jpg
+similarity index 100%
+rename from static/corrected/9af2bafc/imagenes/imagen-prueba.jpg
+rename to app/static/corrected/9af2bafc/imagenes/imagen-prueba.jpg
+diff --git a/static/corrected/9af2bafc/menu.html b/app/static/corrected/9af2bafc/menu.html
+similarity index 100%
+rename from static/corrected/9af2bafc/menu.html
+rename to app/static/corrected/9af2bafc/menu.html
+diff --git a/static/corrected/a1b97957.zip b/app/static/corrected/a1b97957.zip
+similarity index 100%
+rename from static/corrected/a1b97957.zip
+rename to app/static/corrected/a1b97957.zip
+diff --git a/static/corrected/a1b97957/assets/imagen-prueba.jpg b/app/static/corrected/a1b97957/assets/imagen-prueba.jpg
+similarity index 100%
+rename from static/corrected/a1b97957/assets/imagen-prueba.jpg
+rename to app/static/corrected/a1b97957/assets/imagen-prueba.jpg
+diff --git a/static/corrected/a1b97957/debug_optimized.png b/app/static/corrected/a1b97957/debug_optimized.png
+similarity index 100%
+rename from static/corrected/a1b97957/debug_optimized.png
+rename to app/static/corrected/a1b97957/debug_optimized.png
+diff --git a/static/corrected/a1b97957/debug_original.png b/app/static/corrected/a1b97957/debug_original.png
+similarity index 100%
+rename from static/corrected/a1b97957/debug_original.png
+rename to app/static/corrected/a1b97957/debug_original.png
+diff --git a/static/corrected/a1b97957/index.html b/app/static/corrected/a1b97957/index.html
+similarity index 100%
+rename from static/corrected/a1b97957/index.html
+rename to app/static/corrected/a1b97957/index.html
+diff --git a/static/corrected/a1b97957/styles/estilos.css b/app/static/corrected/a1b97957/styles/estilos.css
+similarity index 100%
+rename from static/corrected/a1b97957/styles/estilos.css
+rename to app/static/corrected/a1b97957/styles/estilos.css
+diff --git a/static/corrected/efb76026.zip b/app/static/corrected/efb76026.zip
+similarity index 100%
+rename from static/corrected/efb76026.zip
+rename to app/static/corrected/efb76026.zip
+diff --git a/static/corrected/efb76026/assets/imagen-prueba.jpg b/app/static/corrected/efb76026/assets/imagen-prueba.jpg
+similarity index 100%
+rename from static/corrected/efb76026/assets/imagen-prueba.jpg
+rename to app/static/corrected/efb76026/assets/imagen-prueba.jpg
+diff --git a/static/corrected/efb76026/debug_optimized.png b/app/static/corrected/efb76026/debug_optimized.png
+similarity index 100%
+rename from static/corrected/efb76026/debug_optimized.png
+rename to app/static/corrected/efb76026/debug_optimized.png
+diff --git a/static/corrected/efb76026/debug_original.png b/app/static/corrected/efb76026/debug_original.png
+similarity index 100%
+rename from static/corrected/efb76026/debug_original.png
+rename to app/static/corrected/efb76026/debug_original.png
+diff --git a/static/corrected/efb76026/index.html b/app/static/corrected/efb76026/index.html
+similarity index 100%
+rename from static/corrected/efb76026/index.html
+rename to app/static/corrected/efb76026/index.html
+diff --git a/static/corrected/efb76026/styles/estilos.css b/app/static/corrected/efb76026/styles/estilos.css
+similarity index 100%
+rename from static/corrected/efb76026/styles/estilos.css
+rename to app/static/corrected/efb76026/styles/estilos.css
+diff --git a/static/corrected/index_corrected.html b/app/static/corrected/index_corrected.html
+similarity index 100%
+rename from static/corrected/index_corrected.html
+rename to app/static/corrected/index_corrected.html
+diff --git a/static/css/styles.css b/app/static/css/styles.css
+similarity index 100%
+rename from static/css/styles.css
+rename to app/static/css/styles.css
+diff --git a/static/images/logo-placeholder.svg b/app/static/images/logo-placeholder.svg
+similarity index 100%
+rename from static/images/logo-placeholder.svg
+rename to app/static/images/logo-placeholder.svg
+diff --git a/static/js/scripts.js b/app/static/js/scripts.js
+similarity index 100%
+rename from static/js/scripts.js
+rename to app/static/js/scripts.js
+diff --git a/templates/header.html b/app/templates/header.html
+similarity index 100%
+rename from templates/header.html
+rename to app/templates/header.html
+diff --git a/templates/index.html b/app/templates/index.html
+similarity index 100%
+rename from templates/index.html
+rename to app/templates/index.html
+diff --git a/templates/results.html b/app/templates/results.html
+similarity index 100%
+rename from templates/results.html
+rename to app/templates/results.html

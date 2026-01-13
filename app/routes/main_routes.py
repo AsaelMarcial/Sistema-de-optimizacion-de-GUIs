@@ -1,4 +1,12 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for
+from flask import (
+    Blueprint,
+    render_template,
+    request,
+    flash,
+    redirect,
+    url_for,
+    current_app,
+)
 import os
 import uuid
 import shutil
@@ -79,7 +87,8 @@ def results():
 
     # Crear sesión YA para guardar screenshots (original y optimizada)
     session_id = str(uuid.uuid4())[:8]
-    static_session_dir = f"static/corrected/{session_id}"
+    static_root = current_app.static_folder
+    static_session_dir = os.path.join(static_root, "corrected", session_id)
     os.makedirs(static_session_dir, exist_ok=True)
     trace.add_step("session.created", {"session_id": session_id, "static_session_dir": static_session_dir})
 
@@ -89,7 +98,7 @@ def results():
 
     # --- GUI ORIGINAL (screenshot) ---
     original_screenshot_rel = f"corrected/{session_id}/debug_original.png"
-    original_screenshot_abs = os.path.join("static", original_screenshot_rel)
+    original_screenshot_abs = os.path.join(static_root, original_screenshot_rel)
 
     color_data = analyze_gui_to_color_data(
         html_content=html_content,
@@ -121,7 +130,7 @@ def results():
     copiar_recursos(base_path, static_session_dir)
     trace.add_step("opt.resources_copied", {})
 
-    zip_output_path = f"static/corrected/{session_id}.zip"
+    zip_output_path = os.path.join(static_root, "corrected", f"{session_id}.zip")
     shutil.make_archive(zip_output_path.replace(".zip", ""), 'zip', static_session_dir)
     trace.add_step("opt.zip_created", {"zip_output_path": zip_output_path})
 
@@ -133,7 +142,7 @@ def results():
 
     # --- GUI OPTIMIZADA (screenshot) ---
     optimized_screenshot_rel = f"corrected/{session_id}/debug_optimized.png"
-    optimized_screenshot_abs = os.path.join("static", optimized_screenshot_rel)
+    optimized_screenshot_abs = os.path.join(static_root, optimized_screenshot_rel)
 
     # Aqui se analiza la GUI optimizada
     color_data_optimized = analyze_gui_to_color_data(
