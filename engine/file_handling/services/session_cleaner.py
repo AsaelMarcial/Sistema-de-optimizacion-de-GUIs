@@ -2,7 +2,13 @@ import os
 import time
 import shutil
 
-from app.config import SESSION_EXPIRE_MINUTES, INPUT_SESSIONS_DIR, STATIC_CORRECTED_DIR
+from app.config import (
+    SESSION_EXPIRE_MINUTES,
+    SESSIONS_BASE_DIR,
+    INPUT_DIRNAME,
+    OUTPUT_DIRNAME,
+    ARTIFACTS_DIRNAME,
+)
 
 
 # archivos temporales que pueden quedar si hubo crash durante render
@@ -12,25 +18,18 @@ def clean_old_sessions():
     """
     Limpia inputs temporales y outputs de sesiones.
 
-    - /data/input/session_* : borra sesiones viejas
-    - /static/corrected/<session_id>/ : borra sesiones viejas o vacías
-    - /static/corrected/<session_id>.zip : borra zips viejos
+    - /workspace/sessions/session_*/input : borra sesiones viejas
+    - /workspace/sessions/session_*/output : borra sesiones viejas
+    - /workspace/sessions/session_*/artifacts : borra sesiones viejas
     - Limpia archivos temporales __glow_render__.html dentro de carpetas de sesión
       (solo si la sesión ya expiró o si el directorio está vacío/colgado).
     """
     now = time.time()
 
-    # 1) /data/input/session_*
-    _clean_dirs(base_dir=INPUT_SESSIONS_DIR, prefix="session_", now=now)
-
-    # 2) /static/corrected/<session_id> (carpetas)
-    _clean_dirs(base_dir=STATIC_CORRECTED_DIR, prefix="", now=now)
-
-    # 3) /static/corrected/<session_id>.zip
-    _clean_zips(base_dir=STATIC_CORRECTED_DIR, now=now)
+    _clean_session_dirs(base_dir=SESSIONS_BASE_DIR, prefix="session_", now=now)
 
 
-def _clean_dirs(base_dir: str, prefix: str, now: float) -> None:
+def _clean_session_dirs(base_dir: str, prefix: str, now: float) -> None:
     if not os.path.exists(base_dir):
         return
 
@@ -52,23 +51,16 @@ def _clean_dirs(base_dir: str, prefix: str, now: float) -> None:
 
         # B) Si no expiró: limpieza ligera
         #    - borrar archivos temporales si existen (por si quedaron colgados)
-        _remove_temp_files(path)
+        for subdir in (INPUT_DIRNAME, OUTPUT_DIRNAME, ARTIFACTS_DIRNAME):
+            subdir_path = os.path.join(path, subdir)
+            if os.path.exists(subdir_path):
+                _remove_temp_files(subdir_path)
+                if _is_dir_empty(subdir_path) and age_minutes > 1:
+                    _safe_rmtree(subdir_path)
 
         #    - si está vacío y ya pasó 1 minuto -> borrar carpeta
         if _is_dir_empty(path) and age_minutes > 1:
             _safe_rmtree(path)
-
-
-def _clean_zips(base_dir: str, now: float) -> None:
-    if not os.path.exists(base_dir):
-        return
-
-    for name in os.listdir(base_dir):
-        path = os.path.join(base_dir, name)
-        if os.path.isfile(path) and name.lower().endswith(".zip"):
-            age_minutes = (now - os.path.getmtime(path)) / 60.0
-            if age_minutes > SESSION_EXPIRE_MINUTES:
-                _safe_remove(path)
 
 
 def _remove_temp_files(dir_path: str) -> None:

@@ -1,10 +1,9 @@
 import os
 import zipfile
-import uuid
 
 from werkzeug.utils import secure_filename
 
-from app.config import ALLOWED_EXTENSIONS, ALLOWED_ZIP_CONTENT, INPUT_SESSIONS_DIR
+from app.config import ALLOWED_EXTENSIONS, ALLOWED_ZIP_CONTENT, get_input_dir
 
 
 def allowed_file(filename: str) -> bool:
@@ -58,10 +57,10 @@ def _find_html_files(base_path: str) -> list[str]:
     return html_files
 
 
-def handle_uploaded_file(file):
+def handle_uploaded_file(file, session_id: str):
     """
     Retorna:
-      - (html_content, base_path) si ok
+      - (html_content, base_path, session_id) si ok
       - "mensaje de error" si falla
     """
     if not file or not file.filename:
@@ -71,8 +70,7 @@ def handle_uploaded_file(file):
     if ext not in ALLOWED_EXTENSIONS:
         return "Archivo no permitido"
 
-    session_id = str(uuid.uuid4())
-    base_path = os.path.join(INPUT_SESSIONS_DIR, f"session_{session_id}")
+    base_path = get_input_dir(session_id)
     os.makedirs(base_path, exist_ok=True)
 
     # Guardar upload
@@ -85,7 +83,7 @@ def handle_uploaded_file(file):
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 html_content = f.read()
-            return html_content, base_path
+            return html_content, base_path, session_id
         except Exception:
             return "No se pudo leer el archivo HTML."
 
@@ -116,7 +114,7 @@ def handle_uploaded_file(file):
         try:
             with open(html_file, "r", encoding="utf-8") as f:
                 html_content = f.read()
-            return html_content, base_path
+            return html_content, base_path, session_id
         except Exception:
             return "No se pudo leer el HTML dentro del ZIP."
 

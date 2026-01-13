@@ -66,6 +66,16 @@ def detectar_fondo_body(soup):
     return (255, 255, 255)
 
 def evaluar_y_corregir_heuristicas(html_content, output_path, base_path, session_id):
+    if session_id:
+        html_name = os.path.basename(output_path)
+        expected_dir = os.path.abspath(
+            os.path.join("workspace", "sessions", f"session_{session_id}", "output")
+        )
+        normalized_output = os.path.abspath(output_path)
+        if os.path.commonpath([normalized_output, expected_dir]) != expected_dir:
+            output_path = os.path.join(expected_dir, html_name)
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
     soup = BeautifulSoup(html_content, "html.parser")
     resultados = []
     detalles_colores = []

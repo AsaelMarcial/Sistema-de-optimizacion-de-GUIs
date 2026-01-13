@@ -57,6 +57,8 @@ def results():
 
     trace = DebugTrace(enabled=True)
 
+    session_id = str(uuid.uuid4())[:8]
+
     file = request.files.get("file")
     if not file:
         flash("No se seleccionó ningún archivo.", "error")
@@ -64,13 +66,13 @@ def results():
 
     trace.add_step("upload.received", {"filename": file.filename})
 
-    result = handle_uploaded_file(file)
+    result = handle_uploaded_file(file, session_id)
     if isinstance(result, str):
         flash(result, "error")
         trace.add_step("upload.error", {"message": result})
         return redirect(url_for("main.index"))
 
-    html_content, base_path = result
+    html_content, base_path, session_id = result
     trace.add_step("upload.handled", {"base_path": base_path})
 
     if not base_path:
@@ -85,8 +87,6 @@ def results():
     html_filename = os.path.basename(html_path)
     trace.add_step("project.html_detected", {"html_path": html_path, "html_name": html_filename})
 
-    # Crear sesión YA para guardar screenshots (original y optimizada)
-    session_id = str(uuid.uuid4())[:8]
     static_root = current_app.static_folder
     static_session_dir = os.path.join(static_root, STATIC_CORRECTED_SUBDIR, session_id)
     os.makedirs(static_session_dir, exist_ok=True)

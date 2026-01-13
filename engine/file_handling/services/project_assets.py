@@ -36,14 +36,31 @@ def detectar_html_unico(base_path: str) -> str:
     return html_files[0]
 
 
-def copiar_recursos(base_path: str, static_session_dir: str) -> None:
+def copiar_recursos(
+    input_dir: str,
+    output_dir: str,
+    static_session_dir: str | None = None,
+    overwrite_output: bool = True,
+) -> None:
     extensiones_validas = ('.html', '.css', '.js', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.gif')
 
-    for root, _, files in os.walk(base_path):
+    for root, _, files in os.walk(input_dir):
         for file in files:
             if file.lower().endswith(extensiones_validas):
                 origen = os.path.join(root, file)
-                relativo = os.path.relpath(origen, base_path)
-                destino = os.path.join(static_session_dir, relativo)
+                relativo = os.path.relpath(origen, input_dir)
+                destino = os.path.join(output_dir, relativo)
+                if not overwrite_output and os.path.exists(destino):
+                    continue
                 os.makedirs(os.path.dirname(destino), exist_ok=True)
                 shutil.copy2(origen, destino)
+
+    if static_session_dir:
+        for root, _, files in os.walk(output_dir):
+            for file in files:
+                if file.lower().endswith(extensiones_validas):
+                    origen = os.path.join(root, file)
+                    relativo = os.path.relpath(origen, output_dir)
+                    destino = os.path.join(static_session_dir, relativo)
+                    os.makedirs(os.path.dirname(destino), exist_ok=True)
+                    shutil.copy2(origen, destino)
