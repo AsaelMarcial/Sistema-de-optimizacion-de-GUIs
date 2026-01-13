@@ -73,9 +73,5 @@ class CarbonFootprintCalculator:
             "emission_factor": self.emission_factor,
             "user_count": user_count,
             "usage_hours": usage_hours,
-            "ahorro_potencial": ahorro,
-                "energy_wh": energy_wh,
-                "energy_kwh": energy_kwh,
-                "co2eq_per_use": co2eq,
-                "sci_score": sci_score
+            "ahorro_potencial": ahorro
         }
