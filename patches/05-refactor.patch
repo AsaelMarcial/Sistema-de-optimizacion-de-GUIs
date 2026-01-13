@@ -1,0 +1,54 @@
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/utils/gui_analyzer.py b/engine/rendering/services/gui_analyzer.py
+similarity index 100%
+rename from utils/gui_analyzer.py
+rename to engine/rendering/services/gui_analyzer.py
+diff --git a/utils/color_classifier.py b/engine/rendering/utils/color_classifier.py
+similarity index 100%
+rename from utils/color_classifier.py
+rename to engine/rendering/utils/color_classifier.py
+diff --git a/utils/pixel_processor.py b/engine/rendering/utils/pixel_processor.py
+similarity index 100%
+rename from utils/pixel_processor.py
+rename to engine/rendering/utils/pixel_processor.py
+diff --git a/utils/gui_pipeline.py b/utils/gui_pipeline.py
+index 8ec74de99b309560ddcc6881ec8bd80a3dd54ffb..36ec2ee83cd56aed530e8fd2c2119d716e2a5426 100644
+--- a/utils/gui_pipeline.py
++++ b/utils/gui_pipeline.py
+@@ -1,30 +1,30 @@
+ from typing import Any, Dict, Optional
+ 
+-from utils.gui_analyzer import analyze_gui
+-from utils.pixel_processor import extract_pixels
+-from utils.color_classifier import classify_colors
++from engine.rendering.services.gui_analyzer import analyze_gui
++from engine.rendering.utils.pixel_processor import extract_pixels
++from engine.rendering.utils.color_classifier import classify_colors
+ 
+ 
+ def analyze_gui_to_color_data(
+     html_content: str,
+     base_path: str,
+     output_image: Optional[str] = None,
+     trace: Optional[Any] = None,
+     label: str = "gui"
+ ) -> Dict[str, Any]:
+     """
+     Pipeline: render (con base_path como raíz de recursos) -> pixels -> color frequencies.
+     """
+     if trace:
+         trace.add_step(f"{label}.render_start", {"base_path": base_path, "output_image": output_image})
+ 
+     pixels = analyze_gui(
+         html_content=html_content,
+         base_path=base_path,
+         output_image=output_image or "data/output/gui_screenshot.png"
+     )
+ 
+     if trace:
+         trace.add_step(f"{label}.render_done", {"pixels_shape": getattr(pixels, "shape", None)})
+ 
+     extracted = extract_pixels(pixels)
+ 
+EOF
+)

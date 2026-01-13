@@ -1,8 +1,8 @@
 from typing import Any, Dict, Optional
 
-from utils.gui_analyzer import analyze_gui
-from utils.pixel_processor import extract_pixels
-from utils.color_classifier import classify_colors
+from engine.rendering.services.gui_analyzer import analyze_gui
+from engine.rendering.utils.pixel_processor import extract_pixels
+from engine.rendering.utils.color_classifier import classify_colors
 
 
 def analyze_gui_to_color_data(
