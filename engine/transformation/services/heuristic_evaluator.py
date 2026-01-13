@@ -1,7 +1,13 @@
 import os
 import re
 from bs4 import BeautifulSoup
-from utils.color_utils import parse_rgb, rgb_to_css, is_light_color, contrast_ratio, brighten_color
+from engine.recommendations.utils.color_utils import (
+    parse_rgb,
+    rgb_to_css,
+    is_light_color,
+    contrast_ratio,
+    brighten_color,
+)
 
 def rgb_string_to_tuple(color_str):
     color_str = color_str.strip().lower().replace("rgb(", "").replace(")", "")

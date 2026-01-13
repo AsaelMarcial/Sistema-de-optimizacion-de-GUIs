@@ -20,13 +20,12 @@ from engine.file_handling.services.project_assets import (
     copiar_recursos,
 )
 
-from utils.html_parser import parse_html
-from utils.energy_calculator import EnergyModel, CarbonFootprintCalculator
-from utils.heuristic_evaluator import evaluar_y_corregir_heuristicas
-
-from utils.sci_rating import compute_rating_from_sci
-from utils.gui_pipeline import analyze_gui_to_color_data
-from utils.debug_logger import DebugTrace
+from engine.analysis.utils.html_parser import parse_html
+from engine.metrics.services.energy_calculator import EnergyModel, CarbonFootprintCalculator
+from engine.transformation.heuristics import evaluar_y_corregir_heuristicas
+from engine.metrics.services.sci_rating import compute_rating_from_sci
+from engine.core.pipeline.gui_pipeline import analyze_gui_to_color_data
+from engine.core.utils.debug_logger import DebugTrace
 
 
 main = Blueprint("main", __name__)

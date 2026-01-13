@@ -1,0 +1,81 @@
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF'
+diff --git a/utils/file_manager.py b/engine/analysis/utils/file_manager.py
+similarity index 100%
+rename from utils/file_manager.py
+rename to engine/analysis/utils/file_manager.py
+diff --git a/utils/html_parser.py b/engine/analysis/utils/html_parser.py
+similarity index 100%
+rename from utils/html_parser.py
+rename to engine/analysis/utils/html_parser.py
+diff --git a/utils/gui_pipeline.py b/engine/core/pipeline/gui_pipeline.py
+similarity index 100%
+rename from utils/gui_pipeline.py
+rename to engine/core/pipeline/gui_pipeline.py
+diff --git a/utils/debug_logger.py b/engine/core/utils/debug_logger.py
+similarity index 100%
+rename from utils/debug_logger.py
+rename to engine/core/utils/debug_logger.py
+diff --git a/utils/energy_calculator.py b/engine/metrics/services/energy_calculator.py
+similarity index 100%
+rename from utils/energy_calculator.py
+rename to engine/metrics/services/energy_calculator.py
+diff --git a/utils/evaluation_metrics.py b/engine/metrics/services/evaluation_metrics.py
+similarity index 100%
+rename from utils/evaluation_metrics.py
+rename to engine/metrics/services/evaluation_metrics.py
+diff --git a/utils/sci_rating.py b/engine/metrics/services/sci_rating.py
+similarity index 100%
+rename from utils/sci_rating.py
+rename to engine/metrics/services/sci_rating.py
+diff --git a/utils/color_utils.py b/engine/recommendations/utils/color_utils.py
+similarity index 91%
+rename from utils/color_utils.py
+rename to engine/recommendations/utils/color_utils.py
+index dc5a237..69e138e 100644
+--- a/utils/color_utils.py
++++ b/engine/recommendations/utils/color_utils.py
+@@ -1,4 +1,8 @@
+-from utils.colour_math import rgb_to_luminance, contrast_ratio, adjust_color_brightness
++from engine.recommendations.utils.colour_math import (
++    rgb_to_luminance,
++    contrast_ratio,
++    adjust_color_brightness,
++)
+
+
+ def parse_rgb(css_value):
+@@ -49,4 +53,4 @@ def brighten_color(rgb, target_contrast, bg_color):
+     """
+     Wrapper para ajustar el brillo de un color hasta alcanzar contraste deseado.
+     """
+-    return adjust_color_brightness(rgb, target_contrast, bg_color)
+\ No newline at end of file
++    return adjust_color_brightness(rgb, target_contrast, bg_color)
+diff --git a/utils/colour_math.py b/engine/recommendations/utils/colour_math.py
+similarity index 100%
+rename from utils/colour_math.py
+rename to engine/recommendations/utils/colour_math.py
+diff --git a/utils/heuristic_evaluator.py b/engine/transformation/services/heuristic_evaluator.py
+similarity index 98%
+rename from utils/heuristic_evaluator.py
+rename to engine/transformation/services/heuristic_evaluator.py
+index 38fde0d..5ca0639 100644
+--- a/utils/heuristic_evaluator.py
++++ b/engine/transformation/services/heuristic_evaluator.py
+@@ -1,7 +1,13 @@
+ import os
+ import re
+ from bs4 import BeautifulSoup
+-from utils.color_utils import parse_rgb, rgb_to_css, is_light_color, contrast_ratio, brighten_color
++from engine.recommendations.utils.color_utils import (
++    parse_rgb,
++    rgb_to_css,
++    is_light_color,
++    contrast_ratio,
++    brighten_color,
++)
+
+ def rgb_string_to_tuple(color_str):
+     color_str = color_str.strip().lower().replace("rgb(", "").replace(")", "")
+EOF
+)
