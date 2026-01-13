@@ -1,7 +1,8 @@
 import os
 import time
 import shutil
-from config import SESSION_EXPIRE_MINUTES
+
+from app.config import SESSION_EXPIRE_MINUTES
 
 
 # archivos temporales que pueden quedar si hubo crash durante render

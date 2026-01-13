@@ -1,0 +1,113 @@
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/app.py b/app.py
+index e9d7f1be789968910b015d308aeb178ec549afe6..77c1cfc2b7e39a8ef4c4ddc4046deb242a294e8b 100644
+--- a/app.py
++++ b/app.py
+@@ -1,16 +1,18 @@
+ import os
++
+ from flask import Flask
+-from config import MAX_CONTENT_LENGTH
++
++from app.config import MAX_CONTENT_LENGTH
+ from routes.main_routes import main
+ 
+ app = Flask(__name__)
+ app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
+ 
+ # ✅ Clave secreta segura generada con urandom
+ app.secret_key = os.urandom(24)
+ 
+ # Registrar Blueprint
+ app.register_blueprint(main)
+ 
+ if __name__ == "__main__":
+     app.run(debug=True)
+diff --git a/app/__init__.py b/app/__init__.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..36b8e57b3266b83b73896c991665d7165fde67bc
+--- /dev/null
++++ b/app/__init__.py
+@@ -0,0 +1 @@
++"""App package."""
+diff --git a/config.py b/app/config.py
+similarity index 100%
+rename from config.py
+rename to app/config.py
+diff --git a/services/file_handler.py b/services/file_handler.py
+index 1a77bf461d8875aef25abb5b08a7f1d86f44e3b6..bde46000ff26e2a5f1da1832c388d1095e219dc8 100644
+--- a/services/file_handler.py
++++ b/services/file_handler.py
+@@ -1,30 +1,32 @@
+ import os
+ import zipfile
+ import uuid
++
+ from werkzeug.utils import secure_filename
+-from config import ALLOWED_EXTENSIONS, ALLOWED_ZIP_CONTENT
++
++from app.config import ALLOWED_EXTENSIONS, ALLOWED_ZIP_CONTENT
+ 
+ 
+ def allowed_file(filename: str) -> bool:
+     return os.path.splitext(filename)[1].lower() in ALLOWED_EXTENSIONS
+ 
+ 
+ def _is_safe_zip_member(member_name: str) -> bool:
+     """
+     Evita Zip Slip (../) y rutas absolutas.
+     Normaliza separadores para Windows/Linux.
+     """
+     name = member_name.replace("\\", "/")
+ 
+     # Evitar rutas absolutas o unidades tipo C:
+     if name.startswith("/") or (":" in name.split("/")[0]):
+         return False
+ 
+     # Evitar traversal
+     parts = [p for p in name.split("/") if p not in ("", ".")]
+     if any(p == ".." for p in parts):
+         return False
+ 
+     return True
+ 
+ 
+diff --git a/services/session_cleaner.py b/services/session_cleaner.py
+index d6428035614d67ff74bcf5c1c72cc58d9fa81cf5..2d47916402b7e0dab2400f457461f51aacdda661 100644
+--- a/services/session_cleaner.py
++++ b/services/session_cleaner.py
+@@ -1,29 +1,30 @@
+ import os
+ import time
+ import shutil
+-from config import SESSION_EXPIRE_MINUTES
++
++from app.config import SESSION_EXPIRE_MINUTES
+ 
+ 
+ # archivos temporales que pueden quedar si hubo crash durante render
+ TEMP_RENDER_FILES = {"__glow_render__.html"}
+ 
+ def clean_old_sessions():
+     """
+     Limpia inputs temporales y outputs de sesiones.
+ 
+     - /data/input/session_* : borra sesiones viejas
+     - /static/corrected/<session_id>/ : borra sesiones viejas o vacías
+     - /static/corrected/<session_id>.zip : borra zips viejos
+     - Limpia archivos temporales __glow_render__.html dentro de carpetas de sesión
+       (solo si la sesión ya expiró o si el directorio está vacío/colgado).
+     """
+     now = time.time()
+ 
+     # 1) /data/input/session_*
+     _clean_dirs(base_dir="data/input", prefix="session_", now=now)
+ 
+     # 2) /static/corrected/<session_id> (carpetas)
+     _clean_dirs(base_dir="static/corrected", prefix="", now=now)
+ 
+     # 3) /static/corrected/<session_id>.zip
+     _clean_zips(base_dir="static/corrected", now=now)
+ 
+EOF
+)

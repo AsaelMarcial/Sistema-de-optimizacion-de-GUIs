@@ -1,8 +1,10 @@
 import os
 import zipfile
 import uuid
+
 from werkzeug.utils import secure_filename
-from config import ALLOWED_EXTENSIONS, ALLOWED_ZIP_CONTENT
+
+from app.config import ALLOWED_EXTENSIONS, ALLOWED_ZIP_CONTENT
 
 
 def allowed_file(filename: str) -> bool:

@@ -1,6 +1,8 @@
 import os
+
 from flask import Flask
-from config import MAX_CONTENT_LENGTH
+
+from app.config import MAX_CONTENT_LENGTH
 from routes.main_routes import main
 
 app = Flask(__name__)
