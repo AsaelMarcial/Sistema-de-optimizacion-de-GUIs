@@ -1,0 +1,190 @@
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/app/routes/.gitkeep b/app/routes/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/app/static/.gitkeep b/app/static/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/app/templates/.gitkeep b/app/templates/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/docs/.gitkeep b/docs/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/docs/refactor_inventory.md b/docs/refactor_inventory.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..58bc5b84b6a0c0f3c2ff18959f41c8f65ae16c14
+--- /dev/null
++++ b/docs/refactor_inventory.md
+@@ -0,0 +1,72 @@
++# Inventario inicial y clasificación (P1)
++
++Este documento captura el estado actual de los archivos y la propuesta de ubicación dentro de la arquitectura acordada.
++El objetivo es moverlos por responsabilidad real (IO, análisis, rendering, métricas, recomendaciones, transformación) y no por costumbre.
++
++## Capa web (`app/`)
++- `app.py` → `app/app.py` (entrypoint Flask, configuración web).
++- `routes/main_routes.py` → `app/routes/main_routes.py` (orquestación HTTP).
++- `templates/` → `app/templates/` (vistas HTML).
++- `static/` → `app/static/` (recursos estáticos).
++- `config.py` → `app/config.py` (configuración web, archivo único).
++
++> Nota clave: actualmente `routes/main_routes.py` contiene parte del pipeline principal (orquesta análisis, rendering,
++> métricas y recomendaciones). Ese pipeline se moverá gradualmente a `engine/core/pipeline/` sin romper el flujo.
++
++## Motor (`engine/`)
++
++### `engine/core/`
++- Pipeline central que orquesta el flujo transversal del motor (coordinación de análisis/rendering/métricas).
++- El pipeline actual existe en `utils/gui_pipeline.py` y se moverá a `engine/core/pipeline/`.
++ - El pipeline actual en `routes/main_routes.py` se migrará por etapas para mantener el sistema funcional.
++
++### `engine/file_handling/`
++- `services/file_handler.py` → `engine/file_handling/services/` (validación y extracción de uploads).
++- `services/session_cleaner.py` → `engine/file_handling/services/` (limpieza de sesiones temporales).
++- `services/project_assets.py` → `engine/file_handling/services/` (copiado y normalización de recursos del proyecto).
++
++### `engine/analysis/`
++- `utils/html_parser.py` → `engine/analysis/utils/` (parsing HTML y extracción de componentes).
++- Nuevas tareas futuras: inventario de estilos y análisis previo a optimización.
++
++### `engine/rendering/`
++- `utils/gui_analyzer.py` → `engine/rendering/services/` (renderizado de la GUI y captura).
++- `utils/pixel_processor.py` → `engine/rendering/utils/` (extracción de pixeles).
++- `utils/color_classifier.py` → `engine/rendering/utils/` (clasificación de color).
++- Funciones relacionadas con análisis del DOM o screenshots deben vivir aquí.
++
++### `engine/recommendations/`
++- Este módulo se refactorizará al final por complejidad.
++- `utils/colour_math.py` → `engine/recommendations/utils/` (si se usa para decisiones de recomendaciones).
++- `utils/color_utils.py` → `engine/recommendations/utils/` (si se usa para recomendaciones).
++
++### `engine/transformation/`
++- Responsable de aplicar cambios sobre HTML/CSS/recursos, separado de la lógica de recomendaciones.
++- Partes de `utils/heuristic_evaluator.py` que reescriben archivos irán aquí.
++
++### `engine/metrics/`
++- `utils/sci_rating.py` → `engine/metrics/services/`.
++- `utils/evaluation_metrics.py` → `engine/metrics/services/` (si aplica).
++- `utils/energy_calculator.py` → `engine/metrics/services/` (la lógica de cálculo se queda aquí).
++  - El `EnergyModel` actual puede seguir usándose temporalmente hasta integrar `energy_model.json`.
++
++### `engine/energy-model/`
++- `energy_model.json` (modelo de datos consultable por métricas y recomendaciones).
++
++## Workspace (`workspace/`)
++- Las carpetas `input/`, `output/` y `artifacts/` viven dentro de cada sesión: `workspace/sessions/session_<key>/`.
++
++## Tests (`tests/`)
++- `utils/debug_logger.py` → `tests/debug/` (herramientas de traza/debug).
++
++## Docs (`docs/`)
++- Este archivo y documentación de arquitectura.
++
++## Pipelines por módulo (plan)
++- `engine/core/pipeline/`: pipeline central de orquestación.
++- `engine/analysis/`: pipeline de análisis previo (HTML, inventarios, contexto para recomendaciones).
++- `engine/rendering/`: pipeline de rendering (capturas "antes/después", conteo de pixeles, datos para métricas).
++- `engine/metrics/`: pipeline de métricas (consumo, SCI, comparativas).
++- `engine/file_handling/`: pipeline de ingreso/salida de archivos y sesiones.
++- `engine/transformation/`: pipeline de transformación (aplicar cambios sobre fuentes).
++- `engine/recommendations/`: pipeline de recomendaciones (reglas/criterios), a refactorizar al final.
+diff --git a/engine/analysis/models/.gitkeep b/engine/analysis/models/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/analysis/services/.gitkeep b/engine/analysis/services/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/analysis/utils/.gitkeep b/engine/analysis/utils/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/analysis/validators/.gitkeep b/engine/analysis/validators/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/core/models/.gitkeep b/engine/core/models/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/core/pipeline/.gitkeep b/engine/core/pipeline/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/core/utils/.gitkeep b/engine/core/utils/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/core/validators/.gitkeep b/engine/core/validators/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/energy-model/.gitkeep b/engine/energy-model/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/file_handling/services/.gitkeep b/engine/file_handling/services/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/file_handling/utils/.gitkeep b/engine/file_handling/utils/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/file_handling/validators/.gitkeep b/engine/file_handling/validators/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/metrics/models/.gitkeep b/engine/metrics/models/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/metrics/services/.gitkeep b/engine/metrics/services/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/metrics/utils/.gitkeep b/engine/metrics/utils/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/metrics/validators/.gitkeep b/engine/metrics/validators/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/recommendations/models/.gitkeep b/engine/recommendations/models/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/recommendations/rules/.gitkeep b/engine/recommendations/rules/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/recommendations/services/.gitkeep b/engine/recommendations/services/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/recommendations/utils/.gitkeep b/engine/recommendations/utils/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/recommendations/validators/.gitkeep b/engine/recommendations/validators/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/rendering/models/.gitkeep b/engine/rendering/models/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/rendering/services/.gitkeep b/engine/rendering/services/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/rendering/utils/.gitkeep b/engine/rendering/utils/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/rendering/validators/.gitkeep b/engine/rendering/validators/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/transformation/models/.gitkeep b/engine/transformation/models/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/transformation/services/.gitkeep b/engine/transformation/services/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/transformation/utils/.gitkeep b/engine/transformation/utils/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/engine/transformation/validators/.gitkeep b/engine/transformation/validators/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/tests/debug/.gitkeep b/tests/debug/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/tests/fixtures/.gitkeep b/tests/fixtures/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/workspace/sessions/.gitkeep b/workspace/sessions/.gitkeep
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+ 
+EOF
+)
