@@ -17,7 +17,7 @@ El objetivo es moverlos por responsabilidad real (IO, análisis, rendering, mét
 
 ### `engine/core/`
 - Pipeline central que orquesta el flujo transversal del motor (coordinación de análisis/rendering/métricas).
-- El pipeline actual existe en `engine/core/pipeline/gui_pipeline.py`. ✅ Migrado.
+- El pipeline actual existe en `engine/core/pipeline/gui_pipeline.py` (ubicación real verificada). ✅ Migrado.
 - El pipeline actual en `routes/main_routes.py` se migrará por etapas para mantener el sistema funcional.
 
 ### `engine/file_handling/`
@@ -27,13 +27,13 @@ El objetivo es moverlos por responsabilidad real (IO, análisis, rendering, mét
 
 ### `engine/analysis/`
 - `utils/html_parser.py` → `engine/analysis/utils/` (parsing HTML y extracción de componentes). ✅ Migrado.
-- `utils/file_manager.py` → `engine/analysis/utils/` (serialización de resultados y utilidades base). ✅ Migrado.
+- `utils/file_manager.py` → `engine/analysis/utils/file_manager.py` (ubicación real verificada). ✅ Migrado.
 - Nuevas tareas futuras: inventario de estilos y análisis previo a optimización.
 
 ### `engine/rendering/`
-- `utils/gui_analyzer.py` → `engine/rendering/services/` (renderizado de la GUI y captura). ✅ Migrado.
-- `utils/pixel_processor.py` → `engine/rendering/utils/` (extracción de pixeles). ✅ Migrado.
-- `utils/color_classifier.py` → `engine/rendering/utils/` (clasificación de color). ✅ Migrado.
+- `utils/gui_analyzer.py` → `engine/rendering/services/gui_analyzer.py` (ubicación real verificada; renderizado de la GUI y captura). ✅ Migrado.
+- `utils/pixel_processor.py` → `engine/rendering/utils/pixel_processor.py` (ubicación real verificada; extracción de pixeles). ✅ Migrado.
+- `utils/color_classifier.py` → `engine/rendering/utils/color_classifier.py` (ubicación real verificada; clasificación de color). ✅ Migrado.
 - Funciones relacionadas con análisis del DOM o screenshots deben vivir aquí.
 
 ### `engine/recommendations/`
@@ -48,8 +48,8 @@ El objetivo es moverlos por responsabilidad real (IO, análisis, rendering, mét
 
 ### `engine/metrics/`
 - `utils/sci_rating.py` → `engine/metrics/services/`. ✅ Migrado.
-- `utils/evaluation_metrics.py` → `engine/metrics/services/` (si aplica). ✅ Migrado.
-- `utils/energy_calculator.py` → `engine/metrics/services/` (la lógica de cálculo se queda aquí). ✅ Migrado.
+- `utils/evaluation_metrics.py` → `engine/metrics/services/evaluation_metrics.py` (ubicación real verificada). ✅ Migrado.
+- `utils/energy_calculator.py` → `engine/metrics/services/energy_calculator.py` (ubicación real verificada; la lógica de cálculo se queda aquí). ✅ Migrado.
   - El `EnergyModel` actual puede seguir usándose temporalmente hasta integrar `energy_model.json`.
 
 ### `engine/energy-model/`
@@ -81,6 +81,18 @@ El objetivo es moverlos por responsabilidad real (IO, análisis, rendering, mét
 
 ### Rutas faltantes / por completar
 - `engine/energy-model/energy_model.json` (pendiente: todavía no existe el archivo).
+
+## Decisión de rutas finales (congelada)
+Para evitar mover archivos dos veces, los módulos con un solo archivo principal vivirán directamente en su módulo
+raíz (sin subcarpeta). Esta decisión queda congelada para la refactorización restante.
+
+- `gui_pipeline` → `engine/core/gui_pipeline.py` (actual: `engine/core/pipeline/gui_pipeline.py`).
+- `gui_analyzer` → `engine/rendering/gui_analyzer.py` (actual: `engine/rendering/services/gui_analyzer.py`).
+- `color_classifier` → `engine/rendering/color_classifier.py` (actual: `engine/rendering/utils/color_classifier.py`).
+- `pixel_processor` → `engine/rendering/pixel_processor.py` (actual: `engine/rendering/utils/pixel_processor.py`).
+- `energy_calculator` → `engine/metrics/energy_calculator.py` (actual: `engine/metrics/services/energy_calculator.py`).
+- `evaluation_metrics` → `engine/metrics/evaluation_metrics.py` (actual: `engine/metrics/services/evaluation_metrics.py`).
+- `file_manager` → `engine/analysis/file_manager.py` (actual: `engine/analysis/utils/file_manager.py`).
 
 ### Archivos detectados (inventario real)
 

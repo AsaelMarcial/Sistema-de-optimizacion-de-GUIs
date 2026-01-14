@@ -22,9 +22,10 @@ from engine.file_handling.services.project_assets import (
 
 from engine.analysis.utils.html_parser import parse_html
 from engine.metrics.services.energy_calculator import EnergyModel, CarbonFootprintCalculator
-from engine.transformation.heuristics import evaluar_y_corregir_heuristicas
 from engine.metrics.services.sci_rating import compute_rating_from_sci
+from engine.transformation.heuristics import evaluar_y_corregir_heuristicas
 from engine.core.pipeline.gui_pipeline import analyze_gui_to_color_data
+from engine.core.pipeline.results_compiler import compile_results
 from engine.core.utils.debug_logger import DebugTrace
 
 
@@ -163,34 +164,19 @@ def results():
         "optimized_sci_score": optimized_footprint.get("sci_score"),
     })
 
-    results = {
-        # Aqui se llena todo lo de la estimacion del consumo energético y la huella de carbono
-        "total_current": total_current,
-        "carbon_footprint": footprint["co2eq_per_use"],
-        "energy_wh": footprint["energy_wh"],
-        "sci_score": footprint["sci_score"],
-        "optimized_energy_wh": optimized_footprint["energy_wh"],
-        "optimized_co2eq_per_use": optimized_footprint["co2eq_per_use"],
-        "optimization_rating": rating,
-        
-        # Aqui se llena el ID de la sesión
-        "session_id": session_id,
-
-        # Aqui se llena el nombre del HTML
-        "html_name": html_filename,
-
-        # Aqui se llena el resultado de las heurísticas
-        "heuristicas": resultados_heuristicas,
-
-        # debug UI  -- alch no se que hace, ya estaba
-        "debug": trace.to_dict(),
-
-        # No es debug, es para mostrar las capturas de pantalla original y optimizada pero ya no le quise cambiar el nombre porque ya estaba funcionando y no quiero romper nada
-        "debug_screenshots": {
-            "original": original_screenshot_rel,
-            "optimized": optimized_screenshot_rel
-        },
-
-    }
+    results_output_path = os.path.join(static_session_dir, "results.json")
+    results = compile_results(
+        total_current=total_current,
+        footprint=footprint,
+        optimized_footprint=optimized_footprint,
+        rating=rating,
+        session_id=session_id,
+        html_filename=html_filename,
+        resultados_heuristicas=resultados_heuristicas,
+        trace=trace,
+        original_screenshot_rel=original_screenshot_rel,
+        optimized_screenshot_rel=optimized_screenshot_rel,
+        results_output_path=results_output_path,
+    )
 
     return render_template("results.html", results=results)
