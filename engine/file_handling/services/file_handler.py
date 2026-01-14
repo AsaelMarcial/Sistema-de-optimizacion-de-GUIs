@@ -3,7 +3,8 @@ import zipfile
 
 from werkzeug.utils import secure_filename
 
-from app.config import ALLOWED_EXTENSIONS, ALLOWED_ZIP_CONTENT, get_input_dir
+from app.config import ALLOWED_EXTENSIONS, ALLOWED_ZIP_CONTENT
+from engine.file_handling.services.session_handler import build_input_session_dir
 
 
 def allowed_file(filename: str) -> bool:
@@ -61,8 +62,7 @@ def handle_uploaded_file(file, session_id: str):
     if ext not in ALLOWED_EXTENSIONS:
         return "Archivo no permitido"
 
-    base_path = get_input_dir(session_id)
-    os.makedirs(base_path, exist_ok=True)
+    base_path = build_input_session_dir(session_id)
 
     # Guardar upload
     safe_name = secure_filename(file.filename)

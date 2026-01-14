@@ -2,12 +2,11 @@ import os
 import time
 import shutil
 
-from app.config import (
-    SESSION_EXPIRE_MINUTES,
-    SESSIONS_BASE_DIR,
-    INPUT_DIRNAME,
-    OUTPUT_DIRNAME,
-    ARTIFACTS_DIRNAME,
+from app.config import SESSION_EXPIRE_MINUTES
+from engine.file_handling.services.session_handler import (
+    get_session_dir_prefix,
+    get_sessions_base_dir,
+    get_session_dirname_parts,
 )
 
 
@@ -26,7 +25,11 @@ def clean_old_sessions():
     """
     now = time.time()
 
-    _clean_session_dirs(base_dir=SESSIONS_BASE_DIR, prefix="session_", now=now)
+    _clean_session_dirs(
+        base_dir=get_sessions_base_dir(),
+        prefix=get_session_dir_prefix(),
+        now=now,
+    )
 
 
 def _clean_session_dirs(base_dir: str, prefix: str, now: float) -> None:
@@ -51,7 +54,7 @@ def _clean_session_dirs(base_dir: str, prefix: str, now: float) -> None:
 
         # B) Si no expiró: limpieza ligera
         #    - borrar archivos temporales si existen (por si quedaron colgados)
-        for subdir in (INPUT_DIRNAME, OUTPUT_DIRNAME, ARTIFACTS_DIRNAME):
+        for subdir in get_session_dirname_parts():
             subdir_path = os.path.join(path, subdir)
             if os.path.exists(subdir_path):
                 _remove_temp_files(subdir_path)

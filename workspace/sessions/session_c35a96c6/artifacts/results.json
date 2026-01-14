@@ -1,0 +1,211 @@
+{
+    "total_current": 0.159612566887129,
+    "carbon_footprint": 0.2805190863041292,
+    "energy_wh": 0.5905664974823773,
+    "optimized_energy_wh": 0.46992268087359895,
+    "optimized_co2eq_per_use": 0.2232132734149595,
+    "session_id": "c35a96c6",
+    "html_name": "menu.html",
+    "heuristicas": [
+        {
+            "nombre": "Modo oscuro",
+            "cumple": false,
+            "recomendacion": "Se aplic\u00f3 dark mode por fondo claro."
+        },
+        {
+            "nombre": "Minimizar el uso de colores brillantes",
+            "cumple": false,
+            "recomendacion": "Se redujo la intensidad de 7 colores.",
+            "detalles": [
+                "<h1>: rgb(255, 0, 0) \u2192 rgb(191, 64, 64) (background-color)",
+                "<div>: rgb(0, 255, 0) \u2192 rgb(64, 191, 64) (background-color)",
+                "CSS externo: (255, 255, 255) \u2192 (191, 191, 191)",
+                "CSS externo: (255, 0, 0) \u2192 (191, 64, 64)",
+                "CSS externo: (0, 255, 255) \u2192 (64, 191, 191)",
+                "CSS externo: (255, 255, 0) \u2192 (191, 191, 64)",
+                "CSS externo: rgb(255, 0, 0) \u2192 rgb(191, 64, 64) (gradiente)",
+                "CSS externo: rgb(255, 255, 0) \u2192 rgb(191, 191, 64) (gradiente)",
+                "CSS externo: (0, 255, 0) \u2192 (64, 191, 64)"
+            ]
+        },
+        {
+            "nombre": "Reducci\u00f3n de tama\u00f1os excesivos",
+            "cumple": false,
+            "recomendacion": "Se ajustaron 2 elementos grandes.",
+            "detalles": [
+                "Reducci\u00f3n de width en <div> a 400px",
+                "Reducci\u00f3n de height en <div> a 300px"
+            ]
+        },
+        {
+            "nombre": "Uso moderado de decoraciones visuales",
+            "cumple": false,
+            "recomendacion": "Se eliminaron 5 estilos innecesarios.",
+            "detalles": [
+                "Eliminada decoraci\u00f3n en CSS externo",
+                "Eliminada decoraci\u00f3n en CSS externo",
+                "Eliminada decoraci\u00f3n en CSS externo",
+                "Eliminada decoraci\u00f3n en CSS externo",
+                "Eliminada decoraci\u00f3n en CSS externo"
+            ]
+        }
+    ],
+    "debug": {
+        "started_at": 1768384576.230079,
+        "steps": [
+            {
+                "t": 0.0015,
+                "step": "upload.received",
+                "data": {
+                    "filename": "P\u00e1gina de prueba 2.zip"
+                }
+            },
+            {
+                "t": 0.0113,
+                "step": "upload.handled",
+                "data": {
+                    "base_path": "workspace\\sessions\\session_c35a96c6\\input"
+                }
+            },
+            {
+                "t": 0.0117,
+                "step": "project.base_path",
+                "data": {
+                    "base_path": "workspace\\sessions\\session_c35a96c6\\input\\Pagina"
+                }
+            },
+            {
+                "t": 0.0125,
+                "step": "project.html_detected",
+                "data": {
+                    "html_path": "workspace\\sessions\\session_c35a96c6\\input\\Pagina\\menu.html",
+                    "html_name": "menu.html"
+                }
+            },
+            {
+                "t": 0.0349,
+                "step": "html.content_read",
+                "data": {
+                    "html_path": "workspace\\sessions\\session_c35a96c6\\input\\Pagina\\menu.html"
+                }
+            },
+            {
+                "t": 0.0363,
+                "step": "session.created",
+                "data": {
+                    "session_id": "c35a96c6",
+                    "output_dir": "workspace\\sessions\\session_c35a96c6\\output",
+                    "artifacts_dir": "workspace\\sessions\\session_c35a96c6\\artifacts"
+                }
+            },
+            {
+                "t": 0.038,
+                "step": "analysis.html_parsed",
+                "data": {
+                    "components_type": "<class 'dict'>"
+                }
+            },
+            {
+                "t": 0.0382,
+                "step": "original.render_start",
+                "data": {
+                    "base_path": "workspace\\sessions\\session_c35a96c6\\input\\Pagina",
+                    "output_image": "workspace\\sessions\\session_c35a96c6\\artifacts\\debug_original.png"
+                }
+            },
+            {
+                "t": 6.0131,
+                "step": "original.render_done",
+                "data": {
+                    "screenshot_path": "workspace\\sessions\\session_c35a96c6\\artifacts\\debug_original.png"
+                }
+            },
+            {
+                "t": 7.9086,
+                "step": "original.colors_classified",
+                "data": {
+                    "distinct_colors": 43822
+                }
+            },
+            {
+                "t": 8.6455,
+                "step": "metrics.original",
+                "data": {
+                    "total_current": 0.159612566887129,
+                    "energy_wh": 0.5905664974823773,
+                    "co2eq_per_use": 0.2805190863041292
+                }
+            },
+            {
+                "t": 8.6592,
+                "step": "opt.resources_prepared",
+                "data": {
+                    "output_dir": "workspace\\sessions\\session_c35a96c6\\output"
+                }
+            },
+            {
+                "t": 8.6655,
+                "step": "opt.heuristics_applied",
+                "data": {
+                    "heuristics_count": 4
+                }
+            },
+            {
+                "t": 8.6655,
+                "step": "opt.resources_copied",
+                "data": {
+                    "output_dir": "workspace\\sessions\\session_c35a96c6\\output"
+                }
+            },
+            {
+                "t": 8.7098,
+                "step": "opt.zip_created",
+                "data": {
+                    "zip_output_path": "workspace\\sessions\\session_c35a96c6\\output\\c35a96c6.zip"
+                }
+            },
+            {
+                "t": 8.7103,
+                "step": "opt.html_loaded",
+                "data": {
+                    "html_optimized_path": "workspace\\sessions\\session_c35a96c6\\output\\menu.html"
+                }
+            },
+            {
+                "t": 8.7104,
+                "step": "optimized.render_start",
+                "data": {
+                    "base_path": "workspace\\sessions\\session_c35a96c6\\output",
+                    "output_image": "workspace\\sessions\\session_c35a96c6\\artifacts\\debug_optimized.png"
+                }
+            },
+            {
+                "t": 13.6233,
+                "step": "optimized.render_done",
+                "data": {
+                    "screenshot_path": "workspace\\sessions\\session_c35a96c6\\artifacts\\debug_optimized.png"
+                }
+            },
+            {
+                "t": 14.604,
+                "step": "optimized.colors_classified",
+                "data": {
+                    "distinct_colors": 37000
+                }
+            },
+            {
+                "t": 14.777,
+                "step": "metrics.optimized",
+                "data": {
+                    "optimized_current": 0.12700612996583754,
+                    "optimized_energy_wh": 0.46992268087359895,
+                    "optimized_co2eq_per_use": 0.2232132734149595
+                }
+            }
+        ]
+    },
+    "debug_screenshots": {
+        "original": "/sessions/c35a96c6/artifacts/debug_original.png",
+        "optimized": "/sessions/c35a96c6/artifacts/debug_optimized.png"
+    }
+}
