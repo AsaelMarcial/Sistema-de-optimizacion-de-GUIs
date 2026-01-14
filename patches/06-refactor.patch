@@ -1,292 +1,357 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/app/routes/main_routes.py b/app/routes/main_routes.py
-index 97a4082ad6b550abc82a740957a33ab53b6c4700..9bf00704ac50e3348ac85d72bb241618ac80fa3e 100644
---- a/app/routes/main_routes.py
-+++ b/app/routes/main_routes.py
-@@ -1,52 +1,53 @@
- from flask import (
-     Blueprint,
-     render_template,
-     request,
-     flash,
-     redirect,
-     url_for,
-     current_app,
- )
- import os
- import uuid
- import shutil
+diff --git a/engine/core/pipeline/gui_pipeline.py b/engine/core/pipeline/gui_pipeline.py
+index 25f102d956eeffadbfd2fe4e85713d52b7fe895f..44cfe3c97c0877ea25c7077d77ae8b99851e0e4a 100644
+--- a/engine/core/pipeline/gui_pipeline.py
++++ b/engine/core/pipeline/gui_pipeline.py
+@@ -1,47 +1,22 @@
+-import os
+ from typing import Any, Dict, Optional
  
- from app.config import STATIC_CORRECTED_SUBDIR
- from engine.file_handling.services.session_cleaner import clean_old_sessions
- from engine.file_handling.services.file_handler import handle_uploaded_file
- from engine.file_handling.services.project_assets import (
-     normalize_base_path_for_single_subdir,
-     detectar_html_unico,
-     copiar_recursos,
- )
- 
- from engine.analysis.utils.html_parser import parse_html
- from engine.metrics.services.energy_calculator import EnergyModel, CarbonFootprintCalculator
--from engine.transformation.heuristics import evaluar_y_corregir_heuristicas
- from engine.metrics.services.sci_rating import compute_rating_from_sci
-+from engine.transformation.heuristics import evaluar_y_corregir_heuristicas
- from engine.core.pipeline.gui_pipeline import analyze_gui_to_color_data
-+from engine.core.pipeline.results_compiler import compile_results
- from engine.core.utils.debug_logger import DebugTrace
- 
- 
- main = Blueprint("main", __name__)
- 
- #es dummy
- energy_model = EnergyModel(
-     [1.804551146759771e-07, -3.0220347704227896e-07, 1.4154405902803595e-07],
-     [9.412383738420182e-08, -1.5781520809511624e-07, 7.546610037732226e-08],
-     [1.3946409007268839e-08, -2.4495186160412765e-08, 1.598790315272048e-08],
-     0.120833
- )
- 
- calculator = CarbonFootprintCalculator()
- 
- 
- @main.route("/")
- def index():
-     return render_template("index.html")
- 
- 
- @main.route("/header")
- def header():
-     return render_template("header.html")
- 
-@@ -141,56 +142,41 @@ def results():
-     trace.add_step("opt.html_loaded", {"html_optimized_path": html_optimized_path})
- 
-     # --- GUI OPTIMIZADA (screenshot) ---
-     optimized_screenshot_rel = f"{STATIC_CORRECTED_SUBDIR}/{session_id}/debug_optimized.png"
-     optimized_screenshot_abs = os.path.join(static_root, optimized_screenshot_rel)
- 
-     # Aqui se analiza la GUI optimizada
-     color_data_optimized = analyze_gui_to_color_data(
-         html_content=html_optimized_content,
-         base_path=static_session_dir,
-         output_image=optimized_screenshot_abs,
-         trace=trace,
-         label="optimized"
-     )
- 
-     optimized_current = energy_model.calculate_power(color_data_optimized)
-     optimized_footprint = calculator.calculate(optimized_current, time_hours=1)
- 
-     trace.add_step("metrics.optimized", {
-         "optimized_current": optimized_current,
-         "optimized_energy_wh": optimized_footprint.get("energy_wh"),
-         "optimized_co2eq_per_use": optimized_footprint.get("co2eq_per_use"),
-         "optimized_sci_score": optimized_footprint.get("sci_score"),
-     })
- 
--    results = {
--        # Aqui se llena todo lo de la estimacion del consumo energético y la huella de carbono
--        "total_current": total_current,
--        "carbon_footprint": footprint["co2eq_per_use"],
--        "energy_wh": footprint["energy_wh"],
--        "sci_score": footprint["sci_score"],
--        "optimized_energy_wh": optimized_footprint["energy_wh"],
--        "optimized_co2eq_per_use": optimized_footprint["co2eq_per_use"],
--        "optimization_rating": rating,
--        
--        # Aqui se llena el ID de la sesión
--        "session_id": session_id,
+-from app.config import get_output_dir
 -
--        # Aqui se llena el nombre del HTML
--        "html_name": html_filename,
+-from engine.rendering.services.gui_analyzer import analyze_gui
+-from engine.rendering.utils.pixel_processor import extract_pixels
+-from engine.rendering.utils.color_classifier import classify_colors
++from engine.rendering.screenshot_analyzer import analyze_screenshot_to_color_data
+ 
+ 
+ def analyze_gui_to_color_data(
+     html_content: str,
+     base_path: str,
+     output_image: Optional[str] = None,
+     trace: Optional[Any] = None,
+     label: str = "gui"
+ ) -> Dict[str, Any]:
+     """
+     Pipeline: render (con base_path como raíz de recursos) -> pixels -> color frequencies.
+     """
+-    if trace:
+-        trace.add_step(f"{label}.render_start", {"base_path": base_path, "output_image": output_image})
 -
--        # Aqui se llena el resultado de las heurísticas
--        "heuristicas": resultados_heuristicas,
--
--        # debug UI  -- alch no se que hace, ya estaba
--        "debug": trace.to_dict(),
--
--        # No es debug, es para mostrar las capturas de pantalla original y optimizada pero ya no le quise cambiar el nombre porque ya estaba funcionando y no quiero romper nada
--        "debug_screenshots": {
--            "original": original_screenshot_rel,
--            "optimized": optimized_screenshot_rel
--        },
--
--    }
-+    results_output_path = os.path.join(static_session_dir, "results.json")
-+    results = compile_results(
-+        total_current=total_current,
-+        footprint=footprint,
-+        optimized_footprint=optimized_footprint,
-+        rating=rating,
-+        session_id=session_id,
-+        html_filename=html_filename,
-+        resultados_heuristicas=resultados_heuristicas,
+-    if output_image is None:
+-        default_output_dir = get_output_dir("default")
+-        os.makedirs(default_output_dir, exist_ok=True)
+-        output_image = os.path.join(default_output_dir, "gui_screenshot.png")
+-    pixels = analyze_gui(
++    return analyze_screenshot_to_color_data(
+         html_content=html_content,
+         base_path=base_path,
+-        output_image=output_image
++        output_image=output_image,
 +        trace=trace,
-+        original_screenshot_rel=original_screenshot_rel,
-+        optimized_screenshot_rel=optimized_screenshot_rel,
-+        results_output_path=results_output_path,
-+    )
- 
-     return render_template("results.html", results=results)
-diff --git a/engine/core/pipeline/results_compiler.py b/engine/core/pipeline/results_compiler.py
++        label=label
+     )
+-
+-    if trace:
+-        trace.add_step(f"{label}.render_done", {"pixels_shape": getattr(pixels, "shape", None)})
+-
+-    extracted = extract_pixels(pixels)
+-
+-    if trace:
+-        trace.add_step(f"{label}.pixels_extracted", {"count": len(extracted) if hasattr(extracted, "__len__") else None})
+-
+-    color_data = classify_colors(extracted)
+-
+-    if trace:
+-        trace.add_step(f"{label}.colors_classified", {"distinct_colors": len(color_data) if hasattr(color_data, "__len__") else None})
+-
+-    return color_data
+diff --git a/engine/rendering/screenshot_analyzer.py b/engine/rendering/screenshot_analyzer.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..4549a38bc836495cf46f1514bd655d17f0dfebc1
+index 0000000000000000000000000000000000000000..d3e0605686ef615112399a523bef916fe74f4e1e
 --- /dev/null
-+++ b/engine/core/pipeline/results_compiler.py
-@@ -0,0 +1,41 @@
++++ b/engine/rendering/screenshot_analyzer.py
+@@ -0,0 +1,45 @@
++import os
 +from typing import Any, Dict, Optional
 +
-+from engine.analysis.utils.file_manager import save_results
++from app.config import get_output_dir
++
++from engine.rendering.services.gui_rendering import render_gui
++from engine.rendering.utils.pixel_frequency import pixels_to_color_frequency
 +
 +
-+def compile_results(
-+    *,
-+    total_current: float,
-+    footprint: Dict[str, Any],
-+    optimized_footprint: Dict[str, Any],
-+    rating: str,
-+    session_id: str,
-+    html_filename: str,
-+    resultados_heuristicas: Any,
-+    trace: Optional[Any],
-+    original_screenshot_rel: str,
-+    optimized_screenshot_rel: str,
-+    results_output_path: Optional[str] = None,
++def analyze_screenshot_to_color_data(
++    html_content: str,
++    base_path: str,
++    output_image: Optional[str] = None,
++    trace: Optional[Any] = None,
++    label: str = "gui"
 +) -> Dict[str, Any]:
-+    results = {
-+        "total_current": total_current,
-+        "carbon_footprint": footprint["co2eq_per_use"],
-+        "energy_wh": footprint["energy_wh"],
-+        "sci_score": footprint["sci_score"],
-+        "optimized_energy_wh": optimized_footprint["energy_wh"],
-+        "optimized_co2eq_per_use": optimized_footprint["co2eq_per_use"],
-+        "optimization_rating": rating,
-+        "session_id": session_id,
-+        "html_name": html_filename,
-+        "heuristicas": resultados_heuristicas,
-+        "debug": trace.to_dict() if trace else None,
-+        "debug_screenshots": {
-+            "original": original_screenshot_rel,
-+            "optimized": optimized_screenshot_rel,
-+        },
-+    }
++    """
++    Pipeline: render (con base_path como raíz de recursos) -> color frequencies.
++    """
++    if trace:
++        trace.add_step(f"{label}.render_start", {"base_path": base_path, "output_image": output_image})
 +
-+    if results_output_path:
-+        save_results(results_output_path, results)
++    if output_image is None:
++        default_output_dir = get_output_dir("default")
++        os.makedirs(default_output_dir, exist_ok=True)
++        output_image = os.path.join(default_output_dir, "gui_screenshot.png")
 +
-+    return results
-diff --git a/engine/metrics/services/evaluation_metrics.py b/engine/metrics/services/evaluation_metrics.py
++    screenshot_path = render_gui(
++        html_content=html_content,
++        base_path=base_path,
++        output_image=output_image
++    )
++
++    if trace:
++        trace.add_step(f"{label}.render_done", {"screenshot_path": screenshot_path})
++
++    color_data = pixels_to_color_frequency(screenshot_path)
++
++    if trace:
++        trace.add_step(
++            f"{label}.colors_classified",
++            {"distinct_colors": len(color_data) if hasattr(color_data, "__len__") else None}
++        )
++
++    return color_data
+diff --git a/engine/rendering/services/gui_analyzer.py b/engine/rendering/services/gui_rendering.py
+similarity index 76%
+rename from engine/rendering/services/gui_analyzer.py
+rename to engine/rendering/services/gui_rendering.py
+index e6f33265c1236f0fa6ad74836ddb1947acc82235..1970212584847a639fd593a1d14a8ac8945da15d 100644
+--- a/engine/rendering/services/gui_analyzer.py
++++ b/engine/rendering/services/gui_rendering.py
+@@ -1,86 +1,70 @@
+-import os
+ import math
+-import numpy as np
+-from PIL import Image
+ from playwright.sync_api import sync_playwright
+ 
++from engine.rendering.utils.screenshot_utils import ensure_output_dir, write_temp_html, remove_temp_html
++
+ 
+ def _clamp_int(value, min_v, max_v):
+     try:
+         v = int(math.ceil(float(value)))
+     except Exception:
+         v = min_v
+     return max(min_v, min(max_v, v))
+ 
+ 
+-def analyze_gui(
++def render_gui(
+     html_content: str,
+     base_path: str,
+     output_image: str,
+     initial_viewport_width: int = 1440,
+     initial_viewport_height: int = 900,
+     wait_ms: int = 700,
+     max_viewport_width: int = 3840,
+     max_viewport_height: int = 20000,
+ ):
+     """
+     Renderiza HTML usando Playwright, ajusta viewport automáticamente al tamaño real del documento,
+     y guarda una captura exacta SIN scroll.
+ 
+-    Retorna:
+-      np.ndarray con shape (H, W, 3) en RGB (P-LMLR usa RGB).
+-
+     Requisitos:
+       - base_path debe ser un directorio válido donde existan los recursos relativos (CSS/imagenes).
+       - Playwright + Chromium instalados: python -m playwright install chromium
+     """
+-    if not base_path or not os.path.isdir(base_path):
+-        raise ValueError("analyze_gui requiere un base_path válido para resolver recursos (CSS/imagenes).")
+-
+-    # Asegurar directorio del output
+-    out_dir = os.path.dirname(output_image)
+-    if out_dir:
+-        os.makedirs(out_dir, exist_ok=True)
+-
+-    # Escribir HTML temporal dentro del base_path para respetar rutas relativas
+-    temp_html_path = os.path.join(base_path, "__glow_render__.html")
+-    with open(temp_html_path, "w", encoding="utf-8") as f:
+-        f.write(html_content)
+-
+-    abs_temp = os.path.abspath(temp_html_path)
++    ensure_output_dir(output_image)
++    temp_html_path = write_temp_html(html_content, base_path)
+ 
+     try:
+         with sync_playwright() as p:
+             browser = p.chromium.launch(headless=True)
+ 
+             page = browser.new_page(
+                 viewport={"width": int(initial_viewport_width), "height": int(initial_viewport_height)}
+             )
+ 
+             # Carga base
+-            page.goto(f"file://{abs_temp}", wait_until="load")
++            page.goto(f"file://{temp_html_path}", wait_until="load")
+ 
+             # Quitar scrollbars para que no contaminen el conteo de píxeles
+             page.evaluate("""
+                 () => {
+                   document.body.style.overflow = 'hidden';
+                   document.documentElement.style.overflow = 'hidden';
+                 }
+             """)
+ 
+             # Espera corta por estabilidad visual (CSS, fuentes)
+             if wait_ms and wait_ms > 0:
+                 page.wait_for_timeout(int(wait_ms))
+ 
+             # Medir dimensiones reales del documento (más robusto que solo scrollWidth/scrollHeight)
+             dims = page.evaluate("""
+                 () => {
+                   const body = document.body;
+                   const html = document.documentElement;
+ 
+                   const width = Math.max(
+                     body ? body.scrollWidth : 0,
+                     body ? body.offsetWidth : 0,
+                     html ? html.clientWidth : 0,
+                     html ? html.scrollWidth : 0,
+                     html ? html.offsetWidth : 0
+@@ -96,38 +80,30 @@ def analyze_gui(
+ 
+                   return { width, height };
+                 }
+             """)
+ 
+             target_w = _clamp_int(dims.get("width", initial_viewport_width), 320, max_viewport_width)
+             target_h = _clamp_int(dims.get("height", initial_viewport_height), 240, max_viewport_height)
+ 
+             # Ajustar viewport a tamaño real
+             page.set_viewport_size({"width": target_w, "height": target_h})
+ 
+             # Reaplicar overflow hidden y esperar un poco por reflow tras el resize
+             page.evaluate("""
+                 () => {
+                   document.body.style.overflow = 'hidden';
+                   document.documentElement.style.overflow = 'hidden';
+                 }
+             """)
+             page.wait_for_timeout(200)
+ 
+             # Screenshot EXACTO del viewport ya ajustado (sin full_page)
+             page.screenshot(path=output_image)
+ 
+             browser.close()
+ 
+-        # Convertir a RGB (P-LMLR)
+-        with Image.open(output_image) as img:
+-            img = img.convert("RGB")
+-            pixel_array = np.array(img)
+-
+-        return pixel_array
+-
+     finally:
+         # Limpieza del temporal
+-        try:
+-            os.remove(temp_html_path)
+-        except Exception:
+-            pass
++        remove_temp_html(temp_html_path)
++
++    return output_image
+diff --git a/engine/rendering/utils/color_classifier.py b/engine/rendering/utils/color_classifier.py
 deleted file mode 100644
-index 02683536306072ddfb21bedb2a834dd2fec2fcd5..0000000000000000000000000000000000000000
---- a/engine/metrics/services/evaluation_metrics.py
+index 0cfbe85fd6f92c7ff789766e74c24d26198e5e2d..0000000000000000000000000000000000000000
+--- a/engine/rendering/utils/color_classifier.py
 +++ /dev/null
-@@ -1,44 +0,0 @@
--# utils/evaluation_metrics.py
+@@ -1,12 +0,0 @@
+-def classify_colors(pixel_array):
+-    """
+-    Clasifica los colores basados en el array de píxeles.
+-    """
+-    from collections import Counter
 -
--from collections import defaultdict
+-    # Contar los colores
+-    color_counts = Counter([tuple(pixel) for pixel in pixel_array])  # Convertir en tuplas
+-    sorted_colors = color_counts.most_common()
 -
--def luminance(rgb):
--    r, g, b = [x / 255.0 for x in rgb]
--    return 0.2126 * (r ** 3) + 0.7152 * (g ** 3) + 0.0722 * (b ** 3)
--
--def calculate_reduction(before_rgb, after_rgb):
--    initial_lum = luminance(before_rgb)
--    optimized_lum = luminance(after_rgb)
--    if initial_lum == 0:
--        return 0.0
--    reduction = ((initial_lum - optimized_lum) / initial_lum) * 100
--    return round(reduction, 2)
--
--def build_heuristics_results(optimized_components):
--    heuristics_dict = defaultdict(lambda: {'detalles': [], 'comparativas': []})
--
--    for comp in optimized_components:
--        ahorro = calculate_reduction(comp['before_rgb'], comp['after_rgb'])
--
--        heuristics_dict[comp['heuristic']]['comparativas'].append({
--            'nombre': comp['nombre'],
--            'antes': f"{comp['before_rgb'][0]}, {comp['before_rgb'][1]}, {comp['before_rgb'][2]}",
--            'despues': f"{comp['after_rgb'][0]}, {comp['after_rgb'][1]}, {comp['after_rgb'][2]}",
--            'ahorro': ahorro
--        })
--
--    heuristics_results = []
--    for heuristic_name, data in heuristics_dict.items():
--        detalles = [
--            f"{comp['nombre']}: color antes RGB({comp['antes']}) → después RGB({comp['despues']}) | Ahorro estimado: {comp['ahorro']}%"
--            for comp in data['comparativas']
--        ]
--        heuristics_results.append({
--            'nombre': heuristic_name,
--            'cumple': True,
--            'recomendacion': f"Se han optimizado {len(data['comparativas'])} componentes bajo la heurística '{heuristic_name}'.",
--            'detalles': detalles,
--            'comparativas': data['comparativas']
--        })
--
--    return heuristics_results
-diff --git a/engine/recommendations/services/evaluation_metrics.py b/engine/recommendations/services/evaluation_metrics.py
+-    # Convertir los colores a listas (serializables)
+-    return [{"color": list(color), "count": count} for color, count in sorted_colors]
+diff --git a/engine/rendering/utils/pixel_frequency.py b/engine/rendering/utils/pixel_frequency.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..2457cd1657441af3e16e58ac68d3b8c1a2dd73ea
+index 0000000000000000000000000000000000000000..79af34fa58e14dfcc4e6133dcc75cfeaa344ef74
 --- /dev/null
-+++ b/engine/recommendations/services/evaluation_metrics.py
-@@ -0,0 +1,55 @@
-+from collections import defaultdict
++++ b/engine/rendering/utils/pixel_frequency.py
+@@ -0,0 +1,28 @@
++from collections import Counter
++
++import numpy as np
++from PIL import Image
 +
 +
-+def luminance(rgb):
-+    r, g, b = [x / 255.0 for x in rgb]
-+    return 0.2126 * (r**3) + 0.7152 * (g**3) + 0.0722 * (b**3)
++def pixels_to_color_frequency(image_source):
++    """
++    Convierte una imagen (ruta o np.ndarray) en frecuencias de color RGB.
++    """
++    if isinstance(image_source, str):
++        with Image.open(image_source) as img:
++            img = img.convert("RGB")
++            arr = np.array(img)
++    else:
++        arr = np.asarray(image_source)
++
++    if arr.ndim == 3 and arr.shape[2] == 4:
++        arr = arr[:, :, :3]
++
++    if arr.ndim != 3 or arr.shape[2] != 3:
++        raise ValueError(f"Formato de imagen no soportado: shape={arr.shape}")
++
++    flat_pixels = arr.reshape(-1, 3)
++    color_counts = Counter(map(tuple, flat_pixels))
++    sorted_colors = color_counts.most_common()
++
++    return [{"color": list(color), "count": count} for color, count in sorted_colors]
+diff --git a/engine/rendering/utils/pixel_processor.py b/engine/rendering/utils/pixel_processor.py
+deleted file mode 100644
+index ace4dd6f1f9c110f57c43ad2d6c176ccabc4c832..0000000000000000000000000000000000000000
+--- a/engine/rendering/utils/pixel_processor.py
++++ /dev/null
+@@ -1,16 +0,0 @@
+-import numpy as np
+-
+-def extract_pixels(image_array):
+-    """
+-    Convierte np.ndarray (H,W,3) o (H,W,4) en lista Nx3 RGB.
+-    P-LMLR usa solo RGB.
+-    """
+-    arr = np.asarray(image_array)
+-
+-    if arr.ndim == 3 and arr.shape[2] == 4:
+-        arr = arr[:, :, :3]
+-
+-    if arr.ndim != 3 or arr.shape[2] != 3:
+-        raise ValueError(f"Formato de imagen no soportado: shape={arr.shape}")
+-
+-    return arr.reshape(-1, 3).tolist()
+diff --git a/engine/rendering/utils/screenshot_utils.py b/engine/rendering/utils/screenshot_utils.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..cffe6f23ea93d515fd1b0997586debbc3ccd2eb7
+--- /dev/null
++++ b/engine/rendering/utils/screenshot_utils.py
+@@ -0,0 +1,23 @@
++import os
 +
 +
-+def calculate_reduction(before_rgb, after_rgb):
-+    initial_lum = luminance(before_rgb)
-+    optimized_lum = luminance(after_rgb)
-+    if initial_lum == 0:
-+        return 0.0
-+    reduction = ((initial_lum - optimized_lum) / initial_lum) * 100
-+    return round(reduction, 2)
++def ensure_output_dir(output_image: str) -> None:
++    out_dir = os.path.dirname(output_image)
++    if out_dir:
++        os.makedirs(out_dir, exist_ok=True)
 +
 +
-+def build_heuristics_results(optimized_components):
-+    heuristics_dict = defaultdict(lambda: {"detalles": [], "comparativas": []})
++def write_temp_html(html_content: str, base_path: str, filename: str = "__glow_render__.html") -> str:
++    if not base_path or not os.path.isdir(base_path):
++        raise ValueError("render_gui requiere un base_path válido para resolver recursos (CSS/imagenes).")
 +
-+    for comp in optimized_components:
-+        ahorro = calculate_reduction(comp["before_rgb"], comp["after_rgb"])
++    temp_html_path = os.path.join(base_path, filename)
++    with open(temp_html_path, "w", encoding="utf-8") as f:
++        f.write(html_content)
 +
-+        heuristics_dict[comp["heuristic"]]["comparativas"].append(
-+            {
-+                "nombre": comp["nombre"],
-+                "antes": f"{comp['before_rgb'][0]}, {comp['before_rgb'][1]}, {comp['before_rgb'][2]}",
-+                "despues": f"{comp['after_rgb'][0]}, {comp['after_rgb'][1]}, {comp['after_rgb'][2]}",
-+                "ahorro": ahorro,
-+            }
-+        )
++    return os.path.abspath(temp_html_path)
 +
-+    heuristics_results = []
-+    for heuristic_name, data in heuristics_dict.items():
-+        detalles = [
-+            (
-+                f"{comp['nombre']}: color antes RGB({comp['antes']}) → después RGB({comp['despues']}) | "
-+                f"Ahorro estimado: {comp['ahorro']}%"
-+            )
-+            for comp in data["comparativas"]
-+        ]
-+        heuristics_results.append(
-+            {
-+                "nombre": heuristic_name,
-+                "cumple": True,
-+                "recomendacion": (
-+                    f"Se han optimizado {len(data['comparativas'])} componentes bajo la heurística "
-+                    f"'{heuristic_name}'."
-+                ),
-+                "detalles": detalles,
-+                "comparativas": data["comparativas"],
-+            }
-+        )
 +
-+    return heuristics_results
++def remove_temp_html(temp_html_path: str) -> None:
++    if temp_html_path and os.path.exists(temp_html_path):
++        os.remove(temp_html_path)
  
 EOF
 )
