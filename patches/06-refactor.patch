@@ -1,185 +1,60 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/app/routes/main_routes.py b/app/routes/main_routes.py
-index 705357b208ee2d9df4794716da55ec7403dbd117..69bcff8f5e804e89bee67e94026bfcdad4eb7129 100644
---- a/app/routes/main_routes.py
-+++ b/app/routes/main_routes.py
-@@ -1,62 +1,55 @@
- from flask import (
-     Blueprint,
-     render_template,
-     request,
-     flash,
-     redirect,
-     url_for,
-     current_app,
- )
+diff --git a/engine/rendering/screenshot_analyzer.py b/engine/rendering/screenshot_analyzer.py
+index d3e0605686ef615112399a523bef916fe74f4e1e..ffe87db915ff2112ed443a7497833c04a91d54fa 100644
+--- a/engine/rendering/screenshot_analyzer.py
++++ b/engine/rendering/screenshot_analyzer.py
+@@ -1,45 +1,47 @@
  import os
- import uuid
- import shutil
+ from typing import Any, Dict, Optional
  
- from app.config import STATIC_CORRECTED_SUBDIR
- from engine.file_handling.services.session_cleaner import clean_old_sessions
- from engine.file_handling.file_handling_pipeline import run_file_handling_pipeline
- from engine.file_handling.services.project_assets import copiar_recursos
+-from app.config import get_output_dir
++from app.config import get_artifacts_dir
  
- from engine.analysis.utils.html_parser import parse_html
--from engine.metrics.services.energy_calculator import EnergyModel, CarbonFootprintCalculator
--from engine.metrics.services.sci_rating import compute_rating_from_sci
-+from engine.metrics.sustainable_metrics import CarbonFootprintCalculator, estimate_sustainable_metrics
-+from engine.metrics.utils.default_energy_model import build_default_energy_model
- from engine.transformation.heuristics import evaluar_y_corregir_heuristicas
- from engine.core.pipeline.gui_pipeline import analyze_gui_to_color_data
- from engine.core.pipeline.results_compiler import compile_results
- from engine.core.utils.debug_logger import DebugTrace
+ from engine.rendering.services.gui_rendering import render_gui
+ from engine.rendering.utils.pixel_frequency import pixels_to_color_frequency
  
  
- main = Blueprint("main", __name__)
+ def analyze_screenshot_to_color_data(
+     html_content: str,
+     base_path: str,
+     output_image: Optional[str] = None,
++    session_id: Optional[str] = None,
+     trace: Optional[Any] = None,
+     label: str = "gui"
+ ) -> Dict[str, Any]:
+     """
+     Pipeline: render (con base_path como raíz de recursos) -> color frequencies.
+     """
+     if trace:
+         trace.add_step(f"{label}.render_start", {"base_path": base_path, "output_image": output_image})
  
--#es dummy
--energy_model = EnergyModel(
--    [1.804551146759771e-07, -3.0220347704227896e-07, 1.4154405902803595e-07],
--    [9.412383738420182e-08, -1.5781520809511624e-07, 7.546610037732226e-08],
--    [1.3946409007268839e-08, -2.4495186160412765e-08, 1.598790315272048e-08],
--    0.120833
--)
--
-+energy_model = build_default_energy_model()
- calculator = CarbonFootprintCalculator()
+     if output_image is None:
+-        default_output_dir = get_output_dir("default")
++        default_output_dir = get_artifacts_dir(session_id or "default")
+         os.makedirs(default_output_dir, exist_ok=True)
+-        output_image = os.path.join(default_output_dir, "gui_screenshot.png")
++        output_image = os.path.join(default_output_dir, f"{label}_screenshot.png")
  
- 
- @main.route("/")
- def index():
-     return render_template("index.html")
- 
- 
- @main.route("/header")
- def header():
-     return render_template("header.html")
- 
- 
- @main.route("/results", methods=["POST"])
- def results():
-     clean_old_sessions()
- 
-     trace = DebugTrace(enabled=True)
- 
-     session_id = str(uuid.uuid4())[:8]
- 
-     file = request.files.get("file")
-     if not file:
-         flash("No se seleccionó ningún archivo.", "error")
-         return redirect(url_for("main.index"))
-@@ -73,96 +66,101 @@ def results():
-     trace.add_step("upload.handled", {"base_path": base_path})
-     trace.add_step("project.base_path", {"base_path": base_path})
-     trace.add_step("project.html_detected", {"html_path": html_path, "html_name": html_filename})
- 
-     static_root = current_app.static_folder
-     static_session_dir = os.path.join(static_root, STATIC_CORRECTED_SUBDIR, session_id)
-     os.makedirs(static_session_dir, exist_ok=True)
-     trace.add_step("session.created", {"session_id": session_id, "static_session_dir": static_session_dir})
- 
-     # Parse HTML (componentes) - se mantiene
-     components = parse_html(html_content)
-     trace.add_step("analysis.html_parsed", {"components_type": str(type(components))})
- 
-     # --- GUI ORIGINAL (screenshot) ---
-     original_screenshot_rel = f"{STATIC_CORRECTED_SUBDIR}/{session_id}/debug_original.png"
-     original_screenshot_abs = os.path.join(static_root, original_screenshot_rel)
- 
-     color_data = analyze_gui_to_color_data(
+     screenshot_path = render_gui(
          html_content=html_content,
          base_path=base_path,
-         output_image=original_screenshot_abs,
-         trace=trace,
-         label="original"
+-        output_image=output_image
++        output_image=output_image,
++        session_id=session_id,
      )
  
--    total_current = energy_model.calculate_power(color_data)
--    footprint = calculator.calculate(total_current, time_hours=1)
--    sci_score = footprint["sci_score"]
--    rating = compute_rating_from_sci(sci_score)
-+    footprint = estimate_sustainable_metrics(
-+        color_data,
-+        energy_model,
-+        time_hours=1,
-+        calculator=calculator,
-+    )
-+    total_current = footprint["current_a"]
+     if trace:
+         trace.add_step(f"{label}.render_done", {"screenshot_path": screenshot_path})
  
-     trace.add_step("metrics.original", {
-         "total_current": total_current,
-         "energy_wh": footprint.get("energy_wh"),
-         "co2eq_per_use": footprint.get("co2eq_per_use"),
--        "sci_score": sci_score,
--        "rating": rating
-     })
+     color_data = pixels_to_color_frequency(screenshot_path)
  
-     # --- OPTIMIZACIÓN ---
-     resultados_heuristicas = evaluar_y_corregir_heuristicas(html_content, html_path, base_path, session_id)
-     trace.add_step("opt.heuristics_applied", {
-         "heuristics_count": len(resultados_heuristicas) if hasattr(resultados_heuristicas, "__len__") else None
-     })
+     if trace:
+         trace.add_step(
+             f"{label}.colors_classified",
+             {"distinct_colors": len(color_data) if hasattr(color_data, "__len__") else None}
+         )
  
-     copiar_recursos(base_path, static_session_dir)
-     trace.add_step("opt.resources_copied", {})
- 
-     zip_output_path = os.path.join(static_root, STATIC_CORRECTED_SUBDIR, f"{session_id}.zip")
-     shutil.make_archive(zip_output_path.replace(".zip", ""), 'zip', static_session_dir)
-     trace.add_step("opt.zip_created", {"zip_output_path": zip_output_path})
- 
-     # Leer HTML optimizado final
-     html_optimized_path = os.path.join(static_session_dir, html_filename)
-     with open(html_optimized_path, "r", encoding="utf-8") as f:
-         html_optimized_content = f.read()
-     trace.add_step("opt.html_loaded", {"html_optimized_path": html_optimized_path})
- 
-     # --- GUI OPTIMIZADA (screenshot) ---
-     optimized_screenshot_rel = f"{STATIC_CORRECTED_SUBDIR}/{session_id}/debug_optimized.png"
-     optimized_screenshot_abs = os.path.join(static_root, optimized_screenshot_rel)
- 
-     # Aqui se analiza la GUI optimizada
-     color_data_optimized = analyze_gui_to_color_data(
-         html_content=html_optimized_content,
-         base_path=static_session_dir,
-         output_image=optimized_screenshot_abs,
-         trace=trace,
-         label="optimized"
-     )
- 
--    optimized_current = energy_model.calculate_power(color_data_optimized)
--    optimized_footprint = calculator.calculate(optimized_current, time_hours=1)
-+    optimized_footprint = estimate_sustainable_metrics(
-+        color_data_optimized,
-+        energy_model,
-+        time_hours=1,
-+        calculator=calculator,
-+    )
-+    optimized_current = optimized_footprint["current_a"]
- 
-     trace.add_step("metrics.optimized", {
-         "optimized_current": optimized_current,
-         "optimized_energy_wh": optimized_footprint.get("energy_wh"),
-         "optimized_co2eq_per_use": optimized_footprint.get("co2eq_per_use"),
-         "optimized_sci_score": optimized_footprint.get("sci_score"),
-     })
- 
-     results_output_path = os.path.join(static_session_dir, "results.json")
-     results = compile_results(
-         total_current=total_current,
-         footprint=footprint,
-         optimized_footprint=optimized_footprint,
--        rating=rating,
-         session_id=session_id,
-         html_filename=html_filename,
-         resultados_heuristicas=resultados_heuristicas,
-         trace=trace,
-         original_screenshot_rel=original_screenshot_rel,
-         optimized_screenshot_rel=optimized_screenshot_rel,
-         results_output_path=results_output_path,
-     )
- 
-     return render_template("results.html", results=results)
+     return color_data
  
 EOF
 )

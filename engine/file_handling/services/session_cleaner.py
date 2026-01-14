@@ -18,9 +18,9 @@ def clean_old_sessions():
     """
     Limpia inputs temporales y outputs de sesiones.
 
-    - /workspace/sessions/session_*/input : borra sesiones viejas
-    - /workspace/sessions/session_*/output : borra sesiones viejas
-    - /workspace/sessions/session_*/artifacts : borra sesiones viejas
+    - /workspace/sessions/session_<id>/input : borra sesiones viejas
+    - /workspace/sessions/session_<id>/output : borra sesiones viejas
+    - /workspace/sessions/session_<id>/artifacts : borra sesiones viejas
     - Limpia archivos temporales __glow_render__.html dentro de carpetas de sesión
       (solo si la sesión ya expiró o si el directorio está vacío/colgado).
     """

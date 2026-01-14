@@ -18,13 +18,13 @@ def run_file_handling_pipeline(file, session_id: str):
         return result
 
     base_path, _session_id, uploaded_path = result
-    base_path = normalize_base_path_for_single_subdir(base_path)
+    normalized_base_path = normalize_base_path_for_single_subdir(base_path)
 
     try:
         if uploaded_path.lower().endswith(".html"):
             html_path = uploaded_path
         else:
-            html_path = detectar_html_unico(base_path)
+            html_path = detectar_html_unico(normalized_base_path)
     except (FileNotFoundError, ValueError) as exc:
         return str(exc)
 

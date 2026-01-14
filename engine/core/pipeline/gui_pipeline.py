@@ -7,6 +7,7 @@ def analyze_gui_to_color_data(
     html_content: str,
     base_path: str,
     output_image: Optional[str] = None,
+    session_id: Optional[str] = None,
     trace: Optional[Any] = None,
     label: str = "gui"
 ) -> Dict[str, Any]:
@@ -17,6 +18,7 @@ def analyze_gui_to_color_data(
         html_content=html_content,
         base_path=base_path,
         output_image=output_image,
+        session_id=session_id,
         trace=trace,
         label=label
     )

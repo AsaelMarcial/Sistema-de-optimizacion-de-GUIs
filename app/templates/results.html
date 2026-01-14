@@ -131,7 +131,7 @@
       <div class="iframe-header"> 
         <h2>Vista previa del HTML corregido</h2>
         <a
-          href="{{ url_for('static', filename='corrected/' + results.session_id + '.zip') }}"
+          href="{{ results.download_url }}"
           download
           class="download-button"
         >
@@ -149,7 +149,7 @@
           <div class="tabs-body">
             <img
               id="previewImage"
-              src="{{ url_for('static', filename=results.debug_screenshots.original) }}"
+              src="{{ results.debug_screenshots.original }}"
               alt="Vista previa"
             />
           </div>
@@ -215,8 +215,8 @@
         const btns = document.querySelectorAll(".tab-btn");
         const img = document.getElementById("previewImage");
 
-        const srcOriginal = "{{ url_for('static', filename=results.debug_screenshots.original) }}";
-        const srcOptimized = "{{ url_for('static', filename=results.debug_screenshots.optimized) }}";
+        const srcOriginal = "{{ results.debug_screenshots.original }}";
+        const srcOptimized = "{{ results.debug_screenshots.optimized }}";
 
         btns.forEach(btn => {
           btn.addEventListener("click", () => {

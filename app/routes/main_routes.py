@@ -5,15 +5,15 @@ from flask import (
     flash,
     redirect,
     url_for,
-    current_app,
+    send_from_directory,
 )
 import os
-import uuid
 import shutil
 
-from app.config import STATIC_CORRECTED_SUBDIR
+from app.config import get_output_dir, get_artifacts_dir
 from engine.file_handling.services.session_cleaner import clean_old_sessions
 from engine.file_handling.services.file_handler import handle_uploaded_file
+from engine.file_handling.services.session_handler import create_session
 from engine.file_handling.services.project_assets import (
     normalize_base_path_for_single_subdir,
     detectar_html_unico,
@@ -45,13 +45,26 @@ def header():
     return render_template("header.html")
 
 
+@main.route("/sessions/<session_id>/artifacts/<path:filename>")
+def session_artifact(session_id: str, filename: str):
+    artifacts_dir = get_artifacts_dir(session_id)
+    return send_from_directory(artifacts_dir, filename)
+
+
+@main.route("/sessions/<session_id>/output/<path:filename>")
+def session_output(session_id: str, filename: str):
+    output_dir = get_output_dir(session_id)
+    return send_from_directory(output_dir, filename)
+
+
 @main.route("/results", methods=["POST"])
 def results():
     clean_old_sessions()
 
     trace = DebugTrace(enabled=True)
 
-    session_id = str(uuid.uuid4())[:8]
+    session = create_session()
+    session_id = session["session_id"]
 
     file = request.files.get("file")
     if not file:
@@ -81,23 +94,36 @@ def results():
     html_filename = os.path.basename(html_path)
     trace.add_step("project.html_detected", {"html_path": html_path, "html_name": html_filename})
 
-    static_root = current_app.static_folder
-    static_session_dir = os.path.join(static_root, STATIC_CORRECTED_SUBDIR, session_id)
-    os.makedirs(static_session_dir, exist_ok=True)
-    trace.add_step("session.created", {"session_id": session_id, "static_session_dir": static_session_dir})
+    output_dir = get_output_dir(session_id)
+    artifacts_dir = get_artifacts_dir(session_id)
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(artifacts_dir, exist_ok=True)
+    trace.add_step(
+        "session.created",
+        {
+            "session_id": session_id,
+            "output_dir": output_dir,
+            "artifacts_dir": artifacts_dir,
+        },
+    )
 
     # Parse HTML (componentes) - se mantiene
     components = parse_html(html_content)
     trace.add_step("analysis.html_parsed", {"components_type": str(type(components))})
 
     # --- GUI ORIGINAL (screenshot) ---
-    original_screenshot_rel = f"{STATIC_CORRECTED_SUBDIR}/{session_id}/debug_original.png"
-    original_screenshot_abs = os.path.join(static_root, original_screenshot_rel)
+    original_screenshot_abs = os.path.join(artifacts_dir, "debug_original.png")
+    original_screenshot_url = url_for(
+        "main.session_artifact",
+        session_id=session_id,
+        filename="debug_original.png",
+    )
 
     color_data = analyze_gui_to_color_data(
         html_content=html_content,
         base_path=base_path,
         output_image=original_screenshot_abs,
+        session_id=session_id,
         trace=trace,
         label="original"
     )
@@ -117,33 +143,48 @@ def results():
     })
 
     # --- OPTIMIZACIÓN ---
-    resultados_heuristicas = evaluar_y_corregir_heuristicas(html_content, html_path, base_path, session_id)
+    copiar_recursos(base_path, output_dir)
+    trace.add_step("opt.resources_prepared", {"output_dir": output_dir})
+
+    resultados_heuristicas = evaluar_y_corregir_heuristicas(html_content, html_path, output_dir, session_id)
     trace.add_step("opt.heuristics_applied", {
         "heuristics_count": len(resultados_heuristicas) if hasattr(resultados_heuristicas, "__len__") else None
     })
 
-    copiar_recursos(base_path, static_session_dir)
-    trace.add_step("opt.resources_copied", {})
+    trace.add_step("opt.resources_copied", {"output_dir": output_dir})
 
-    zip_output_path = os.path.join(static_root, STATIC_CORRECTED_SUBDIR, f"{session_id}.zip")
-    shutil.make_archive(zip_output_path.replace(".zip", ""), 'zip', static_session_dir)
+    zip_temp_base = os.path.join(artifacts_dir, f"{session_id}_bundle")
+    zip_temp_path = f"{zip_temp_base}.zip"
+    shutil.make_archive(zip_temp_base, 'zip', output_dir)
+    zip_output_path = os.path.join(output_dir, f"{session_id}.zip")
+    shutil.move(zip_temp_path, zip_output_path)
+    zip_download_url = url_for(
+        "main.session_output",
+        session_id=session_id,
+        filename=f"{session_id}.zip",
+    )
     trace.add_step("opt.zip_created", {"zip_output_path": zip_output_path})
 
     # Leer HTML optimizado final
-    html_optimized_path = os.path.join(static_session_dir, html_filename)
+    html_optimized_path = os.path.join(output_dir, html_filename)
     with open(html_optimized_path, "r", encoding="utf-8") as f:
         html_optimized_content = f.read()
     trace.add_step("opt.html_loaded", {"html_optimized_path": html_optimized_path})
 
     # --- GUI OPTIMIZADA (screenshot) ---
-    optimized_screenshot_rel = f"{STATIC_CORRECTED_SUBDIR}/{session_id}/debug_optimized.png"
-    optimized_screenshot_abs = os.path.join(static_root, optimized_screenshot_rel)
+    optimized_screenshot_abs = os.path.join(artifacts_dir, "debug_optimized.png")
+    optimized_screenshot_url = url_for(
+        "main.session_artifact",
+        session_id=session_id,
+        filename="debug_optimized.png",
+    )
 
     # Aqui se analiza la GUI optimizada
     color_data_optimized = analyze_gui_to_color_data(
         html_content=html_optimized_content,
-        base_path=static_session_dir,
+        base_path=output_dir,
         output_image=optimized_screenshot_abs,
+        session_id=session_id,
         trace=trace,
         label="optimized"
     )
@@ -162,7 +203,7 @@ def results():
         "optimized_co2eq_per_use": optimized_footprint.get("co2eq_per_use"),
     })
 
-    results_output_path = os.path.join(static_session_dir, "results.json")
+    results_output_path = os.path.join(artifacts_dir, "results.json")
     results = compile_results(
         total_current=total_current,
         footprint=footprint,
@@ -171,9 +212,11 @@ def results():
         html_filename=html_filename,
         resultados_heuristicas=resultados_heuristicas,
         trace=trace,
-        original_screenshot_rel=original_screenshot_rel,
-        optimized_screenshot_rel=optimized_screenshot_rel,
+        original_screenshot_rel=original_screenshot_url,
+        optimized_screenshot_rel=optimized_screenshot_url,
         results_output_path=results_output_path,
     )
+
+    results["download_url"] = zip_download_url
 
     return render_template("results.html", results=results)

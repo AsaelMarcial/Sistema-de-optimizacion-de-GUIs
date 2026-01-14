@@ -1,5 +1,10 @@
 import math
+import os
+from typing import Optional
+
 from playwright.sync_api import sync_playwright
+
+from app.config import get_artifacts_dir
 
 from engine.rendering.utils.screenshot_utils import ensure_output_dir, write_temp_html, remove_temp_html
 
@@ -15,7 +20,8 @@ def _clamp_int(value, min_v, max_v):
 def render_gui(
     html_content: str,
     base_path: str,
-    output_image: str,
+    output_image: Optional[str] = None,
+    session_id: Optional[str] = None,
     initial_viewport_width: int = 1440,
     initial_viewport_height: int = 900,
     wait_ms: int = 700,
@@ -30,6 +36,10 @@ def render_gui(
       - base_path debe ser un directorio válido donde existan los recursos relativos (CSS/imagenes).
       - Playwright + Chromium instalados: python -m playwright install chromium
     """
+    if output_image is None:
+        session_key = session_id or "default"
+        output_image = os.path.join(get_artifacts_dir(session_key), "gui_screenshot.png")
+
     ensure_output_dir(output_image)
     temp_html_path = write_temp_html(html_content, base_path)
 
