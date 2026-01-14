@@ -28,10 +28,3 @@ def get_output_dir(session_id: str) -> str:
 
 def get_artifacts_dir(session_id: str) -> str:
     return os.path.join(get_session_dir(session_id), ARTIFACTS_DIRNAME)
-
-
-STATIC_CORRECTED_DIR = os.getenv(
-    "GUI_OPT_STATIC_CORRECTED_DIR",
-    os.path.join("static", "corrected"),
-)
-STATIC_CORRECTED_SUBDIR = os.getenv("GUI_OPT_STATIC_CORRECTED_SUBDIR", "corrected")

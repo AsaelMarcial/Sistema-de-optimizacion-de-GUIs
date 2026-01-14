@@ -1,32 +1,50 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
 diff --git a/app/config.py b/app/config.py
-index 01a90b71d3dfcd3361e12bfd1d2b526df6b5c006..68d41ee9bf8d02dfe2fb5940d8855d43e0d3618e 100644
+index 01a90b71d3dfcd3361e12bfd1d2b526df6b5c006..ab004267ba79f881ebcd95ecaa772d669f657a39 100644
 --- a/app/config.py
 +++ b/app/config.py
-@@ -1,15 +1,18 @@
- # config.py
- 
+@@ -1,15 +1,28 @@
+-# config.py
+-
  import os
  
-+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-+WORKSPACE_DIR = os.getenv("GUI_OPT_WORKSPACE_DIR", os.path.join(REPO_ROOT, "workspace"))
-+
  MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10 MB
  ALLOWED_EXTENSIONS = {'.html', '.zip'}
  ALLOWED_ZIP_CONTENT = {'.html', '.css', '.js', '.png', '.jpg', '.jpeg', '.svg'}
  SESSION_EXPIRE_MINUTES = 60
  
- INPUT_SESSIONS_DIR = os.getenv("GUI_OPT_INPUT_SESSIONS_DIR", os.path.join("data", "input"))
- STATIC_CORRECTED_DIR = os.getenv(
-     "GUI_OPT_STATIC_CORRECTED_DIR",
-     os.path.join("static", "corrected"),
- )
- STATIC_CORRECTED_SUBDIR = os.getenv("GUI_OPT_STATIC_CORRECTED_SUBDIR", "corrected")
+-INPUT_SESSIONS_DIR = os.getenv("GUI_OPT_INPUT_SESSIONS_DIR", os.path.join("data", "input"))
+-STATIC_CORRECTED_DIR = os.getenv(
+-    "GUI_OPT_STATIC_CORRECTED_DIR",
+-    os.path.join("static", "corrected"),
+-)
+-STATIC_CORRECTED_SUBDIR = os.getenv("GUI_OPT_STATIC_CORRECTED_SUBDIR", "corrected")
++SESSIONS_BASE_DIR = os.getenv("GUI_OPT_SESSIONS_DIR", os.path.join("workspace", "sessions"))
++SESSION_DIR_PATTERN = "session_{session_id}"
++INPUT_DIRNAME = "input"
++OUTPUT_DIRNAME = "output"
++ARTIFACTS_DIRNAME = "artifacts"
++
++
++def get_session_dir(session_id: str) -> str:
++    return os.path.join(SESSIONS_BASE_DIR, SESSION_DIR_PATTERN.format(session_id=session_id))
++
++
++def get_input_dir(session_id: str) -> str:
++    return os.path.join(get_session_dir(session_id), INPUT_DIRNAME)
++
++
++def get_output_dir(session_id: str) -> str:
++    return os.path.join(get_session_dir(session_id), OUTPUT_DIRNAME)
++
++
++def get_artifacts_dir(session_id: str) -> str:
++    return os.path.join(get_session_dir(session_id), ARTIFACTS_DIRNAME)
 diff --git a/app/routes/main_routes.py b/app/routes/main_routes.py
-index 45fc190df27db455098172746c92f00b28c0752d..e9ebe4d5a935a19861528deed7bfe0405724e4c9 100644
+index 45fc190df27db455098172746c92f00b28c0752d..eaae9c9a99c9a56985a7c31e976875f99faf4599 100644
 --- a/app/routes/main_routes.py
 +++ b/app/routes/main_routes.py
-@@ -1,39 +1,39 @@
+@@ -1,196 +1,234 @@
  from flask import (
      Blueprint,
      render_template,
@@ -34,14 +52,15 @@ index 45fc190df27db455098172746c92f00b28c0752d..e9ebe4d5a935a19861528deed7bfe040
      flash,
      redirect,
      url_for,
-     current_app,
+-    current_app,
++    send_from_directory,
  )
  import os
  import uuid
  import shutil
  
 -from app.config import STATIC_CORRECTED_SUBDIR
-+from app.config import STATIC_CORRECTED_SUBDIR, WORKSPACE_DIR
++from app.config import get_input_dir, get_output_dir, get_artifacts_dir, get_session_dir
  from engine.file_handling.services.session_cleaner import clean_old_sessions
  from engine.file_handling.services.file_handler import handle_uploaded_file
  from engine.file_handling.services.project_assets import (
@@ -67,16 +86,50 @@ index 45fc190df27db455098172746c92f00b28c0752d..e9ebe4d5a935a19861528deed7bfe040
      [1.3946409007268839e-08, -2.4495186160412765e-08, 1.598790315272048e-08],
      0.120833
  )
-@@ -65,126 +65,151 @@ def results():
+ 
+ calculator = CarbonFootprintCalculator()
+ 
+ 
+ @main.route("/")
+ def index():
+     return render_template("index.html")
+ 
+ 
+ @main.route("/header")
+ def header():
+     return render_template("header.html")
+ 
+ 
++@main.route("/artifacts/<session_id>/<filename>")
++def session_artifact(session_id: str, filename: str):
++    artifacts_dir = get_artifacts_dir(session_id)
++    return send_from_directory(artifacts_dir, filename)
++
++
+ @main.route("/results", methods=["POST"])
+ def results():
+     clean_old_sessions()
+ 
+     trace = DebugTrace(enabled=True)
+ 
++    session_id = str(uuid.uuid4())[:8]
++
+     file = request.files.get("file")
+     if not file:
+         flash("No se seleccionó ningún archivo.", "error")
+         return redirect(url_for("main.index"))
+ 
      trace.add_step("upload.received", {"filename": file.filename})
  
-     result = handle_uploaded_file(file)
+-    result = handle_uploaded_file(file)
++    result = handle_uploaded_file(file, session_id)
      if isinstance(result, str):
          flash(result, "error")
          trace.add_step("upload.error", {"message": result})
          return redirect(url_for("main.index"))
  
-     html_content, base_path = result
+-    html_content, base_path = result
++    html_content, base_path, session_id = result
      trace.add_step("upload.handled", {"base_path": base_path})
  
      if not base_path:
@@ -92,22 +145,23 @@ index 45fc190df27db455098172746c92f00b28c0752d..e9ebe4d5a935a19861528deed7bfe040
      trace.add_step("project.html_detected", {"html_path": html_path, "html_name": html_filename})
  
      # Crear sesión YA para guardar screenshots (original y optimizada)
-     session_id = str(uuid.uuid4())[:8]
-+    session_root = os.path.join(WORKSPACE_DIR, "sessions", f"session_{session_id}")
-+    session_input_dir = os.path.join(session_root, "input")
-+    session_output_dir = os.path.join(session_root, "output")
-+    session_artifacts_dir = os.path.join(session_root, "artifacts")
-     static_root = current_app.static_folder
-     static_session_dir = os.path.join(static_root, STATIC_CORRECTED_SUBDIR, session_id)
+-    session_id = str(uuid.uuid4())[:8]
+-    static_root = current_app.static_folder
+-    static_session_dir = os.path.join(static_root, STATIC_CORRECTED_SUBDIR, session_id)
+-    os.makedirs(static_session_dir, exist_ok=True)
+-    trace.add_step("session.created", {"session_id": session_id, "static_session_dir": static_session_dir})
++    session_root = get_session_dir(session_id)
++    session_input_dir = get_input_dir(session_id)
++    session_output_dir = get_output_dir(session_id)
++    session_artifacts_dir = get_artifacts_dir(session_id)
 +    os.makedirs(session_input_dir, exist_ok=True)
 +    os.makedirs(session_output_dir, exist_ok=True)
 +    os.makedirs(session_artifacts_dir, exist_ok=True)
-     os.makedirs(static_session_dir, exist_ok=True)
-     trace.add_step("session.created", {"session_id": session_id, "static_session_dir": static_session_dir})
- 
++    trace.add_step("session.created", {"session_id": session_id, "session_root": session_root})
++
 +    shutil.copytree(base_path, session_input_dir, dirs_exist_ok=True)
 +    trace.add_step("session.input_copied", {"session_input_dir": session_input_dir})
-+
+ 
      # Parse HTML (componentes) - se mantiene
      components = parse_html(html_content)
      trace.add_step("analysis.html_parsed", {"components_type": str(type(components))})
@@ -116,7 +170,11 @@ index 45fc190df27db455098172746c92f00b28c0752d..e9ebe4d5a935a19861528deed7bfe040
 -    original_screenshot_rel = f"{STATIC_CORRECTED_SUBDIR}/{session_id}/debug_original.png"
 -    original_screenshot_abs = os.path.join(static_root, original_screenshot_rel)
 +    original_screenshot_name = "debug_original.png"
-+    original_screenshot_rel = f"{STATIC_CORRECTED_SUBDIR}/{session_id}/{original_screenshot_name}"
++    original_screenshot_rel = url_for(
++        "main.session_artifact",
++        session_id=session_id,
++        filename=original_screenshot_name,
++    )
 +    original_screenshot_abs = os.path.join(session_artifacts_dir, original_screenshot_name)
  
      color_data = analyze_gui_to_color_data(
@@ -159,13 +217,17 @@ index 45fc190df27db455098172746c92f00b28c0752d..e9ebe4d5a935a19861528deed7bfe040
  
 -    copiar_recursos(base_path, static_session_dir)
 -    trace.add_step("opt.resources_copied", {})
-+    copiar_recursos(session_input_dir, session_output_dir, static_session_dir=static_session_dir, overwrite_output=False)
-+    trace.add_step("opt.resources_copied", {"static_session_dir": static_session_dir})
- 
-     zip_output_path = os.path.join(static_root, STATIC_CORRECTED_SUBDIR, f"{session_id}.zip")
+-
+-    zip_output_path = os.path.join(static_root, STATIC_CORRECTED_SUBDIR, f"{session_id}.zip")
 -    shutil.make_archive(zip_output_path.replace(".zip", ""), 'zip', static_session_dir)
-+    shutil.make_archive(zip_output_path.replace(".zip", ""), 'zip', session_output_dir)
++    zip_output_path = os.path.join(session_artifacts_dir, f"{session_id}.zip")
++    shutil.make_archive(zip_output_path.replace(".zip", ""), "zip", session_output_dir)
      trace.add_step("opt.zip_created", {"zip_output_path": zip_output_path})
++    zip_download_url = url_for(
++        "main.session_artifact",
++        session_id=session_id,
++        filename=f"{session_id}.zip",
++    )
  
      # Leer HTML optimizado final
 -    html_optimized_path = os.path.join(static_session_dir, html_filename)
@@ -178,7 +240,11 @@ index 45fc190df27db455098172746c92f00b28c0752d..e9ebe4d5a935a19861528deed7bfe040
 -    optimized_screenshot_rel = f"{STATIC_CORRECTED_SUBDIR}/{session_id}/debug_optimized.png"
 -    optimized_screenshot_abs = os.path.join(static_root, optimized_screenshot_rel)
 +    optimized_screenshot_name = "debug_optimized.png"
-+    optimized_screenshot_rel = f"{STATIC_CORRECTED_SUBDIR}/{session_id}/{optimized_screenshot_name}"
++    optimized_screenshot_rel = url_for(
++        "main.session_artifact",
++        session_id=session_id,
++        filename=optimized_screenshot_name,
++    )
 +    optimized_screenshot_abs = os.path.join(session_artifacts_dir, optimized_screenshot_name)
  
      # Aqui se analiza la GUI optimizada
@@ -201,9 +267,7 @@ index 45fc190df27db455098172746c92f00b28c0752d..e9ebe4d5a935a19861528deed7bfe040
          "optimized_sci_score": optimized_footprint.get("sci_score"),
      })
  
-+    shutil.copy2(original_screenshot_abs, os.path.join(static_session_dir, original_screenshot_name))
-+    shutil.copy2(optimized_screenshot_abs, os.path.join(static_session_dir, optimized_screenshot_name))
-+    trace.add_step("opt.screenshots_copied", {"static_session_dir": static_session_dir})
++    trace.add_step("opt.screenshots_created", {"session_artifacts_dir": session_artifacts_dir})
 +
      results = {
          # Aqui se llena todo lo de la estimacion del consumo energético y la huella de carbono
@@ -230,15 +294,143 @@ index 45fc190df27db455098172746c92f00b28c0752d..e9ebe4d5a935a19861528deed7bfe040
          # No es debug, es para mostrar las capturas de pantalla original y optimizada pero ya no le quise cambiar el nombre porque ya estaba funcionando y no quiero romper nada
          "debug_screenshots": {
              "original": original_screenshot_rel,
+             "optimized": optimized_screenshot_rel
+         },
++        "download_url": zip_download_url,
+ 
+     }
+ 
+     return render_template("results.html", results=results)
+diff --git a/app/templates/results.html b/app/templates/results.html
+index eab9d00a7998b0483c3e6baedfd01570d1387935..2e6c70975a20e6b353a5c934bb1948db5e6523ec 100644
+--- a/app/templates/results.html
++++ b/app/templates/results.html
+@@ -153,70 +153,66 @@
+           <div class="card-header">
+             <h2 class="heuristic-title">{{ heuristica.nombre }}</h2>
+             <span
+               class="status-badge {% if heuristica.cumple %}success{% else %}error{% endif %}"
+             >
+               {{ 'Cumple' if heuristica.cumple else 'No cumple' }}
+             </span>
+           </div>
+           <p class="recommendation-text">{{ heuristica.recomendacion }}</p>
+           {% if heuristica.detalles %}
+           <details class="details-dropdown">
+             <summary>Ver detalles</summary>
+             <ul>
+               {% for detalle in heuristica.detalles %}
+               <li>{{ detalle }}</li>
+               {% endfor %} 
+             </ul>
+           </details>
+           {% endif %}
+         </div>
+         {% endfor %} {% endif %}
+       </div>
+ 
+       <div class="iframe-header"> 
+         <h2>Vista previa del HTML corregido</h2>
+-        <a
+-          href="{{ url_for('static', filename='corrected/' + results.session_id + '.zip') }}"
+-          download
+-          class="download-button"
+-        >
++        <a href="{{ results.download_url }}" download class="download-button">
+           Descargar
+         </a>
+       </div>
+       
+       <div class="iframe-container">
+         <div class="preview-tabs">
+           <div class="tabs-header">
+             <button type="button" class="tab-btn active" data-target="original">Original</button>
+             <button type="button" class="tab-btn" data-target="optimized">Optimizada</button>
+           </div>
+       
+           <div class="tabs-body">
+             <img
+               id="previewImage"
+-              src="{{ url_for('static', filename=results.debug_screenshots.original) }}"
++              src="{{ results.debug_screenshots.original }}"
+               alt="Vista previa"
+             />
+           </div>
+         </div>
+       </div>
+       
+     </div>
+ 
+     <script>
+       function updateImpact() {
+         let users = parseInt(document.getElementById("user_count").value);
+         let hours = parseInt(document.getElementById("usage_hours").value);
+ 
+         let energy_wh = parseFloat("{{ results.energy_wh | round(4) }}");
+         let co2eq_per_use = parseFloat(
+           "{{ results.carbon_footprint | round(6) }}"
+         );
+         let optimized_co2eq_per_use = parseFloat(
+           "{{ results.optimized_co2eq_per_use | round(6) }}"
+         );
+ 
+         let total_energy = energy_wh * users * hours;
+         let total_co2eq = co2eq_per_use * users * hours;
+         let total_optimized_co2eq = optimized_co2eq_per_use * users * hours;
+         let reduction_co2eq = total_co2eq - total_optimized_co2eq;
+@@ -238,41 +234,41 @@
+             'span[slot="value"]'
+           ).innerHTML = `${reduction_co2eq.toFixed(4)} kg CO₂eq`;
+ 
+         // Detalles dinámicos
+         document.getElementById("e-users").textContent = users;
+         document.getElementById("e-hours").textContent = hours;
+         document.getElementById("e-total").textContent =
+           total_energy.toFixed(2);
+ 
+         document.getElementById("c-e").textContent = total_energy.toFixed(2);
+         document.getElementById("c-total").textContent = total_co2eq.toFixed(4);
+ 
+         document.getElementById("a-orig").textContent = total_co2eq.toFixed(4);
+         document.getElementById("a-opt").textContent =
+           total_optimized_co2eq.toFixed(4);
+         document.getElementById("a-total").textContent =
+           reduction_co2eq.toFixed(4);
+       }
+ 
+       window.onload = updateImpact;
+ 
+       (function () {
+         const btns = document.querySelectorAll(".tab-btn");
+         const img = document.getElementById("previewImage");
+ 
+-        const srcOriginal = "{{ url_for('static', filename=results.debug_screenshots.original) }}";
+-        const srcOptimized = "{{ url_for('static', filename=results.debug_screenshots.optimized) }}";
++        const srcOriginal = "{{ results.debug_screenshots.original }}";
++        const srcOptimized = "{{ results.debug_screenshots.optimized }}";
+ 
+         btns.forEach(btn => {
+           btn.addEventListener("click", () => {
+             btns.forEach(b => b.classList.remove("active"));
+             btn.classList.add("active");
+ 
+             const target = btn.getAttribute("data-target");
+             img.src = (target === "optimized") ? srcOptimized : srcOriginal;
+           });
+         });
+       })();
+     </script>
+   </body>
+ </html>
 diff --git a/engine/core/pipeline/gui_pipeline.py b/engine/core/pipeline/gui_pipeline.py
-index 36ec2ee83cd56aed530e8fd2c2119d716e2a5426..fcbfed8bb1850bc815294b3f6ab8421c202802a9 100644
+index 36ec2ee83cd56aed530e8fd2c2119d716e2a5426..22449afcfe8d76236d49ff117d118f43f8842681 100644
 --- a/engine/core/pipeline/gui_pipeline.py
 +++ b/engine/core/pipeline/gui_pipeline.py
-@@ -1,40 +1,49 @@
+@@ -1,40 +1,48 @@
 +import os
  from typing import Any, Dict, Optional
  
-+from app.config import WORKSPACE_DIR
++from app.config import get_artifacts_dir
 +
  from engine.rendering.services.gui_analyzer import analyze_gui
  from engine.rendering.utils.pixel_processor import extract_pixels
@@ -258,17 +450,16 @@ index 36ec2ee83cd56aed530e8fd2c2119d716e2a5426..fcbfed8bb1850bc815294b3f6ab8421c
      if trace:
          trace.add_step(f"{label}.render_start", {"base_path": base_path, "output_image": output_image})
  
++    if output_image is None:
++        default_output_dir = get_artifacts_dir("default")
++        os.makedirs(default_output_dir, exist_ok=True)
++        output_image = os.path.join(default_output_dir, "gui_screenshot.png")
++
      pixels = analyze_gui(
          html_content=html_content,
          base_path=base_path,
 -        output_image=output_image or "data/output/gui_screenshot.png"
-+        output_image=output_image or os.path.join(
-+            WORKSPACE_DIR,
-+            "sessions",
-+            "session_<id>",
-+            "artifacts",
-+            "gui_screenshot.png",
-+        )
++        output_image=output_image
      )
  
      if trace:
@@ -285,6 +476,139 @@ index 36ec2ee83cd56aed530e8fd2c2119d716e2a5426..fcbfed8bb1850bc815294b3f6ab8421c
          trace.add_step(f"{label}.colors_classified", {"distinct_colors": len(color_data) if hasattr(color_data, "__len__") else None})
  
      return color_data
+diff --git a/engine/file_handling/services/file_handler.py b/engine/file_handling/services/file_handler.py
+index 07cd1e54e7de601858b551b25a385c6e3393706c..aed643bab4d5989b2aa3af738aeba4840ac6aa53 100644
+--- a/engine/file_handling/services/file_handler.py
++++ b/engine/file_handling/services/file_handler.py
+@@ -1,32 +1,32 @@
+ import os
+ import zipfile
+ import uuid
+ 
+ from werkzeug.utils import secure_filename
+ 
+-from app.config import ALLOWED_EXTENSIONS, ALLOWED_ZIP_CONTENT, INPUT_SESSIONS_DIR
++from app.config import ALLOWED_EXTENSIONS, ALLOWED_ZIP_CONTENT, get_input_dir
+ 
+ 
+ def allowed_file(filename: str) -> bool:
+     return os.path.splitext(filename)[1].lower() in ALLOWED_EXTENSIONS
+ 
+ 
+ def _is_safe_zip_member(member_name: str) -> bool:
+     """
+     Evita Zip Slip (../) y rutas absolutas.
+     Normaliza separadores para Windows/Linux.
+     """
+     name = member_name.replace("\\", "/")
+ 
+     # Evitar rutas absolutas o unidades tipo C:
+     if name.startswith("/") or (":" in name.split("/")[0]):
+         return False
+ 
+     # Evitar traversal
+     parts = [p for p in name.split("/") if p not in ("", ".")]
+     if any(p == ".." for p in parts):
+         return False
+ 
+     return True
+ 
+ 
+@@ -36,88 +36,89 @@ def _validate_zip_members(zip_ref: zipfile.ZipFile) -> str | None:
+     Retorna error string si algo falla; None si ok.
+     """
+     for member in zip_ref.infolist():
+         if member.is_dir():
+             continue
+ 
+         if not _is_safe_zip_member(member.filename):
+             return f"ZIP inseguro: {member.filename}"
+ 
+         ext = os.path.splitext(member.filename)[1].lower()
+         if ext and (ext not in ALLOWED_ZIP_CONTENT):
+             return f"Archivo no permitido en ZIP: {member.filename}"
+ 
+     return None
+ 
+ 
+ def _find_html_files(base_path: str) -> list[str]:
+     html_files = []
+     for root, _, files in os.walk(base_path):
+         for f in files:
+             if f.lower().endswith(".html"):
+                 html_files.append(os.path.join(root, f))
+     return html_files
+ 
+ 
+-def handle_uploaded_file(file):
++def handle_uploaded_file(file, session_id: str | None = None):
+     """
+     Retorna:
+       - (html_content, base_path) si ok
+       - "mensaje de error" si falla
+     """
+     if not file or not file.filename:
+         return "No se seleccionó ningún archivo."
+ 
+     ext = os.path.splitext(file.filename)[1].lower()
+     if ext not in ALLOWED_EXTENSIONS:
+         return "Archivo no permitido"
+ 
+-    session_id = str(uuid.uuid4())
+-    base_path = os.path.join(INPUT_SESSIONS_DIR, f"session_{session_id}")
++    if session_id is None:
++        session_id = str(uuid.uuid4())
++    base_path = get_input_dir(session_id)
+     os.makedirs(base_path, exist_ok=True)
+ 
+     # Guardar upload
+     safe_name = secure_filename(file.filename)
+     file_path = os.path.join(base_path, safe_name)
+     file.save(file_path)
+ 
+     # Caso HTML suelto (lo dejamos consistente: base_path no es None)
+     if ext == ".html":
+         try:
+             with open(file_path, "r", encoding="utf-8") as f:
+                 html_content = f.read()
+-            return html_content, base_path
++            return html_content, base_path, session_id
+         except Exception:
+             return "No se pudo leer el archivo HTML."
+ 
+     # Caso ZIP
+     if ext == ".zip":
+         try:
+             with zipfile.ZipFile(file_path, "r") as zip_ref:
+                 err = _validate_zip_members(zip_ref)
+                 if err:
+                     return err
+ 
+                 zip_ref.extractall(base_path)
+         except zipfile.BadZipFile:
+             return "ZIP corrupto"
+         except Exception:
+             return "No se pudo extraer el ZIP"
+ 
+         # Buscar HTML dentro del ZIP
+         html_files = _find_html_files(base_path)
+         if not html_files:
+             return "No se encontró HTML en el ZIP"
+ 
+         # Si hay más de uno, no decido aquí: solo lo reporto claro.
+         if len(html_files) > 1:
+             return f"Se encontraron múltiples archivos .html en el ZIP: {html_files}"
+ 
+         html_file = html_files[0]
+         try:
+             with open(html_file, "r", encoding="utf-8") as f:
+                 html_content = f.read()
+-            return html_content, base_path
++            return html_content, base_path, session_id
+         except Exception:
+             return "No se pudo leer el HTML dentro del ZIP."
+ 
+     return "Archivo no permitido"
 diff --git a/engine/file_handling/services/project_assets.py b/engine/file_handling/services/project_assets.py
 index ae3a078311b5b29f9058d2e8f9726df70cbfe2f9..9fe004db6c66a92d1ea781f1cf5db55762ceee9a 100644
 --- a/engine/file_handling/services/project_assets.py
@@ -347,40 +671,114 @@ index ae3a078311b5b29f9058d2e8f9726df70cbfe2f9..9fe004db6c66a92d1ea781f1cf5db557
 +                    destino = os.path.join(static_session_dir, relativo)
 +                    os.makedirs(os.path.dirname(destino), exist_ok=True)
 +                    shutil.copy2(origen, destino)
+diff --git a/engine/file_handling/services/session_cleaner.py b/engine/file_handling/services/session_cleaner.py
+index 2f0980d353d66f07ee79b0da10c1b9c6e7d83200..75bd77ed5af8d53b3eae5afe81c8ee893cd78029 100644
+--- a/engine/file_handling/services/session_cleaner.py
++++ b/engine/file_handling/services/session_cleaner.py
+@@ -1,80 +1,84 @@
+ import os
+ import time
+ import shutil
+ 
+-from app.config import SESSION_EXPIRE_MINUTES, INPUT_SESSIONS_DIR, STATIC_CORRECTED_DIR
++from app.config import (
++    SESSION_EXPIRE_MINUTES,
++    SESSIONS_BASE_DIR,
++    INPUT_DIRNAME,
++    OUTPUT_DIRNAME,
++    ARTIFACTS_DIRNAME,
++)
+ 
+ 
+ # archivos temporales que pueden quedar si hubo crash durante render
+ TEMP_RENDER_FILES = {"__glow_render__.html"}
+ 
+ def clean_old_sessions():
+     """
+     Limpia inputs temporales y outputs de sesiones.
+ 
+-    - /data/input/session_* : borra sesiones viejas
+-    - /static/corrected/<session_id>/ : borra sesiones viejas o vacías
+-    - /static/corrected/<session_id>.zip : borra zips viejos
++    - /workspace/sessions/session_*/input : borra sesiones viejas
++    - /workspace/sessions/session_*/output : borra sesiones viejas
++    - /workspace/sessions/session_*/artifacts : borra sesiones viejas
+     - Limpia archivos temporales __glow_render__.html dentro de carpetas de sesión
+       (solo si la sesión ya expiró o si el directorio está vacío/colgado).
+     """
+     now = time.time()
+ 
+-    # 1) /data/input/session_*
+-    _clean_dirs(base_dir=INPUT_SESSIONS_DIR, prefix="session_", now=now)
++    _clean_session_dirs(base_dir=SESSIONS_BASE_DIR, prefix="session_", now=now)
+ 
+-    # 2) /static/corrected/<session_id> (carpetas)
+-    _clean_dirs(base_dir=STATIC_CORRECTED_DIR, prefix="", now=now)
+ 
+-    # 3) /static/corrected/<session_id>.zip
+-    _clean_zips(base_dir=STATIC_CORRECTED_DIR, now=now)
+-
+-
+-def _clean_dirs(base_dir: str, prefix: str, now: float) -> None:
++def _clean_session_dirs(base_dir: str, prefix: str, now: float) -> None:
+     if not os.path.exists(base_dir):
+         return
+ 
+     for name in os.listdir(base_dir):
+         path = os.path.join(base_dir, name)
+ 
+         if not os.path.isdir(path):
+             continue
+ 
+         if prefix and not name.startswith(prefix):
+             continue
+ 
+         age_minutes = (now - os.path.getmtime(path)) / 60.0
+ 
+         # A) Si expiró -> borrar TODO
+         if age_minutes > SESSION_EXPIRE_MINUTES:
+             _safe_rmtree(path)
+             continue
+ 
+         # B) Si no expiró: limpieza ligera
+         #    - borrar archivos temporales si existen (por si quedaron colgados)
+-        _remove_temp_files(path)
++        for subdir in (INPUT_DIRNAME, OUTPUT_DIRNAME, ARTIFACTS_DIRNAME):
++            subdir_path = os.path.join(path, subdir)
++            if os.path.exists(subdir_path):
++                _remove_temp_files(subdir_path)
++                if _is_dir_empty(subdir_path) and age_minutes > 1:
++                    _safe_rmtree(subdir_path)
+ 
+         #    - si está vacío y ya pasó 1 minuto -> borrar carpeta
+         if _is_dir_empty(path) and age_minutes > 1:
+             _safe_rmtree(path)
+ 
+ 
+ def _clean_zips(base_dir: str, now: float) -> None:
+     if not os.path.exists(base_dir):
+         return
+ 
+     for name in os.listdir(base_dir):
+         path = os.path.join(base_dir, name)
+         if os.path.isfile(path) and name.lower().endswith(".zip"):
+             age_minutes = (now - os.path.getmtime(path)) / 60.0
+             if age_minutes > SESSION_EXPIRE_MINUTES:
+                 _safe_remove(path)
+ 
+ 
+ def _remove_temp_files(dir_path: str) -> None:
+     """
+     Borra archivos temporales de render dentro de un dir (recursivo).
+     Es seguro porque esos archivos no deben formar parte del resultado final.
+     """
+     try:
+         for root, _, files in os.walk(dir_path):
 diff --git a/engine/transformation/services/heuristic_evaluator.py b/engine/transformation/services/heuristic_evaluator.py
-index 5ca06394bc5895e24fde7e16f03443a9f487dad5..e913ef76459fc0d69f30e313cae08858ed7cb428 100644
+index 5ca06394bc5895e24fde7e16f03443a9f487dad5..7767c0121207173e23ef37b3ff42387249cb525c 100644
 --- a/engine/transformation/services/heuristic_evaluator.py
 +++ b/engine/transformation/services/heuristic_evaluator.py
-@@ -1,26 +1,28 @@
- import os
-+
-+from app.config import WORKSPACE_DIR
- import re
- from bs4 import BeautifulSoup
- from engine.recommendations.utils.color_utils import (
-     parse_rgb,
-     rgb_to_css,
-     is_light_color,
-     contrast_ratio,
-     brighten_color,
- )
- 
- def rgb_string_to_tuple(color_str):
-     color_str = color_str.strip().lower().replace("rgb(", "").replace(")", "")
-     try:
-         return tuple(map(int, color_str.split(",")))
-     except:
-         return None
- 
- def hex_to_rgb(hex_color):
-     hex_color = hex_color.strip().lstrip('#')
-     if len(hex_color) == 3:
-         hex_color = ''.join([c * 2 for c in hex_color])
-     try:
-         return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-     except:
-         return None
-@@ -44,50 +46,60 @@ def ajustar_gradiente_correcto(linea, contexto, detalles_colores):
+@@ -44,50 +44,60 @@ def ajustar_gradiente_correcto(linea, contexto, detalles_colores):
              try:
                  rgb = tuple(map(int, rgb_val.split(",")))
                  if is_energy_intensive(rgb):
@@ -409,7 +807,7 @@ index 5ca06394bc5895e24fde7e16f03443a9f487dad5..e913ef76459fc0d69f30e313cae08858
 +    if session_id:
 +        html_name = os.path.basename(output_path)
 +        expected_dir = os.path.abspath(
-+            os.path.join(WORKSPACE_DIR, "sessions", f"session_{session_id}", "output")
++            os.path.join("workspace", "sessions", f"session_{session_id}", "output")
 +        )
 +        normalized_output = os.path.abspath(output_path)
 +        if os.path.commonpath([normalized_output, expected_dir]) != expected_dir:
