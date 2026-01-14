@@ -21,8 +21,8 @@ from engine.file_handling.services.project_assets import (
 )
 
 from engine.analysis.utils.html_parser import parse_html
-from engine.metrics.services.energy_calculator import EnergyModel, CarbonFootprintCalculator
-from engine.metrics.services.sci_rating import compute_rating_from_sci
+from engine.metrics.sustainable_metrics import CarbonFootprintCalculator, estimate_sustainable_metrics
+from engine.metrics.utils.default_energy_model import build_default_energy_model
 from engine.transformation.heuristics import evaluar_y_corregir_heuristicas
 from engine.core.pipeline.gui_pipeline import analyze_gui_to_color_data
 from engine.core.pipeline.results_compiler import compile_results
@@ -31,14 +31,7 @@ from engine.core.utils.debug_logger import DebugTrace
 
 main = Blueprint("main", __name__)
 
-#es dummy
-energy_model = EnergyModel(
-    [1.804551146759771e-07, -3.0220347704227896e-07, 1.4154405902803595e-07],
-    [9.412383738420182e-08, -1.5781520809511624e-07, 7.546610037732226e-08],
-    [1.3946409007268839e-08, -2.4495186160412765e-08, 1.598790315272048e-08],
-    0.120833
-)
-
+energy_model = build_default_energy_model()
 calculator = CarbonFootprintCalculator()
 
 
@@ -109,17 +102,18 @@ def results():
         label="original"
     )
 
-    total_current = energy_model.calculate_power(color_data)
-    footprint = calculator.calculate(total_current, time_hours=1)
-    sci_score = footprint["sci_score"]
-    rating = compute_rating_from_sci(sci_score)
+    footprint = estimate_sustainable_metrics(
+        color_data,
+        energy_model,
+        time_hours=1,
+        calculator=calculator,
+    )
+    total_current = footprint["current_a"]
 
     trace.add_step("metrics.original", {
         "total_current": total_current,
         "energy_wh": footprint.get("energy_wh"),
         "co2eq_per_use": footprint.get("co2eq_per_use"),
-        "sci_score": sci_score,
-        "rating": rating
     })
 
     # --- OPTIMIZACIÓN ---
@@ -154,14 +148,18 @@ def results():
         label="optimized"
     )
 
-    optimized_current = energy_model.calculate_power(color_data_optimized)
-    optimized_footprint = calculator.calculate(optimized_current, time_hours=1)
+    optimized_footprint = estimate_sustainable_metrics(
+        color_data_optimized,
+        energy_model,
+        time_hours=1,
+        calculator=calculator,
+    )
+    optimized_current = optimized_footprint["current_a"]
 
     trace.add_step("metrics.optimized", {
         "optimized_current": optimized_current,
         "optimized_energy_wh": optimized_footprint.get("energy_wh"),
         "optimized_co2eq_per_use": optimized_footprint.get("co2eq_per_use"),
-        "optimized_sci_score": optimized_footprint.get("sci_score"),
     })
 
     results_output_path = os.path.join(static_session_dir, "results.json")
@@ -169,7 +167,6 @@ def results():
         total_current=total_current,
         footprint=footprint,
         optimized_footprint=optimized_footprint,
-        rating=rating,
         session_id=session_id,
         html_filename=html_filename,
         resultados_heuristicas=resultados_heuristicas,

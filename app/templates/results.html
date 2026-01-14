@@ -26,51 +26,6 @@
       <h1>Resultados del análisis</h1>
 
       <div class="metrics-grid">
-        <!-- SCI SCORE -->
-        <styled-card>
-          <span slot="header">SCI Score</span>
-          <span slot="value">{{ results.sci_score | round(3) }}</span>
-          <span slot="description">
-            <strong>¿Qué es?</strong> Sustainable Computing Index (SCI). Mide el
-            impacto ambiental por uso.
-            <br />
-            <strong>Fórmula:</strong> <code>((E × I) + M) / R</code>
-            <details>
-              <summary>Ver cálculo</summary>
-              <ul>
-                <li>
-                  <strong>E:</strong>
-                  <span id="sci-e">{{ results.energy_wh | round(4) }}</span> Wh
-                  =
-                  <span id="sci-ekwh"
-                    >{{ (results.energy_wh / 1000) | round(6) }}</span
-                  >
-                  kWh
-                </li>
-
-                <li>
-                  <strong>E × I = CO₂eq:</strong>
-                  <span id="sci-co2eq"
-                    >{{ results.carbon_footprint | round(4) }}</span
-                  >
-                  kg CO₂eq
-                </li>
-                <li><strong>M:</strong> 0</li>
-                <li><strong>R:</strong> 1</li>
-                <li>
-                  <strong>Resultado:</strong> ({{ results.carbon_footprint |
-                  round(4) }} + 0) ÷ 1 =
-                  <strong>{{ results.sci_score | round(3) }}</strong>
-                </li>
-              </ul>
-            </details>
-            <em
-              >Excelente &lt; 0.3 | Bueno &lt; 0.6 | Regular &lt; 1.0 | Alto
-              &gt; 1.0</em
-            >
-          </span>
-        </styled-card>
-
         <!-- ENERGÍA -->
         <styled-card id="energy_card">
           <span slot="header">Consumo energético</span>

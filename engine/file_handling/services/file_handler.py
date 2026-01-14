@@ -48,19 +48,10 @@ def _validate_zip_members(zip_ref: zipfile.ZipFile) -> str | None:
     return None
 
 
-def _find_html_files(base_path: str) -> list[str]:
-    html_files = []
-    for root, _, files in os.walk(base_path):
-        for f in files:
-            if f.lower().endswith(".html"):
-                html_files.append(os.path.join(root, f))
-    return html_files
-
-
 def handle_uploaded_file(file, session_id: str):
     """
     Retorna:
-      - (html_content, base_path, session_id) si ok
+      - (base_path, session_id, uploaded_path) si ok
       - "mensaje de error" si falla
     """
     if not file or not file.filename:
@@ -78,14 +69,9 @@ def handle_uploaded_file(file, session_id: str):
     file_path = os.path.join(base_path, safe_name)
     file.save(file_path)
 
-    # Caso HTML suelto (lo dejamos consistente: base_path no es None)
+    # Caso HTML suelto
     if ext == ".html":
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                html_content = f.read()
-            return html_content, base_path, session_id
-        except Exception:
-            return "No se pudo leer el archivo HTML."
+        return base_path, session_id, file_path
 
     # Caso ZIP
     if ext == ".zip":
@@ -101,21 +87,6 @@ def handle_uploaded_file(file, session_id: str):
         except Exception:
             return "No se pudo extraer el ZIP"
 
-        # Buscar HTML dentro del ZIP
-        html_files = _find_html_files(base_path)
-        if not html_files:
-            return "No se encontró HTML en el ZIP"
-
-        # Si hay más de uno, no decido aquí: solo lo reporto claro.
-        if len(html_files) > 1:
-            return f"Se encontraron múltiples archivos .html en el ZIP: {html_files}"
-
-        html_file = html_files[0]
-        try:
-            with open(html_file, "r", encoding="utf-8") as f:
-                html_content = f.read()
-            return html_content, base_path, session_id
-        except Exception:
-            return "No se pudo leer el HTML dentro del ZIP."
+        return base_path, session_id, file_path
 
     return "Archivo no permitido"
