@@ -7,6 +7,10 @@ ALLOWED_EXTENSIONS = {'.html', '.zip'}
 ALLOWED_ZIP_CONTENT = {'.html', '.css', '.js', '.png', '.jpg', '.jpeg', '.svg'}
 SESSION_EXPIRE_MINUTES = 60
 
+APP_ROOT = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(APP_ROOT, "static")
+CORRECTED_DIRNAME = "corrected"
+
 SESSIONS_BASE_DIR = os.getenv("GUI_OPT_SESSIONS_DIR", os.path.join("workspace", "sessions"))
 SESSION_DIR_PATTERN = "session_{session_id}"
 INPUT_DIRNAME = "input"
@@ -28,3 +32,7 @@ def get_output_dir(session_id: str) -> str:
 
 def get_artifacts_dir(session_id: str) -> str:
     return os.path.join(get_session_dir(session_id), ARTIFACTS_DIRNAME)
+
+
+def get_static_corrected_dir(session_id: str) -> str:
+    return os.path.join(STATIC_DIR, CORRECTED_DIRNAME, session_id)

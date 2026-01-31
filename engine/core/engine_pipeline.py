@@ -4,7 +4,7 @@ import os
 import shutil
 from flask import url_for
 
-from app.config import get_output_dir, get_artifacts_dir
+from app.config import get_output_dir, get_artifacts_dir, get_static_corrected_dir
 from engine.analysis.utils.html_parser import parse_html
 from engine.core.pipeline.results_compiler import compile_results
 from engine.core.utils.debug_logger import DebugTrace
@@ -80,12 +80,15 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     static_dirs = prepare_static_session_dir(session_id)
     output_dir = static_dirs["output_dir"]
     artifacts_dir = static_dirs["artifacts_dir"]
+    static_corrected_dir = get_static_corrected_dir(session_id)
+    os.makedirs(static_corrected_dir, exist_ok=True)
     trace.add_step(
         "session.created",
         {
             "session_id": session_id,
             "output_dir": output_dir,
             "artifacts_dir": artifacts_dir,
+            "static_corrected_dir": static_corrected_dir,
         },
     )
 
@@ -93,11 +96,7 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     trace.add_step("analysis.html_parsed", {"components_type": str(type(components))})
 
     original_screenshot_abs = os.path.join(artifacts_dir, "debug_original.png")
-    original_screenshot_url = url_for(
-        "main.session_artifact",
-        session_id=session_id,
-        filename="debug_original.png",
-    )
+    original_screenshot_rel = f"corrected/{session_id}/debug_original.png"
 
     color_data = analyze_gui_to_color_data(
         html_content=html_content,
@@ -106,6 +105,10 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         session_id=session_id,
         trace=trace,
         label="original",
+    )
+    shutil.copy2(
+        original_screenshot_abs,
+        os.path.join(static_corrected_dir, "debug_original.png"),
     )
 
     footprint = estimate_sustainable_metrics(
@@ -163,11 +166,7 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     trace.add_step("opt.html_loaded", {"html_optimized_path": html_optimized_path})
 
     optimized_screenshot_abs = os.path.join(artifacts_dir, "debug_optimized.png")
-    optimized_screenshot_url = url_for(
-        "main.session_artifact",
-        session_id=session_id,
-        filename="debug_optimized.png",
-    )
+    optimized_screenshot_rel = f"corrected/{session_id}/debug_optimized.png"
 
     color_data_optimized = analyze_gui_to_color_data(
         html_content=html_optimized_content,
@@ -176,6 +175,10 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         session_id=session_id,
         trace=trace,
         label="optimized",
+    )
+    shutil.copy2(
+        optimized_screenshot_abs,
+        os.path.join(static_corrected_dir, "debug_optimized.png"),
     )
 
     optimized_footprint = estimate_sustainable_metrics(
@@ -204,8 +207,8 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         html_filename=html_filename,
         resultados_heuristicas=resultados_heuristicas,
         trace=trace,
-        original_screenshot_rel=original_screenshot_url,
-        optimized_screenshot_rel=optimized_screenshot_url,
+        original_screenshot_rel=original_screenshot_rel,
+        optimized_screenshot_rel=optimized_screenshot_rel,
         results_output_path=results_output_path,
     )
 
