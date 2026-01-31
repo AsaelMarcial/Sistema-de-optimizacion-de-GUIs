@@ -49,11 +49,10 @@ def analyze_gui_to_color_data(
 
 
 def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-    clean_old_sessions()
-
     trace = DebugTrace(enabled=True)
 
     session_id = generate_session_id()
+    clean_old_sessions(active_session_id=session_id)
 
     if not file:
         return None, "No se seleccionó ningún archivo."
