@@ -4,7 +4,7 @@ import os
 import shutil
 from flask import url_for
 
-from app.config import get_output_dir, get_artifacts_dir, get_static_corrected_dir
+from app.config import get_artifacts_dir, get_output_dir, get_session_dirname
 from engine.analysis.utils.html_parser import parse_html
 from engine.core.pipeline.results_compiler import compile_results
 from engine.core.utils.debug_logger import DebugTrace
@@ -79,15 +79,14 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     static_dirs = prepare_static_session_dir(session_id)
     output_dir = static_dirs["output_dir"]
     artifacts_dir = static_dirs["artifacts_dir"]
-    static_corrected_dir = get_static_corrected_dir(session_id)
-    os.makedirs(static_corrected_dir, exist_ok=True)
+    session_dirname = get_session_dirname(session_id)
     trace.add_step(
         "session.created",
         {
             "session_id": session_id,
             "output_dir": output_dir,
             "artifacts_dir": artifacts_dir,
-            "static_corrected_dir": static_corrected_dir,
+            "session_dirname": session_dirname,
         },
     )
 
@@ -95,7 +94,7 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     trace.add_step("analysis.html_parsed", {"components_type": str(type(components))})
 
     original_screenshot_abs = os.path.join(artifacts_dir, "debug_original.png")
-    original_screenshot_rel = f"corrected/{session_id}/debug_original.png"
+    original_screenshot_name = "debug_original.png"
 
     color_data = analyze_gui_to_color_data(
         html_content=html_content,
@@ -104,10 +103,6 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         session_id=session_id,
         trace=trace,
         label="original",
-    )
-    shutil.copy2(
-        original_screenshot_abs,
-        os.path.join(static_corrected_dir, "debug_original.png"),
     )
 
     footprint = estimate_sustainable_metrics(
@@ -147,15 +142,16 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
 
     trace.add_step("opt.resources_copied", {"output_dir": output_dir})
 
+    zip_filename = f"{session_dirname}.zip"
     zip_temp_base = os.path.join(artifacts_dir, f"{session_id}_bundle")
     zip_temp_path = f"{zip_temp_base}.zip"
     shutil.make_archive(zip_temp_base, "zip", output_dir)
-    zip_output_path = os.path.join(output_dir, f"{session_id}.zip")
+    zip_output_path = os.path.join(output_dir, zip_filename)
     shutil.move(zip_temp_path, zip_output_path)
     zip_download_url = url_for(
         "main.session_output",
-        session_id=session_id,
-        filename=f"{session_id}.zip",
+        session_id=session_dirname,
+        filename=zip_filename,
     )
     trace.add_step("opt.zip_created", {"zip_output_path": zip_output_path})
 
@@ -165,7 +161,7 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     trace.add_step("opt.html_loaded", {"html_optimized_path": html_optimized_path})
 
     optimized_screenshot_abs = os.path.join(artifacts_dir, "debug_optimized.png")
-    optimized_screenshot_rel = f"corrected/{session_id}/debug_optimized.png"
+    optimized_screenshot_name = "debug_optimized.png"
 
     color_data_optimized = analyze_gui_to_color_data(
         html_content=html_optimized_content,
@@ -174,10 +170,6 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         session_id=session_id,
         trace=trace,
         label="optimized",
-    )
-    shutil.copy2(
-        optimized_screenshot_abs,
-        os.path.join(static_corrected_dir, "debug_optimized.png"),
     )
 
     optimized_footprint = estimate_sustainable_metrics(
@@ -206,8 +198,9 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         html_filename=html_filename,
         resultados_heuristicas=resultados_heuristicas,
         trace=trace,
-        original_screenshot_rel=original_screenshot_rel,
-        optimized_screenshot_rel=optimized_screenshot_rel,
+        original_screenshot_rel=original_screenshot_name,
+        optimized_screenshot_rel=optimized_screenshot_name,
+        session_dirname=session_dirname,
         results_output_path=results_output_path,
     )
 

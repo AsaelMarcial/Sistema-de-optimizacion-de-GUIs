@@ -14,6 +14,7 @@ def compile_results(
     trace: Optional[Any],
     original_screenshot_rel: str,
     optimized_screenshot_rel: str,
+    session_dirname: str,
     results_output_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     results = {
@@ -23,6 +24,7 @@ def compile_results(
         "optimized_energy_wh": optimized_footprint["energy_wh"],
         "optimized_co2eq_per_use": optimized_footprint["co2eq_per_use"],
         "session_id": session_id,
+        "session_dirname": session_dirname,
         "html_name": html_filename,
         "heuristicas": resultados_heuristicas,
         "debug": trace.to_dict() if trace else None,
