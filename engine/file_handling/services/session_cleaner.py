@@ -2,7 +2,7 @@ import os
 import time
 import shutil
 
-from app.config import CORRECTED_DIRNAME, SESSION_EXPIRE_MINUTES, STATIC_DIR
+from app.config import SESSION_EXPIRE_MINUTES
 from engine.file_handling.services.session_handler import (
     get_session_dir_prefix,
     get_sessions_base_dir,
@@ -22,8 +22,6 @@ def clean_old_sessions(active_session_id: str | None = None) -> None:
     - /workspace/sessions/session_<id>/artifacts : borra sesiones viejas
     - Limpia archivos temporales __glow_render__.html dentro de carpetas de sesión
       (solo si la sesión ya expiró o si el directorio está vacío/colgado).
-    - /app/static/corrected/<session_id>/ : borra sesiones viejas
-    - /app/static/corrected/<session_id>.zip : borra zips viejos
     """
     now = time.time()
     protected_session_ids = {active_session_id} if active_session_id else set()
@@ -35,11 +33,6 @@ def clean_old_sessions(active_session_id: str | None = None) -> None:
         protected_session_ids=protected_session_ids,
     )
 
-    _clean_static_corrected(
-        base_dir=os.path.join(STATIC_DIR, CORRECTED_DIRNAME),
-        now=now,
-        protected_session_ids=protected_session_ids,
-    )
 
 
 def _clean_session_dirs(
@@ -85,38 +78,6 @@ def _clean_session_dirs(
             _safe_rmtree(path)
 
 
-def _clean_static_corrected(
-    base_dir: str,
-    now: float,
-    protected_session_ids: set[str],
-) -> None:
-    if not os.path.exists(base_dir):
-        return
-
-    protected_dirs = {os.path.join(base_dir, session_id) for session_id in protected_session_ids}
-
-    for name in os.listdir(base_dir):
-        path = os.path.join(base_dir, name)
-
-        if os.path.isdir(path):
-            if name in protected_session_ids:
-                continue
-            age_minutes = (now - os.path.getmtime(path)) / 60.0
-            if age_minutes > SESSION_EXPIRE_MINUTES:
-                _safe_rmtree(path)
-            continue
-
-        if name.endswith(".zip"):
-            session_id = name[: -len(".zip")]
-            if session_id in protected_session_ids:
-                continue
-            age_minutes = (now - os.path.getmtime(path)) / 60.0
-            if age_minutes > SESSION_EXPIRE_MINUTES:
-                _safe_remove(path)
-
-    _remove_empty_dirs(base_dir, protected_dirs)
-
-
 def _remove_temp_files(dir_path: str) -> None:
     """
     Borra archivos temporales de render dentro de un dir (recursivo).
@@ -151,20 +112,3 @@ def _safe_remove(path: str) -> None:
     except Exception:
         pass
 
-
-def _remove_empty_dirs(base_dir: str, protected_dirs: set[str]) -> None:
-    for root, dirs, _ in os.walk(base_dir, topdown=False):
-        if root == base_dir:
-            continue
-        if root in protected_dirs:
-            continue
-        for dirname in dirs:
-            dir_path = os.path.join(root, dirname)
-            if dir_path in protected_dirs:
-                continue
-            if _is_dir_empty(dir_path):
-                _safe_rmtree(dir_path)
-        if root in protected_dirs:
-            continue
-        if _is_dir_empty(root):
-            _safe_rmtree(root)

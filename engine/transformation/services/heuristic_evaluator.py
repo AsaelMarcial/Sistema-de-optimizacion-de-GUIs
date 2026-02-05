@@ -193,8 +193,11 @@ def evaluar_y_corregir_heuristicas(html_content, output_path, base_path, session
 
     # Optimización de CSS externo
     for link in soup.find_all("link", href=True):
-        if link["href"].endswith(".css"):
-            ruta_css = os.path.join(base_path, link["href"])
+        href = link["href"]
+        if href.startswith(("http://", "https://", "//")):
+            continue
+        if href.endswith(".css"):
+            ruta_css = os.path.join(base_path, href.lstrip("/"))
             if os.path.exists(ruta_css):
                 with open(ruta_css, "r", encoding="utf-8") as f:
                     lines = f.readlines()
@@ -233,7 +236,9 @@ def evaluar_y_corregir_heuristicas(html_content, output_path, base_path, session
         attr = "href" if tag.name == "link" else "src"
         if tag.has_attr(attr):
             path = tag[attr]
-            clean_path = os.path.normpath(path).replace("\\", "/")
+            if path.startswith(("http://", "https://", "//", "data:")):
+                continue
+            clean_path = os.path.normpath(path.lstrip("/")).replace("\\", "/")
             while clean_path.startswith("../") or clean_path.startswith("./"):
                 if clean_path.startswith("../"):
                     clean_path = clean_path[3:]
