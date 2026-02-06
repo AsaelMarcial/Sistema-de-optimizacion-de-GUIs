@@ -18,7 +18,10 @@ from engine.file_handling.services.session_handler import (
     generate_session_id,
     prepare_static_session_dir,
 )
-from engine.metrics.sustainable_metrics import CarbonFootprintCalculator, estimate_sustainable_metrics
+from engine.metrics.sustainable_metrics import (
+    CarbonFootprintCalculator,
+    estimate_sustainable_metrics,
+)
 from engine.metrics.utils.default_energy_model import build_default_energy_model
 from engine.rendering.screenshot_analyzer import analyze_screenshot_to_color_data
 from engine.transformation.heuristics import evaluar_y_corregir_heuristicas
@@ -123,7 +126,7 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     )
 
     copiar_recursos(base_path, output_dir)
-    trace.add_step("opt.resources_prepared", {"output_dir": output_dir})
+    trace.add_step("transformed.resources_prepared", {"output_dir": output_dir})
 
     resultados_heuristicas = evaluar_y_corregir_heuristicas(
         html_content,
@@ -132,7 +135,7 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         session_id,
     )
     trace.add_step(
-        "opt.heuristics_applied",
+        "transformed.heuristics_applied",
         {
             "heuristics_count": (
                 len(resultados_heuristicas) if hasattr(resultados_heuristicas, "__len__") else None
@@ -140,7 +143,7 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         },
     )
 
-    trace.add_step("opt.resources_copied", {"output_dir": output_dir})
+    trace.add_step("transformed.resources_copied", {"output_dir": output_dir})
 
     zip_filename = f"{session_dirname}.zip"
     zip_temp_base = os.path.join(artifacts_dir, f"{session_id}_bundle")
@@ -153,39 +156,39 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         session_id=session_dirname,
         filename=zip_filename,
     )
-    trace.add_step("opt.zip_created", {"zip_output_path": zip_output_path})
+    trace.add_step("transformed.zip_created", {"zip_output_path": zip_output_path})
 
-    html_optimized_path = os.path.join(output_dir, html_filename)
-    with open(html_optimized_path, "r", encoding="utf-8") as f:
-        html_optimized_content = f.read()
-    trace.add_step("opt.html_loaded", {"html_optimized_path": html_optimized_path})
+    html_sustainable_path = os.path.join(output_dir, html_filename)
+    with open(html_sustainable_path, "r", encoding="utf-8") as f:
+        html_sustainable_content = f.read()
+    trace.add_step("transformed.html_loaded", {"html_sustainable_path": html_sustainable_path})
 
-    optimized_screenshot_abs = os.path.join(artifacts_dir, "debug_optimized.png")
-    optimized_screenshot_name = "debug_optimized.png"
+    sustainable_screenshot_abs = os.path.join(artifacts_dir, "debug_sustainable.png")
+    sustainable_screenshot_name = "debug_sustainable.png"
 
-    color_data_optimized = analyze_gui_to_color_data(
-        html_content=html_optimized_content,
+    color_data_sustainable = analyze_gui_to_color_data(
+        html_content=html_sustainable_content,
         base_path=output_dir,
-        output_image=optimized_screenshot_abs,
+        output_image=sustainable_screenshot_abs,
         session_id=session_id,
         trace=trace,
-        label="optimized",
+        label="sustainable",
     )
 
-    optimized_footprint = estimate_sustainable_metrics(
-        color_data_optimized,
+    sustainable_footprint = estimate_sustainable_metrics(
+        color_data_sustainable,
         energy_model,
         time_hours=1,
         calculator=calculator,
     )
-    optimized_current = optimized_footprint["current_a"]
+    sustainable_current = sustainable_footprint["current_a"]
 
     trace.add_step(
-        "metrics.optimized",
+        "metrics.sustainable",
         {
-            "optimized_current": optimized_current,
-            "optimized_energy_wh": optimized_footprint.get("energy_wh"),
-            "optimized_co2eq_per_use": optimized_footprint.get("co2eq_per_use"),
+            "sustainable_current": sustainable_current,
+            "sustainable_energy_wh": sustainable_footprint.get("energy_wh"),
+            "sustainable_co2eq_per_use": sustainable_footprint.get("co2eq_per_use"),
         },
     )
 
@@ -193,13 +196,13 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     results = compile_results(
         total_current=total_current,
         footprint=footprint,
-        optimized_footprint=optimized_footprint,
+        sustainable_footprint=sustainable_footprint,
         session_id=session_id,
         html_filename=html_filename,
         resultados_heuristicas=resultados_heuristicas,
         trace=trace,
         original_screenshot_rel=original_screenshot_name,
-        optimized_screenshot_rel=optimized_screenshot_name,
+        sustainable_screenshot_rel=sustainable_screenshot_name,
         session_dirname=session_dirname,
         results_output_path=results_output_path,
     )

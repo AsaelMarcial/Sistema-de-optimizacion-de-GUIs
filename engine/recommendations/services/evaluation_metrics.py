@@ -8,17 +8,17 @@ def luminance(rgb):
 
 def calculate_reduction(before_rgb, after_rgb):
     initial_lum = luminance(before_rgb)
-    optimized_lum = luminance(after_rgb)
+    sustainable_lum = luminance(after_rgb)
     if initial_lum == 0:
         return 0.0
-    reduction = ((initial_lum - optimized_lum) / initial_lum) * 100
+    reduction = ((initial_lum - sustainable_lum) / initial_lum) * 100
     return round(reduction, 2)
 
 
-def build_heuristics_results(optimized_components):
+def build_heuristics_results(sustainable_components):
     heuristics_dict = defaultdict(lambda: {"detalles": [], "comparativas": []})
 
-    for comp in optimized_components:
+    for comp in sustainable_components:
         ahorro = calculate_reduction(comp["before_rgb"], comp["after_rgb"])
 
         heuristics_dict[comp["heuristic"]]["comparativas"].append(
@@ -44,7 +44,7 @@ def build_heuristics_results(optimized_components):
                 "nombre": heuristic_name,
                 "cumple": True,
                 "recomendacion": (
-                    f"Se han optimizado {len(data['comparativas'])} componentes bajo la heurística "
+                    f"Se han transformado {len(data['comparativas'])} componentes bajo la heurística "
                     f"'{heuristic_name}'."
                 ),
                 "detalles": detalles,

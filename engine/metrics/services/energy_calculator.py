@@ -62,7 +62,7 @@ class CarbonFootprintCalculator:
 
         # Nuevos cálculos extendidos
         co2eq_total = co2eq * user_count * usage_hours
-        ahorro = 0  # Se calcula externamente comparando con optimizado
+        ahorro = 0  # Se calcula externamente comparando con sustainable
 
         return {
             "energy_wh": energy_wh,

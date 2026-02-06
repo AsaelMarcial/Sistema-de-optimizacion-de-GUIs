@@ -106,7 +106,7 @@ def evaluar_y_corregir_heuristicas(html_content, output_path, base_path, session
             return rgb_mod
         return rgb
 
-    # Optimización de CSS inline    
+    # Transformación de CSS inline
     for tag in soup.find_all(style=True):
         styles = {k.strip(): v.strip() for k,v in [x.split(":") for x in tag['style'].split(";") if ":" in x]}
         new_styles = {}
@@ -154,7 +154,7 @@ def evaluar_y_corregir_heuristicas(html_content, output_path, base_path, session
             del tag['style']
 
 
-    # Optimización de CSS embebido
+    # Transformación de CSS embebido
     for style_tag in soup.find_all("style"):
         if not style_tag.string:
             continue
@@ -191,7 +191,7 @@ def evaluar_y_corregir_heuristicas(html_content, output_path, base_path, session
         style_tag.string = "\n".join(new_lines)
 
 
-    # Optimización de CSS externo
+    # Transformación de CSS externo
     for link in soup.find_all("link", href=True):
         href = link["href"]
         if href.startswith(("http://", "https://", "//")):

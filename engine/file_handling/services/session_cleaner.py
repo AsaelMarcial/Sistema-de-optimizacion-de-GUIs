@@ -73,9 +73,11 @@ def _clean_session_dirs(
                 if _is_dir_empty(subdir_path) and age_minutes > 1:
                     _safe_rmtree(subdir_path)
 
-        #    - si está vacío y ya pasó 1 minuto -> borrar carpeta
-        if _is_dir_empty(path) and age_minutes > 1:
-            _safe_rmtree(path)
+        #    - si está vacío (o quedó con carpetas vacías) y ya pasó 1 minuto -> borrar carpeta
+        if age_minutes > 1:
+            _remove_empty_dirs(path)
+            if _is_dir_empty(path):
+                _safe_rmtree(path)
 
 
 def _remove_temp_files(dir_path: str) -> None:
@@ -112,3 +114,13 @@ def _safe_remove(path: str) -> None:
     except Exception:
         pass
 
+
+def _remove_empty_dirs(path: str) -> None:
+    try:
+        for root, dirs, _ in os.walk(path, topdown=False):
+            for name in dirs:
+                dir_path = os.path.join(root, name)
+                if _is_dir_empty(dir_path):
+                    _safe_rmtree(dir_path)
+    except Exception:
+        pass
