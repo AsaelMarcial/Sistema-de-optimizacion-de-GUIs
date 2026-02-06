@@ -21,8 +21,8 @@ Refactorizar módulo por módulo sin perder la versión funcional, manteniendo e
 3. Render GUI original → píxeles → colores
 4. Calcular energía/CO₂/SCI (1h, 1 usuario)
 5. Aplicar heurísticas + copiar recursos + zip
-6. Render GUI optimizada → píxeles → colores
-7. Calcular energía/CO₂/SCI optimizada
+6. Render GUI sustainable → píxeles → colores
+7. Calcular energía/CO₂/SCI sustainable
 8. Mostrar results + preview iframe + download ZIP
 
 ## Refactor plan (orden)

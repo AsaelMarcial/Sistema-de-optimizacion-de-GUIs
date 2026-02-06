@@ -28,7 +28,7 @@ El objetivo es moverlos por responsabilidad real (IO, análisis, rendering, mét
 ### `engine/analysis/`
 - `utils/html_parser.py` → `engine/analysis/utils/` (parsing HTML y extracción de componentes). ✅ Migrado.
 - `utils/file_manager.py` → `engine/analysis/utils/file_manager.py` (ubicación real verificada). ✅ Migrado.
-- Nuevas tareas futuras: inventario de estilos y análisis previo a optimización.
+- Nuevas tareas futuras: inventario de estilos y análisis previo a transformación.
 
 ### `engine/rendering/`
 - `utils/gui_analyzer.py` → `engine/rendering/services/gui_analyzer.py` (ubicación real verificada; renderizado de la GUI y captura). ✅ Migrado.
@@ -174,7 +174,7 @@ raíz (sin subcarpeta). Esta decisión queda congelada para la refactorización 
 - `app/static/images/logo-placeholder.svg`
 - `app/static/corrected/efb76026/debug_original.png`
 - `app/static/corrected/efb76026/assets/imagen-prueba.jpg`
-- `app/static/corrected/efb76026/debug_optimized.png`
+- `app/static/corrected/efb76026/debug_sustainable.png`
 - `app/static/corrected/efb76026/styles/estilos.css`
 - `app/static/corrected/efb76026/index.html`
 - `app/static/corrected/9af2bafc.zip`
@@ -182,25 +182,25 @@ raíz (sin subcarpeta). Esta decisión queda congelada para la refactorización 
 - `app/static/corrected/3769ccc4.zip`
 - `app/static/corrected/3769ccc4/debug_original.png`
 - `app/static/corrected/3769ccc4/assets/imagen-prueba.jpg`
-- `app/static/corrected/3769ccc4/debug_optimized.png`
+- `app/static/corrected/3769ccc4/debug_sustainable.png`
 - `app/static/corrected/3769ccc4/styles/estilos.css`
 - `app/static/corrected/3769ccc4/index.html`
 - `app/static/corrected/efb76026.zip`
 - `app/static/corrected/a1b97957.zip`
 - `app/static/corrected/55f14742/debug_original.png`
 - `app/static/corrected/55f14742/assets/imagen-prueba.jpg`
-- `app/static/corrected/55f14742/debug_optimized.png`
+- `app/static/corrected/55f14742/debug_sustainable.png`
 - `app/static/corrected/55f14742/styles/estilos.css`
 - `app/static/corrected/55f14742/index.html`
 - `app/static/corrected/index_corrected.html`
 - `app/static/corrected/9af2bafc/imagenes/imagen-prueba.jpg`
 - `app/static/corrected/9af2bafc/debug_original.png`
 - `app/static/corrected/9af2bafc/menu.html`
-- `app/static/corrected/9af2bafc/debug_optimized.png`
+- `app/static/corrected/9af2bafc/debug_sustainable.png`
 - `app/static/corrected/9af2bafc/css/estilos.css`
 - `app/static/corrected/a1b97957/debug_original.png`
 - `app/static/corrected/a1b97957/assets/imagen-prueba.jpg`
-- `app/static/corrected/a1b97957/debug_optimized.png`
+- `app/static/corrected/a1b97957/debug_sustainable.png`
 - `app/static/corrected/a1b97957/styles/estilos.css`
 - `app/static/corrected/a1b97957/index.html`
 - `app/static/css/styles.css`
