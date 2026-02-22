@@ -4,7 +4,7 @@ import os
 import shutil
 from flask import url_for
 
-from app.config import get_artifacts_dir, get_output_dir, get_session_dirname
+from app.config import get_session_dirname
 from engine.analysis.utils.html_parser import parse_html
 from engine.core.pipeline.results_compiler import compile_results
 from engine.core.utils.debug_logger import DebugTrace

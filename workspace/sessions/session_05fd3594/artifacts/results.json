@@ -2,9 +2,10 @@
     "total_current": 0.159612566887129,
     "carbon_footprint": 0.2805190863041292,
     "energy_wh": 0.5905664974823773,
-    "optimized_energy_wh": 0.46992268087359895,
-    "optimized_co2eq_per_use": 0.2232132734149595,
-    "session_id": "c35a96c6",
+    "sustainable_energy_wh": 0.46992268087359895,
+    "sustainable_co2eq_per_use": 0.2232132734149595,
+    "session_id": "05fd3594",
+    "session_dirname": "session_05fd3594",
     "html_name": "menu.html",
     "heuristicas": [
         {
@@ -51,84 +52,78 @@
         }
     ],
     "debug": {
-        "started_at": 1768384576.230079,
+        "started_at": 1771804062.1719627,
         "steps": [
             {
-                "t": 0.0015,
+                "t": 0.0216,
                 "step": "upload.received",
                 "data": {
                     "filename": "P\u00e1gina de prueba 2.zip"
                 }
             },
             {
-                "t": 0.0113,
+                "t": 0.0479,
                 "step": "upload.handled",
                 "data": {
-                    "base_path": "workspace\\sessions\\session_c35a96c6\\input"
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_05fd3594\\input"
                 }
             },
             {
-                "t": 0.0117,
+                "t": 0.0482,
                 "step": "project.base_path",
                 "data": {
-                    "base_path": "workspace\\sessions\\session_c35a96c6\\input\\Pagina"
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_05fd3594\\input\\Pagina"
                 }
             },
             {
-                "t": 0.0125,
+                "t": 0.0482,
                 "step": "project.html_detected",
                 "data": {
-                    "html_path": "workspace\\sessions\\session_c35a96c6\\input\\Pagina\\menu.html",
+                    "html_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_05fd3594\\input\\Pagina\\menu.html",
                     "html_name": "menu.html"
                 }
             },
             {
-                "t": 0.0349,
-                "step": "html.content_read",
-                "data": {
-                    "html_path": "workspace\\sessions\\session_c35a96c6\\input\\Pagina\\menu.html"
-                }
-            },
-            {
-                "t": 0.0363,
+                "t": 0.0491,
                 "step": "session.created",
                 "data": {
-                    "session_id": "c35a96c6",
-                    "output_dir": "workspace\\sessions\\session_c35a96c6\\output",
-                    "artifacts_dir": "workspace\\sessions\\session_c35a96c6\\artifacts"
+                    "session_id": "05fd3594",
+                    "output_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_05fd3594\\output",
+                    "artifacts_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_05fd3594\\artifacts",
+                    "session_dirname": "session_05fd3594"
                 }
             },
             {
-                "t": 0.038,
+                "t": 0.0505,
                 "step": "analysis.html_parsed",
                 "data": {
                     "components_type": "<class 'dict'>"
                 }
             },
             {
-                "t": 0.0382,
+                "t": 0.0505,
                 "step": "original.render_start",
                 "data": {
-                    "base_path": "workspace\\sessions\\session_c35a96c6\\input\\Pagina",
-                    "output_image": "workspace\\sessions\\session_c35a96c6\\artifacts\\debug_original.png"
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_05fd3594\\input\\Pagina",
+                    "output_image": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_05fd3594\\artifacts\\debug_original.png"
                 }
             },
             {
-                "t": 6.0131,
+                "t": 7.1721,
                 "step": "original.render_done",
                 "data": {
-                    "screenshot_path": "workspace\\sessions\\session_c35a96c6\\artifacts\\debug_original.png"
+                    "screenshot_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_05fd3594\\artifacts\\debug_original.png"
                 }
             },
             {
-                "t": 7.9086,
+                "t": 8.3067,
                 "step": "original.colors_classified",
                 "data": {
                     "distinct_colors": 43822
                 }
             },
             {
-                "t": 8.6455,
+                "t": 8.5421,
                 "step": "metrics.original",
                 "data": {
                     "total_current": 0.159612566887129,
@@ -137,75 +132,75 @@
                 }
             },
             {
-                "t": 8.6592,
-                "step": "opt.resources_prepared",
+                "t": 8.5513,
+                "step": "transformed.resources_prepared",
                 "data": {
-                    "output_dir": "workspace\\sessions\\session_c35a96c6\\output"
+                    "output_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_05fd3594\\output"
                 }
             },
             {
-                "t": 8.6655,
-                "step": "opt.heuristics_applied",
+                "t": 8.5556,
+                "step": "transformed.heuristics_applied",
                 "data": {
                     "heuristics_count": 4
                 }
             },
             {
-                "t": 8.6655,
-                "step": "opt.resources_copied",
+                "t": 8.5556,
+                "step": "transformed.resources_copied",
                 "data": {
-                    "output_dir": "workspace\\sessions\\session_c35a96c6\\output"
+                    "output_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_05fd3594\\output"
                 }
             },
             {
-                "t": 8.7098,
-                "step": "opt.zip_created",
+                "t": 8.5725,
+                "step": "transformed.zip_created",
                 "data": {
-                    "zip_output_path": "workspace\\sessions\\session_c35a96c6\\output\\c35a96c6.zip"
+                    "zip_output_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_05fd3594\\output\\session_05fd3594.zip"
                 }
             },
             {
-                "t": 8.7103,
-                "step": "opt.html_loaded",
+                "t": 8.5728,
+                "step": "transformed.html_loaded",
                 "data": {
-                    "html_optimized_path": "workspace\\sessions\\session_c35a96c6\\output\\menu.html"
+                    "html_sustainable_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_05fd3594\\output\\menu.html"
                 }
             },
             {
-                "t": 8.7104,
-                "step": "optimized.render_start",
+                "t": 8.5728,
+                "step": "sustainable.render_start",
                 "data": {
-                    "base_path": "workspace\\sessions\\session_c35a96c6\\output",
-                    "output_image": "workspace\\sessions\\session_c35a96c6\\artifacts\\debug_optimized.png"
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_05fd3594\\output",
+                    "output_image": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_05fd3594\\artifacts\\debug_sustainable.png"
                 }
             },
             {
-                "t": 13.6233,
-                "step": "optimized.render_done",
+                "t": 11.5123,
+                "step": "sustainable.render_done",
                 "data": {
-                    "screenshot_path": "workspace\\sessions\\session_c35a96c6\\artifacts\\debug_optimized.png"
+                    "screenshot_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_05fd3594\\artifacts\\debug_sustainable.png"
                 }
             },
             {
-                "t": 14.604,
-                "step": "optimized.colors_classified",
+                "t": 12.4278,
+                "step": "sustainable.colors_classified",
                 "data": {
                     "distinct_colors": 37000
                 }
             },
             {
-                "t": 14.777,
-                "step": "metrics.optimized",
+                "t": 12.6229,
+                "step": "metrics.sustainable",
                 "data": {
-                    "optimized_current": 0.12700612996583754,
-                    "optimized_energy_wh": 0.46992268087359895,
-                    "optimized_co2eq_per_use": 0.2232132734149595
+                    "sustainable_current": 0.12700612996583754,
+                    "sustainable_energy_wh": 0.46992268087359895,
+                    "sustainable_co2eq_per_use": 0.2232132734149595
                 }
             }
         ]
     },
     "debug_screenshots": {
-        "original": "/sessions/c35a96c6/artifacts/debug_original.png",
-        "optimized": "/sessions/c35a96c6/artifacts/debug_optimized.png"
+        "original": "debug_original.png",
+        "sustainable": "debug_sustainable.png"
     }
 }
