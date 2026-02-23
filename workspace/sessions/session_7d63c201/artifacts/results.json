@@ -4,8 +4,8 @@
     "energy_wh": 0.6118593349313367,
     "sustainable_energy_wh": 0.5740966937084122,
     "sustainable_co2eq_per_use": 0.2726959295114958,
-    "session_id": "ae32a6c6",
-    "session_dirname": "session_ae32a6c6",
+    "session_id": "7d63c201",
+    "session_dirname": "session_7d63c201",
     "html_name": "index.html",
     "heuristicas": [
         {
@@ -54,78 +54,79 @@
         }
     ],
     "debug": {
-        "started_at": 1771822110.5539224,
+        "started_at": 1771848276.8455193,
         "steps": [
             {
-                "t": 0.017,
+                "t": 0.1032,
                 "step": "upload.received",
                 "data": {
                     "filename": "Pagina web (4).zip"
                 }
             },
             {
-                "t": 0.0328,
+                "t": 0.2862,
                 "step": "upload.handled",
                 "data": {
-                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_ae32a6c6\\input"
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\input"
                 }
             },
             {
-                "t": 0.0331,
+                "t": 0.2888,
                 "step": "project.base_path",
                 "data": {
-                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_ae32a6c6\\input\\Pagina web"
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\input\\Pagina web"
                 }
             },
             {
-                "t": 0.0331,
+                "t": 0.2888,
                 "step": "project.html_detected",
                 "data": {
-                    "html_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_ae32a6c6\\input\\Pagina web\\index.html",
+                    "html_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\input\\Pagina web\\index.html",
                     "html_name": "index.html"
                 }
             },
             {
-                "t": 0.0338,
+                "t": 0.2949,
                 "step": "session.created",
                 "data": {
-                    "session_id": "ae32a6c6",
-                    "output_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_ae32a6c6\\output",
-                    "artifacts_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_ae32a6c6\\artifacts",
-                    "session_dirname": "session_ae32a6c6"
+                    "session_id": "7d63c201",
+                    "output_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\output",
+                    "artifacts_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\artifacts",
+                    "session_dirname": "session_7d63c201"
                 }
             },
             {
-                "t": 0.0371,
-                "step": "analysis.html_parsed",
+                "t": 26.2047,
+                "step": "analysis.render_snapshot_generated",
                 "data": {
-                    "components_type": "<class 'dict'>"
+                    "snapshot_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\artifacts\\render_snapshot_original.json",
+                    "node_count": 43
                 }
             },
             {
-                "t": 0.0371,
+                "t": 26.2048,
                 "step": "original.render_start",
                 "data": {
-                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_ae32a6c6\\input\\Pagina web",
-                    "output_image": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_ae32a6c6\\artifacts\\debug_original.png"
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\input\\Pagina web",
+                    "output_image": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\artifacts\\debug_original.png"
                 }
             },
             {
-                "t": 3.861,
+                "t": 46.1687,
                 "step": "original.render_done",
                 "data": {
-                    "screenshot_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_ae32a6c6\\artifacts\\debug_original.png"
+                    "screenshot_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\artifacts\\debug_original.png"
                 }
             },
             {
-                "t": 5.3078,
+                "t": 63.0823,
                 "step": "original.colors_classified",
                 "data": {
                     "distinct_colors": 1118
                 }
             },
             {
-                "t": 5.318,
+                "t": 63.1585,
                 "step": "metrics.original",
                 "data": {
                     "total_current": 0.16536738781928018,
@@ -134,64 +135,64 @@
                 }
             },
             {
-                "t": 5.3249,
+                "t": 63.2212,
                 "step": "transformed.resources_prepared",
                 "data": {
-                    "output_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_ae32a6c6\\output"
+                    "output_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\output"
                 }
             },
             {
-                "t": 5.3299,
+                "t": 63.2636,
                 "step": "transformed.heuristics_applied",
                 "data": {
                     "heuristics_count": 4
                 }
             },
             {
-                "t": 5.3299,
+                "t": 63.2637,
                 "step": "transformed.resources_copied",
                 "data": {
-                    "output_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_ae32a6c6\\output"
+                    "output_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\output"
                 }
             },
             {
-                "t": 5.3434,
+                "t": 63.3937,
                 "step": "transformed.zip_created",
                 "data": {
-                    "zip_output_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_ae32a6c6\\output\\session_ae32a6c6.zip"
+                    "zip_output_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\output\\session_7d63c201.zip"
                 }
             },
             {
-                "t": 5.3437,
+                "t": 63.3957,
                 "step": "transformed.html_loaded",
                 "data": {
-                    "html_sustainable_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_ae32a6c6\\output\\index.html"
+                    "html_sustainable_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\output\\index.html"
                 }
             },
             {
-                "t": 5.3437,
+                "t": 63.3958,
                 "step": "sustainable.render_start",
                 "data": {
-                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_ae32a6c6\\output",
-                    "output_image": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_ae32a6c6\\artifacts\\debug_sustainable.png"
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\output",
+                    "output_image": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\artifacts\\debug_sustainable.png"
                 }
             },
             {
-                "t": 8.6321,
+                "t": 81.0818,
                 "step": "sustainable.render_done",
                 "data": {
-                    "screenshot_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_ae32a6c6\\artifacts\\debug_sustainable.png"
+                    "screenshot_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\artifacts\\debug_sustainable.png"
                 }
             },
             {
-                "t": 10.119,
+                "t": 96.6546,
                 "step": "sustainable.colors_classified",
                 "data": {
                     "distinct_colors": 841
                 }
             },
             {
-                "t": 10.124,
+                "t": 96.6785,
                 "step": "metrics.sustainable",
                 "data": {
                     "sustainable_current": 0.15516126856984114,
