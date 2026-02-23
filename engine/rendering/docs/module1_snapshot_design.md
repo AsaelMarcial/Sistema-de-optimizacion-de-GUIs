@@ -28,25 +28,55 @@ Orden recomendado para reducir errores:
 3. Abrir sesión CDP (`DOM.enable`, `CSS.enable`) y resolver `nodeId` por selector estable (`domPath`).
 4. Consultar `CSS.getMatchedStylesForNode` para traza declarativa.
 5. Consultar `CSS.getBackgroundColors` para fondo efectivo y consolidar cada nodo.
-6. Guardar JSON + metadatos de extracción (conteo, URL, viewport, timestamp).
+6. Activar `CSS.startRuleUsageTracking` / `CSS.stopRuleUsageTracking` para `RuleUsage`.
+7. Guardar JSON + metadatos de extracción (conteo, URL, viewport, timestamp).
 
-## 3) Ajustes al schema JSON (mínimos críticos)
+## 3) Propiedades de color y caja capturadas en v1
 
-Además de lo que definiste, agrega:
+Se incluyeron explícitamente las propiedades solicitadas:
 
-- `renderState.display`
-- `renderState.visibility`
-- `renderState.opacity`
-- `renderState.pointerEvents`
-- `layout` con `width/height=0` para filtrar nodos no renderizados
-- `metadata.nodeCount`
-- `metadata.basePath`
-- `metadata.capturedAt`
-- `viewport` y `documentSize`
+- Texto/foreground:
+  - `color` y `currentColor`
+  - `textShadow`
+  - `textDecorationColor`
+  - `textEmphasisColor`
+  - `caretColor`
+- Fondos y cajas:
+  - `backgroundColor`
+  - `boxShadow`
+  - `columnRuleColor`
+  - `outlineColor`
+- Bordes:
+  - `borderColor` (shorthand)
+  - `borderLeftColor`, `borderRightColor`, `borderTopColor`, `borderBottomColor`
+  - `borderBlockStartColor`, `borderBlockEndColor`, `borderInlineStartColor`
+- Geometría de cajas:
+  - `boxes.margin`, `boxes.padding`, `boxes.borderWidth`
+  - y box model de CDP vía `DOM.getBoxModel`
 
-Estas propiedades permiten filtrar nodos invisibles sin destruir trazabilidad.
+## 4) Estructura declarativa CDP agregada
 
-## 4) Estructura modular de archivos (aislado de Módulos 2–4)
+Para trazabilidad por nodo se serializa:
+
+- `declaredSources.cdpMatchedStyles.ruleMatches` (RuleMatch)
+- `declaredSources.cdpMatchedStyles.ruleMatches[*].selectorList` (SelectorList)
+- `declaredSources.cdpMatchedStyles.inheritedStyleEntries` (InheritedStyleEntry)
+- `declaredSources.backgroundColors` y `effectiveBackground` (desde `CSS.getBackgroundColors`)
+- `snapshot.ruleUsage` (RuleUsage global)
+
+## 5) LayoutTreeSnapshot vs enfoque actual
+
+**¿Conviene usar `LayoutTreeSnapshot`?**
+
+- `DOMSnapshot.captureSnapshot` / LayoutTreeSnapshot es excelente para capturar layout masivo y rápido (árbol + estilos computados por lista blanca), útil para analytics de gran escala.
+- Nuestro enfoque actual (DOM + CSS por nodo + `CSS.getMatchedStylesForNode` + `CSS.getBackgroundColors` + rule usage) prioriza trazabilidad fina de origen de reglas y fondo efectivo textual, que es clave para tus módulos de transformación/override.
+
+Recomendación práctica:
+
+- Mantener el enfoque actual como base canónica de Módulo 1.
+- Evaluar LayoutTreeSnapshot como optimización opcional para páginas muy grandes (modo performance), sin perder el enriquecimiento CDP crítico.
+
+## 6) Estructura modular de archivos (aislado de Módulos 2–4)
 
 Propuesta aplicada:
 
@@ -60,11 +90,11 @@ Propuesta aplicada:
 
 Esto deja el módulo autocontenido para que Módulo 2 consuma únicamente el JSON.
 
-## 5) Sobre `html_parser.py`
+## 7) Sobre `html_parser.py`
 
 `engine/analysis/utils/html_parser.py` era útil como conteo preliminar por etiquetas, pero no captura estado renderizado ni origen real de estilos. Se recomienda dejarlo como utilitario opcional, no como base de decisiones de transformación.
 
-## 6) Referencias Adobe Spectrum (token naming y diff)
+## 8) Referencias Adobe Spectrum (token naming y diff)
 
 No son reemplazo del snapshot extractor, pero sí pueden aportar en Módulos 3–5:
 
@@ -72,7 +102,7 @@ No son reemplazo del snapshot extractor, pero sí pueden aportar en Módulos 3�
 - `spectrum-diff-core`: útil para comparar cambios de tokens (antes/después).
 - `markdown-generator`: útil para reportes técnicos y evidencia de tesis.
 
-## 7) Tecnologías recomendadas por capa
+## 9) Tecnologías recomendadas por capa
 
 - Extracción/render: **Playwright + CDP**
 - Validación JSON: `jsonschema` o `pydantic`
@@ -81,7 +111,7 @@ No son reemplazo del snapshot extractor, pero sí pueden aportar en Módulos 3�
 - Colores: `colorAid.js` (HCT), y opcional `material-color-utilities` como verificación cruzada
 - Reportes: `pandas`/`polars` para exportar comparación Antes/Después
 
-## 8) Plan de acción sugerido
+## 10) Plan de acción sugerido
 
 1. Cerrar schema v1 de snapshot y reglas de visibilidad.
 2. Usar `render_snapshot_original.json` como entrada canónica de Módulo 2.

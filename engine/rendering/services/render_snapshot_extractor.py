@@ -2,7 +2,7 @@ import json
 import os
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from playwright.sync_api import Page, sync_playwright
 
@@ -37,6 +37,11 @@ def _build_dom_probe_js() -> str:
         return segments.join(' > ');
       };
 
+      const parsePx = (value) => {
+        const n = parseFloat(value || '0');
+        return Number.isFinite(n) ? n : 0;
+      };
+
       const styleOf = (el) => window.getComputedStyle(el);
       const nodes = [];
       const all = Array.from(document.querySelectorAll('*'));
@@ -67,10 +72,45 @@ def _build_dom_probe_js() -> str:
             height: rect.height,
             zIndex: style.zIndex,
           },
+          boxes: {
+            margin: {
+              top: parsePx(style.marginTop),
+              right: parsePx(style.marginRight),
+              bottom: parsePx(style.marginBottom),
+              left: parsePx(style.marginLeft),
+            },
+            padding: {
+              top: parsePx(style.paddingTop),
+              right: parsePx(style.paddingRight),
+              bottom: parsePx(style.paddingBottom),
+              left: parsePx(style.paddingLeft),
+            },
+            borderWidth: {
+              top: parsePx(style.borderTopWidth),
+              right: parsePx(style.borderRightWidth),
+              bottom: parsePx(style.borderBottomWidth),
+              left: parsePx(style.borderLeftWidth),
+            },
+          },
           computedColors: {
             color: style.color,
+            currentColor: style.color,
             backgroundColor: style.backgroundColor,
+            textShadow: style.textShadow,
+            textDecorationColor: style.textDecorationColor,
+            textEmphasisColor: style.textEmphasisColor,
+            caretColor: style.caretColor,
             borderColor: style.borderColor,
+            borderLeftColor: style.borderLeftColor,
+            borderRightColor: style.borderRightColor,
+            borderTopColor: style.borderTopColor,
+            borderBottomColor: style.borderBottomColor,
+            borderBlockStartColor: style.borderBlockStartColor,
+            borderBlockEndColor: style.borderBlockEndColor,
+            borderInlineStartColor: style.borderInlineStartColor,
+            boxShadow: style.boxShadow,
+            columnRuleColor: style.columnRuleColor,
+            outlineColor: style.outlineColor,
           },
           renderState: {
             display: style.display,
@@ -95,39 +135,82 @@ def _build_dom_probe_js() -> str:
     """
 
 
-def _summarize_matched_styles(matched: Dict[str, Any]) -> Dict[str, Any]:
-    rules = []
-    for rule_entry in matched.get("matchedCSSRules", []):
-        rule = rule_entry.get("rule", {})
-        selector_text = ""
-        selector_list = rule.get("selectorList", {})
-        selectors = selector_list.get("selectors", [])
-        if selectors:
-            selector_text = ", ".join(sel.get("text", "") for sel in selectors if sel.get("text"))
+def _summarize_selector_list(rule: Dict[str, Any]) -> Dict[str, Any]:
+    selector_list = rule.get("selectorList", {})
+    selectors = selector_list.get("selectors", [])
+    return {
+        "text": selector_list.get("text"),
+        "selectors": selectors,
+    }
 
-        style = rule.get("style", {})
-        rules.append(
+
+def _summarize_rule_match(rule_entry: Dict[str, Any]) -> Dict[str, Any]:
+    rule = rule_entry.get("rule", {})
+    style = rule.get("style", {})
+    return {
+        "matchingSelectors": rule_entry.get("matchingSelectors", []),
+        "origin": rule.get("origin"),
+        "styleSheetId": style.get("styleSheetId"),
+        "range": style.get("range"),
+        "selectorList": _summarize_selector_list(rule),
+    }
+
+
+def _summarize_inherited_styles(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    inherited: List[Dict[str, Any]] = []
+    for entry in entries:
+        inline_style = entry.get("inlineStyle", {}) or {}
+        inherited.append(
             {
-                "selector": selector_text,
-                "origin": rule.get("origin"),
-                "styleSheetId": style.get("styleSheetId"),
-                "range": style.get("range"),
+                "inlineStyle": {
+                    "styleSheetId": inline_style.get("styleSheetId"),
+                    "cssText": inline_style.get("cssText"),
+                },
+                "matchedCSSRules": [
+                    _summarize_rule_match(rule_entry)
+                    for rule_entry in entry.get("matchedCSSRules", [])
+                ],
             }
         )
+    return inherited
 
+
+def _summarize_matched_styles(matched: Dict[str, Any]) -> Dict[str, Any]:
+    matched_rules = [_summarize_rule_match(rule_entry) for rule_entry in matched.get("matchedCSSRules", [])]
     inline_style = matched.get("inlineStyle")
+    inherited_entries = matched.get("inherited", [])
 
     return {
-        "ruleCount": len(rules),
-        "rules": rules,
+        "ruleCount": len(matched_rules),
+        "ruleMatches": matched_rules,
         "hasInlineStyle": inline_style is not None,
+        "inlineStyle": {
+            "styleSheetId": (inline_style or {}).get("styleSheetId"),
+            "cssText": (inline_style or {}).get("cssText"),
+        },
+        "inheritedStyleEntries": _summarize_inherited_styles(inherited_entries),
     }
+
+
+def _normalize_rule_usage(usage_payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+    usage = []
+    for item in usage_payload.get("ruleUsage", []):
+        usage.append(
+            {
+                "styleSheetId": item.get("styleSheetId"),
+                "startOffset": item.get("startOffset"),
+                "endOffset": item.get("endOffset"),
+                "used": item.get("used"),
+            }
+        )
+    return usage
 
 
 def _enrich_with_cdp(page: Page, snapshot: Dict[str, Any], include_invisible: bool) -> Dict[str, Any]:
     cdp = page.context.new_cdp_session(page)
     cdp.send("DOM.enable")
     cdp.send("CSS.enable")
+    cdp.send("CSS.startRuleUsageTracking")
 
     root = cdp.send("DOM.getDocument", {"depth": -1, "pierce": True})
     root_node_id = root["root"]["nodeId"]
@@ -150,7 +233,15 @@ def _enrich_with_cdp(page: Page, snapshot: Dict[str, Any], include_invisible: bo
                 declared_sources["cdpMatchedStyles"] = _summarize_matched_styles(matched)
 
                 try:
+                    declared_sources["boxModel"] = cdp.send("DOM.getBoxModel", {"nodeId": cdp_node_id})
+                except Exception as box_error:
+                    declared_sources["boxModelError"] = str(box_error)
+
+                try:
                     bg = cdp.send("CSS.getBackgroundColors", {"nodeId": cdp_node_id})
+                    declared_sources["backgroundColors"] = bg.get("backgroundColors", [])
+                    declared_sources["computedFontSize"] = bg.get("computedFontSize")
+                    declared_sources["computedFontWeight"] = bg.get("computedFontWeight")
                     backgrounds = bg.get("backgroundColors", [])
                     effective_background = backgrounds[0] if backgrounds else None
                 except Exception as bg_error:
@@ -169,6 +260,8 @@ def _enrich_with_cdp(page: Page, snapshot: Dict[str, Any], include_invisible: bo
             }
         )
 
+    rule_usage_payload = cdp.send("CSS.stopRuleUsageTracking")
+    snapshot["ruleUsage"] = _normalize_rule_usage(rule_usage_payload)
     snapshot["nodes"] = enriched_nodes
     return snapshot
 
@@ -207,6 +300,15 @@ def extract_render_snapshot(
         "basePath": os.path.abspath(base_path),
         "nodeCount": len(snapshot.get("nodes", [])),
         "capturedAt": datetime.now(timezone.utc).isoformat(),
+        "cdp": {
+            "includes": [
+                "CSS.getBackgroundColors",
+                "CSS.getMatchedStylesForNode",
+                "CSS.startRuleUsageTracking",
+                "CSS.stopRuleUsageTracking",
+                "DOM.getBoxModel",
+            ]
+        },
     }
 
     if output_json_path:
