@@ -5,9 +5,9 @@ import shutil
 from flask import url_for
 
 from app.config import get_session_dirname
-from engine.analysis.utils.html_parser import parse_html
 from engine.core.pipeline.results_compiler import compile_results
 from engine.core.utils.debug_logger import DebugTrace
+from engine.rendering.services.render_snapshot_extractor import extract_render_snapshot
 from engine.file_handling.file_handling_pipeline import run_file_handling_pipeline
 from engine.file_handling.services.project_assets import (
     normalize_base_path_for_single_subdir,
@@ -93,8 +93,19 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         },
     )
 
-    components = parse_html(html_content)
-    trace.add_step("analysis.html_parsed", {"components_type": str(type(components))})
+    original_snapshot_abs = os.path.join(artifacts_dir, "render_snapshot_original.json")
+    snapshot_data = extract_render_snapshot(
+        html_content=html_content,
+        base_path=base_path,
+        output_json_path=original_snapshot_abs,
+    )
+    trace.add_step(
+        "analysis.render_snapshot_generated",
+        {
+            "snapshot_path": original_snapshot_abs,
+            "node_count": snapshot_data.get("metadata", {}).get("nodeCount"),
+        },
+    )
 
     original_screenshot_abs = os.path.join(artifacts_dir, "debug_original.png")
     original_screenshot_name = "debug_original.png"
@@ -208,5 +219,9 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     )
 
     results["download_url"] = zip_download_url
+    results["render_snapshot"] = {
+        "artifact": "render_snapshot_original.json",
+        "node_count": snapshot_data.get("metadata", {}).get("nodeCount"),
+    }
 
     return results, None
