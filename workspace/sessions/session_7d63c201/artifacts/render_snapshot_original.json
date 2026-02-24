@@ -1,0 +1,2203 @@
+{
+  "url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_7d63c201/input/Pagina%20web/__glow_render__.html",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "documentSize": {
+    "width": 1440,
+    "height": 1453
+  },
+  "nodes": [
+    {
+      "domPath": "html",
+      "tag": "HTML",
+      "depth": 0,
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 1452.5,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "html",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": ":root",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > head:nth-of-type(1)",
+      "tag": "HEAD",
+      "depth": 1,
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "none",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": false,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 1,
+          "rules": [
+            {
+              "selector": "base, basefont, datalist, head, link, meta, noembed, noframes, param, rp, script, style, template, title",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > head:nth-of-type(1) > meta:nth-of-type(1)",
+      "tag": "META",
+      "depth": 2,
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "none",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": false,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 1,
+          "rules": [
+            {
+              "selector": "base, basefont, datalist, head, link, meta, noembed, noframes, param, rp, script, style, template, title",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > head:nth-of-type(1) > meta:nth-of-type(2)",
+      "tag": "META",
+      "depth": 2,
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "none",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": false,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 1,
+          "rules": [
+            {
+              "selector": "base, basefont, datalist, head, link, meta, noembed, noframes, param, rp, script, style, template, title",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > head:nth-of-type(1) > title:nth-of-type(1)",
+      "tag": "TITLE",
+      "depth": 2,
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "none",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": false,
+      "effectiveBackground": "rgb(255, 255, 255)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 1,
+          "rules": [
+            {
+              "selector": "base, basefont, datalist, head, link, meta, noembed, noframes, param, rp, script, style, template, title",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > head:nth-of-type(1) > style:nth-of-type(1)",
+      "tag": "STYLE",
+      "depth": 2,
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "none",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": false,
+      "effectiveBackground": "rgb(255, 255, 255)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 1,
+          "rules": [
+            {
+              "selector": "base, basefont, datalist, head, link, meta, noembed, noframes, param, rp, script, style, template, title",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1)",
+      "tag": "BODY",
+      "depth": 1,
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 1452.5,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgb(244, 244, 244)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "body",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "body",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 1,
+                "startColumn": 12,
+                "endLine": 6,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > header:nth-of-type(1)",
+      "tag": "HEADER",
+      "depth": 2,
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 77,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 255, 200)",
+        "backgroundColor": "rgb(255, 179, 0)",
+        "borderColor": "rgb(0, 255, 200)"
+      },
+      "renderState": {
+        "display": "flex",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 3,
+          "rules": [
+            {
+              "selector": "article, aside, footer, header, hgroup, main, nav, search, section",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "header",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 8,
+                "startColumn": 14,
+                "endLine": 15,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > header:nth-of-type(1) > h1:nth-of-type(1)",
+      "tag": "H1",
+      "depth": 3,
+      "layout": {
+        "x": 20,
+        "y": 20,
+        "width": 189.625,
+        "height": 37,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 255, 200)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 255, 200)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(255, 179, 0)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 3,
+          "rules": [
+            {
+              "selector": "h1",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "header h1",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 17,
+                "startColumn": 17,
+                "endLine": 19,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > header:nth-of-type(1) > span:nth-of-type(1)",
+      "tag": "SPAN",
+      "depth": 3,
+      "layout": {
+        "x": 1239.46875,
+        "y": 29.5,
+        "width": 180.53125,
+        "height": 18,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 255, 200)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 255, 200)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(255, 179, 0)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 0,
+          "rules": [],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > nav:nth-of-type(1)",
+      "tag": "NAV",
+      "depth": 2,
+      "layout": {
+        "x": 0,
+        "y": 77,
+        "width": 1440,
+        "height": 48,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgb(255, 0, 204)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 3,
+          "rules": [
+            {
+              "selector": "article, aside, footer, header, hgroup, main, nav, search, section",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "nav",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 21,
+                "startColumn": 11,
+                "endLine": 24,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > nav:nth-of-type(1) > a:nth-of-type(1)",
+      "tag": "A",
+      "depth": 3,
+      "layout": {
+        "x": 507.921875,
+        "y": 77,
+        "width": 77.359375,
+        "height": 48,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(255, 255, 255)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(255, 255, 255)"
+      },
+      "renderState": {
+        "display": "inline-block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(255, 0, 204)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "a:-webkit-any-link",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "nav a",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 26,
+                "startColumn": 13,
+                "endLine": 31,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > nav:nth-of-type(1) > a:nth-of-type(2)",
+      "tag": "A",
+      "depth": 3,
+      "layout": {
+        "x": 589.734375,
+        "y": 77,
+        "width": 104.90625,
+        "height": 48,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(255, 255, 255)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(255, 255, 255)"
+      },
+      "renderState": {
+        "display": "inline-block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(255, 0, 204)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "a:-webkit-any-link",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "nav a",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 26,
+                "startColumn": 13,
+                "endLine": 31,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > nav:nth-of-type(1) > a:nth-of-type(3)",
+      "tag": "A",
+      "depth": 3,
+      "layout": {
+        "x": 699.09375,
+        "y": 77,
+        "width": 124.484375,
+        "height": 48,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(255, 255, 255)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(255, 255, 255)"
+      },
+      "renderState": {
+        "display": "inline-block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(255, 0, 204)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "a:-webkit-any-link",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "nav a",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 26,
+                "startColumn": 13,
+                "endLine": 31,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > nav:nth-of-type(1) > a:nth-of-type(4)",
+      "tag": "A",
+      "depth": 3,
+      "layout": {
+        "x": 828.03125,
+        "y": 77,
+        "width": 104.046875,
+        "height": 48,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(255, 255, 255)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(255, 255, 255)"
+      },
+      "renderState": {
+        "display": "inline-block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(255, 0, 204)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "a:-webkit-any-link",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "nav a",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 26,
+                "startColumn": 13,
+                "endLine": 31,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > section:nth-of-type(1)",
+      "tag": "SECTION",
+      "depth": 2,
+      "layout": {
+        "x": 0,
+        "y": 125,
+        "width": 1440,
+        "height": 237,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(255, 255, 255)",
+        "backgroundColor": "rgb(255, 0, 0)",
+        "borderColor": "rgb(255, 255, 255)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(255, 0, 0)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 3,
+          "rules": [
+            {
+              "selector": "article, aside, footer, header, hgroup, main, nav, search, section",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": ".slider",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 37,
+                "startColumn": 15,
+                "endLine": 43,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1)",
+      "tag": "DIV",
+      "depth": 2,
+      "layout": {
+        "x": 100,
+        "y": 382,
+        "width": 1240,
+        "height": 942.5,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 3,
+          "rules": [
+            {
+              "selector": "div",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": ".container",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 45,
+                "startColumn": 18,
+                "endLine": 49,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > h2:nth-of-type(1)",
+      "tag": "H2",
+      "depth": 3,
+      "layout": {
+        "x": 120,
+        "y": 382,
+        "width": 1200,
+        "height": 28,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(244, 244, 244)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "h2",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+      "tag": "DIV",
+      "depth": 3,
+      "layout": {
+        "x": 120,
+        "y": 429.90625,
+        "width": 1200,
+        "height": 286.875,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "flex",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 3,
+          "rules": [
+            {
+              "selector": "div",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": ".services",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 51,
+                "startColumn": 17,
+                "endLine": 56,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+      "tag": "DIV",
+      "depth": 4,
+      "layout": {
+        "x": 120,
+        "y": 429.90625,
+        "width": 590,
+        "height": 133.4375,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgb(0, 255, 34)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 3,
+          "rules": [
+            {
+              "selector": "div",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": ".card",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 58,
+                "startColumn": 13,
+                "endLine": 65,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > h3:nth-of-type(1)",
+      "tag": "H3",
+      "depth": 5,
+      "layout": {
+        "x": 140,
+        "y": 468.625,
+        "width": 550,
+        "height": 22,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(0, 255, 34)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "h3",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > p:nth-of-type(1)",
+      "tag": "P",
+      "depth": 5,
+      "layout": {
+        "x": 140,
+        "y": 509.34375,
+        "width": 550,
+        "height": 18,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(0, 255, 34)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "p",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2)",
+      "tag": "DIV",
+      "depth": 4,
+      "layout": {
+        "x": 730,
+        "y": 429.90625,
+        "width": 590,
+        "height": 133.4375,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgb(0, 255, 34)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 3,
+          "rules": [
+            {
+              "selector": "div",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": ".card",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 58,
+                "startColumn": 13,
+                "endLine": 65,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > h3:nth-of-type(1)",
+      "tag": "H3",
+      "depth": 5,
+      "layout": {
+        "x": 750,
+        "y": 468.625,
+        "width": 550,
+        "height": 22,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(0, 255, 34)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "h3",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > p:nth-of-type(1)",
+      "tag": "P",
+      "depth": 5,
+      "layout": {
+        "x": 750,
+        "y": 509.34375,
+        "width": 550,
+        "height": 18,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(0, 255, 34)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "p",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3)",
+      "tag": "DIV",
+      "depth": 4,
+      "layout": {
+        "x": 120,
+        "y": 583.34375,
+        "width": 1200,
+        "height": 133.4375,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgb(0, 255, 34)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 3,
+          "rules": [
+            {
+              "selector": "div",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": ".card",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 58,
+                "startColumn": 13,
+                "endLine": 65,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > h3:nth-of-type(1)",
+      "tag": "H3",
+      "depth": 5,
+      "layout": {
+        "x": 140,
+        "y": 622.0625,
+        "width": 1160,
+        "height": 22,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(0, 255, 34)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "h3",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > p:nth-of-type(1)",
+      "tag": "P",
+      "depth": 5,
+      "layout": {
+        "x": 140,
+        "y": 662.78125,
+        "width": 1160,
+        "height": 18,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(0, 255, 34)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "p",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > h2:nth-of-type(2)",
+      "tag": "H2",
+      "depth": 3,
+      "layout": {
+        "x": 120,
+        "y": 756.78125,
+        "width": 1200,
+        "height": 28,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(244, 244, 244)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "h2",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2)",
+      "tag": "DIV",
+      "depth": 3,
+      "layout": {
+        "x": 120,
+        "y": 804.6875,
+        "width": 1200,
+        "height": 156,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgb(200, 0, 255)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 3,
+          "rules": [
+            {
+              "selector": "div",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": ".testimonials",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 67,
+                "startColumn": 21,
+                "endLine": 71,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1)",
+      "tag": "DIV",
+      "depth": 4,
+      "layout": {
+        "x": 140,
+        "y": 844.6875,
+        "width": 1160,
+        "height": 18,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(200, 0, 255)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 3,
+          "rules": [
+            {
+              "selector": "div",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": ".testimonial",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 73,
+                "startColumn": 20,
+                "endLine": 76,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2)",
+      "tag": "DIV",
+      "depth": 4,
+      "layout": {
+        "x": 140,
+        "y": 882.6875,
+        "width": 1160,
+        "height": 18,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(200, 0, 255)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 3,
+          "rules": [
+            {
+              "selector": "div",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": ".testimonial",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 73,
+                "startColumn": 20,
+                "endLine": 76,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > h2:nth-of-type(3)",
+      "tag": "H2",
+      "depth": 3,
+      "layout": {
+        "x": 120,
+        "y": 980.59375,
+        "width": 1200,
+        "height": 28,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(244, 244, 244)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "h2",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > form:nth-of-type(1)",
+      "tag": "FORM",
+      "depth": 3,
+      "layout": {
+        "x": 120,
+        "y": 1028.5,
+        "width": 1200,
+        "height": 296,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgb(0, 0, 255)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 3,
+          "rules": [
+            {
+              "selector": "form",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": ".contact-form",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 78,
+                "startColumn": 21,
+                "endLine": 83,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > form:nth-of-type(1) > input:nth-of-type(1)",
+      "tag": "INPUT",
+      "depth": 4,
+      "layout": {
+        "x": 140,
+        "y": 1058.5,
+        "width": 1182,
+        "height": 37,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgb(222, 155, 255)",
+        "borderColor": "rgb(204, 204, 204)"
+      },
+      "renderState": {
+        "display": "inline-block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 7,
+          "rules": [
+            {
+              "selector": "input, textarea, select, button",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "input",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "input, input[type=\"email\" i], input[type=\"number\" i], input[type=\"password\" i], input[type=\"search\" i], input[type=\"tel\" i], input[type=\"text\" i], input[type=\"url\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "input:not([type=\"file\" i], [type=\"image\" i], [type=\"checkbox\" i], [type=\"radio\" i])",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "input, input[type=\"email\" i], input[type=\"number\" i], input[type=\"password\" i], input[type=\"search\" i], input[type=\"tel\" i], input[type=\"text\" i], input[type=\"url\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "input:not([type=\"image\" i], [type=\"range\" i], [type=\"checkbox\" i], [type=\"radio\" i])",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": ".contact-form input, .contact-form textarea",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 86,
+                "startColumn": 30,
+                "endLine": 93,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > form:nth-of-type(1) > input:nth-of-type(2)",
+      "tag": "INPUT",
+      "depth": 4,
+      "layout": {
+        "x": 140,
+        "y": 1115.5,
+        "width": 1182,
+        "height": 37,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgb(222, 155, 255)",
+        "borderColor": "rgb(204, 204, 204)"
+      },
+      "renderState": {
+        "display": "inline-block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 7,
+          "rules": [
+            {
+              "selector": "input, textarea, select, button",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "input",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "input, input[type=\"email\" i], input[type=\"number\" i], input[type=\"password\" i], input[type=\"search\" i], input[type=\"tel\" i], input[type=\"text\" i], input[type=\"url\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "input:not([type=\"file\" i], [type=\"image\" i], [type=\"checkbox\" i], [type=\"radio\" i])",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "input, input[type=\"email\" i], input[type=\"number\" i], input[type=\"password\" i], input[type=\"search\" i], input[type=\"tel\" i], input[type=\"text\" i], input[type=\"url\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "input:not([type=\"image\" i], [type=\"range\" i], [type=\"checkbox\" i], [type=\"radio\" i])",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": ".contact-form input, .contact-form textarea",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 86,
+                "startColumn": 30,
+                "endLine": 93,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > form:nth-of-type(1) > textarea:nth-of-type(1)",
+      "tag": "TEXTAREA",
+      "depth": 4,
+      "layout": {
+        "x": 140,
+        "y": 1172.5,
+        "width": 1182,
+        "height": 97,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgb(222, 155, 255)",
+        "borderColor": "rgb(204, 204, 204)"
+      },
+      "renderState": {
+        "display": "inline-block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 3,
+          "rules": [
+            {
+              "selector": "input, textarea, select, button",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "textarea",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": ".contact-form input, .contact-form textarea",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 86,
+                "startColumn": 30,
+                "endLine": 93,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > div:nth-of-type(1) > form:nth-of-type(1) > button:nth-of-type(1)",
+      "tag": "BUTTON",
+      "depth": 4,
+      "layout": {
+        "x": 140,
+        "y": 1283.5,
+        "width": 53.796875,
+        "height": 21,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(0, 0, 0)",
+        "backgroundColor": "rgb(200, 0, 255)",
+        "borderColor": "rgb(0, 0, 0)"
+      },
+      "renderState": {
+        "display": "inline-block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(200, 0, 255)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 4,
+          "rules": [
+            {
+              "selector": "button",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "input, textarea, select, button",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "input[type=\"button\" i], input[type=\"submit\" i], input[type=\"reset\" i], input[type=\"file\" i]::-webkit-file-upload-button, button",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": ".buttonForm",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 112,
+                "startColumn": 19,
+                "endLine": 114,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > footer:nth-of-type(1)",
+      "tag": "FOOTER",
+      "depth": 2,
+      "layout": {
+        "x": 0,
+        "y": 1344.5,
+        "width": 1440,
+        "height": 108,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(255, 255, 255)",
+        "backgroundColor": "rgb(255, 0, 0)",
+        "borderColor": "rgb(255, 255, 255)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": null,
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 3,
+          "rules": [
+            {
+              "selector": "article, aside, footer, header, hgroup, main, nav, search, section",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "footer",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 95,
+                "startColumn": 14,
+                "endLine": 100,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > footer:nth-of-type(1) > p:nth-of-type(1)",
+      "tag": "P",
+      "depth": 3,
+      "layout": {
+        "x": 20,
+        "y": 1380.5,
+        "width": 1400,
+        "height": 18,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(255, 255, 255)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(255, 255, 255)"
+      },
+      "renderState": {
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(255, 0, 0)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "p",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "address, blockquote, center, div, figure, figcaption, footer, form, header, hr, legend, listing, main, p, plaintext, pre, summary, xmp, article, aside, h1, h2, h3, h4, h5, h6, hgroup, nav, section, search, table, caption, colgroup, col, thead, tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output, [dir=\"ltr\" i], [dir=\"rtl\" i], [dir=\"auto\" i]",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > footer:nth-of-type(1) > a:nth-of-type(1)",
+      "tag": "A",
+      "depth": 3,
+      "layout": {
+        "x": 592.6875,
+        "y": 1414.5,
+        "width": 70.265625,
+        "height": 17,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(255, 196, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(255, 196, 0)"
+      },
+      "renderState": {
+        "display": "inline",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(255, 0, 0)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "a:-webkit-any-link",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "footer a",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 102,
+                "startColumn": 16,
+                "endLine": 106,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > footer:nth-of-type(1) > a:nth-of-type(2)",
+      "tag": "A",
+      "depth": 3,
+      "layout": {
+        "x": 696,
+        "y": 1414.5,
+        "width": 47.125,
+        "height": 17,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(255, 196, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(255, 196, 0)"
+      },
+      "renderState": {
+        "display": "inline",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(255, 0, 0)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "a:-webkit-any-link",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "footer a",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 102,
+                "startColumn": 16,
+                "endLine": 106,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    },
+    {
+      "domPath": "html > body:nth-of-type(1) > footer:nth-of-type(1) > a:nth-of-type(3)",
+      "tag": "A",
+      "depth": 3,
+      "layout": {
+        "x": 776.171875,
+        "y": 1414.5,
+        "width": 71.140625,
+        "height": 17,
+        "zIndex": "auto"
+      },
+      "computedColors": {
+        "color": "rgb(255, 196, 0)",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderColor": "rgb(255, 196, 0)"
+      },
+      "renderState": {
+        "display": "inline",
+        "visibility": "visible",
+        "opacity": "1",
+        "pointerEvents": "auto"
+      },
+      "visible": true,
+      "effectiveBackground": "rgb(255, 0, 0)",
+      "declaredSources": {
+        "cdpMatchedStyles": {
+          "ruleCount": 2,
+          "rules": [
+            {
+              "selector": "a:-webkit-any-link",
+              "origin": "user-agent",
+              "styleSheetId": null,
+              "range": null
+            },
+            {
+              "selector": "footer a",
+              "origin": "regular",
+              "styleSheetId": "style-sheet-43032-1",
+              "range": {
+                "startLine": 102,
+                "startColumn": 16,
+                "endLine": 106,
+                "endColumn": 6
+              }
+            }
+          ],
+          "hasInlineStyle": true
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "module": "module-1-snapshot-extraction",
+    "basePath": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_7d63c201\\input\\Pagina web",
+    "nodeCount": 43,
+    "capturedAt": "2026-02-23T12:05:03.008650+00:00"
+  }
+}
