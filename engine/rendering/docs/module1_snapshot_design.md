@@ -118,3 +118,12 @@ No son reemplazo del snapshot extractor, pero s铆 pueden aportar en M贸dulos 3鈥
 3. Crear fixtures HTML de prueba (casos con malas pr谩cticas sem谩nticas).
 4. Validar salida contra golden files JSON.
 5. Definir contrato de entrada para M贸dulo 2 (normalizaci贸n + clusterizaci贸n).
+
+
+## 11) Filtros aplicados para reducir ruido
+
+- Solo se incluyen nodos `HTML`, `BODY` y descendientes dentro de `body`.
+- Se excluyen etiquetas de metadata/embedded-media/math/scripting/edits/web-components/deprecated (por ejemplo `META`, `LINK`, `SCRIPT`, `IMG`, `VIDEO`, `SVG`, `MATH`, `SLOT`, `TEMPLATE`, etc.).
+- En `cdpMatchedStyles` se filtran reglas sin match efectivo y, por defecto, se excluye origen `user-agent` para evitar ruido de defaults.
+- `computedColors` se filtra para conservar solo propiedades con declaraci贸n real detectada en inline/attributes/matched/inherited (no el universo completo de valores por default).
+

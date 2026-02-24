@@ -2,7 +2,7 @@ import json
 import os
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from playwright.sync_api import Page, sync_playwright
 
@@ -13,11 +13,79 @@ from engine.rendering.utils.screenshot_utils import remove_temp_html, write_temp
 class SnapshotOptions:
     wait_after_load_ms: int = 500
     include_invisible: bool = True
+    exclude_user_agent_rules: bool = True
+
+
+COLOR_PROP_TO_CSS_NAME = {
+    "color": "color",
+    "currentColor": "color",
+    "backgroundColor": "background-color",
+    "textShadow": "text-shadow",
+    "textDecorationColor": "text-decoration-color",
+    "textEmphasisColor": "text-emphasis-color",
+    "caretColor": "caret-color",
+    "borderColor": "border-color",
+    "borderLeftColor": "border-left-color",
+    "borderRightColor": "border-right-color",
+    "borderTopColor": "border-top-color",
+    "borderBottomColor": "border-bottom-color",
+    "borderBlockStartColor": "border-block-start-color",
+    "borderBlockEndColor": "border-block-end-color",
+    "borderInlineStartColor": "border-inline-start-color",
+    "boxShadow": "box-shadow",
+    "columnRuleColor": "column-rule-color",
+    "outlineColor": "outline-color",
+}
+
+
+EXCLUDED_TAGS = {
+    # Embedded/media
+    "AUDIO",
+    "VIDEO",
+    "IMG",
+    "PICTURE",
+    "SVG",
+    "CANVAS",
+    "IFRAME",
+    "EMBED",
+    "OBJECT",
+    "PARAM",
+    "SOURCE",
+    "TRACK",
+    "MAP",
+    "AREA",
+    # Math/Scripting
+    "MATH",
+    "SCRIPT",
+    "NOSCRIPT",
+    # Edits/demarcation
+    "DEL",
+    "INS",
+    # Web Components asked to exclude
+    "SLOT",
+    "TEMPLATE",
+    # Obsolete/deprecated common set
+    "APPLET",
+    "BASEFONT",
+    "BIG",
+    "CENTER",
+    "DIR",
+    "FONT",
+    "FRAME",
+    "FRAMESET",
+    "MARQUEE",
+    "NOFRAMES",
+    "STRIKE",
+    "TT",
+    "XMP",
+}
 
 
 def _build_dom_probe_js() -> str:
     return """
     () => {
+      const SKIP_TAGS = new Set(%s);
+
       const toPath = (el) => {
         if (!(el instanceof Element)) return '';
         const segments = [];
@@ -42,9 +110,17 @@ def _build_dom_probe_js() -> str:
         return Number.isFinite(n) ? n : 0;
       };
 
+      const shouldInclude = (el) => {
+        if (!(el instanceof Element)) return false;
+        if (el.tagName === 'HTML' || el.tagName === 'BODY') return true;
+        if (!document.body || !document.body.contains(el)) return false;
+        if (SKIP_TAGS.has(el.tagName)) return false;
+        return true;
+      };
+
       const styleOf = (el) => window.getComputedStyle(el);
       const nodes = [];
-      const all = Array.from(document.querySelectorAll('*'));
+      const all = Array.from(document.querySelectorAll('*')).filter(shouldInclude);
 
       for (const el of all) {
         const style = styleOf(el);
@@ -132,64 +208,167 @@ def _build_dom_probe_js() -> str:
         nodes,
       };
     }
-    """
+    """ % json.dumps(sorted(EXCLUDED_TAGS))
+
+
+def _extract_declared_property_names(style_obj: Dict[str, Any]) -> Set[str]:
+    names: Set[str] = set()
+    for prop in style_obj.get("cssProperties", []) or []:
+        name = prop.get("name")
+        value = prop.get("value")
+        if name and value not in (None, ""):
+            names.add(name)
+    return names
 
 
 def _summarize_selector_list(rule: Dict[str, Any]) -> Dict[str, Any]:
     selector_list = rule.get("selectorList", {})
-    selectors = selector_list.get("selectors", [])
     return {
         "text": selector_list.get("text"),
-        "selectors": selectors,
+        "selectors": selector_list.get("selectors", []),
     }
 
 
 def _summarize_rule_match(rule_entry: Dict[str, Any]) -> Dict[str, Any]:
     rule = rule_entry.get("rule", {})
     style = rule.get("style", {})
+    selector_list = _summarize_selector_list(rule)
+    matching_indexes = rule_entry.get("matchingSelectors", [])
+    matching_texts = []
+    selectors = selector_list.get("selectors", [])
+    for idx in matching_indexes:
+        if isinstance(idx, int) and 0 <= idx < len(selectors):
+            txt = selectors[idx].get("text")
+            if txt:
+                matching_texts.append(txt)
+
     return {
-        "matchingSelectors": rule_entry.get("matchingSelectors", []),
+        "matchingSelectors": matching_indexes,
+        "matchingSelectorTexts": matching_texts,
         "origin": rule.get("origin"),
         "styleSheetId": style.get("styleSheetId"),
         "range": style.get("range"),
-        "selectorList": _summarize_selector_list(rule),
+        "selectorList": selector_list,
     }
 
 
-def _summarize_inherited_styles(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _rule_entry_allowed(rule_entry: Dict[str, Any], *, exclude_user_agent_rules: bool) -> bool:
+    match_indexes = rule_entry.get("matchingSelectors", []) or []
+    if not match_indexes:
+        return False
+    origin = rule_entry.get("rule", {}).get("origin")
+    if exclude_user_agent_rules and origin == "user-agent":
+        return False
+    return True
+
+
+def _summarize_inherited_styles(
+    entries: List[Dict[str, Any]],
+    *,
+    exclude_user_agent_rules: bool,
+) -> List[Dict[str, Any]]:
     inherited: List[Dict[str, Any]] = []
     for entry in entries:
-        inline_style = entry.get("inlineStyle", {}) or {}
-        inherited.append(
-            {
-                "inlineStyle": {
-                    "styleSheetId": inline_style.get("styleSheetId"),
-                    "cssText": inline_style.get("cssText"),
-                },
-                "matchedCSSRules": [
-                    _summarize_rule_match(rule_entry)
-                    for rule_entry in entry.get("matchedCSSRules", [])
-                ],
-            }
-        )
+        inline_style = entry.get("inlineStyle") or {}
+        inherited_rules = [
+            _summarize_rule_match(rule_entry)
+            for rule_entry in entry.get("matchedCSSRules", [])
+            if _rule_entry_allowed(rule_entry, exclude_user_agent_rules=exclude_user_agent_rules)
+        ]
+        inline_summary = {
+            "styleSheetId": inline_style.get("styleSheetId"),
+            "cssText": inline_style.get("cssText"),
+        }
+        payload: Dict[str, Any] = {"matchedCSSRules": inherited_rules}
+        if inline_summary["cssText"]:
+            payload["inlineStyle"] = inline_summary
+        if inherited_rules or payload.get("inlineStyle"):
+            inherited.append(payload)
     return inherited
 
 
-def _summarize_matched_styles(matched: Dict[str, Any]) -> Dict[str, Any]:
-    matched_rules = [_summarize_rule_match(rule_entry) for rule_entry in matched.get("matchedCSSRules", [])]
-    inline_style = matched.get("inlineStyle")
-    inherited_entries = matched.get("inherited", [])
+def _summarize_matched_styles(
+    matched: Dict[str, Any],
+    *,
+    exclude_user_agent_rules: bool,
+) -> Dict[str, Any]:
+    filtered_rule_entries = [
+        rule_entry
+        for rule_entry in matched.get("matchedCSSRules", [])
+        if _rule_entry_allowed(rule_entry, exclude_user_agent_rules=exclude_user_agent_rules)
+    ]
+    matched_rules = [_summarize_rule_match(rule_entry) for rule_entry in filtered_rule_entries]
 
-    return {
+    inline_style = matched.get("inlineStyle") or {}
+    attributes_style = matched.get("attributesStyle") or {}
+
+    payload: Dict[str, Any] = {
         "ruleCount": len(matched_rules),
         "ruleMatches": matched_rules,
-        "hasInlineStyle": inline_style is not None,
-        "inlineStyle": {
-            "styleSheetId": (inline_style or {}).get("styleSheetId"),
-            "cssText": (inline_style or {}).get("cssText"),
-        },
-        "inheritedStyleEntries": _summarize_inherited_styles(inherited_entries),
+        "inheritedStyleEntries": _summarize_inherited_styles(
+            matched.get("inherited", []),
+            exclude_user_agent_rules=exclude_user_agent_rules,
+        ),
     }
+
+    if inline_style.get("cssText"):
+        payload["inlineStyle"] = {
+            "styleSheetId": inline_style.get("styleSheetId"),
+            "cssText": inline_style.get("cssText"),
+        }
+
+    if attributes_style.get("cssText"):
+        payload["attributesStyle"] = {
+            "styleSheetId": attributes_style.get("styleSheetId"),
+            "cssText": attributes_style.get("cssText"),
+        }
+
+    return payload
+
+
+def _collect_declared_color_props(
+    matched: Dict[str, Any],
+    *,
+    exclude_user_agent_rules: bool,
+) -> Set[str]:
+    names: Set[str] = set()
+
+    inline_style = matched.get("inlineStyle") or {}
+    attributes_style = matched.get("attributesStyle") or {}
+    names.update(_extract_declared_property_names(inline_style))
+    names.update(_extract_declared_property_names(attributes_style))
+
+    for rule_entry in matched.get("matchedCSSRules", []) or []:
+        if not _rule_entry_allowed(rule_entry, exclude_user_agent_rules=exclude_user_agent_rules):
+            continue
+        rule_style = rule_entry.get("rule", {}).get("style", {})
+        names.update(_extract_declared_property_names(rule_style))
+
+    for inherited in matched.get("inherited", []) or []:
+        inline_style = inherited.get("inlineStyle") or {}
+        names.update(_extract_declared_property_names(inline_style))
+        for rule_entry in inherited.get("matchedCSSRules", []) or []:
+            if not _rule_entry_allowed(rule_entry, exclude_user_agent_rules=exclude_user_agent_rules):
+                continue
+            rule_style = rule_entry.get("rule", {}).get("style", {})
+            names.update(_extract_declared_property_names(rule_style))
+
+    return names
+
+
+def _filter_computed_colors(computed_colors: Dict[str, Any], declared_prop_names: Set[str]) -> Dict[str, Any]:
+    filtered: Dict[str, Any] = {}
+    for key, value in computed_colors.items():
+        css_name = COLOR_PROP_TO_CSS_NAME.get(key)
+        if css_name and css_name in declared_prop_names:
+            filtered[key] = value
+
+    # Keep at least color/currentColor for text contrast flow when nothing author-declared.
+    if not filtered and "color" in computed_colors:
+        filtered["color"] = computed_colors["color"]
+        filtered["currentColor"] = computed_colors.get("currentColor", computed_colors["color"])
+
+    return filtered
 
 
 def _normalize_rule_usage(usage_payload: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -206,7 +385,13 @@ def _normalize_rule_usage(usage_payload: Dict[str, Any]) -> List[Dict[str, Any]]
     return usage
 
 
-def _enrich_with_cdp(page: Page, snapshot: Dict[str, Any], include_invisible: bool) -> Dict[str, Any]:
+def _enrich_with_cdp(
+    page: Page,
+    snapshot: Dict[str, Any],
+    include_invisible: bool,
+    *,
+    exclude_user_agent_rules: bool,
+) -> Dict[str, Any]:
     cdp = page.context.new_cdp_session(page)
     cdp.send("DOM.enable")
     cdp.send("CSS.enable")
@@ -230,7 +415,16 @@ def _enrich_with_cdp(page: Page, snapshot: Dict[str, Any], include_invisible: bo
 
             if cdp_node_id:
                 matched = cdp.send("CSS.getMatchedStylesForNode", {"nodeId": cdp_node_id})
-                declared_sources["cdpMatchedStyles"] = _summarize_matched_styles(matched)
+                declared_sources["cdpMatchedStyles"] = _summarize_matched_styles(
+                    matched,
+                    exclude_user_agent_rules=exclude_user_agent_rules,
+                )
+
+                declared_color_props = _collect_declared_color_props(
+                    matched,
+                    exclude_user_agent_rules=exclude_user_agent_rules,
+                )
+                node["computedColors"] = _filter_computed_colors(node.get("computedColors", {}), declared_color_props)
 
                 try:
                     declared_sources["boxModel"] = cdp.send("DOM.getBoxModel", {"nodeId": cdp_node_id})
@@ -289,6 +483,7 @@ def extract_render_snapshot(
                 page=page,
                 snapshot=snapshot,
                 include_invisible=options.include_invisible,
+                exclude_user_agent_rules=options.exclude_user_agent_rules,
             )
 
             browser.close()

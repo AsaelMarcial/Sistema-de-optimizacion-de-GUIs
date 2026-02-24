@@ -15,6 +15,11 @@ def main() -> None:
         action="store_true",
         help="Skip invisible nodes from output",
     )
+    parser.add_argument(
+        "--include-user-agent",
+        action="store_true",
+        help="Include user-agent rules in matched/inherited styles and property filtering",
+    )
 
     args = parser.parse_args()
     html_path = Path(args.html)
@@ -24,7 +29,10 @@ def main() -> None:
         html_content=html_content,
         base_path=args.base_path,
         output_json_path=args.output,
-        options=SnapshotOptions(include_invisible=not args.skip_invisible),
+        options=SnapshotOptions(
+            include_invisible=not args.skip_invisible,
+            exclude_user_agent_rules=not args.include_user_agent,
+        ),
     )
 
     print(json.dumps({"output": args.output, "nodeCount": snapshot["metadata"]["nodeCount"]}, indent=2))
