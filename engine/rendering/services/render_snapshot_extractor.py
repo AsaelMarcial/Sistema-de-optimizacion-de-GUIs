@@ -44,7 +44,6 @@ EXCLUDED_TAGS = {
     "VIDEO",
     "IMG",
     "PICTURE",
-    "SVG",
     "CANVAS",
     "IFRAME",
     "EMBED",
