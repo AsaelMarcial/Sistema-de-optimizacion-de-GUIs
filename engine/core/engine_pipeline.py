@@ -24,7 +24,7 @@ from engine.metrics.sustainable_metrics import (
 )
 from engine.metrics.utils.default_energy_model import build_default_energy_model
 from engine.rendering.screenshot_analyzer import analyze_screenshot_to_color_data
-from engine.transformation.heuristics import evaluar_y_corregir_heuristicas
+from engine.transformation.transformations_pipeline import evaluar_y_corregir_heuristicas
 
 energy_model = build_default_energy_model()
 calculator = CarbonFootprintCalculator()

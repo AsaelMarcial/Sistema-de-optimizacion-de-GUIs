@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 from app.config import get_artifacts_dir
 
 from engine.rendering.services.gui_rendering import render_gui
-from engine.rendering.utils.pixel_frequency import pixels_to_color_frequency
+from engine.analysis.utils.pixel_utils import pixels_to_color_frequency
 
 
 def analyze_screenshot_to_color_data(
