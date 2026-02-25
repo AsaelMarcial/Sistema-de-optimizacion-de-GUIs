@@ -3,6 +3,7 @@ import re
 from bs4 import BeautifulSoup
 
 from app.config import get_output_dir
+from engine.core.utils.debug_logger import DebugTrace
 from engine.recommendations.utils.color_utils import (
     parse_rgb,
     rgb_to_css,
@@ -10,6 +11,8 @@ from engine.recommendations.utils.color_utils import (
     contrast_ratio,
     brighten_color,
 )
+
+trace = DebugTrace(enabled=True)
 
 def rgb_string_to_tuple(color_str):
     color_str = color_str.strip().lower().replace("rgb(", "").replace(")", "")
@@ -68,6 +71,7 @@ def detectar_fondo_body(soup):
     return (255, 255, 255)
 
 def evaluar_y_corregir_heuristicas(html_content, output_path, base_path, session_id):
+
     if session_id:
         html_name = os.path.basename(output_path)
         output_dir = get_output_dir(session_id)
@@ -275,5 +279,12 @@ def evaluar_y_corregir_heuristicas(html_content, output_path, base_path, session
         "recomendacion": f"Se eliminaron {estilos_eliminados} estilos innecesarios.",
         "detalles": detalles_decoraciones
     })
+
+    trace.add_step(
+        "transformed.heuristics_applied",
+        {
+            "resultados": resultados
+        },
+    )
 
     return resultados
