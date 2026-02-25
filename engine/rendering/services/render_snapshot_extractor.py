@@ -50,6 +50,7 @@ EXCLUDED_TAGS = {
     "OBJECT",
     "PARAM",
     "SOURCE",
+    "SVG",
     "TRACK",
     "MAP",
     "AREA",
@@ -220,11 +221,44 @@ def _extract_declared_property_names(style_obj: Dict[str, Any]) -> Set[str]:
     return names
 
 
+def _extract_rule_declarations(style_obj: Dict[str, Any]) -> List[Dict[str, Any]]:
+    declarations: List[Dict[str, Any]] = []
+    for prop in style_obj.get("cssProperties", []) or []:
+        name = prop.get("name")
+        value = prop.get("value")
+        if not name or value in (None, ""):
+            continue
+        declarations.append(
+            {
+                "name": name,
+                "value": value,
+                "important": prop.get("important", False),
+                "implicit": prop.get("implicit", False),
+                "text": prop.get("text"),
+            }
+        )
+    return declarations
+
+
 def _summarize_selector_list(rule: Dict[str, Any]) -> Dict[str, Any]:
     selector_list = rule.get("selectorList", {})
+    selectors = []
+    for sel in selector_list.get("selectors", []) or []:
+        specificity = sel.get("specificity") or {}
+        selectors.append(
+            {
+                "text": sel.get("text"),
+                "range": sel.get("range"),
+                "specificity": {
+                    "idSelectors": specificity.get("a", 0),
+                    "classAttributePseudoClassSelectors": specificity.get("b", 0),
+                    "typeAndPseudoElementSelectors": specificity.get("c", 0),
+                },
+            }
+        )
     return {
         "text": selector_list.get("text"),
-        "selectors": selector_list.get("selectors", []),
+        "selectors": selectors or None,
     }
 
 
@@ -242,12 +276,20 @@ def _summarize_rule_match(rule_entry: Dict[str, Any]) -> Dict[str, Any]:
                 matching_texts.append(txt)
 
     return {
-        "matchingSelectors": matching_indexes,
-        "matchingSelectorTexts": matching_texts,
+        "matchingSelectors": matching_indexes or None,
+        "matchingSelectorTexts": matching_texts or None,
         "origin": rule.get("origin"),
+        "originDescription": {
+            "regular": "Regla de stylesheet de autor (author stylesheet).",
+            "user-agent": "Regla por defecto del navegador (user agent stylesheet).",
+            "injected": "Regla inyectada dinámicamente por DevTools o runtime.",
+            "inspector": "Regla creada/forzada desde inspector.",
+        }.get(rule.get("origin"), "Origen no clasificado."),
         "styleSheetId": style.get("styleSheetId"),
+        "styleSheet": None,
         "range": style.get("range"),
         "selectorList": selector_list,
+        "declarations": _extract_rule_declarations(style),
     }
 
 
@@ -303,11 +345,12 @@ def _summarize_matched_styles(
 
     payload: Dict[str, Any] = {
         "ruleCount": len(matched_rules),
-        "ruleMatches": matched_rules,
+        "ruleMatches": matched_rules or None,
         "inheritedStyleEntries": _summarize_inherited_styles(
             matched.get("inherited", []),
             exclude_user_agent_rules=exclude_user_agent_rules,
-        ),
+        )
+        or None,
     }
 
     if inline_style.get("cssText"):
@@ -384,6 +427,32 @@ def _normalize_rule_usage(usage_payload: Dict[str, Any]) -> List[Dict[str, Any]]
     return usage
 
 
+def _collect_stylesheet_headers(cdp: Any) -> Dict[str, Dict[str, Any]]:
+    headers: Dict[str, Dict[str, Any]] = {}
+
+    def _on_style_added(params: Dict[str, Any]) -> None:
+        header = (params or {}).get("header", {})
+        style_sheet_id = header.get("styleSheetId")
+        if not style_sheet_id:
+            return
+        headers[style_sheet_id] = {
+            "styleSheetId": style_sheet_id,
+            "sourceURL": header.get("sourceURL") or None,
+            "title": header.get("title") or None,
+            "isInline": header.get("isInline"),
+            "origin": header.get("origin"),
+        }
+
+    cdp.on("CSS.styleSheetAdded", _on_style_added)
+    return headers
+
+
+def _inject_stylesheet_info(rule_matches: List[Dict[str, Any]], sheet_headers: Dict[str, Dict[str, Any]]) -> None:
+    for match in rule_matches:
+        style_sheet_id = match.get("styleSheetId")
+        match["styleSheet"] = sheet_headers.get(style_sheet_id)
+
+
 def _enrich_with_cdp(
     page: Page,
     snapshot: Dict[str, Any],
@@ -392,6 +461,7 @@ def _enrich_with_cdp(
     exclude_user_agent_rules: bool,
 ) -> Dict[str, Any]:
     cdp = page.context.new_cdp_session(page)
+    stylesheet_headers = _collect_stylesheet_headers(cdp)
     cdp.send("DOM.enable")
     cdp.send("CSS.enable")
     cdp.send("CSS.startRuleUsageTracking")
@@ -418,6 +488,12 @@ def _enrich_with_cdp(
                     matched,
                     exclude_user_agent_rules=exclude_user_agent_rules,
                 )
+                _inject_stylesheet_info(
+                    declared_sources["cdpMatchedStyles"].get("ruleMatches", []),
+                    stylesheet_headers,
+                )
+                for inherited in declared_sources["cdpMatchedStyles"].get("inheritedStyleEntries", []):
+                    _inject_stylesheet_info(inherited.get("matchedCSSRules", []), stylesheet_headers)
 
                 declared_color_props = _collect_declared_color_props(
                     matched,
@@ -426,15 +502,10 @@ def _enrich_with_cdp(
                 node["computedColors"] = _filter_computed_colors(node.get("computedColors", {}), declared_color_props)
 
                 try:
-                    declared_sources["boxModel"] = cdp.send("DOM.getBoxModel", {"nodeId": cdp_node_id})
-                except Exception as box_error:
-                    declared_sources["boxModelError"] = str(box_error)
-
-                try:
                     bg = cdp.send("CSS.getBackgroundColors", {"nodeId": cdp_node_id})
-                    declared_sources["backgroundColors"] = bg.get("backgroundColors", [])
-                    declared_sources["computedFontSize"] = bg.get("computedFontSize")
-                    declared_sources["computedFontWeight"] = bg.get("computedFontWeight")
+                    declared_sources["backgroundColors"] = bg.get("backgroundColors") or None
+                    declared_sources["computedFontSize"] = bg.get("computedFontSize") or None
+                    declared_sources["computedFontWeight"] = bg.get("computedFontWeight") or None
                     backgrounds = bg.get("backgroundColors", [])
                     effective_background = backgrounds[0] if backgrounds else None
                 except Exception as bg_error:
@@ -456,6 +527,7 @@ def _enrich_with_cdp(
     rule_usage_payload = cdp.send("CSS.stopRuleUsageTracking")
     snapshot["ruleUsage"] = _normalize_rule_usage(rule_usage_payload)
     snapshot["nodes"] = enriched_nodes
+    snapshot["domPathsInOrder"] = [node.get("domPath") for node in enriched_nodes]
     return snapshot
 
 
@@ -500,7 +572,6 @@ def extract_render_snapshot(
                 "CSS.getMatchedStylesForNode",
                 "CSS.startRuleUsageTracking",
                 "CSS.stopRuleUsageTracking",
-                "DOM.getBoxModel",
             ]
         },
     }
