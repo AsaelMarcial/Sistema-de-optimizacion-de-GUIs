@@ -1,13 +1,6 @@
 {
   "onScope": [
     {
-      "attributeID": "autofocus",
-      "flag": "onScope",
-      "elements": ["button", "input", "select", "textarea"],
-      "description": "Indicates that the element should receive focus automatically when the page loads.",
-      "value": "boolean"
-    },
-    {
       "attributeID": "class",
       "flag": "onScope",
       "elements": ["global"],
@@ -22,25 +15,11 @@
       "value": "<color>"
     },
     {
-      "attributeID": "cols",
-      "flag": "onScope",
-      "elements": ["textarea"],
-      "description": "Specifies the visible width of a text area, in average character widths.",
-      "value": "non-negative integer"
-    },
-    {
       "attributeID": "form",
       "flag": "onScope",
       "elements": ["button", "fieldset", "input", "label", "meter", "object", "output", "progress", "select", "textarea"],
       "description": "Associates the element with a form element.",
       "value": "ID reference"
-    },
-    {
-      "attributeID": "headers",
-      "flag": "onScope",
-      "elements": ["td", "th"],
-      "description": "Specifies the header cells related to a table cell.",
-      "value": "space-separated list of ID references"
     },
     {
       "attributeID": "hidden",
@@ -64,25 +43,11 @@
       "value": "text"
     },
     {
-      "attributeID": "rows",
-      "flag": "onScope",
-      "elements": ["textarea"],
-      "description": "Specifies the visible number of lines in a text area.",
-      "value": "non-negative integer"
-    },
-    {
       "attributeID": "style",
       "flag": "onScope",
       "elements": ["global"],
       "description": "Inline CSS declarations applied directly to the element.",
       "value": "CSS declaration list"
-    },
-    {
-      "attributeID": "button-type",
-      "flag": "onScope",
-      "elements": ["button"],
-      "description": "Specifies the type of input button.",
-      "value": "submit | reset | button"
     },
     {
       "attributeID": "input-type",
