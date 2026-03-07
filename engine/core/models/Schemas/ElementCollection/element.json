@@ -147,7 +147,7 @@
       "type": "array",
       "description": "Propiedades de color efectivas en este elemento; cada item es un ColorProperty.",
       "items": {
-        "$ref": "./color-property.schema.json"
+        "$ref": "./property.json"
       },
       "uniqueItems": true
     },

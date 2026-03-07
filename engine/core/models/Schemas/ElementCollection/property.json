@@ -56,7 +56,7 @@
       }
     },
     "resolvedValueRaw": {
-      "$ref": "./color-space.schema.json#/$defs/publicRefs/anyPermittedColorFormat"
+      "$ref": "../../Dictionaries/scope-colors.json#/$defs/publicRefs/anyPermittedColorFormat"
     },
     "resolvedInitialColorRef": {
       "type": [
@@ -82,7 +82,7 @@
       ],
       "properties": {
         "initialValue": {
-          "$ref": "./color-space.schema.json#/$defs/publicRefs/srgbCanonicalObject"
+          "$ref": "../../Dictionaries/scope-colors.json#/$defs/publicRefs/srgbCanonicalObject"
         },
         "token": {
           "type": [
@@ -97,7 +97,7 @@
       "additionalProperties": false,
       "properties": {
         "finalValue": {
-          "$ref": "./color-space.schema.json#/$defs/publicRefs/srgbCanonicalObject"
+          "$ref": "../../Dictionaries/scope-colors.json#/$defs/publicRefs/srgbCanonicalObject"
         },
         "token": {
           "type": [
