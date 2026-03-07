@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tu-proyecto.local/schemas/system-color-dictionary.schema.json",
+  "title": "CSSSystemColorDictionary",
+  "description": "Valores permitidos para colores de sistema CSS (CSS Color Module). Un objeto con una sola propiedad que debe ser uno de estos keywords.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "systemColors": {
+      "type": "string",
+      "description": "Keyword de color de sistema CSS.",
+      "enum": [
+        "AccentColor",
+        "AccentColorText",
+        "ActiveText",
+        "ButtonBorder",
+        "ButtonFace",
+        "ButtonText",
+        "Canvas",
+        "CanvasText",
+        "Field",
+        "FieldText",
+        "GrayText",
+        "Highlight",
+        "HighlightText",
+        "LinkText",
+        "Mark",
+        "MarkText",
+        "SelectedItem",
+        "SelectedItemText",
+        "VisitedText"
+      ]
+    }
+  }
+}

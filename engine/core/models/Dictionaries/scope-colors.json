@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tu-proyecto.local/schemas/color-space.schema.json",
+  "title": "ColorSpaceDefs",
+  "description": "Definiciones por espacio de color: cada uno con object + pattern (o $ref a diccionarios). Un único permittedColorSpaces lista todos los formatos.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "$defs": {
+    "permittedColorSpaces": {
+      "description": "Cualquier color válido admitido en scope (strings en todas sus variantes u objetos). Todos se normalizan al objeto sRGB canónico (normalized).",
+      "oneOf": [
+        { "$ref": "#/$defs/hex/string" },
+        { "$ref": "#/$defs/srgb/rgbString" },
+        { "$ref": "#/$defs/srgb/rgbaString" },
+        { "$ref": "#/$defs/srgb/rgbStringPercent" },
+        { "$ref": "#/$defs/srgb/rgbaStringPercent" },
+        { "$ref": "#/$defs/srgb/rgbStringSpaceSep" },
+        { "$ref": "#/$defs/srgb/rgbaStringSpaceSep" },
+        { "$ref": "#/$defs/srgb/object" },
+        { "$ref": "#/$defs/hsl/string" },
+        { "$ref": "#/$defs/hsl/object" },
+        { "$ref": "#/$defs/hwb/string" },
+        { "$ref": "#/$defs/hwb/object" },
+        { "$ref": "#/$defs/named/keyword" },
+        { "$ref": "#/$defs/system/keyword" },
+        { "$ref": "#/$defs/lab/object" },
+        { "$ref": "#/$defs/lch/object" },
+        { "$ref": "#/$defs/oklab/object" },
+        { "$ref": "#/$defs/oklch/object" },
+        { "$ref": "#/$defs/hct/object" }
+      ]
+    },
+
+    "srgb": {
+      "description": "sRGB: objeto canónico (siempre la forma normalizada) o strings en sus variantes; todos se normalizan al objeto.",
+      "object": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["space", "r", "g", "b", "a"],
+        "properties": {
+          "space": { "const": "srgb" },
+          "r": { "type": "integer", "minimum": 0, "maximum": 255 },
+          "g": { "type": "integer", "minimum": 0, "maximum": 255 },
+          "b": { "type": "integer", "minimum": 0, "maximum": 255 },
+          "a": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      },
+      "rgbString": {
+        "type": "string",
+        "pattern": "^rgb\\(\\s*(?:\\d{1,3}|(?:\\d{1,3}\\.\\d+))\\s*,\\s*(?:\\d{1,3}|(?:\\d{1,3}\\.\\d+))\\s*,\\s*(?:\\d{1,3}|(?:\\d{1,3}\\.\\d+))\\s*\\)$"
+      },
+      "rgbaString": {
+        "type": "string",
+        "pattern": "^rgba\\(\\s*(?:\\d{1,3}|(?:\\d{1,3}\\.\\d+))\\s*,\\s*(?:\\d{1,3}|(?:\\d{1,3}\\.\\d+))\\s*,\\s*(?:\\d{1,3}|(?:\\d{1,3}\\.\\d+))\\s*,\\s*(?:0|1|0?\\.\\d+)\\s*\\)$"
+      },
+      "rgbStringPercent": {
+        "type": "string",
+        "description": "rgb() con porcentajes: rgb(100% 50% 0%).",
+        "pattern": "^rgb\\(\\s*(?:\\d{1,3}(?:\\.\\d+)?%)\\s*,\\s*(?:\\d{1,3}(?:\\.\\d+)?%)\\s*,\\s*(?:\\d{1,3}(?:\\.\\d+)?%)\\s*\\)$"
+      },
+      "rgbaStringPercent": {
+        "type": "string",
+        "description": "rgba() con porcentajes y alpha.",
+        "pattern": "^rgba\\(\\s*(?:\\d{1,3}(?:\\.\\d+)?%)\\s*,\\s*(?:\\d{1,3}(?:\\.\\d+)?%)\\s*,\\s*(?:\\d{1,3}(?:\\.\\d+)?%)\\s*,\\s*(?:0|1|0?\\.\\d+)\\s*\\)$"
+      },
+      "rgbStringSpaceSep": {
+        "type": "string",
+        "description": "CSS Color 4: rgb(r g b) o rgb(r g b / a), números 0-255 o 0-1 o %.",
+        "pattern": "^rgb\\(\\s*(?:\\d{1,3}(?:\\.\\d+)?%?|0?\\.\\d+)\\s+(?:\\d{1,3}(?:\\.\\d+)?%?|0?\\.\\d+)\\s+(?:\\d{1,3}(?:\\.\\d+)?%?|0?\\.\\d+)\\s*(?:/\\s*(?:0|1|0?\\.\\d+))?\\s*\\)$"
+      },
+      "rgbaStringSpaceSep": {
+        "type": "string",
+        "description": "CSS Color 4: rgba(r g b / a) con espacios.",
+        "pattern": "^rgba?\\(\\s*(?:\\d{1,3}(?:\\.\\d+)?%?|0?\\.\\d+)\\s+(?:\\d{1,3}(?:\\.\\d+)?%?|0?\\.\\d+)\\s+(?:\\d{1,3}(?:\\.\\d+)?%?|0?\\.\\d+)\\s*/\\s*(?:0|1|0?\\.\\d+)\\s*\\)$"
+      }
+    },
+    "hex": {
+      "description": "HEX: #RGB, #RGBA, #RRGGBB, #RRGGBBAA.",
+      "string": {
+        "type": "string",
+        "pattern": "^#(?:[A-Fa-f0-9]{3}|[A-Fa-f0-9]{4}|[A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$"
+      }
+    },
+    "hsl": {
+      "description": "HSL: muy común en CSS y herramientas.",
+      "object": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["space", "h", "s", "l", "alpha"],
+        "properties": {
+          "space": { "const": "hsl" },
+          "h": { "type": "number", "minimum": 0, "maximum": 360 },
+          "s": { "type": "number", "minimum": 0, "maximum": 100 },
+          "l": { "type": "number", "minimum": 0, "maximum": 100 },
+          "alpha": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      },
+      "string": {
+        "type": "string",
+        "pattern": "^hsla?\\(\\s*(?:\\d{1,3}(?:\\.\\d+)?|\\d{1,3}(?:\\.\\d+)?deg)\\s*,\\s*(?:\\d{1,3}(?:\\.\\d+)?%)\\s*,\\s*(?:\\d{1,3}(?:\\.\\d+)?%)\\s*(?:,\\s*(?:0|1|0?\\.\\d+))?\\s*\\)$"
+      }
+    },
+    "hwb": {
+      "description": "HWB (CSS Color 4): hue whiteness blackness.",
+      "object": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["space", "h", "w", "b", "alpha"],
+        "properties": {
+          "space": { "const": "hwb" },
+          "h": { "type": "number", "minimum": 0, "maximum": 360 },
+          "w": { "type": "number", "minimum": 0, "maximum": 100 },
+          "b": { "type": "number", "minimum": 0, "maximum": 100 },
+          "alpha": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      },
+      "string": {
+        "type": "string",
+        "pattern": "^hwb\\(\\s*(?:\\d{1,3}(?:\\.\\d+)?(?:deg)?)\\s+\\d{1,3}(?:\\.\\d+)?%\\s+\\d{1,3}(?:\\.\\d+)?%\\s*(?:/\\s*(?:0|1|0?\\.\\d+))?\\s*\\)$"
+      }
+    },
+    "named": {
+      "description": "Keywords de nombre CSS; ref al diccionario.",
+      "keyword": {
+        "$ref": "./named-color.json#/properties/namedColors"
+      }
+    },
+    "system": {
+      "description": "Keywords de color de sistema CSS; ref al diccionario.",
+      "keyword": {
+        "$ref": "./system-color-dictionary.json#/properties/systemColors"
+      }
+    },
+    "lab": {
+      "description": "LAB (CIE L*a*b*).",
+      "object": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["space", "l", "a", "b", "alpha"],
+        "properties": {
+          "space": { "const": "lab" },
+          "l": { "type": "number" },
+          "a": { "type": "number" },
+          "b": { "type": "number" },
+          "alpha": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "lch": {
+      "description": "LCH (lightness chroma hue).",
+      "object": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["space", "l", "c", "h", "alpha"],
+        "properties": {
+          "space": { "const": "lch" },
+          "l": { "type": "number" },
+          "c": { "type": "number" },
+          "h": { "type": "number" },
+          "alpha": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "oklab": {
+      "description": "OKLAB (perceptually uniform).",
+      "object": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["space", "l", "a", "b", "alpha"],
+        "properties": {
+          "space": { "const": "oklab" },
+          "l": { "type": "number" },
+          "a": { "type": "number" },
+          "b": { "type": "number" },
+          "alpha": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "oklch": {
+      "description": "OKLCH.",
+      "object": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["space", "l", "c", "h", "alpha"],
+        "properties": {
+          "space": { "const": "oklch" },
+          "l": { "type": "number" },
+          "c": { "type": "number" },
+          "h": { "type": "number" },
+          "alpha": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "hct": {
+      "description": "HCT (Material).",
+      "object": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["space", "h", "c", "t", "alpha"],
+        "properties": {
+          "space": { "const": "hct" },
+          "h": { "type": "number" },
+          "c": { "type": "number" },
+          "t": { "type": "number" },
+          "alpha": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+
+    "publicRefs": {
+      "description": "Referencias públicas para consumo desde color.schema y color-property; evita rutas largas (#/$defs/srgb/object, etc.). Nombres semánticos.",
+      "srgbCanonicalObject": { "$ref": "#/$defs/srgb/object" },
+      "hexString": { "$ref": "#/$defs/hex/string" },
+      "anyPermittedColorFormat": { "$ref": "#/$defs/permittedColorSpaces" },
+      "labSpace": { "$ref": "#/$defs/lab/object" },
+      "lchSpace": { "$ref": "#/$defs/lch/object" },
+      "oklabSpace": { "$ref": "#/$defs/oklab/object" },
+      "oklchSpace": { "$ref": "#/$defs/oklch/object" },
+      "hctSpace": { "$ref": "#/$defs/hct/object" },
+      "systemKeyword": { "$ref": "#/$defs/system/keyword" },
+      "namedKeyword": { "$ref": "#/$defs/named/keyword" }
+    }
+  }
+}

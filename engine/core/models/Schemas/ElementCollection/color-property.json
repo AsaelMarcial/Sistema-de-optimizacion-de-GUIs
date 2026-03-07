@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tu-proyecto.local/schemas/color-property.schema.json",
+  "title": "ColorProperty",
+  "description": "Propiedad de color efectiva asociada a un ElementNode.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "colorPropertyId",
+    "propertyName",
+    "sourceKind",
+    "resolvedValueRaw",
+    "status",
+    "before"
+  ],
+  "properties": {
+    "colorPropertyId": {
+      "type": "string"
+    },
+    "propertyName": {
+      "type": "string"
+    },
+    "sourceKind": {
+      "type": "string",
+      "enum": [
+        "own",
+        "inherited"
+      ]
+    },
+    "winningStyleRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Referencia a la regla/declaración ganadora; IDs deben existir en style-rule y color-declaration.",
+      "properties": {
+        "styleRuleId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Referencia a style-rule.styleRuleId."
+        },
+        "colorDeclarationId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Referencia a color-declaration.colorDeclarationId."
+        },
+        "inheritedFromElement": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Referencia a element-node.elementId, user-agent o de donde sea heredado el valor."
+        }
+      }
+    },
+    "resolvedValueRaw": {
+      "$ref": "./color-space.schema.json#/$defs/publicRefs/anyPermittedColorFormat"
+    },
+    "resolvedInitialColorRef": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Referencia a color.colorId del inventario de colores."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "kept",
+        "changed",
+        "error"
+      ]
+    },
+    "before": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "initialValue"
+      ],
+      "properties": {
+        "initialValue": {
+          "$ref": "./color-space.schema.json#/$defs/publicRefs/srgbCanonicalObject"
+        },
+        "token": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "after": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "finalValue": {
+          "$ref": "./color-space.schema.json#/$defs/publicRefs/srgbCanonicalObject"
+        },
+        "token": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "annotations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tu-proyecto.local/schemas/color-declaration.schema.json",
+  "title": "ColorDeclaration",
+  "description": "Declaración de color dentro de una StyleRule.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "colorDeclarationId",
+    "propertyName",
+    "rawValue",
+    "usageStatus",
+    "elementUsageCount"
+  ],
+  "properties": {
+    "colorDeclarationId": {
+      "type": "string",
+      "description": "ID único; referenciado por color-property.winningStyleRef.colorDeclarationId."
+    },
+    "propertyName": {
+      "type": "string"
+    },
+    "rawValue": {
+      "type": "string",
+      "description": "Valor crudo de la declaración. Si parseStatus es 'ok', suele ser un formato permitido (hex, rgb/rgba en variantes, keyword); todo se normaliza a sRGB."
+    },
+    "important": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "usageStatus": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "unused",
+        "used"
+      ]
+    },
+    "elementUsageCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "parseStatus": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "invalid",
+        "unsupported",
+        "not-color"
+      ]
+    },
+    "usedByElementIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

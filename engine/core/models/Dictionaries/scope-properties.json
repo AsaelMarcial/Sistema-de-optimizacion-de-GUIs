@@ -1,0 +1,228 @@
+{
+  "onScope": [
+    {
+      "propertyID": "accent-color",
+      "values": "auto | <color>",
+      "initialValue": "auto",
+      "appliesTo": "all elements",
+      "inherited": "yes"
+    },
+    {
+      "propertyID": "background",
+      "values": "[ <background-color> || <background-image> || <background-repeat> || <background-attachment> || <background-position> ] | inherit",
+      "initialValue": "see individual properties",
+      "appliesTo": "all elements",
+      "inherited": "yes"
+    },
+    {
+      "propertyID": "background-color",
+      "values": "<color> | transparent | inherit",
+      "initialValue": "transparent",
+      "appliesTo": "all elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "background-image",
+      "values": "<uri> | none | inherit",
+      "initialValue": "none",
+      "appliesTo": "all elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "border",
+      "values": "[ <border-width> || <border-style> || <color> ] | inherit",
+      "initialValue": "see individual properties",
+      "appliesTo": "all elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "border-color",
+      "values": "[ <color> | transparent ]{1,4} | inherit",
+      "initialValue": "currentColor",
+      "appliesTo": "all elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "border-style",
+      "values": "<border-style>{1,4} | inherit",
+      "initialValue": "none",
+      "appliesTo": "all elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "border-top-color",
+      "values": "<color> | transparent | inherit",
+      "initialValue": "currentColor",
+      "appliesTo": "all elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "border-right-color",
+      "values": "<color> | transparent | inherit",
+      "initialValue": "currentColor",
+      "appliesTo": "all elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "border-bottom-color",
+      "values": "<color> | transparent | inherit",
+      "initialValue": "currentColor",
+      "appliesTo": "all elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "border-left-color",
+      "values": "<color> | transparent | inherit",
+      "initialValue": "currentColor",
+      "appliesTo": "all elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "caret",
+      "values": "<caret-color>",
+      "initialValue": "auto",
+      "appliesTo": "text or elements that accept text input",
+      "inherited": "yes"
+    },
+    {
+      "propertyID": "caret-color",
+      "values": "auto | <color>",
+      "initialValue": "auto",
+      "appliesTo": "text or elements that accept text input",
+      "inherited": "yes"
+    },
+    {
+      "propertyID": "color",
+      "values": "<color> | inherit",
+      "initialValue": "depends on user agent",
+      "appliesTo": "all elements",
+      "inherited": "elements to which properties fill, stroke, stop-color, flood-color, lighting-color apply"
+    },
+    {
+      "propertyID": "display",
+      "values": "none | inline | inline-block | block | grid | inline-grid | flow | flow-root | flex | inline-flex | contents | list-item | table | inline-table | table-row-group | table-header-group | table-footer-group | table-row | table-cell | table-column-group | table-column | table-caption | none | inherit",
+      "initialValue": "inline",
+      "appliesTo": " svg,switch,a, foreignObject, graphics elements (including the text element) and text sub-elements (i.e., tspan, tref, altGlyph textPath",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "elevation",
+      "values": "<angle> | bellow | level | above | higher | lower | inherit",
+      "initialValue": "level",
+      "appliesTo": "all elements",
+      "inherited": "yes"
+    },
+    {
+      "propertyID": "fill",
+      "values": "<paint>",
+      "initialValue": "black",
+      "appliesTo": "shapes and text content elements",
+      "inherited": "yes"
+    },
+    {
+      "propertyID": "fill-opacity",
+      "values": "<opacity-value> | inherit",
+      "initialValue": "1",
+      "appliesTo": "shapes and text content elements",
+      "inherited": "yes"
+    },
+    {
+      "propertyID": "fill-rule",
+      "values": "<paint>",
+      "initialValue": "nonzero",
+      "appliesTo": "shapes and text content elements",
+      "inherited": "yes"
+    },
+    {
+      "propertyID": "flood-color",
+      "values": "currentColor | <color> | inherit",
+      "initialValue": "black",
+      "appliesTo": "feFlood elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "lighting-color",
+      "values": "currentColor | <color> | inherit",
+      "initialValue": "white",
+      "appliesTo": "feDiffuseLighting and feSpecularLighting elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "opacity",
+      "values": "<opacity-value> | inherit",
+      "initialValue": "1",
+      "appliesTo": "container elements and graphics elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "outline",
+      "values": " <outline-color> | <outline-style> | <outline-width> | inherit ",
+      "initialValue": "auto, none, medium",
+      "appliesTo": "all elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "outline-color",
+      "values": "<color> | invert | inherit",
+      "initialValue": "invert",
+      "appliesTo": "all elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "outline-style",
+      "values": "<border-style> | inherit",
+      "initialValue": "none",
+      "appliesTo": "all elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "stop-color",
+      "values": "currentColor | <color> | inherit",
+      "initialValue": "black",
+      "appliesTo": "stop elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "stroke",
+      "values": "<paint>",
+      "initialValue": "none",
+      "appliesTo": "shapes and text content elements",
+      "inherited": "yes"
+    },
+    {
+      "propertyID": "text-decoration",
+      "values": "<text-decoration-line> || <text-decoration-style> || <text-decoration-color> || <text-decoration-thickness> || inherit",
+      "initialValue": "none",
+      "appliesTo": "text content elements",
+      "inherited": "no"
+    },
+    {
+      "propertyID": "text-emphasis-color",
+      "values": "<color>",
+      "initialValue": "currentcolor",
+      "appliesTo": "text",
+      "inherited": "yes"
+    },
+   {
+      "propertyID": "text-shadow",
+      "values": "none | <shadow>#",
+      "initialValue": "none",
+      "appliesTo": "text",
+      "inherited": "yes"
+    },
+    {
+      "propertyID": "visibility",
+      "values": "visible | hidden | collapse | inherit",
+      "initialValue": "visible",
+      "appliesTo": "graphics elements (including the text element) and text sub-elements (i.e., tspan, tref, altGlyph, textPath and a)",
+      "inherited": "yes"
+    },
+    {
+      "propertyID": "z-index",
+      "values": "auto | <interger> | inherit ",
+      "initialValue": "auto",
+      "appliesTo": "positioned elements",
+      "inherited": "no"
+    }
+  ]
+}

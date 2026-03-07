@@ -1,0 +1,95 @@
+{
+  "onScope": [
+    {
+      "attributeID": "autofocus",
+      "flag": "onScope",
+      "elements": ["button", "input", "select", "textarea"],
+      "description": "Indicates that the element should receive focus automatically when the page loads.",
+      "value": "boolean"
+    },
+    {
+      "attributeID": "class",
+      "flag": "onScope",
+      "elements": ["global"],
+      "description": "Assigns one or more class names to the element for CSS styling and DOM selection.",
+      "value": "set of space-separated tokens"
+    },
+    {
+      "attributeID": "color",
+      "flag": "onScope",
+      "elements": ["font", "hr"],
+      "description": "Specifies a color value associated with the element.",
+      "value": "<color>"
+    },
+    {
+      "attributeID": "cols",
+      "flag": "onScope",
+      "elements": ["textarea"],
+      "description": "Specifies the visible width of a text area, in average character widths.",
+      "value": "non-negative integer"
+    },
+    {
+      "attributeID": "form",
+      "flag": "onScope",
+      "elements": ["button", "fieldset", "input", "label", "meter", "object", "output", "progress", "select", "textarea"],
+      "description": "Associates the element with a form element.",
+      "value": "ID reference"
+    },
+    {
+      "attributeID": "headers",
+      "flag": "onScope",
+      "elements": ["td", "th"],
+      "description": "Specifies the header cells related to a table cell.",
+      "value": "space-separated list of ID references"
+    },
+    {
+      "attributeID": "hidden",
+      "flag": "onScope",
+      "elements": ["global"],
+      "description": "Indicates that the element is not relevant or should not be rendered.",
+      "value": "boolean"
+    },
+    {
+      "attributeID": "id",
+      "flag": "onScope",
+      "elements": ["global"],
+      "description": "Defines a unique identifier for the element.",
+      "value": "unique identifier token"
+    },
+    {
+      "attributeID": "name",
+      "flag": "onScope",
+      "elements": ["button", "fieldset", "input", "output", "select", "textarea", "form"],
+      "description": "Specifies the name of the element, used in form submission or metadata.",
+      "value": "text"
+    },
+    {
+      "attributeID": "rows",
+      "flag": "onScope",
+      "elements": ["textarea"],
+      "description": "Specifies the visible number of lines in a text area.",
+      "value": "non-negative integer"
+    },
+    {
+      "attributeID": "style",
+      "flag": "onScope",
+      "elements": ["global"],
+      "description": "Inline CSS declarations applied directly to the element.",
+      "value": "CSS declaration list"
+    },
+    {
+      "attributeID": "button-type",
+      "flag": "onScope",
+      "elements": ["button"],
+      "description": "Specifies the type of input button.",
+      "value": "submit | reset | button"
+    },
+    {
+      "attributeID": "input-type",
+      "flag": "onScope",
+      "elements": ["input"],
+      "description": "Specifies the type of input control.",
+      "value": "text | password | checkbox | radio | button | submit | reset | color | etc"
+    }
+  ]
+}
