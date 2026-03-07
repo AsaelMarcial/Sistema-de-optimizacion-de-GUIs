@@ -5,7 +5,10 @@
   "description": "Color normalizado que nos ayudará a generar un inventario de colores que realmente se ven en la gui",
   "type": "object",
   "additionalProperties": false,
-  "required": ["colorId", "normalized"],
+  "required": [
+    "colorId",
+    "normalized"
+  ],
   "properties": {
     "colorId": {
       "type": "string",
@@ -13,17 +16,98 @@
     },
     "normalized": {
       "description": "Forma canónica en sRGB (objeto). Todo formato (rgb con %, decimales, hex, etc.) se normaliza a este objeto; evita duplicados en el inventario.",
-      "$ref": "./color-space.schema.json#/$defs/publicRefs/srgbCanonicalObject"
+      "$ref": "../../Dictionaries/scope-colors.json#/$defs/publicRefs/srgbCanonicalObject"
     },
-    "foundedFormattes": {
+    "perceptual": {
       "type": "object",
       "additionalProperties": false,
-      "description": "El color encontrado en otros formatos durante la generación del inventario de colores. Nos sirve irlos guardando para hacer las consultas más rápidas.",
+      "description": "Representaciones en espacios perceptualmente uniformes.",
+      "properties": {
+        "lab": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "../../Dictionaries/scope-colors.json#/$defs/publicRefs/labSpace"
+            }
+          ]
+        },
+        "lch": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "../../Dictionaries/scope-colors.json#/$defs/publicRefs/lchSpace"
+            }
+          ]
+        },
+        "oklab": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "../../Dictionaries/scope-colors.json#/$defs/publicRefs/oklabSpace"
+            }
+          ]
+        },
+        "oklch": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "../../Dictionaries/scope-colors.json#/$defs/publicRefs/oklchSpace"
+            }
+          ]
+        },
+        "hct": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "../../Dictionaries/scope-colors.json#/$defs/publicRefs/hctSpace"
+            }
+          ]
+        }
+      }
+    },
+    "token": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "elementUsageCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "isPermitted": {
+      "type": "boolean",
+      "description": "Flag: true si el color está dentro del scope permitido (coincide con algún formato en permittedColorSpaces). Sirve para filtrar o calcular sin revalidar; se puede derivar al generar el inventario."
+    },
+    "foundFormats": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Representaciones encontradas del color para búsquedas y trazabilidad.",
       "properties": {
         "hex": {
           "oneOf": [
-            { "type": "null" },
-            { "$ref": "./color-space.schema.json#/$defs/publicRefs/hexString" }
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "../../Dictionaries/scope-colors.json#/$defs/publicRefs/hexString"
+            }
           ],
           "description": "Representación HEX (#RGB, #RGBA, #RRGGBB, #RRGGBBAA)."
         },
@@ -33,73 +117,29 @@
           "properties": {
             "named": {
               "oneOf": [
-                { "type": "null" },
-                { "$ref": "./color-space.schema.json#/$defs/publicRefs/namedKeyword" }
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "../../Dictionaries/scope-colors.json#/$defs/publicRefs/namedKeyword"
+                }
               ],
               "description": "Keyword de nombre CSS (diccionario named-color)."
             },
             "system": {
               "oneOf": [
-                { "type": "null" },
-                { "$ref": "./color-space.schema.json#/$defs/publicRefs/systemKeyword" }
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "../../Dictionaries/scope-colors.json#/$defs/publicRefs/systemKeyword"
+                }
               ],
               "description": "Keyword de color de sistema (diccionario system-color)."
             }
           }
         }
       }
-    },
-    "perceptual": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Representaciones en espacios perceptualmente uniformes.",
-      "properties": {
-        "lab": {
-          "oneOf": [
-            { "type": "null" },
-            { "$ref": "./color-space.schema.json#/$defs/publicRefs/labSpace" }
-          ]
-        },
-        "lch": {
-          "oneOf": [
-            { "type": "null" },
-            { "$ref": "./color-space.schema.json#/$defs/publicRefs/lchSpace" }
-          ]
-        },
-        "oklab": {
-          "oneOf": [
-            { "type": "null" },
-            { "$ref": "./color-space.schema.json#/$defs/publicRefs/oklabSpace" }
-          ]
-        },
-        "oklch": {
-          "oneOf": [
-            { "type": "null" },
-            { "$ref": "./color-space.schema.json#/$defs/publicRefs/oklchSpace" }
-          ]
-        },
-        "hct": {
-          "oneOf": [
-            { "type": "null" },
-            { "$ref": "./color-space.schema.json#/$defs/publicRefs/hctSpace" }
-          ]
-        }
-      }
-    },
-    "token": {
-      "type": ["string", "null"]
-    },
-    "elementUsageCount": {
-      "type": "integer",
-      "minimum": 1
-    },
-    "notes": {
-      "type": "array",
-      "items": { "type": "string" }
-    },
-    "isPermitted": {
-      "type": "boolean",
-      "description": "Flag: true si el color está dentro del scope permitido (coincide con algún formato en permittedColorSpaces). Sirve para filtrar o calcular sin revalidar; se puede derivar al generar el inventario."
     }
   }
 }

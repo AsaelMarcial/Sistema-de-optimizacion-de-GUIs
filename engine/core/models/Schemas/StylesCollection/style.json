@@ -115,7 +115,7 @@
       "type": "array",
       "description": "Declaraciones de color de esta regla; cada item referenciable por colorDeclarationId.",
       "items": {
-        "$ref": "./color-declaration.schema.json"
+        "$ref": "./declaration.json"
       }
     },
     "notes": {

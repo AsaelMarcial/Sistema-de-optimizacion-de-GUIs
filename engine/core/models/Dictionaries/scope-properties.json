@@ -203,7 +203,7 @@
       "appliesTo": "text",
       "inherited": "yes"
     },
-   {
+    {
       "propertyID": "text-shadow",
       "values": "none | <shadow>#",
       "initialValue": "none",
@@ -219,7 +219,7 @@
     },
     {
       "propertyID": "z-index",
-      "values": "auto | <interger> | inherit ",
+      "values": "auto | <integer> | inherit",
       "initialValue": "auto",
       "appliesTo": "positioned elements",
       "inherited": "no"
