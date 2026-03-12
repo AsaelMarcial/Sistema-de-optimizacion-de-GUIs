@@ -1,18 +1,19 @@
 from flask import (
     Blueprint,
-    render_template,
-    request,
     flash,
     redirect,
-    url_for,
+    render_template,
+    request,
     send_from_directory,
+    url_for,
 )
 
-from app.config import get_output_dir, get_artifacts_dir
+from app.config import get_artifacts_dir, get_output_dir
 from engine.core.engine_pipeline import run_engine_pipeline
 
 
 main = Blueprint("main", __name__)
+
 
 @main.route("/")
 def index():
