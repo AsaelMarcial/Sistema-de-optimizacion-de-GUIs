@@ -5,7 +5,7 @@ import os
 from flask import Flask
 
 from app.config import MAX_CONTENT_LENGTH
-from app.routes.main_routes import main
+from app.routes import main
 
 
 def create_app():
