@@ -1,6 +1,9 @@
-from app import create_app
+"""Legacy compatibility wrapper.
 
-app = create_app()
+Prefer using `run.py` as the application entrypoint.
+"""
+
+from run import app
 
 
 if __name__ == "__main__":
