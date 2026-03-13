@@ -10,7 +10,7 @@ def compile_results(
     sustainable_footprint: Dict[str, Any],
     session_id: str,
     html_filename: str,
-    resultados_heuristicas: Any,
+    heuristics_results: Any,
     trace: Optional[Any],
     original_screenshot_rel: str,
     sustainable_screenshot_rel: str,
@@ -26,7 +26,7 @@ def compile_results(
         "session_id": session_id,
         "session_dirname": session_dirname,
         "html_name": html_filename,
-        "heuristicas": resultados_heuristicas,
+        "heuristics": heuristics_results,
         "debug": trace.to_dict() if trace else None,
         "debug_screenshots": {
             "original": original_screenshot_rel,
@@ -38,3 +38,4 @@ def compile_results(
         save_results(results_output_path, results)
 
     return results
+

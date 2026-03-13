@@ -19,7 +19,7 @@ def normalize_base_path_for_single_subdir(base_path: str) -> str:
     return base_path
 
 
-def detectar_html_unico(base_path: str) -> str:
+def find_single_html_file(base_path: str) -> str:
     html_files = []
     for root, _, files in os.walk(base_path):
         for file in files:
@@ -36,7 +36,7 @@ def detectar_html_unico(base_path: str) -> str:
     return html_files[0]
 
 
-def copiar_recursos(
+def copy_project_assets(
     input_dir: str,
     output_dir: str,
     static_session_dir: str | None = None,
@@ -64,3 +64,4 @@ def copiar_recursos(
                     destino = os.path.join(static_session_dir, relativo)
                     os.makedirs(os.path.dirname(destino), exist_ok=True)
                     shutil.copy2(origen, destino)
+
