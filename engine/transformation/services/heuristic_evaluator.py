@@ -20,7 +20,7 @@ from engine.core.utils.debug_logger import DebugTrace
 trace = DebugTrace(enabled=True)
 
 
-def evaluar_y_corregir_heuristicas(html_content, output_path, base_path, session_id):
+def evaluate_and_apply_heuristics(html_content, output_path, base_path, session_id):
 
     # 1) Preparación de salida por sesión
     if session_id:
@@ -245,3 +245,7 @@ def evaluar_y_corregir_heuristicas(html_content, output_path, base_path, session
     )
 
     return resultados
+
+
+# Backward-compatible alias (temporary)
+evaluar_y_corregir_heuristicas = evaluate_and_apply_heuristics

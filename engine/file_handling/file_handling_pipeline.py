@@ -3,7 +3,7 @@ import os
 from engine.file_handling.services.file_handler import handle_uploaded_file
 from engine.file_handling.services.project_assets import (
     normalize_base_path_for_single_subdir,
-    detectar_html_unico,
+    find_single_html_file,
 )
 
 
@@ -24,7 +24,7 @@ def run_file_handling_pipeline(file, session_id: str):
         if uploaded_path.lower().endswith(".html"):
             html_path = uploaded_path
         else:
-            html_path = detectar_html_unico(normalized_base_path)
+            html_path = find_single_html_file(normalized_base_path)
     except (FileNotFoundError, ValueError) as exc:
         return str(exc)
 
@@ -37,3 +37,10 @@ def run_file_handling_pipeline(file, session_id: str):
         return "No se pudo leer el archivo HTML."
 
     return html_content, base_path, html_path, html_filename
+
+
+def process_file_handling_pipeline(file, session_id: str):
+    return run_file_handling_pipeline(file, session_id)
+
+
+__all__ = ["process_file_handling_pipeline", "run_file_handling_pipeline"]
