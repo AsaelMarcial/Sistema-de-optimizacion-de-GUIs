@@ -65,7 +65,3 @@ def copy_project_assets(
                     os.makedirs(os.path.dirname(destino), exist_ok=True)
                     shutil.copy2(origen, destino)
 
-
-# Backward-compatible aliases (temporary)
-detectar_html_unico = find_single_html_file
-copiar_recursos = copy_project_assets

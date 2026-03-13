@@ -227,6 +227,3 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     return results, None
 
 
-def run_pipeline(file):
-    return run_engine_pipeline(file)
-

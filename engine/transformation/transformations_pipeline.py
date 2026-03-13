@@ -51,11 +51,7 @@ def build_heuristics_results(sustainable_components):
     return heuristics_results
 
 
-# Backward-compatible alias (temporary)
-evaluar_y_corregir_heuristicas = evaluate_and_apply_heuristics
-
 __all__ = [
     "evaluate_and_apply_heuristics",
-    "evaluar_y_corregir_heuristicas",
     "build_heuristics_results",
 ]

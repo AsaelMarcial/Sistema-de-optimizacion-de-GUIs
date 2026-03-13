@@ -246,6 +246,3 @@ def evaluate_and_apply_heuristics(html_content, output_path, base_path, session_
 
     return resultados
 
-
-# Backward-compatible alias (temporary)
-evaluar_y_corregir_heuristicas = evaluate_and_apply_heuristics

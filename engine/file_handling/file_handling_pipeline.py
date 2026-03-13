@@ -7,7 +7,7 @@ from engine.file_handling.services.project_assets import (
 )
 
 
-def run_file_handling_pipeline(file, session_id: str):
+def process_file_handling_pipeline(file, session_id: str):
     """
     Retorna:
       - (html_content, base_path, html_path, html_filename) si ok
@@ -39,8 +39,4 @@ def run_file_handling_pipeline(file, session_id: str):
     return html_content, base_path, html_path, html_filename
 
 
-def process_file_handling_pipeline(file, session_id: str):
-    return run_file_handling_pipeline(file, session_id)
-
-
-__all__ = ["process_file_handling_pipeline", "run_file_handling_pipeline"]
+__all__ = ["process_file_handling_pipeline"]

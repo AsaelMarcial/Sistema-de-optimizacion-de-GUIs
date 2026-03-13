@@ -27,7 +27,6 @@ def compile_results(
         "session_dirname": session_dirname,
         "html_name": html_filename,
         "heuristics": heuristics_results,
-        "heuristicas": heuristics_results,
         "debug": trace.to_dict() if trace else None,
         "debug_screenshots": {
             "original": original_screenshot_rel,
@@ -40,6 +39,3 @@ def compile_results(
 
     return results
 
-
-def build_results_payload(**kwargs):
-    return compile_results(**kwargs)
