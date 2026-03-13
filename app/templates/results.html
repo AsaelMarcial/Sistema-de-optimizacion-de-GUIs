@@ -25,7 +25,7 @@
 
       <h1>Resultados del análisis</h1>
 
-      <div class="metrics-grid">
+      <div class="assessment-grid">
         <!-- ENERGÍA -->
         <styled-card id="energy_card">
           <span slot="header">Consumo energético</span>
@@ -76,7 +76,7 @@
                   <strong>Original:</strong> <span id="a-orig">-</span> kg
                 </li>
                 <li>
-                  <strong>Sustainable:</strong> <span id="a-sustainable">-</span> kg
+                  <strong>Environmental:</strong> <span id="a-environmental">-</span> kg
                 </li>
                 <li><strong>Δ:</strong> <span id="a-total">-</span> kg</li>
               </ul>
@@ -143,7 +143,7 @@
         <div class="preview-tabs">
           <div class="tabs-header">
             <button type="button" class="tab-btn active" data-target="original">Original</button>
-            <button type="button" class="tab-btn" data-target="sustainable">Sustainable</button>
+            <button type="button" class="tab-btn" data-target="environmental">Environmental</button>
           </div>
       
           <div class="tabs-body">
@@ -167,14 +167,14 @@
         let co2eq_per_use = parseFloat(
           "{{ results.carbon_footprint | round(6) }}"
         );
-        let sustainable_co2eq_per_use = parseFloat(
-          "{{ results.sustainable_co2eq_per_use | round(6) }}"
+        let environmental_co2eq_per_use = parseFloat(
+          "{{ results.environmental_co2eq_per_use | round(6) }}"
         );
 
         let total_energy = energy_wh * users * hours;
         let total_co2eq = co2eq_per_use * users * hours;
-        let total_sustainable_co2eq = sustainable_co2eq_per_use * users * hours;
-        let reduction_co2eq = total_co2eq - total_sustainable_co2eq;
+        let total_environmental_co2eq = environmental_co2eq_per_use * users * hours;
+        let reduction_co2eq = total_co2eq - total_environmental_co2eq;
 
         // Tarjetas
         document
@@ -203,8 +203,8 @@
         document.getElementById("c-total").textContent = total_co2eq.toFixed(4);
 
         document.getElementById("a-orig").textContent = total_co2eq.toFixed(4);
-        document.getElementById("a-sustainable").textContent =
-          total_sustainable_co2eq.toFixed(4);
+        document.getElementById("a-environmental").textContent =
+          total_environmental_co2eq.toFixed(4);
         document.getElementById("a-total").textContent =
           reduction_co2eq.toFixed(4);
       }
@@ -216,7 +216,7 @@
         const img = document.getElementById("previewImage");
 
         const srcOriginal = "{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.original) }}";
-        const srcSustainable = "{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.sustainable) }}";
+        const srcEnvironmental = "{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.environmental) }}";
 
         btns.forEach(btn => {
           btn.addEventListener("click", () => {
@@ -224,7 +224,7 @@
             btn.classList.add("active");
 
             const target = btn.getAttribute("data-target");
-            img.src = (target === "sustainable") ? srcSustainable : srcOriginal;
+            img.src = (target === "environmental") ? srcEnvironmental : srcOriginal;
           });
         });
       })();

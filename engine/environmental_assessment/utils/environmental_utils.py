@@ -1,5 +1,6 @@
-from engine.metrics.models.energy_model import EnergyModel
+from typing import Iterable, Mapping
 
+from engine.environmental_assessment.models.energy_model import EnergyModel
 
 DEFAULT_COEFFICIENTS_R = [
     1.804551146759771e-07,
@@ -26,3 +27,7 @@ def build_default_energy_model() -> EnergyModel:
         DEFAULT_COEFFICIENTS_B,
         DEFAULT_CONSTANT_C,
     )
+
+
+def estimate_interface_current(color_data: Iterable[Mapping[str, object]], energy_model: EnergyModel) -> float:
+    return energy_model.calculate_power(color_data)
