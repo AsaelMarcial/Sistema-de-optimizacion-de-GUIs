@@ -3,12 +3,12 @@ from collections import defaultdict
 from engine.analysis.utils.color_utils import calculate_reduction
 
 
-def evaluar_y_corregir_heuristicas(*args, **kwargs):
-    from engine.transformation.services.heuristic_evaluator import (  # import diferido para evitar ciclo
-        evaluar_y_corregir_heuristicas as _evaluar_y_corregir_heuristicas,
+def evaluate_and_apply_heuristics(*args, **kwargs):
+    from engine.transformation.services.heuristic_evaluator import (  # deferred import to avoid cycle
+        evaluate_and_apply_heuristics as _evaluate_and_apply_heuristics,
     )
 
-    return _evaluar_y_corregir_heuristicas(*args, **kwargs)
+    return _evaluate_and_apply_heuristics(*args, **kwargs)
 
 
 def build_heuristics_results(sustainable_components):
@@ -51,4 +51,11 @@ def build_heuristics_results(sustainable_components):
     return heuristics_results
 
 
-__all__ = ["evaluar_y_corregir_heuristicas", "build_heuristics_results"]
+# Backward-compatible alias (temporary)
+evaluar_y_corregir_heuristicas = evaluate_and_apply_heuristics
+
+__all__ = [
+    "evaluate_and_apply_heuristics",
+    "evaluar_y_corregir_heuristicas",
+    "build_heuristics_results",
+]

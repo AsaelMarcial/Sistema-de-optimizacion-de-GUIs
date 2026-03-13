@@ -8,10 +8,10 @@ from app.config import get_session_dirname
 from engine.core.pipeline.results_compiler import compile_results
 from engine.core.utils.debug_logger import DebugTrace
 from engine.rendering.services.render_snapshot_extractor import extract_render_snapshot
-from engine.file_handling.file_handling_pipeline import run_file_handling_pipeline
+from engine.file_handling.file_handling_pipeline import process_file_handling_pipeline
 from engine.file_handling.services.project_assets import (
     normalize_base_path_for_single_subdir,
-    copiar_recursos,
+    copy_project_assets,
 )
 from engine.file_handling.services.session_cleaner import clean_old_sessions
 from engine.file_handling.services.session_handler import (
@@ -24,7 +24,7 @@ from engine.metrics.sustainable_metrics import (
 )
 from engine.metrics.utils.default_energy_model import build_default_energy_model
 from engine.rendering.screenshot_analyzer import analyze_screenshot_to_color_data
-from engine.transformation.transformations_pipeline import evaluar_y_corregir_heuristicas
+from engine.transformation.transformations_pipeline import evaluate_and_apply_heuristics
 
 energy_model = build_default_energy_model()
 calculator = CarbonFootprintCalculator()
@@ -62,7 +62,7 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
 
     trace.add_step("upload.received", {"filename": file.filename})
 
-    result = run_file_handling_pipeline(file, session_id)
+    result = process_file_handling_pipeline(file, session_id)
     if isinstance(result, str):
         trace.add_step("upload.error", {"message": result})
         return None, result
@@ -136,10 +136,10 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         },
     )
 
-    copiar_recursos(base_path, output_dir)
+    copy_project_assets(base_path, output_dir)
     trace.add_step("transformed.resources_prepared", {"output_dir": output_dir})
 
-    resultados_heuristicas = evaluar_y_corregir_heuristicas(
+    heuristics_results = evaluate_and_apply_heuristics(
         html_content,
         html_path,
         output_dir,
@@ -149,7 +149,7 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         "transformed.heuristics_applied",
         {
             "heuristics_count": (
-                len(resultados_heuristicas) if hasattr(resultados_heuristicas, "__len__") else None
+                len(heuristics_results) if hasattr(heuristics_results, "__len__") else None
             )
         },
     )
@@ -210,7 +210,7 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         sustainable_footprint=sustainable_footprint,
         session_id=session_id,
         html_filename=html_filename,
-        resultados_heuristicas=resultados_heuristicas,
+        heuristics_results=heuristics_results,
         trace=trace,
         original_screenshot_rel=original_screenshot_name,
         sustainable_screenshot_rel=sustainable_screenshot_name,
@@ -225,3 +225,8 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     }
 
     return results, None
+
+
+def run_pipeline(file):
+    return run_engine_pipeline(file)
+
