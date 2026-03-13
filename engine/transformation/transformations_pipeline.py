@@ -11,10 +11,10 @@ def evaluate_and_apply_heuristics(*args, **kwargs):
     return _evaluate_and_apply_heuristics(*args, **kwargs)
 
 
-def build_heuristics_results(sustainable_components):
+def build_heuristics_results(environmental_components):
     heuristics_dict = defaultdict(lambda: {"detalles": [], "comparativas": []})
 
-    for component in sustainable_components:
+    for component in environmental_components:
         ahorro = calculate_reduction(component["before_rgb"], component["after_rgb"])
 
         heuristics_dict[component["heuristic"]]["comparativas"].append(

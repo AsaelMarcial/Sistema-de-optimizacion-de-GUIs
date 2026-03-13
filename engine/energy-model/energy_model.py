@@ -1,4 +1,4 @@
-from engine.metrics.models.energy_model import EnergyModel
+from engine.environmental_assessment.models.energy_model import EnergyModel
 
 
 DEFAULT_COEFFICIENTS_R = [

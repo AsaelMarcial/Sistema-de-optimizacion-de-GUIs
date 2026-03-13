@@ -18,11 +18,9 @@ from engine.file_handling.services.session_handler import (
     generate_session_id,
     prepare_static_session_dir,
 )
-from engine.metrics.sustainable_metrics import (
-    CarbonFootprintCalculator,
-    estimate_sustainable_metrics,
-)
-from engine.metrics.utils.default_energy_model import build_default_energy_model
+from engine.environmental_assessment.environmental_assessment_pipeline import run_environmental_assessment
+from engine.environmental_assessment.models.carbon_footprint_calculator import CarbonFootprintCalculator
+from engine.environmental_assessment.utils.environmental_utils import build_default_energy_model
 from engine.rendering.screenshot_analyzer import analyze_screenshot_to_color_data
 from engine.transformation.transformations_pipeline import evaluate_and_apply_heuristics
 
@@ -119,7 +117,7 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         label="original",
     )
 
-    footprint = estimate_sustainable_metrics(
+    footprint = run_environmental_assessment(
         color_data,
         energy_model,
         time_hours=1,
@@ -128,7 +126,7 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     total_current = footprint["current_a"]
 
     trace.add_step(
-        "metrics.original",
+        "assessment.original",
         {
             "total_current": total_current,
             "energy_wh": footprint.get("energy_wh"),
@@ -169,37 +167,37 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     )
     trace.add_step("transformed.zip_created", {"zip_output_path": zip_output_path})
 
-    html_sustainable_path = os.path.join(output_dir, html_filename)
-    with open(html_sustainable_path, "r", encoding="utf-8") as f:
-        html_sustainable_content = f.read()
-    trace.add_step("transformed.html_loaded", {"html_sustainable_path": html_sustainable_path})
+    html_environmental_path = os.path.join(output_dir, html_filename)
+    with open(html_environmental_path, "r", encoding="utf-8") as f:
+        html_environmental_content = f.read()
+    trace.add_step("transformed.html_loaded", {"html_environmental_path": html_environmental_path})
 
-    sustainable_screenshot_abs = os.path.join(artifacts_dir, "debug_sustainable.png")
-    sustainable_screenshot_name = "debug_sustainable.png"
+    environmental_screenshot_abs = os.path.join(artifacts_dir, "debug_environmental.png")
+    environmental_screenshot_name = "debug_environmental.png"
 
-    color_data_sustainable = analyze_gui_to_color_data(
-        html_content=html_sustainable_content,
+    color_data_environmental = analyze_gui_to_color_data(
+        html_content=html_environmental_content,
         base_path=output_dir,
-        output_image=sustainable_screenshot_abs,
+        output_image=environmental_screenshot_abs,
         session_id=session_id,
         trace=trace,
-        label="sustainable",
+        label="environmental",
     )
 
-    sustainable_footprint = estimate_sustainable_metrics(
-        color_data_sustainable,
+    environmental_assessment = run_environmental_assessment(
+        color_data_environmental,
         energy_model,
         time_hours=1,
         calculator=calculator,
     )
-    sustainable_current = sustainable_footprint["current_a"]
+    environmental_current = environmental_assessment["current_a"]
 
     trace.add_step(
-        "metrics.sustainable",
+        "assessment.environmental",
         {
-            "sustainable_current": sustainable_current,
-            "sustainable_energy_wh": sustainable_footprint.get("energy_wh"),
-            "sustainable_co2eq_per_use": sustainable_footprint.get("co2eq_per_use"),
+            "environmental_current": environmental_current,
+            "environmental_energy_wh": environmental_assessment.get("energy_wh"),
+            "environmental_co2eq_per_use": environmental_assessment.get("co2eq_per_use"),
         },
     )
 
@@ -207,13 +205,13 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     results = compile_results(
         total_current=total_current,
         footprint=footprint,
-        sustainable_footprint=sustainable_footprint,
+        environmental_assessment=environmental_assessment,
         session_id=session_id,
         html_filename=html_filename,
         heuristics_results=heuristics_results,
         trace=trace,
         original_screenshot_rel=original_screenshot_name,
-        sustainable_screenshot_rel=sustainable_screenshot_name,
+        environmental_screenshot_rel=environmental_screenshot_name,
         session_dirname=session_dirname,
         results_output_path=results_output_path,
     )
