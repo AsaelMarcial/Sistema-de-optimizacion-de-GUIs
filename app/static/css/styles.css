@@ -133,7 +133,7 @@ p {
 }
 
 /* === Responsive Grid: 2 columnas fijas en desktop === */
-.metrics-grid {
+.assessment-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr); /* Dos columnas simétricas */
   gap: 32px;
@@ -145,7 +145,7 @@ p {
 }
 
 @media (max-width: 850px) {
-  .metrics-grid {
+  .assessment-grid {
     grid-template-columns: 1fr;
     padding: 0 24px;
   }

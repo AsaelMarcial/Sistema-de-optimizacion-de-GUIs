@@ -135,10 +135,10 @@ def luminance(rgb: RGBColor) -> float:
 
 def calculate_reduction(before_rgb: RGBColor, after_rgb: RGBColor) -> float:
     initial_lum = luminance(before_rgb)
-    sustainable_lum = luminance(after_rgb)
+    environmental_lum = luminance(after_rgb)
     if initial_lum == 0:
         return 0.0
-    reduction = ((initial_lum - sustainable_lum) / initial_lum) * 100
+    reduction = ((initial_lum - environmental_lum) / initial_lum) * 100
     return round(reduction, 2)
 
 
