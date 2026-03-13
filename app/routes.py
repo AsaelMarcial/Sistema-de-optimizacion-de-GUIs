@@ -9,7 +9,7 @@ from flask import (
 )
 
 from app.config import get_artifacts_dir, get_output_dir
-from engine.core.engine_pipeline import run_engine_pipeline
+from engine.core.engine_pipeline import run_pipeline
 
 
 main = Blueprint("main", __name__)
@@ -40,7 +40,7 @@ def session_output(session_id: str, filename: str):
 @main.route("/results", methods=["POST"])
 def results():
     file = request.files.get("file")
-    results, error_message = run_engine_pipeline(file)
+    results, error_message = run_pipeline(file)
     if error_message:
         flash(error_message, "error")
         return redirect(url_for("main.index"))
