@@ -1,391 +1,862 @@
 {
   "onScope": [
     {
-      "elementID": "a",
-      "name": "a",
-      "description": "Hyperlink",
-      "categories": ["flow", "phrasing", "interactive", "palpable"],
-      "parents": ["phrasing"],
-      "children": ["phrasing"],
-      "attributesIDs": ["class", "hidden", "id", "style"],
-      "cssProperties": [
-        "color",
-        "background",
-        "background-color",
-        "background-image",
-        "border",
-        "border-color",
-        "border-style",
-        "outline",
-        "outline-color",
-        "outline-style",
-        "text-decoration",
-        "text-emphasis-color",
-        "text-shadow",
-        "visibility",
-        "z-index",
-        "opacity"
-      ]
+      "elementID": "html",
+      "name": "html",
+      "description": "Document root",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "document",
+        "structural"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
     },
     {
-      "elementID": "abbr",
-      "name": "abbr",
-      "description": "Abbreviation",
-      "categories": ["flow", "phrasing", "palpable"],
-      "parents": ["phrasing"],
-      "children": ["phrasing"],
-      "attributesIDs": ["class", "hidden", "id", "style"],
-      "cssProperties": [
-        "color",
-        "text-decoration",
-        "text-emphasis-color",
-        "text-shadow",
-        "visibility",
-        "opacity"
-      ]
+      "elementID": "body",
+      "name": "body",
+      "description": "Document body",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "document",
+        "structural"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
     },
     {
-      "elementID": "address",
-      "name": "address",
-      "description": "Contact information for a page or article element",
-      "categories": ["flow", "palpable"],
-      "parents": ["flow"],
-      "children": ["flow"],
-      "attributesIDs": ["class", "hidden", "id", "style"],
-      "cssProperties": [
-        "color",
-        "background",
-        "background-color",
-        "border",
-        "border-color",
-        "border-style",
-        "outline",
-        "outline-color",
-        "outline-style",
-        "text-shadow",
-        "visibility",
-        "opacity",
-        "z-index"
-      ]
+      "elementID": "header",
+      "name": "header",
+      "description": "Header section",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "structural",
+        "landmark"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "footer",
+      "name": "footer",
+      "description": "Footer section",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "structural",
+        "landmark"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "main",
+      "name": "main",
+      "description": "Main content",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "structural",
+        "landmark"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "section",
+      "name": "section",
+      "description": "Section",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "structural"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
     },
     {
       "elementID": "article",
       "name": "article",
-      "description": "Self-contained syndication or reusable composition",
-      "categories": ["flow", "sectioning", "palpable"],
-      "parents": ["flow"],
-      "children": ["flow"],
-      "attributesIDs": ["class", "hidden", "id", "style"],
-      "cssProperties": [
-        "background",
-        "background-color",
-        "background-image",
-        "border",
-        "border-color",
-        "border-style",
-        "outline",
-        "outline-color",
-        "outline-style",
-        "opacity",
-        "visibility",
-        "z-index"
-      ]
+      "description": "Article",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "structural"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
     },
     {
       "elementID": "aside",
       "name": "aside",
-      "description": "Sidebar for tangentially related content",
-      "categories": ["flow", "sectioning", "palpable"],
-      "parents": ["flow"],
-      "children": ["flow"],
-      "attributesIDs": ["class", "hidden", "id", "style"],
-      "cssProperties": [
-        "background",
-        "background-color",
-        "background-image",
-        "border",
-        "border-color",
-        "border-style",
-        "outline",
-        "outline-color",
-        "outline-style",
-        "opacity",
-        "visibility",
-        "z-index"
-      ]
+      "description": "Aside",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "structural"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
     },
     {
-      "elementID": "button",
-      "name": "button",
-      "description": "Button control",
+      "elementID": "nav",
+      "name": "nav",
+      "description": "Navigation",
+      "scopeGroup": "in_scope",
       "categories": [
-        "flow",
-        "phrasing",
-        "interactive",
-        "listed",
-        "labelable",
-        "submittable",
-        "form-associated",
-        "palpable"
+        "structural",
+        "landmark"
       ],
-      "parents": ["phrasing"],
-      "children": ["phrasing"],
-      "attributesIDs": [
-        "class",
-        "hidden",
-        "id",
-        "style",
-        "autofocus",
-        "form",
-        "name",
-        "button-type"
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "menu",
+      "name": "menu",
+      "description": "Menu",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "structural",
+        "interactive"
       ],
-      "cssProperties": [
-        "accent-color",
-        "color",
-        "background",
-        "background-color",
-        "background-image",
-        "border",
-        "border-color",
-        "border-style",
-        "outline",
-        "outline-color",
-        "outline-style",
-        "caret",
-        "caret-color",
-        "text-shadow",
-        "visibility",
-        "opacity",
-        "z-index"
-      ]
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
     },
     {
       "elementID": "div",
       "name": "div",
-      "description": "Generic flow container",
-      "categories": ["flow", "palpable"],
-      "parents": ["flow"],
-      "children": ["flow"],
-      "attributesIDs": ["class", "hidden", "id", "style"],
-      "cssProperties": [
-        "background",
-        "background-color",
-        "background-image",
-        "border",
-        "border-color",
-        "border-style",
-        "outline",
-        "outline-color",
-        "outline-style",
-        "opacity",
-        "visibility",
-        "z-index"
-      ]
-    },
-    {
-      "elementID": "img",
-      "name": "img",
-      "description": "Image",
-      "categories": ["flow", "phrasing", "embedded", "interactive", "form-associated", "palpable"],
-      "parents": ["phrasing", "picture"],
-      "children": [],
-      "attributesIDs": [
-        "class",
-        "hidden",
-        "id",
-        "style"
-      ],
-      "cssProperties": [
-        "opacity",
-        "visibility",
-        "z-index",
-        "border",
-        "border-color",
-        "border-style",
-        "outline",
-        "outline-color",
-        "outline-style"
-      ]
-    },
-    {
-      "elementID": "input",
-      "name": "input",
-      "description": "Form control",
+      "description": "Generic container",
+      "scopeGroup": "in_scope",
       "categories": [
-        "flow",
-        "phrasing",
-        "interactive",
-        "listed",
-        "labelable",
-        "submittable",
-        "resettable",
-        "form-associated",
-        "palpable"
+        "structural"
       ],
-      "parents": ["phrasing"],
-      "children": [],
-      "attributesIDs": [
-        "class",
-        "hidden",
-        "id",
-        "style",
-        "autofocus",
-        "form",
-        "name",
-        "input-type"
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "span",
+      "name": "span",
+      "description": "Inline container",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text"
       ],
-      "cssProperties": [
-        "accent-color",
-        "caret",
-        "caret-color",
-        "color",
-        "background",
-        "background-color",
-        "background-image",
-        "border",
-        "border-color",
-        "border-style",
-        "outline",
-        "outline-color",
-        "outline-style",
-        "visibility",
-        "opacity",
-        "z-index",
-        "text-shadow"
-      ]
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
     },
     {
       "elementID": "p",
       "name": "p",
       "description": "Paragraph",
-      "categories": ["flow", "palpable"],
-      "parents": ["flow"],
-      "children": ["phrasing"],
-      "attributesIDs": ["class", "hidden", "id", "style"],
-      "cssProperties": [
-        "color",
-        "text-shadow",
-        "text-decoration",
-        "text-emphasis-color",
-        "background",
-        "background-color",
-        "border",
-        "border-color",
-        "border-style",
-        "outline",
-        "outline-color",
-        "outline-style",
-        "visibility",
-        "opacity",
-        "z-index"
-      ]
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
     },
     {
-      "elementID": "span",
-      "name": "span",
-      "description": "Generic phrasing container",
-      "categories": ["flow", "phrasing", "palpable"],
-      "parents": ["phrasing"],
-      "children": ["phrasing"],
-      "attributesIDs": ["class", "hidden", "id", "style"],
-      "cssProperties": [
-        "color",
-        "text-shadow",
-        "text-decoration",
-        "text-emphasis-color",
-        "visibility",
-        "opacity"
-      ]
+      "elementID": "a",
+      "name": "a",
+      "description": "Hyperlink",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text",
+        "interactive"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "button",
+      "name": "button",
+      "description": "Button control",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "interactive",
+        "form"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "input",
+      "name": "input",
+      "description": "Input control",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "interactive",
+        "form"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "textarea",
+      "name": "textarea",
+      "description": "Textarea control",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "interactive",
+        "form"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "select",
+      "name": "select",
+      "description": "Select control",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "interactive",
+        "form"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "option",
+      "name": "option",
+      "description": "Select option",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "interactive",
+        "form"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "label",
+      "name": "label",
+      "description": "Form label",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text",
+        "form"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "form",
+      "name": "form",
+      "description": "Form",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "structural",
+        "form"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "fieldset",
+      "name": "fieldset",
+      "description": "Fieldset",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "structural",
+        "form"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "legend",
+      "name": "legend",
+      "description": "Legend",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text",
+        "form"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
     },
     {
       "elementID": "table",
       "name": "table",
       "description": "Table",
-      "categories": ["flow", "palpable"],
-      "parents": ["flow"],
-      "children": ["caption", "colgroup", "thead", "tbody", "tfoot", "tr"],
-      "attributesIDs": ["class", "hidden", "id", "style"],
-      "cssProperties": [
-        "background",
-        "background-color",
-        "border",
-        "border-color",
-        "border-style",
-        "outline",
-        "outline-color",
-        "outline-style",
-        "visibility",
-        "opacity",
-        "z-index"
-      ]
+      "scopeGroup": "in_scope",
+      "categories": [
+        "table"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "caption",
+      "name": "caption",
+      "description": "Table caption",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "table",
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "thead",
+      "name": "thead",
+      "description": "Table head",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "table"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "tbody",
+      "name": "tbody",
+      "description": "Table body",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "table"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "tfoot",
+      "name": "tfoot",
+      "description": "Table foot",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "table"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "tr",
+      "name": "tr",
+      "description": "Table row",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "table"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "th",
+      "name": "th",
+      "description": "Table header cell",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "table",
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
     },
     {
       "elementID": "td",
       "name": "td",
       "description": "Table cell",
-      "categories": ["table-cell"],
-      "parents": ["tr"],
-      "children": ["flow"],
-      "attributesIDs": ["class", "hidden", "id", "style", "headers"],
-      "cssProperties": [
-        "background",
-        "background-color",
-        "border",
-        "border-color",
-        "border-style",
-        "color",
-        "text-shadow",
-        "visibility",
-        "opacity"
-      ]
+      "scopeGroup": "in_scope",
+      "categories": [
+        "table",
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
     },
     {
-      "elementID": "textarea",
-      "name": "textarea",
-      "description": "Multiline text control",
+      "elementID": "ul",
+      "name": "ul",
+      "description": "Unordered list",
+      "scopeGroup": "in_scope",
       "categories": [
-        "flow",
-        "phrasing",
+        "list"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "ol",
+      "name": "ol",
+      "description": "Ordered list",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "list"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "li",
+      "name": "li",
+      "description": "List item",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "list"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "dl",
+      "name": "dl",
+      "description": "Description list",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "list"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "dt",
+      "name": "dt",
+      "description": "Description term",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "list",
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "dd",
+      "name": "dd",
+      "description": "Description details",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "list",
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "h1",
+      "name": "h1",
+      "description": "Heading 1",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text",
+        "heading"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "h2",
+      "name": "h2",
+      "description": "Heading 2",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text",
+        "heading"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "h3",
+      "name": "h3",
+      "description": "Heading 3",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text",
+        "heading"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "h4",
+      "name": "h4",
+      "description": "Heading 4",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text",
+        "heading"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "h5",
+      "name": "h5",
+      "description": "Heading 5",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text",
+        "heading"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "h6",
+      "name": "h6",
+      "description": "Heading 6",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text",
+        "heading"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "blockquote",
+      "name": "blockquote",
+      "description": "Block quote",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "pre",
+      "name": "pre",
+      "description": "Preformatted block",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "code",
+      "name": "code",
+      "description": "Code fragment",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "strong",
+      "name": "strong",
+      "description": "Strong emphasis",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "em",
+      "name": "em",
+      "description": "Emphasis",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "mark",
+      "name": "mark",
+      "description": "Marked text",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "small",
+      "name": "small",
+      "description": "Small text",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "b",
+      "name": "b",
+      "description": "Bold offset text",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "i",
+      "name": "i",
+      "description": "Alternate voice text",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "u",
+      "name": "u",
+      "description": "Unarticulated annotation",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "sub",
+      "name": "sub",
+      "description": "Subscript",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "sup",
+      "name": "sup",
+      "description": "Superscript",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "figure",
+      "name": "figure",
+      "description": "Figure",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "structural"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "figcaption",
+      "name": "figcaption",
+      "description": "Figure caption",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "text"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "hr",
+      "name": "hr",
+      "description": "Thematic break",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "decorative"
+      ],
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "summary",
+      "name": "summary",
+      "description": "Disclosure summary",
+      "scopeGroup": "in_scope",
+      "categories": [
         "interactive",
-        "listed",
-        "labelable",
-        "submittable",
-        "resettable",
-        "form-associated",
-        "palpable"
+        "text"
       ],
-      "parents": ["phrasing"],
-      "children": ["text"],
-      "attributesIDs": [
-        "class",
-        "hidden",
-        "id",
-        "style",
-        "autofocus",
-        "cols",
-        "form",
-        "name",
-        "rows"
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "progress",
+      "name": "progress",
+      "description": "Progress indicator",
+      "scopeGroup": "in_scope",
+      "categories": [
+        "interactive",
+        "form"
       ],
-      "cssProperties": [
-        "accent-color",
-        "caret",
-        "caret-color",
-        "color",
-        "background",
-        "background-color",
-        "border",
-        "border-color",
-        "border-style",
-        "outline",
-        "outline-color",
-        "outline-style",
-        "text-shadow",
-        "visibility",
-        "opacity",
-        "z-index"
-      ]
+      "isVisible": true,
+      "captureText": true,
+      "captureChildren": true
+    },
+    {
+      "elementID": "img",
+      "name": "img",
+      "description": "Image",
+      "scopeGroup": "out_of_scope_visible",
+      "categories": [
+        "media"
+      ],
+      "isVisible": true,
+      "captureText": false,
+      "captureChildren": true
+    },
+    {
+      "elementID": "picture",
+      "name": "picture",
+      "description": "Responsive image container",
+      "scopeGroup": "out_of_scope_visible",
+      "categories": [
+        "media"
+      ],
+      "isVisible": true,
+      "captureText": false,
+      "captureChildren": true
+    },
+    {
+      "elementID": "video",
+      "name": "video",
+      "description": "Video",
+      "scopeGroup": "out_of_scope_visible",
+      "categories": [
+        "media"
+      ],
+      "isVisible": true,
+      "captureText": false,
+      "captureChildren": true
+    },
+    {
+      "elementID": "audio",
+      "name": "audio",
+      "description": "Audio",
+      "scopeGroup": "out_of_scope_visible",
+      "categories": [
+        "media"
+      ],
+      "isVisible": true,
+      "captureText": false,
+      "captureChildren": true
+    },
+    {
+      "elementID": "canvas",
+      "name": "canvas",
+      "description": "Canvas",
+      "scopeGroup": "out_of_scope_visible",
+      "categories": [
+        "media"
+      ],
+      "isVisible": true,
+      "captureText": false,
+      "captureChildren": true
+    },
+    {
+      "elementID": "iframe",
+      "name": "iframe",
+      "description": "Embedded frame",
+      "scopeGroup": "out_of_scope_visible",
+      "categories": [
+        "media"
+      ],
+      "isVisible": true,
+      "captureText": false,
+      "captureChildren": true
+    },
+    {
+      "elementID": "embed",
+      "name": "embed",
+      "description": "Embedded content",
+      "scopeGroup": "out_of_scope_visible",
+      "categories": [
+        "media"
+      ],
+      "isVisible": true,
+      "captureText": false,
+      "captureChildren": true
+    },
+    {
+      "elementID": "object",
+      "name": "object",
+      "description": "Embedded object",
+      "scopeGroup": "out_of_scope_visible",
+      "categories": [
+        "media"
+      ],
+      "isVisible": true,
+      "captureText": false,
+      "captureChildren": true
+    },
+    {
+      "elementID": "svg",
+      "name": "svg",
+      "description": "Scalable vector graphics",
+      "scopeGroup": "out_of_scope_visible",
+      "categories": [
+        "media"
+      ],
+      "isVisible": true,
+      "captureText": false,
+      "captureChildren": true
     }
   ]
 }

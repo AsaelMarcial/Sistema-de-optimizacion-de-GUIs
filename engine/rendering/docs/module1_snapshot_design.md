@@ -4,9 +4,9 @@
 
 Actualmente ya existe un pipeline sólido en rendering:
 
-- `engine/rendering/services/gui_rendering.py`: render del HTML y screenshot final.
-- `engine/rendering/utils/pixel_frequency.py`: conteo y ordenamiento de píxeles por color.
-- `engine/rendering/screenshot_analyzer.py`: une render + frecuencias de color.
+- `engine/rendering/services/page_capture_service.py`: render del HTML y screenshot final.
+- `engine/rendering/utils/image_color_utils.py`: conteo y ordenamiento de píxeles por color.
+- `engine/rendering/rendering_pipeline.py`: une captura, snapshot y frecuencias de color.
 
 Y en core:
 
@@ -80,11 +80,11 @@ Recomendación práctica:
 
 Propuesta aplicada:
 
-- `engine/rendering/services/render_snapshot_extractor.py`
+- `engine/rendering/services/render_snapshot_service.py`
   - lógica principal de extracción del snapshot
-  - helpers CDP y serialización
-- `engine/rendering/services/snapshot_cli.py`
-  - punto de entrada CLI para ejecutar solo Módulo 1
+  - orquestación de cobertura y serialización
+- `engine/rendering/rendering_pipeline.py`
+  - punto de entrada público para ejecutar snapshot/captura
 - `engine/rendering/docs/module1_snapshot_design.md`
   - justificación, decisiones y roadmap
 

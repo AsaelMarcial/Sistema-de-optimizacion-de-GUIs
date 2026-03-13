@@ -1,27 +1,27 @@
 from typing import Any, Dict, Optional, Tuple
 
 import os
-import shutil
 from flask import url_for
 
 from app.config import get_session_dirname
 from engine.core.pipeline.results_compiler import compile_results
 from engine.core.utils.debug_logger import DebugTrace
-from engine.rendering.services.render_snapshot_extractor import extract_render_snapshot
-from engine.file_handling.file_handling_pipeline import process_file_handling_pipeline
-from engine.file_handling.services.project_assets import (
-    normalize_base_path_for_single_subdir,
-    copy_project_assets,
+from engine.file_handling.project_intake_pipeline import process_project_upload
+from engine.file_handling.services.artifact_storage_service import (
+    create_output_bundle,
+    read_text,
 )
-from engine.file_handling.services.session_cleaner import clean_old_sessions
-from engine.file_handling.services.session_handler import (
+from engine.file_handling.services.asset_staging_service import copy_project_assets
+from engine.file_handling.services.session_cleanup_service import clean_old_sessions
+from engine.file_handling.services.session_workspace_service import (
     generate_session_id,
     prepare_static_session_dir,
 )
 from engine.environmental_assessment.environmental_assessment_pipeline import run_environmental_assessment
 from engine.environmental_assessment.models.carbon_footprint_calculator import CarbonFootprintCalculator
 from engine.environmental_assessment.utils.environmental_utils import build_default_energy_model
-from engine.rendering.screenshot_analyzer import analyze_screenshot_to_color_data
+from engine.rendering.models.snapshot_models import SnapshotOptions
+from engine.rendering.rendering_pipeline import capture_page_artifacts_pipeline
 from engine.transformation.transformations_pipeline import evaluate_and_apply_heuristics
 
 energy_model = build_default_energy_model()
@@ -39,14 +39,16 @@ def analyze_gui_to_color_data(
     """
     Pipeline: render (con base_path como raíz de recursos) -> pixels -> color frequencies.
     """
-    return analyze_screenshot_to_color_data(
+    artifacts = capture_page_artifacts_pipeline(
         html_content=html_content,
         base_path=base_path,
-        output_image=output_image,
+        output_image_path=output_image,
         session_id=session_id,
+        include_color_frequencies=True,
         trace=trace,
         label=label,
     )
+    return artifacts.color_frequencies or []
 
 
 def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
@@ -60,20 +62,20 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
 
     trace.add_step("upload.received", {"filename": file.filename})
 
-    result = process_file_handling_pipeline(file, session_id)
-    if isinstance(result, str):
-        trace.add_step("upload.error", {"message": result})
-        return None, result
+    project_input = process_project_upload(file, session_id)
+    if isinstance(project_input, str):
+        trace.add_step("upload.error", {"message": project_input})
+        return None, project_input
 
-    html_content, base_path, html_path, html_filename = result
+    html_content = project_input.html_content
+    base_path = project_input.normalized_base_path
+    html_path = project_input.html_path
+    html_filename = project_input.html_filename
     trace.add_step("upload.handled", {"base_path": base_path})
 
     if not base_path:
         trace.add_step("upload.missing_base_path", {})
         return None, "Para análisis completo (CSS/imagenes), sube un ZIP con el HTML y sus recursos."
-
-    base_path = normalize_base_path_for_single_subdir(base_path)
-    trace.add_step("project.base_path", {"base_path": base_path})
 
     trace.add_step("project.html_detected", {"html_path": html_path, "html_name": html_filename})
 
@@ -92,30 +94,27 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     )
 
     original_snapshot_abs = os.path.join(artifacts_dir, "render_snapshot_original.json")
-    snapshot_data = extract_render_snapshot(
+    original_screenshot_abs = os.path.join(artifacts_dir, "debug_original.png")
+    original_artifacts = capture_page_artifacts_pipeline(
         html_content=html_content,
         base_path=base_path,
         output_json_path=original_snapshot_abs,
+        output_image=original_screenshot_abs,
+        session_id=session_id,
+        include_color_frequencies=True,
+        trace=trace,
+        label="original",
     )
     trace.add_step(
         "analysis.render_snapshot_generated",
         {
             "snapshot_path": original_snapshot_abs,
-            "node_count": snapshot_data.get("metadata", {}).get("nodeCount"),
+            "node_count": original_artifacts.snapshot.metadata.get("nodeCount"),
         },
     )
 
-    original_screenshot_abs = os.path.join(artifacts_dir, "debug_original.png")
     original_screenshot_name = "debug_original.png"
-
-    color_data = analyze_gui_to_color_data(
-        html_content=html_content,
-        base_path=base_path,
-        output_image=original_screenshot_abs,
-        session_id=session_id,
-        trace=trace,
-        label="original",
-    )
+    color_data = original_artifacts.color_frequencies or []
 
     footprint = run_environmental_assessment(
         color_data,
@@ -154,12 +153,12 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
 
     trace.add_step("transformed.resources_copied", {"output_dir": output_dir})
 
-    zip_filename = f"{session_dirname}.zip"
-    zip_temp_base = os.path.join(artifacts_dir, f"{session_id}_bundle")
-    zip_temp_path = f"{zip_temp_base}.zip"
-    shutil.make_archive(zip_temp_base, "zip", output_dir)
-    zip_output_path = os.path.join(output_dir, zip_filename)
-    shutil.move(zip_temp_path, zip_output_path)
+    zip_output_path, zip_filename = create_output_bundle(
+        output_dir=output_dir,
+        artifacts_dir=artifacts_dir,
+        session_id=session_id,
+        session_dirname=session_dirname,
+    )
     zip_download_url = url_for(
         "main.session_output",
         session_id=session_dirname,
@@ -168,21 +167,22 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     trace.add_step("transformed.zip_created", {"zip_output_path": zip_output_path})
 
     html_environmental_path = os.path.join(output_dir, html_filename)
-    with open(html_environmental_path, "r", encoding="utf-8") as f:
-        html_environmental_content = f.read()
+    html_environmental_content = read_text(html_environmental_path)
     trace.add_step("transformed.html_loaded", {"html_environmental_path": html_environmental_path})
 
     environmental_screenshot_abs = os.path.join(artifacts_dir, "debug_environmental.png")
     environmental_screenshot_name = "debug_environmental.png"
 
-    color_data_environmental = analyze_gui_to_color_data(
+    environmental_artifacts = capture_page_artifacts_pipeline(
         html_content=html_environmental_content,
         base_path=output_dir,
         output_image=environmental_screenshot_abs,
         session_id=session_id,
+        include_color_frequencies=True,
         trace=trace,
         label="environmental",
     )
+    color_data_environmental = environmental_artifacts.color_frequencies or []
 
     environmental_assessment = run_environmental_assessment(
         color_data_environmental,
@@ -219,7 +219,7 @@ def run_engine_pipeline(file) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     results["download_url"] = zip_download_url
     results["render_snapshot"] = {
         "artifact": "render_snapshot_original.json",
-        "node_count": snapshot_data.get("metadata", {}).get("nodeCount"),
+        "node_count": original_artifacts.snapshot.metadata.get("nodeCount"),
     }
 
     return results, None

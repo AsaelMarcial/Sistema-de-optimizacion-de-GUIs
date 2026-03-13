@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional
 
-from engine.analysis.utils.file_manager import save_results
+from engine.file_handling.services.artifact_storage_service import save_json
 
 
 def compile_results(
@@ -35,7 +35,7 @@ def compile_results(
     }
 
     if results_output_path:
-        save_results(results_output_path, results)
+        save_json(results_output_path, results, indent=4)
 
     return results
 
