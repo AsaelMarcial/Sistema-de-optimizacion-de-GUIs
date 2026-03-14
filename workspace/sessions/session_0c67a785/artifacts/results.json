@@ -1,0 +1,197 @@
+{
+    "total_current": 0.1748094309399037,
+    "carbon_footprint": 0.30722757487688074,
+    "energy_wh": 0.6467948944776437,
+    "environmental_energy_wh": 0.595155116839685,
+    "environmental_co2eq_per_use": 0.2826986804988504,
+    "session_id": "0c67a785",
+    "session_dirname": "session_0c67a785",
+    "html_name": "index.html",
+    "heuristics": [
+        {
+            "nombre": "Modo oscuro",
+            "cumple": false,
+            "recomendacion": "Se aplicó dark mode por fondo claro."
+        },
+        {
+            "nombre": "Minimizar el uso de colores brillantes",
+            "cumple": false,
+            "recomendacion": "Se redujo la intensidad de 4 colores.",
+            "detalles": [
+                "style embebido: (244, 244, 244) → (186, 186, 186)",
+                "style embebido: (238, 238, 238) → (183, 183, 183)",
+                "style embebido: (204, 204, 204) → (166, 166, 166)",
+                "style embebido: (204, 204, 204) → (166, 166, 166)"
+            ]
+        },
+        {
+            "nombre": "Reducción de tamaños excesivos",
+            "cumple": true,
+            "recomendacion": "Se ajustaron 0 elementos grandes.",
+            "detalles": []
+        },
+        {
+            "nombre": "Uso moderado de decoraciones visuales",
+            "cumple": false,
+            "recomendacion": "Se eliminaron 6 estilos innecesarios.",
+            "detalles": [
+                "Eliminada decoración en style embebido",
+                "Eliminada decoración en style embebido",
+                "Eliminada decoración en style embebido",
+                "Eliminada decoración en style embebido",
+                "Eliminada decoración en style embebido",
+                "Eliminada decoración en style embebido"
+            ]
+        }
+    ],
+    "debug": {
+        "started_at": 1773478067.2400177,
+        "steps": [
+            {
+                "t": 0.0057,
+                "step": "upload.received",
+                "data": {
+                    "filename": "Página de prueba 3.zip"
+                }
+            },
+            {
+                "t": 0.0182,
+                "step": "upload.handled",
+                "data": {
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_0c67a785\\input\\Pagina web"
+                }
+            },
+            {
+                "t": 0.0182,
+                "step": "project.html_detected",
+                "data": {
+                    "html_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_0c67a785\\input\\Pagina web\\index.html",
+                    "html_name": "index.html"
+                }
+            },
+            {
+                "t": 0.0182,
+                "step": "session.created",
+                "data": {
+                    "session_id": "0c67a785",
+                    "output_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_0c67a785\\output",
+                    "artifacts_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_0c67a785\\artifacts",
+                    "session_dirname": "session_0c67a785"
+                }
+            },
+            {
+                "t": 0.0182,
+                "step": "original_prototype.render_start",
+                "data": {
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_0c67a785\\input\\Pagina web",
+                    "output_image": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_0c67a785\\artifacts\\debug_original.png"
+                }
+            },
+            {
+                "t": 3.8176,
+                "step": "original_prototype.render_done",
+                "data": {
+                    "screenshot_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_0c67a785\\artifacts\\debug_original.png",
+                    "snapshot_node_count": 38
+                }
+            },
+            {
+                "t": 3.8176,
+                "step": "original_prototype.colors_classified",
+                "data": {
+                    "distinct_colors": 1319
+                }
+            },
+            {
+                "t": 3.8176,
+                "step": "analysis.render_snapshot_generated",
+                "data": {
+                    "snapshot_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_0c67a785\\artifacts\\render_snapshot_original.json",
+                    "node_count": 38
+                }
+            },
+            {
+                "t": 3.825,
+                "step": "assessment.original",
+                "data": {
+                    "total_current": 0.1748094309399037,
+                    "energy_wh": 0.6467948944776437,
+                    "co2eq_per_use": 0.30722757487688074
+                }
+            },
+            {
+                "t": 3.8296,
+                "step": "transformed.resources_prepared",
+                "data": {
+                    "output_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_0c67a785\\output"
+                }
+            },
+            {
+                "t": 3.8328,
+                "step": "transformed.heuristics_applied",
+                "data": {
+                    "heuristics_count": 4
+                }
+            },
+            {
+                "t": 3.833,
+                "step": "transformed.html_loaded",
+                "data": {
+                    "html_environmental_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_0c67a785\\output\\index.html"
+                }
+            },
+            {
+                "t": 3.833,
+                "step": "environmental_prototype.render_start",
+                "data": {
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_0c67a785\\output",
+                    "output_image": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_0c67a785\\artifacts\\debug_environmental.png"
+                }
+            },
+            {
+                "t": 7.1523,
+                "step": "environmental_prototype.render_done",
+                "data": {
+                    "screenshot_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_0c67a785\\artifacts\\debug_environmental.png",
+                    "snapshot_node_count": 38
+                }
+            },
+            {
+                "t": 7.1523,
+                "step": "environmental_prototype.colors_classified",
+                "data": {
+                    "distinct_colors": 877
+                }
+            },
+            {
+                "t": 7.1564,
+                "step": "assessment.environmental",
+                "data": {
+                    "environmental_current": 0.16085273428099595,
+                    "environmental_energy_wh": 0.595155116839685,
+                    "environmental_co2eq_per_use": 0.2826986804988504
+                }
+            },
+            {
+                "t": 7.1631,
+                "step": "transformed.zip_created",
+                "data": {
+                    "zip_output_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_0c67a785\\output\\session_0c67a785.zip"
+                }
+            }
+        ]
+    },
+    "debug_screenshots": {
+        "original": "debug_original.png",
+        "environmental": "debug_environmental.png"
+    },
+    "recommendations": {
+        "items": [],
+        "summary": null
+    },
+    "download_url": "/sessions/session_0c67a785/output/session_0c67a785.zip",
+    "render_snapshot": {
+        "artifact": "render_snapshot_original.json",
+        "node_count": 38
+    }
+}

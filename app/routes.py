@@ -9,7 +9,7 @@ from flask import (
 )
 
 from app.config import get_artifacts_dir, get_output_dir
-from engine.core.engine_pipeline import run_pipeline
+from engine.pipeline.pipeline import run_pipeline
 
 
 main = Blueprint("main", __name__)

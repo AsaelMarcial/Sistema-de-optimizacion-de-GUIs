@@ -8,7 +8,7 @@ from engine.enums.scope.html_elements import HTML_ELEMENT_SPECS, HtmlElementScop
 
 
 DICTIONARIES_DIR = (
-    Path(__file__).resolve().parents[2] / "core" / "models" / "Dictionaries"
+    Path(__file__).resolve().parents[2] / "models" / "legacy" / "dictionaries"
 )
 
 
