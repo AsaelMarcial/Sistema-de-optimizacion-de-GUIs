@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from engine.models.pipeline_context import PipelineContext
+from engine.pipeline.context import PipelineContext
 from engine.utils.file_utils import read_text
 
 

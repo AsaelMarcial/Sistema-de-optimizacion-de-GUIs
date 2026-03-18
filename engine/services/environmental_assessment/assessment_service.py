@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Dict, Optional
 
-from engine.models.environmental_assessment.carbon_footprint_calculator import (
+from engine.domain.models.environmental_assessment.carbon_footprint import (
     CarbonFootprintCalculator,
 )
-from engine.models.environmental_assessment.energy_model import EnergyModel
+from engine.domain.models.environmental_assessment.energy_consumption import EnergyModel
 from engine.services.environmental_assessment.energy_profile_service import (
     estimate_interface_current,
 )

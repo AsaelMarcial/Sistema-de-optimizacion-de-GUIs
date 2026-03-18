@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from engine.models.pipeline_context import PipelineContext
+from engine.pipeline.context import PipelineContext
 from engine.utils.file_utils import save_json
 
 
@@ -32,6 +32,23 @@ def compile_final_results(context: PipelineContext) -> None:
         "node_count": context.original_artifacts.snapshot.metadata.get("nodeCount")
         if context.original_artifacts
         else None,
+        "palette_color_count": len(context.original_artifacts.snapshot.palette)
+        if context.original_artifacts
+        else 0,
+    }
+    context.results["color_processing"] = {
+        "artifact": "palette_analysis.json",
+        "palette_preview_artifact": context.palette_preview_rel,
+        "palette_preview_output": context.palette_preview_rel,
+        "palette_preview_location": "output",
+        "pixel_color_frequency_count": len(context.pixel_color_frequencies or []),
+        "pixel_color_statistics_count": len(context.pixel_color_statistics or []),
+        "named_color_breakdown": (
+            (context.palette_analysis or {}).get("named_color_breakdown") or []
+        ),
+        "confirmed_pixel_count": (context.palette_analysis or {}).get("confirmed_pixel_count"),
+        "residual_pixel_count": (context.palette_analysis or {}).get("residual_pixel_count"),
+        "core_palettes": ((context.palette_analysis or {}).get("core_palettes") or {}),
     }
     if context.results_output_path:
         save_json(context.results_output_path, context.results, indent=4)

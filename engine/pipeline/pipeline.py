@@ -2,26 +2,26 @@ from __future__ import annotations
 
 from typing import Any
 
-from engine.models.debug_trace import DebugTrace
-from engine.models.pipeline_context import PipelineContext
-from engine.models.pipeline_result import PipelineResult
-from engine.pipeline.stages.environmental_assessment.stage import run_environmental_assessment_stage
-from engine.pipeline.stages.file_handling.stage import run_file_handling_stage
-from engine.pipeline.stages.prototype_structural_extractor.stage import (
-    run_prototype_structural_extractor_stage,
+from engine.pipeline.context import PipelineContext
+from engine.pipeline.debug_trace import DebugTrace
+from engine.pipeline.result import PipelineResult
+from engine.pipeline.stages.analyze_initial_state import run_analyze_initial_state_stage
+from engine.pipeline.stages.apply_transformations import run_apply_transformations_stage
+from engine.pipeline.stages.build_color_schema import run_build_color_schema_stage
+from engine.pipeline.stages.estimate_original_carbonfootprint import (
+    run_estimate_original_carbonfootprint_stage,
 )
-from engine.pipeline.stages.recommendations.stage import run_recommendations_stage
-from engine.pipeline.stages.results.stage import run_results_stage
-from engine.pipeline.stages.transformation.stage import run_transformation_stage
+from engine.pipeline.stages.estimate_savings import run_estimate_savings_stage
+from engine.pipeline.stages.process_file import run_process_file_stage
+from engine.pipeline.stages.report_obtained_results import run_report_obtained_results_stage
 _STAGE_RUNNERS = (
-    run_file_handling_stage,
-    run_prototype_structural_extractor_stage,
-    run_environmental_assessment_stage,
-    run_transformation_stage,
-    run_prototype_structural_extractor_stage,
-    run_environmental_assessment_stage,
-    run_recommendations_stage,
-    run_results_stage,
+    run_process_file_stage,
+    run_analyze_initial_state_stage,
+    run_build_color_schema_stage,
+    run_estimate_original_carbonfootprint_stage,
+    run_apply_transformations_stage,
+    run_estimate_savings_stage,
+    run_report_obtained_results_stage,
 )
 
 

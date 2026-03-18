@@ -21,6 +21,7 @@ def build_scope_properties_payload() -> dict:
                 "computedAliases": list(spec.computed_aliases),
                 "shorthandFor": [item.value for item in spec.shorthand_for],
                 "longhandOf": spec.longhand_of.value if spec.longhand_of else None,
+                "colorRole": spec.color_role.value if spec.color_role else None,
                 "affectsVisibility": spec.affects_visibility,
                 "affectsPaintOrder": spec.affects_paint_order,
             }

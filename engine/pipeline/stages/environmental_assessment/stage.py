@@ -3,7 +3,7 @@ from __future__ import annotations
 from engine.models.environmental_assessment.carbon_footprint_calculator import (
     CarbonFootprintCalculator,
 )
-from engine.models.pipeline_context import PipelineContext
+from engine.pipeline.context import PipelineContext
 from engine.services.environmental_assessment.assessment_service import run_environmental_assessment
 from engine.services.environmental_assessment.energy_profile_service import (
     build_default_energy_model,

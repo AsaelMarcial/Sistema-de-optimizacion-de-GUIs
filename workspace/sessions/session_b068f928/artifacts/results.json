@@ -1,0 +1,494 @@
+{
+    "total_current": 0.1748094309399037,
+    "carbon_footprint": 0.30722757487688074,
+    "energy_wh": 0.6467948944776437,
+    "environmental_energy_wh": 0.595155116839685,
+    "environmental_co2eq_per_use": 0.2826986804988504,
+    "session_id": "b068f928",
+    "session_dirname": "session_b068f928",
+    "html_name": "index.html",
+    "heuristics": [
+        {
+            "nombre": "Modo oscuro",
+            "cumple": false,
+            "recomendacion": "Se aplicó dark mode por fondo claro."
+        },
+        {
+            "nombre": "Minimizar el uso de colores brillantes",
+            "cumple": false,
+            "recomendacion": "Se redujo la intensidad de 4 colores.",
+            "detalles": [
+                "style embebido: (244, 244, 244) → (186, 186, 186)",
+                "style embebido: (238, 238, 238) → (183, 183, 183)",
+                "style embebido: (204, 204, 204) → (166, 166, 166)",
+                "style embebido: (204, 204, 204) → (166, 166, 166)"
+            ]
+        },
+        {
+            "nombre": "Reducción de tamaños excesivos",
+            "cumple": true,
+            "recomendacion": "Se ajustaron 0 elementos grandes.",
+            "detalles": []
+        },
+        {
+            "nombre": "Uso moderado de decoraciones visuales",
+            "cumple": false,
+            "recomendacion": "Se eliminaron 6 estilos innecesarios.",
+            "detalles": [
+                "Eliminada decoración en style embebido",
+                "Eliminada decoración en style embebido",
+                "Eliminada decoración en style embebido",
+                "Eliminada decoración en style embebido",
+                "Eliminada decoración en style embebido",
+                "Eliminada decoración en style embebido"
+            ]
+        }
+    ],
+    "debug": {
+        "started_at": 1773797599.965808,
+        "steps": [
+            {
+                "t": 0.0054,
+                "step": "upload.received",
+                "data": {
+                    "filename": "Página de prueba 3.zip"
+                }
+            },
+            {
+                "t": 0.0238,
+                "step": "upload.handled",
+                "data": {
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_b068f928\\input\\Pagina web"
+                }
+            },
+            {
+                "t": 0.0238,
+                "step": "project.html_detected",
+                "data": {
+                    "html_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_b068f928\\input\\Pagina web\\index.html",
+                    "html_name": "index.html"
+                }
+            },
+            {
+                "t": 0.0238,
+                "step": "session.created",
+                "data": {
+                    "session_id": "b068f928",
+                    "output_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_b068f928\\output",
+                    "artifacts_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_b068f928\\artifacts",
+                    "session_dirname": "session_b068f928"
+                }
+            },
+            {
+                "t": 0.0238,
+                "step": "original_prototype.render_start",
+                "data": {
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_b068f928\\input\\Pagina web",
+                    "output_image": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_b068f928\\artifacts\\debug_original.png"
+                }
+            },
+            {
+                "t": 5.4156,
+                "step": "original_prototype.render_done",
+                "data": {
+                    "screenshot_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_b068f928\\artifacts\\debug_original.png",
+                    "snapshot_node_count": 63
+                }
+            },
+            {
+                "t": 5.4156,
+                "step": "original_prototype.colors_classified",
+                "data": {
+                    "distinct_colors": 1319
+                }
+            },
+            {
+                "t": 5.4156,
+                "step": "analysis.render_snapshot_generated",
+                "data": {
+                    "snapshot_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_b068f928\\artifacts\\render_snapshot_original.json",
+                    "node_count": 63
+                }
+            },
+            {
+                "t": 5.7258,
+                "step": "color_processing.completed",
+                "data": {
+                    "frequency_count": 1319,
+                    "statistics_count": 1319,
+                    "semantic_color_count": 7,
+                    "named_color_count": 5,
+                    "palette_preview_output": "palette_preview.png",
+                    "quantizer": "QuantizerCelebi (Wu + Wsmeans)"
+                }
+            },
+            {
+                "t": 5.7273,
+                "step": "assessment.original",
+                "data": {
+                    "total_current": 0.1748094309399037,
+                    "energy_wh": 0.6467948944776437,
+                    "co2eq_per_use": 0.30722757487688074
+                }
+            },
+            {
+                "t": 5.7319,
+                "step": "transformed.resources_prepared",
+                "data": {
+                    "output_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_b068f928\\output"
+                }
+            },
+            {
+                "t": 5.7352,
+                "step": "transformed.heuristics_applied",
+                "data": {
+                    "heuristics_count": 4
+                }
+            },
+            {
+                "t": 5.7355,
+                "step": "transformed.html_loaded",
+                "data": {
+                    "html_environmental_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_b068f928\\output\\index.html"
+                }
+            },
+            {
+                "t": 5.7355,
+                "step": "environmental_prototype.render_start",
+                "data": {
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_b068f928\\output",
+                    "output_image": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_b068f928\\artifacts\\debug_environmental.png"
+                }
+            },
+            {
+                "t": 10.6942,
+                "step": "environmental_prototype.render_done",
+                "data": {
+                    "screenshot_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_b068f928\\artifacts\\debug_environmental.png",
+                    "snapshot_node_count": 63
+                }
+            },
+            {
+                "t": 10.6942,
+                "step": "environmental_prototype.colors_classified",
+                "data": {
+                    "distinct_colors": 877
+                }
+            },
+            {
+                "t": 10.6952,
+                "step": "assessment.environmental",
+                "data": {
+                    "environmental_current": 0.16085273428099595,
+                    "environmental_energy_wh": 0.595155116839685,
+                    "environmental_co2eq_per_use": 0.2826986804988504
+                }
+            },
+            {
+                "t": 10.7041,
+                "step": "transformed.zip_created",
+                "data": {
+                    "zip_output_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_b068f928\\output\\session_b068f928.zip"
+                }
+            }
+        ]
+    },
+    "debug_screenshots": {
+        "original": "debug_original.png",
+        "environmental": "debug_environmental.png"
+    },
+    "recommendations": {
+        "items": [],
+        "summary": null
+    },
+    "download_url": "/sessions/session_b068f928/output/session_b068f928.zip",
+    "render_snapshot": {
+        "artifact": "render_snapshot_original.json",
+        "node_count": 63,
+        "palette_color_count": 7
+    },
+    "color_processing": {
+        "artifact": "palette_analysis.json",
+        "palette_preview_artifact": "palette_preview.png",
+        "palette_preview_output": "palette_preview.png",
+        "palette_preview_location": "output",
+        "pixel_color_frequency_count": 1319,
+        "pixel_color_statistics_count": 1319,
+        "named_color_breakdown": [
+            {
+                "name": "whitesmoke",
+                "display_name": "WhiteSmoke",
+                "family": "Colores blancos",
+                "hex_value": "#f5f5f5",
+                "count": 734261,
+                "percentage": 35.6018
+            },
+            {
+                "name": "white",
+                "display_name": "White",
+                "family": "Colores blancos",
+                "hex_value": "#ffffff",
+                "count": 656248,
+                "percentage": 31.8193
+            },
+            {
+                "name": "dimgray",
+                "display_name": "DimGray",
+                "family": "Colores grises",
+                "hex_value": "#696969",
+                "count": 337318,
+                "percentage": 16.3554
+            },
+            {
+                "name": "black",
+                "display_name": "Black",
+                "family": "Colores grises",
+                "hex_value": "#000000",
+                "count": 326856,
+                "percentage": 15.8481
+            },
+            {
+                "name": "lightgrey",
+                "display_name": "LightGrey",
+                "family": "Colores grises",
+                "hex_value": "#d3d3d3",
+                "count": 7741,
+                "percentage": 0.3753
+            }
+        ],
+        "confirmed_pixel_count": 2062424,
+        "residual_pixel_count": 29896,
+        "core_palettes": {
+            "achromatic_palette": {
+                "palette_id": "palette-achromatic-1",
+                "palette_type": "achromatic",
+                "seed_name": "white",
+                "seed_color_id": "color-5",
+                "seed_hex": "#ffffff",
+                "seed_rgb": [
+                    255,
+                    255,
+                    255
+                ],
+                "seed_hct": [
+                    209.5429,
+                    2.8716,
+                    100.0
+                ],
+                "hue": 209.5429,
+                "chroma": 6.0,
+                "semantic_weight": 13,
+                "confirmed_pixel_count": 1390509,
+                "display_name": "Base achromatica",
+                "seed_display_name": "White",
+                "seed_family_name": "Neutral",
+                "source_color_ids": [
+                    "color-5",
+                    "color-4",
+                    "color-3"
+                ],
+                "tones": [
+                    {
+                        "tone": 0,
+                        "hex_value": "#000000",
+                        "rgb": [
+                            0,
+                            0,
+                            0
+                        ],
+                        "hct": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "tone": 10,
+                        "hex_value": "#171d1e",
+                        "rgb": [
+                            23,
+                            29,
+                            30
+                        ],
+                        "hct": [
+                            209.5429,
+                            6.0,
+                            10.0
+                        ]
+                    },
+                    {
+                        "tone": 20,
+                        "hex_value": "#2b3133",
+                        "rgb": [
+                            43,
+                            49,
+                            51
+                        ],
+                        "hct": [
+                            209.5429,
+                            6.0,
+                            20.0
+                        ]
+                    },
+                    {
+                        "tone": 30,
+                        "hex_value": "#424849",
+                        "rgb": [
+                            66,
+                            72,
+                            73
+                        ],
+                        "hct": [
+                            209.5429,
+                            6.0,
+                            30.0
+                        ]
+                    },
+                    {
+                        "tone": 40,
+                        "hex_value": "#595f61",
+                        "rgb": [
+                            89,
+                            95,
+                            97
+                        ],
+                        "hct": [
+                            209.5429,
+                            6.0,
+                            40.0
+                        ]
+                    },
+                    {
+                        "tone": 50,
+                        "hex_value": "#727879",
+                        "rgb": [
+                            114,
+                            120,
+                            121
+                        ],
+                        "hct": [
+                            209.5429,
+                            6.0,
+                            50.0
+                        ]
+                    },
+                    {
+                        "tone": 60,
+                        "hex_value": "#8c9293",
+                        "rgb": [
+                            140,
+                            146,
+                            147
+                        ],
+                        "hct": [
+                            209.5429,
+                            6.0,
+                            60.0
+                        ]
+                    },
+                    {
+                        "tone": 70,
+                        "hex_value": "#a6acad",
+                        "rgb": [
+                            166,
+                            172,
+                            173
+                        ],
+                        "hct": [
+                            209.5429,
+                            6.0,
+                            70.0
+                        ]
+                    },
+                    {
+                        "tone": 80,
+                        "hex_value": "#c2c7c9",
+                        "rgb": [
+                            194,
+                            199,
+                            201
+                        ],
+                        "hct": [
+                            209.5429,
+                            6.0,
+                            80.0
+                        ]
+                    },
+                    {
+                        "tone": 90,
+                        "hex_value": "#dee3e5",
+                        "rgb": [
+                            222,
+                            227,
+                            229
+                        ],
+                        "hct": [
+                            209.5429,
+                            6.0,
+                            90.0
+                        ]
+                    },
+                    {
+                        "tone": 95,
+                        "hex_value": "#ecf2f3",
+                        "rgb": [
+                            236,
+                            242,
+                            243
+                        ],
+                        "hct": [
+                            209.5429,
+                            6.0,
+                            95.0
+                        ]
+                    },
+                    {
+                        "tone": 98,
+                        "hex_value": "#f5fafb",
+                        "rgb": [
+                            245,
+                            250,
+                            251
+                        ],
+                        "hct": [
+                            209.5429,
+                            6.0,
+                            98.0
+                        ]
+                    },
+                    {
+                        "tone": 99,
+                        "hex_value": "#f8fdfe",
+                        "rgb": [
+                            248,
+                            253,
+                            254
+                        ],
+                        "hct": [
+                            209.5429,
+                            6.0,
+                            99.0
+                        ]
+                    },
+                    {
+                        "tone": 100,
+                        "hex_value": "#ffffff",
+                        "rgb": [
+                            255,
+                            255,
+                            255
+                        ],
+                        "hct": [
+                            209.5429,
+                            2.8716,
+                            100.0
+                        ]
+                    }
+                ]
+            },
+            "chromatic_palettes": [],
+            "max_chromatic_palettes": 12,
+            "selected_chromatic_palettes": 0
+        }
+    }
+}

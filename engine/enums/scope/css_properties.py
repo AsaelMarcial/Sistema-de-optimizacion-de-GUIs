@@ -17,6 +17,12 @@ class CssPropertyCategory(StrEnum):
     TYPOGRAPHY = "typography"
 
 
+class CssColorRole(StrEnum):
+    FOREGROUND = "foreground"
+    BACKGROUND = "background"
+    OTHER = "other"
+
+
 class CssPropertyId(StrEnum):
     ACCENT_COLOR = "accent-color"
     APPEARANCE = "appearance"
@@ -92,6 +98,7 @@ class CssPropertyId(StrEnum):
 class CssPropertySpec:
     property_id: CssPropertyId
     categories: tuple[CssPropertyCategory, ...]
+    color_role: CssColorRole | None = None
     computed_aliases: tuple[str, ...] = ()
     shorthand_for: tuple[CssPropertyId, ...] = ()
     longhand_of: CssPropertyId | None = None
@@ -102,6 +109,7 @@ class CssPropertySpec:
 def _spec(
     property_id: CssPropertyId,
     *categories: CssPropertyCategory,
+    color_role: CssColorRole | None = None,
     computed_aliases: tuple[str, ...] = (),
     shorthand_for: tuple[CssPropertyId, ...] = (),
     longhand_of: CssPropertyId | None = None,
@@ -111,6 +119,7 @@ def _spec(
     return CssPropertySpec(
         property_id=property_id,
         categories=categories,
+        color_role=color_role,
         computed_aliases=computed_aliases,
         shorthand_for=shorthand_for,
         longhand_of=longhand_of,
@@ -127,11 +136,12 @@ CSS_PROPERTY_SPECS: tuple[CssPropertySpec, ...] = (
     _spec(CssPropertyId.Z_INDEX, CssPropertyCategory.POSITION, affects_paint_order=True),
     _spec(CssPropertyId.WIDTH, CssPropertyCategory.DISPLAY),
     _spec(CssPropertyId.HEIGHT, CssPropertyCategory.DISPLAY),
-    _spec(CssPropertyId.COLOR, CssPropertyCategory.COLOR, computed_aliases=("color", "currentColor"), affects_visibility=True),
-    _spec(CssPropertyId.ACCENT_COLOR, CssPropertyCategory.COLOR, affects_visibility=True),
+    _spec(CssPropertyId.COLOR, CssPropertyCategory.COLOR, color_role=CssColorRole.FOREGROUND, computed_aliases=("color", "currentColor"), affects_visibility=True),
+    _spec(CssPropertyId.ACCENT_COLOR, CssPropertyCategory.COLOR, color_role=CssColorRole.FOREGROUND, affects_visibility=True),
     _spec(
         CssPropertyId.BACKGROUND,
         CssPropertyCategory.BACKGROUND,
+        color_role=CssColorRole.BACKGROUND,
         shorthand_for=(
             CssPropertyId.BACKGROUND_COLOR,
             CssPropertyId.BACKGROUND_IMAGE,
@@ -144,7 +154,7 @@ CSS_PROPERTY_SPECS: tuple[CssPropertySpec, ...] = (
         ),
         affects_visibility=True,
     ),
-    _spec(CssPropertyId.BACKGROUND_COLOR, CssPropertyCategory.BACKGROUND, computed_aliases=("backgroundColor",), longhand_of=CssPropertyId.BACKGROUND, affects_visibility=True),
+    _spec(CssPropertyId.BACKGROUND_COLOR, CssPropertyCategory.BACKGROUND, color_role=CssColorRole.BACKGROUND, computed_aliases=("backgroundColor",), longhand_of=CssPropertyId.BACKGROUND, affects_visibility=True),
     _spec(CssPropertyId.BACKGROUND_IMAGE, CssPropertyCategory.BACKGROUND, computed_aliases=("backgroundImage",), longhand_of=CssPropertyId.BACKGROUND, affects_visibility=True),
     _spec(CssPropertyId.BACKGROUND_REPEAT, CssPropertyCategory.BACKGROUND, computed_aliases=("backgroundRepeat",), longhand_of=CssPropertyId.BACKGROUND),
     _spec(CssPropertyId.BACKGROUND_POSITION, CssPropertyCategory.BACKGROUND, computed_aliases=("backgroundPosition",), longhand_of=CssPropertyId.BACKGROUND),
@@ -153,7 +163,7 @@ CSS_PROPERTY_SPECS: tuple[CssPropertySpec, ...] = (
     _spec(CssPropertyId.BACKGROUND_CLIP, CssPropertyCategory.BACKGROUND, computed_aliases=("backgroundClip",), longhand_of=CssPropertyId.BACKGROUND),
     _spec(CssPropertyId.BACKGROUND_ORIGIN, CssPropertyCategory.BACKGROUND, computed_aliases=("backgroundOrigin",), longhand_of=CssPropertyId.BACKGROUND),
     _spec(CssPropertyId.BORDER, CssPropertyCategory.BORDER, shorthand_for=(CssPropertyId.BORDER_COLOR, CssPropertyId.BORDER_STYLE, CssPropertyId.BORDER_WIDTH), affects_visibility=True),
-    _spec(CssPropertyId.BORDER_COLOR, CssPropertyCategory.BORDER, computed_aliases=("borderColor",), longhand_of=CssPropertyId.BORDER, shorthand_for=(CssPropertyId.BORDER_TOP_COLOR, CssPropertyId.BORDER_RIGHT_COLOR, CssPropertyId.BORDER_BOTTOM_COLOR, CssPropertyId.BORDER_LEFT_COLOR, CssPropertyId.BORDER_BLOCK_START_COLOR, CssPropertyId.BORDER_BLOCK_END_COLOR, CssPropertyId.BORDER_INLINE_START_COLOR), affects_visibility=True),
+    _spec(CssPropertyId.BORDER_COLOR, CssPropertyCategory.BORDER, color_role=CssColorRole.FOREGROUND, computed_aliases=("borderColor",), longhand_of=CssPropertyId.BORDER, shorthand_for=(CssPropertyId.BORDER_TOP_COLOR, CssPropertyId.BORDER_RIGHT_COLOR, CssPropertyId.BORDER_BOTTOM_COLOR, CssPropertyId.BORDER_LEFT_COLOR, CssPropertyId.BORDER_BLOCK_START_COLOR, CssPropertyId.BORDER_BLOCK_END_COLOR, CssPropertyId.BORDER_INLINE_START_COLOR), affects_visibility=True),
     _spec(CssPropertyId.BORDER_STYLE, CssPropertyCategory.BORDER, computed_aliases=("borderStyle",), longhand_of=CssPropertyId.BORDER, affects_visibility=True),
     _spec(CssPropertyId.BORDER_WIDTH, CssPropertyCategory.BORDER, computed_aliases=("borderWidth",), longhand_of=CssPropertyId.BORDER, affects_visibility=True),
     _spec(CssPropertyId.BORDER_TOP, CssPropertyCategory.BORDER, affects_visibility=True),
@@ -164,44 +174,44 @@ CSS_PROPERTY_SPECS: tuple[CssPropertySpec, ...] = (
     _spec(CssPropertyId.BORDER_BLOCK_END, CssPropertyCategory.BORDER, affects_visibility=True),
     _spec(CssPropertyId.BORDER_INLINE_START, CssPropertyCategory.BORDER, affects_visibility=True),
     _spec(CssPropertyId.BORDER_INLINE_END, CssPropertyCategory.BORDER, affects_visibility=True),
-    _spec(CssPropertyId.BORDER_TOP_COLOR, CssPropertyCategory.BORDER, computed_aliases=("borderTopColor",), longhand_of=CssPropertyId.BORDER_COLOR, affects_visibility=True),
-    _spec(CssPropertyId.BORDER_RIGHT_COLOR, CssPropertyCategory.BORDER, computed_aliases=("borderRightColor",), longhand_of=CssPropertyId.BORDER_COLOR, affects_visibility=True),
-    _spec(CssPropertyId.BORDER_BOTTOM_COLOR, CssPropertyCategory.BORDER, computed_aliases=("borderBottomColor",), longhand_of=CssPropertyId.BORDER_COLOR, affects_visibility=True),
-    _spec(CssPropertyId.BORDER_LEFT_COLOR, CssPropertyCategory.BORDER, computed_aliases=("borderLeftColor",), longhand_of=CssPropertyId.BORDER_COLOR, affects_visibility=True),
-    _spec(CssPropertyId.BORDER_BLOCK_START_COLOR, CssPropertyCategory.BORDER, computed_aliases=("borderBlockStartColor",), longhand_of=CssPropertyId.BORDER_COLOR, affects_visibility=True),
-    _spec(CssPropertyId.BORDER_BLOCK_END_COLOR, CssPropertyCategory.BORDER, computed_aliases=("borderBlockEndColor",), longhand_of=CssPropertyId.BORDER_COLOR, affects_visibility=True),
-    _spec(CssPropertyId.BORDER_INLINE_START_COLOR, CssPropertyCategory.BORDER, computed_aliases=("borderInlineStartColor",), longhand_of=CssPropertyId.BORDER_COLOR, affects_visibility=True),
+    _spec(CssPropertyId.BORDER_TOP_COLOR, CssPropertyCategory.BORDER, color_role=CssColorRole.FOREGROUND, computed_aliases=("borderTopColor",), longhand_of=CssPropertyId.BORDER_COLOR, affects_visibility=True),
+    _spec(CssPropertyId.BORDER_RIGHT_COLOR, CssPropertyCategory.BORDER, color_role=CssColorRole.FOREGROUND, computed_aliases=("borderRightColor",), longhand_of=CssPropertyId.BORDER_COLOR, affects_visibility=True),
+    _spec(CssPropertyId.BORDER_BOTTOM_COLOR, CssPropertyCategory.BORDER, color_role=CssColorRole.FOREGROUND, computed_aliases=("borderBottomColor",), longhand_of=CssPropertyId.BORDER_COLOR, affects_visibility=True),
+    _spec(CssPropertyId.BORDER_LEFT_COLOR, CssPropertyCategory.BORDER, color_role=CssColorRole.FOREGROUND, computed_aliases=("borderLeftColor",), longhand_of=CssPropertyId.BORDER_COLOR, affects_visibility=True),
+    _spec(CssPropertyId.BORDER_BLOCK_START_COLOR, CssPropertyCategory.BORDER, color_role=CssColorRole.FOREGROUND, computed_aliases=("borderBlockStartColor",), longhand_of=CssPropertyId.BORDER_COLOR, affects_visibility=True),
+    _spec(CssPropertyId.BORDER_BLOCK_END_COLOR, CssPropertyCategory.BORDER, color_role=CssColorRole.FOREGROUND, computed_aliases=("borderBlockEndColor",), longhand_of=CssPropertyId.BORDER_COLOR, affects_visibility=True),
+    _spec(CssPropertyId.BORDER_INLINE_START_COLOR, CssPropertyCategory.BORDER, color_role=CssColorRole.FOREGROUND, computed_aliases=("borderInlineStartColor",), longhand_of=CssPropertyId.BORDER_COLOR, affects_visibility=True),
     _spec(CssPropertyId.BORDER_RADIUS, CssPropertyCategory.BORDER, CssPropertyCategory.APPEARANCE, affects_visibility=True),
     _spec(CssPropertyId.OUTLINE, CssPropertyCategory.BORDER, shorthand_for=(CssPropertyId.OUTLINE_COLOR, CssPropertyId.OUTLINE_STYLE, CssPropertyId.OUTLINE_WIDTH), affects_visibility=True),
-    _spec(CssPropertyId.OUTLINE_COLOR, CssPropertyCategory.BORDER, computed_aliases=("outlineColor",), longhand_of=CssPropertyId.OUTLINE, affects_visibility=True),
+    _spec(CssPropertyId.OUTLINE_COLOR, CssPropertyCategory.BORDER, color_role=CssColorRole.FOREGROUND, computed_aliases=("outlineColor",), longhand_of=CssPropertyId.OUTLINE, affects_visibility=True),
     _spec(CssPropertyId.OUTLINE_STYLE, CssPropertyCategory.BORDER, computed_aliases=("outlineStyle",), longhand_of=CssPropertyId.OUTLINE, affects_visibility=True),
     _spec(CssPropertyId.OUTLINE_WIDTH, CssPropertyCategory.BORDER, computed_aliases=("outlineWidth",), longhand_of=CssPropertyId.OUTLINE, affects_visibility=True),
     _spec(CssPropertyId.OUTLINE_OFFSET, CssPropertyCategory.BORDER, affects_visibility=True),
     _spec(CssPropertyId.TEXT_DECORATION, CssPropertyCategory.DECORATION, shorthand_for=(CssPropertyId.TEXT_DECORATION_COLOR, CssPropertyId.TEXT_DECORATION_LINE, CssPropertyId.TEXT_DECORATION_STYLE, CssPropertyId.TEXT_DECORATION_THICKNESS), affects_visibility=True),
-    _spec(CssPropertyId.TEXT_DECORATION_COLOR, CssPropertyCategory.DECORATION, computed_aliases=("textDecorationColor",), longhand_of=CssPropertyId.TEXT_DECORATION, affects_visibility=True),
+    _spec(CssPropertyId.TEXT_DECORATION_COLOR, CssPropertyCategory.DECORATION, color_role=CssColorRole.FOREGROUND, computed_aliases=("textDecorationColor",), longhand_of=CssPropertyId.TEXT_DECORATION, affects_visibility=True),
     _spec(CssPropertyId.TEXT_DECORATION_LINE, CssPropertyCategory.DECORATION, longhand_of=CssPropertyId.TEXT_DECORATION, affects_visibility=True),
     _spec(CssPropertyId.TEXT_DECORATION_STYLE, CssPropertyCategory.DECORATION, longhand_of=CssPropertyId.TEXT_DECORATION, affects_visibility=True),
     _spec(CssPropertyId.TEXT_DECORATION_THICKNESS, CssPropertyCategory.DECORATION, longhand_of=CssPropertyId.TEXT_DECORATION, affects_visibility=True),
     _spec(CssPropertyId.TEXT_EMPHASIS, CssPropertyCategory.DECORATION, shorthand_for=(CssPropertyId.TEXT_EMPHASIS_COLOR,), affects_visibility=True),
-    _spec(CssPropertyId.TEXT_EMPHASIS_COLOR, CssPropertyCategory.DECORATION, computed_aliases=("textEmphasisColor",), longhand_of=CssPropertyId.TEXT_EMPHASIS, affects_visibility=True),
+    _spec(CssPropertyId.TEXT_EMPHASIS_COLOR, CssPropertyCategory.DECORATION, color_role=CssColorRole.FOREGROUND, computed_aliases=("textEmphasisColor",), longhand_of=CssPropertyId.TEXT_EMPHASIS, affects_visibility=True),
     _spec(CssPropertyId.TEXT_SHADOW, CssPropertyCategory.DECORATION, computed_aliases=("textShadow",), affects_visibility=True),
     _spec(CssPropertyId.BOX_SHADOW, CssPropertyCategory.EFFECT, computed_aliases=("boxShadow",), affects_visibility=True),
     _spec(CssPropertyId.FILTER, CssPropertyCategory.EFFECT, affects_visibility=True),
-    _spec(CssPropertyId.CARET, CssPropertyCategory.COLOR, shorthand_for=(CssPropertyId.CARET_COLOR,), affects_visibility=True),
-    _spec(CssPropertyId.CARET_COLOR, CssPropertyCategory.COLOR, computed_aliases=("caretColor",), longhand_of=CssPropertyId.CARET, affects_visibility=True),
+    _spec(CssPropertyId.CARET, CssPropertyCategory.COLOR, color_role=CssColorRole.FOREGROUND, shorthand_for=(CssPropertyId.CARET_COLOR,), affects_visibility=True),
+    _spec(CssPropertyId.CARET_COLOR, CssPropertyCategory.COLOR, color_role=CssColorRole.FOREGROUND, computed_aliases=("caretColor",), longhand_of=CssPropertyId.CARET, affects_visibility=True),
     _spec(CssPropertyId.COLUMN_RULE, CssPropertyCategory.BORDER, shorthand_for=(CssPropertyId.COLUMN_RULE_COLOR,), affects_visibility=True),
-    _spec(CssPropertyId.COLUMN_RULE_COLOR, CssPropertyCategory.BORDER, computed_aliases=("columnRuleColor",), longhand_of=CssPropertyId.COLUMN_RULE, affects_visibility=True),
+    _spec(CssPropertyId.COLUMN_RULE_COLOR, CssPropertyCategory.BORDER, color_role=CssColorRole.FOREGROUND, computed_aliases=("columnRuleColor",), longhand_of=CssPropertyId.COLUMN_RULE, affects_visibility=True),
     _spec(CssPropertyId.APPEARANCE, CssPropertyCategory.APPEARANCE),
     _spec(CssPropertyId.OBJECT_FIT, CssPropertyCategory.APPEARANCE),
     _spec(CssPropertyId.OBJECT_POSITION, CssPropertyCategory.APPEARANCE),
-    _spec(CssPropertyId.FILL, CssPropertyCategory.COLOR, affects_visibility=True),
+    _spec(CssPropertyId.FILL, CssPropertyCategory.COLOR, color_role=CssColorRole.FOREGROUND, affects_visibility=True),
     _spec(CssPropertyId.FILL_OPACITY, CssPropertyCategory.COLOR, affects_visibility=True),
     _spec(CssPropertyId.FILL_RULE, CssPropertyCategory.COLOR, affects_visibility=True),
-    _spec(CssPropertyId.STROKE, CssPropertyCategory.COLOR, affects_visibility=True),
+    _spec(CssPropertyId.STROKE, CssPropertyCategory.COLOR, color_role=CssColorRole.FOREGROUND, affects_visibility=True),
     _spec(CssPropertyId.STROKE_OPACITY, CssPropertyCategory.COLOR, affects_visibility=True),
-    _spec(CssPropertyId.STOP_COLOR, CssPropertyCategory.COLOR, affects_visibility=True),
-    _spec(CssPropertyId.FLOOD_COLOR, CssPropertyCategory.COLOR, affects_visibility=True),
-    _spec(CssPropertyId.LIGHTING_COLOR, CssPropertyCategory.COLOR, affects_visibility=True),
+    _spec(CssPropertyId.STOP_COLOR, CssPropertyCategory.COLOR, color_role=CssColorRole.OTHER, affects_visibility=True),
+    _spec(CssPropertyId.FLOOD_COLOR, CssPropertyCategory.COLOR, color_role=CssColorRole.OTHER, affects_visibility=True),
+    _spec(CssPropertyId.LIGHTING_COLOR, CssPropertyCategory.COLOR, color_role=CssColorRole.OTHER, affects_visibility=True),
 )
 
 

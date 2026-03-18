@@ -5,7 +5,7 @@ import shutil
 
 from flask import url_for
 
-from engine.models.pipeline_context import PipelineContext
+from engine.pipeline.context import PipelineContext
 
 
 def _create_output_bundle(

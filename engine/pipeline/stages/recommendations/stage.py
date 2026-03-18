@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from engine.models.pipeline_context import PipelineContext
+from engine.pipeline.context import PipelineContext
 from engine.models.recommendations.recommendations_payload import RecommendationsPayload
 
 

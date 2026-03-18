@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <style>
+      body {
+        margin: 0;
+        color: rgb(20, 20, 20);
+        background-color: rgb(250, 250, 250);
+      }
+
+      .card {
+        color: rgb(0, 0, 255);
+        background: rgb(230, 230, 230);
+        border: 2px solid rgb(0, 255, 0);
+      }
+
+      #winner {
+        color: rgb(0, 128, 0);
+      }
+
+      p {
+        color: rgb(128, 0, 128) !important;
+      }
+
+      .inherit-parent {
+        color: rgb(5, 6, 7);
+      }
+
+      .outline-source {
+        outline: 3px solid rgb(14, 15, 16);
+      }
+
+      .current-color {
+        color: rgb(33, 34, 35);
+        border-color: currentColor;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="winner" class="card">Winner</div>
+    <div id="inherit-parent" class="inherit-parent">
+      <span id="inherit-child">Inherited</span>
+    </div>
+    <div id="shorthand" class="card">Shorthand</div>
+    <div id="outline" class="outline-source">Outline</div>
+    <p id="important" class="card" style="color: rgb(200, 0, 0)">Important winner</p>
+    <div id="current-color" class="current-color">Current Color</div>
+  </body>
+</html>

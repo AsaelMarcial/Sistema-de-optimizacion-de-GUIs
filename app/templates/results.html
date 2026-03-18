@@ -12,10 +12,17 @@
       rel="stylesheet"
       href="{{ url_for('static', filename='css/styles.css') }}"
     />
-    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/scripts.js') }}"></script>
   </head>
   <body>
-    <div class="main-container">
+    <div
+      class="main-container results-page"
+      data-energy-wh="{{ results.energy_wh | round(4) }}"
+      data-carbon-footprint="{{ results.carbon_footprint | round(6) }}"
+      data-environmental-carbon-footprint="{{ results.environmental_co2eq_per_use | round(6) }}"
+      data-preview-original="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.original) }}"
+      data-preview-environmental="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.environmental) }}"
+    >
       {% if results.debug %}
         <details class="debug-panel">
           <summary><strong>Debug (temporal)</strong></summary>
@@ -85,7 +92,7 @@
         </styled-card>
       </div>
 
-      <div style="display: flex; gap: 20px; justify-content: center">
+      <div class="impact-controls">
         <div>
           <label for="user_count"><strong>Número de usuarios:</strong></label>
           <input type="number" id="user_count" value="100" min="1" />
@@ -94,7 +101,7 @@
           <label for="usage_hours"><strong>Horas de uso:</strong></label>
           <input type="number" id="usage_hours" value="24" min="1" />
         </div>
-        <button class="updateButton" onclick="updateImpact()">
+        <button class="updateButton" id="update-impact-button" type="button">
           Actualizar
         </button>
       </div>
@@ -128,6 +135,96 @@
         {% endfor %} {% endif %}
       </div>
 
+      {% set color_processing = results.color_processing or {} %}
+      {% set core_palettes = color_processing.core_palettes or {} %}
+      {% set achromatic_palette = core_palettes.achromatic_palette %}
+      {% set chromatic_palettes = core_palettes.chromatic_palettes or [] %}
+      {% if color_processing and (achromatic_palette or chromatic_palettes) %}
+      <section class="palette-preview-section">
+        <div class="palette-preview-heading">
+          <h1>Paletas tonales detectadas</h1>
+          {% if color_processing.palette_preview_artifact %}
+          <a
+            class="palette-preview-download"
+            href="{{ url_for('main.session_output', session_id=results.session_dirname, filename=(color_processing.palette_preview_output or color_processing.palette_preview_artifact)) }}"
+            download
+          >
+            Descargar paleta PNG
+          </a>
+          {% endif %}
+        </div>
+        {% if color_processing.named_color_breakdown %}
+        <p class="palette-preview-summary">
+          {% for item in color_processing.named_color_breakdown[:6] %}
+            <span>{{ item.percentage | round(2) }}% {{ item.display_name }}</span>
+          {% endfor %}
+        </p>
+        {% endif %}
+        <div class="tonal-palette-board">
+          <ul class="tonal-palette-grid" role="list">
+            {% if achromatic_palette %}
+            {% set achromatic_label = achromatic_palette.display_name or 'Base achromatica' %}
+            <li class="tonal-palette-card">
+              <div class="tonal-palette-card-header">
+                <h3 class="tonal-palette-card-title">{{ achromatic_label }}</h3>
+                <p class="tonal-palette-card-subtitle">{{ achromatic_palette.tones | length }} tonos</p>
+              </div>
+              <ul class="tonal-swatch-list" role="list">
+                {% for tone in achromatic_palette.tones %}
+                {% set tone_is_light = tone.tone >= 80 %}
+                <li class="tonal-swatch-cell">
+                  <button
+                    type="button"
+                    class="tonal-swatch-button {% if tone_is_light %}tonal-swatch-button-light{% else %}tonal-swatch-button-dark{% endif %}"
+                    style="background: {{ tone.hex_value }};"
+                    data-copy-color="{{ tone.hex_value | upper }}"
+                    data-copy-label="{{ achromatic_label }} {{ tone.tone }}"
+                    data-copy-message="{{ tone.hex_value | upper }}"
+                    title="{{ achromatic_label }} tono {{ tone.tone }} · {{ tone.hex_value | upper }} · Click para copiar"
+                    aria-label="{{ achromatic_label }} tono {{ tone.tone }}, {{ tone.hex_value | upper }}, click para copiar"
+                  >
+                    <span class="material-icons tonal-swatch-icon" aria-hidden="true">eco</span>
+                  </button>
+                </li>
+                {% endfor %}
+              </ul>
+            </li>
+            {% endif %}
+
+            {% for palette in chromatic_palettes %}
+            {% set palette_label = palette.display_name or palette.seed_display_name or palette.seed_name %}
+            <li class="tonal-palette-card">
+              <div class="tonal-palette-card-header">
+                <h3 class="tonal-palette-card-title">{{ palette_label }}</h3>
+                <p class="tonal-palette-card-subtitle">{{ palette.tones | length }} tonos</p>
+              </div>
+              <ul class="tonal-swatch-list" role="list">
+                {% for tone in palette.tones %}
+                {% set tone_is_light = tone.tone >= 80 %}
+                <li class="tonal-swatch-cell">
+                  <button
+                    type="button"
+                    class="tonal-swatch-button {% if tone_is_light %}tonal-swatch-button-light{% else %}tonal-swatch-button-dark{% endif %}"
+                    style="background: {{ tone.hex_value }};"
+                    data-copy-color="{{ tone.hex_value | upper }}"
+                    data-copy-label="{{ palette_label }} {{ tone.tone }}"
+                    data-copy-message="{{ tone.hex_value | upper }}"
+                    title="{{ palette_label }} tono {{ tone.tone }} · {{ tone.hex_value | upper }} · Click para copiar"
+                    aria-label="{{ palette_label }} tono {{ tone.tone }}, {{ tone.hex_value | upper }}, click para copiar"
+                  >
+                    <span class="material-icons tonal-swatch-icon" aria-hidden="true">eco</span>
+                  </button>
+                </li>
+                {% endfor %}
+              </ul>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        <p id="paletteCopyStatus" class="sr-only" aria-live="polite"></p>
+      </section>
+      {% endif %}
+
       <div class="iframe-header"> 
         <h2>Vista previa del HTML corregido</h2>
         <a
@@ -158,76 +255,5 @@
       
     </div>
 
-    <script>
-      function updateImpact() {
-        let users = parseInt(document.getElementById("user_count").value);
-        let hours = parseInt(document.getElementById("usage_hours").value);
-
-        let energy_wh = parseFloat("{{ results.energy_wh | round(4) }}");
-        let co2eq_per_use = parseFloat(
-          "{{ results.carbon_footprint | round(6) }}"
-        );
-        let environmental_co2eq_per_use = parseFloat(
-          "{{ results.environmental_co2eq_per_use | round(6) }}"
-        );
-
-        let total_energy = energy_wh * users * hours;
-        let total_co2eq = co2eq_per_use * users * hours;
-        let total_environmental_co2eq = environmental_co2eq_per_use * users * hours;
-        let reduction_co2eq = total_co2eq - total_environmental_co2eq;
-
-        // Tarjetas
-        document
-          .getElementById("energy_card")
-          .querySelector(
-            'span[slot="value"]'
-          ).innerHTML = `${total_energy.toFixed(2)} Wh`;
-        document
-          .getElementById("carbon_card")
-          .querySelector(
-            'span[slot="value"]'
-          ).innerHTML = `${total_co2eq.toFixed(4)} kg CO₂eq`;
-        document
-          .getElementById("reduction_card")
-          .querySelector(
-            'span[slot="value"]'
-          ).innerHTML = `${reduction_co2eq.toFixed(4)} kg CO₂eq`;
-
-        // Detalles dinámicos
-        document.getElementById("e-users").textContent = users;
-        document.getElementById("e-hours").textContent = hours;
-        document.getElementById("e-total").textContent =
-          total_energy.toFixed(2);
-
-        document.getElementById("c-e").textContent = total_energy.toFixed(2);
-        document.getElementById("c-total").textContent = total_co2eq.toFixed(4);
-
-        document.getElementById("a-orig").textContent = total_co2eq.toFixed(4);
-        document.getElementById("a-environmental").textContent =
-          total_environmental_co2eq.toFixed(4);
-        document.getElementById("a-total").textContent =
-          reduction_co2eq.toFixed(4);
-      }
-
-      window.onload = updateImpact;
-
-      (function () {
-        const btns = document.querySelectorAll(".tab-btn");
-        const img = document.getElementById("previewImage");
-
-        const srcOriginal = "{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.original) }}";
-        const srcEnvironmental = "{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.environmental) }}";
-
-        btns.forEach(btn => {
-          btn.addEventListener("click", () => {
-            btns.forEach(b => b.classList.remove("active"));
-            btn.classList.add("active");
-
-            const target = btn.getAttribute("data-target");
-            img.src = (target === "environmental") ? srcEnvironmental : srcOriginal;
-          });
-        });
-      })();
-    </script>
   </body>
 </html>

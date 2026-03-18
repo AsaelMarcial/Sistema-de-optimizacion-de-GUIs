@@ -1,0 +1,179 @@
+
+
+===== PAGE 1 =====
+Introduction ColorAide
+Advanced Topics
+Colors are complicated, and sometimes it may not be understood why colors or color transformations yield the results that they do. Here we'd like to cover more advanced or specific topics that don't fit
+well in existing topics or are too verbose to be included elsewhere.
+CSS Compatibility
+CSS is a convenient color syntax that people are familiar with, so it makes a great text representation of colors. ColorAide supports the input and output of CSS syntax, but that doesn't mean it is
+attempting to be a CSS color library. CSS goals and ColorAide goals are at times different, and some of the decisions they make are at odds with how we feel colors should be treated in general. While we
+may not have all of CSS's behaviors enabled by default, we do provide a way to simulate most CSS logic.
+What is Not Supported?
+It should be noted that ColorAide does not provide compatibility for CSS parse-time clamping. CSS clamps RGB channels when using rgb() syntax, it clamps lightness of Lab and LCh color spaces
+(Oklab and OkLCh included), it clamps hues, chroma, and saturation in many cylindrical color spaces. ColorAide does not do any of this.
+ColorAide only clamps channels if the conversion algorithm requires it or when performing gamut mapping/clipping.
+Hues are left as specified except when converted to another color space, gamut mapping/clipping, or when normalizing a color.
+Currently, the only thing ColorAide clamps is the alpha channel as there is no practical use for transparency or opaqueness beyond the range of [0, 1]. ColorAide clamps alpha on every set.
+What is Supported?
+There are three features that allow ColorAide to mimic CSS behavior. All three features can be used on demand via special parameters when using the appropriate, related functions, but if desired, they
+can be forced to be enabled for a Color class. It should be noted that while all of these are defined in the CSS spec, some may not actually be implemented at this time. The three features are as
+follows:
+1. Using chroma reduction in OkLCh is the recommend CSS approach. There are multiple algorithms that are suggested in the CSS spec, and ColorAide uses the raytrace approach that we
+developed. ColorAide also offers minde-chroma which uses the MINDE chroma reduction approach. While the raytrace approach is the default, either approach can be used, and if one approach is
+preferred over the other, the default approach can be changed by subclassing Color.
+It should be noted that current browsers have not yet implemented these and still only clip colors, but that will likely change in the future. If you want to mimic current browsers, you can subclass
+Color by using clip or changing the default to clip.
+There is a further change being discussed that could change the CSS recommendation to gamut map with one of the aforementioned algorithms to rec2020, and then clip to rec2020, display-
+p3, or srgb. It can be noted this assumes gamuts that fit inside rec2020 which ColorAide has a number that do not. It is unlikely that ColorAide will implement an approach so highly tailored to
+only three gamuts, and it would be suggested to just apply color.fit('rec2020').clip('srgb') which would do exactly what they are proposing. We will likely re-evaluate our stance if/when such
+a change finally makes it to the CSS spec.
+2. CSS defines a concept of auto powerless handling in CSS will force hues to be interpolated as powerless if under certain circumstances. This usually happens when a color space's
+chroma/saturation components are zero. While this behavior does make general sense, and ensures that a user is always treating achromatic colors as achromatic, it cripples the user's control of
+how a color is interpolated, but may be preferred depending on how you use colors.
+ColorAide, by default, respects what the user has explicitly specified. If a user has a component set as undefined, it is treated as undefined, if it is explicitly set to a numerical value, it is treated
+defined. This makes interpolation very transparent. Only through natural conversions or explicit user intervention do hues become achromatic. If a user has explicitly defined a hue, they need to use
+normalize() to force ColorAide to update powerless hues.
+With all of this said, there are times when a user may want to force powerless hues, even when not explicitly defined, in these cases ColorAide can enforce this behavior during interpolation via the
+powerless parameter.
+3. CSS also defines the idea of carrying forward undefined values during interpolation. Essentially, if a user specifies an undefined component, but interpolation is performed in a different color space,
+after conversion, if the two color spaces have compatible components, the undefined values will be carried forward to the like components. This means that an undefined hue in HSL would be
+carried forward to LCh. A red component in sRGB would be carried over to Display P3.
+The concept is interesting, but it can sometimes be a bit surprising in some cases. Currently, ColorAide does not enable this by default, but it can be done so via the carryforward parameter when
+interpolating.
+If a CSS compatible color object that has all these features enabled by default is required, one can be derived from the base Color class. All four features can be forced as enabled by default as shown
+below.
+To change the gamut mapping algorithm to either current browser approach (clipping) or to use the other suggested gamut mapping algorithm, see below.
+Round Trip Accuracy
+In general, ColorAide is careful to provide good round trip conversions where practical. What this means is that we try to maintain a high level of accuracy so that when a color is converted to a different
+color and back that it will be very close, if not exactly, the same.
+In general, we are able to keep decent round tripping by not clipping values during conversion and maintaining as high a level of precision as we can, but there are some cases where the high level of
+round trip accuracy cannot be maintained, or even at all. There are even reasons where we willfully choose to sacrifice some accuracy for convenience in order to uphold intuitive expectations for the
+user.
+If you are a color scientist or you work in certain industries, there are definite reasons to uphold accuracy at all costs, but sometimes, you just want the colors to do the what you expect them to do.
+ColorAide tries to live in the space between. We try to provide accurate color round tripping except when it comes at the cost of practicality.
+Limitations of The Color Space
+fromcoloraideimportColorasBase
+classColor(base):
+POWERLESS=True
+CARRYFORWARD=True
+fromcoloraideimportColorasBase
+classColor(base):
+FIT="clip"# or "minde-chroma"
+POWERLESS=True
+CARRYFORWARD=True
+
+
+===== PAGE 2 =====
+One situation that can affect round tripping is when one color model cannot properly handle a color due to its gamut being beyond the conversion algorithm's capabilities.
+Consider a wide gamut, HDR color space like Jzazbz. Jzazbz is an unbounded color space with plenty of headroom for HDR. Now, let's compare it to HSLuv, an SDR color space derived from the Luv
+color space and confined to the sRGB gamut. It is essentially a more perceptually uniform version of HSL, but the algorithm specifically requires lightness to be clamped to the SDR range. If we convert
+an HDR color from Jzazbz to HSLuv, round trip will be broken as the color space simply does not support the HDR range.
+Gamut: srgb
+If a color space algorithm does not support a specific color, the conversion may be clamped or come back with an unexpected value.
+Floating Point Math
+Floating point math can also be responsible for some differences in round tripping. Floating point issues are not specific to this library or even the language of Python, but to all computers in general. For
+example, computers cannot store infinite repeating decimals to properly represent all floating point numbers.
+What this means is that no matter how much floating point precision you maintain, some error is introduced when doing floating point operations. Certain rounding conventions are used in order to
+average out the errors to stay as close as possible to the intended, real value, but it does not prevent floating point errors. This is simply the nature of computers and floating point math.
+Gamut: srgb
+Special Handling: Cylindrical Spaces
+Sometimes, round trip accuracy can be compromised further for practical reasons. A common case where we make compromises is with cylindrical color models.
+ColorAide aims to make colors easy to use, but the one case that can frustrate users is interpolating with an achromatic color using a cylindrical color space.
+Achromatic colors do not have a hue, but all conversions end up yielding something for hue, even it has no practical meaning. This can cause odd color shifts when interpolating with an achromatic
+color. In order to get logical results when doing interpolation, we detect when a color is achromatic (or very close to achromatic) and set the hues to undefined. This helps us to identify achromatic cases
+and helps us to prevent weird color shifts when interpolating between achromatic colors. Only if a user manually defines a hue do we respect it.
+Gamut: srgb
+Because of floating point issues, conversions to cylindrical color spaces do not always satisfy the requirements to be recognized as achromatic colors.
+As an example, HSL colors are achromatic when the sRGB color it is derived from has all color channels equal to each other. Let's say we convert the color darkgray to the XYZ D65 color space and
+then back again. We can see that what was once a color with all color channels equal to each other is now a color that has color channels very nearly equal to each other.
+Gamut: srgb
+These two colors are intended to be the same, but one satisfies the requirement to have the HSL hue set to NaN, but the other does not. This is a case where accuracy vs practicality comes into play. We
+all know the color is essentially still darkgray, and that is what the user intends. To allow this to work seamlessly, we apply a little leniency to the achromatic rules and state that if the color is very,
+very close to being achromatic, we will consider it achromatic, and we sacrifice a little accuracy to gain practicality. Or maybe it is better to say that we compensate for the natural inaccuracies that exist.
+Gamut: srgb
+This problem can exist in various scenarios in pretty much all cylindrical color spaces. Some have tighter algorithms and may give really good results with sRGB, but then when converting from some
+other color space we'll see maybe not as tight a translation to and from.
+Which White Point is the Correct White Point?
+Color spaces are often relative to specific white points. One may use D50, another D65, or even D60. This is normal, but if you were to search around to find out how a specific white point is defined, in
+some cases, you may find conflicting definitions.
+Let's take D65 as an example. ColorAide currently uses the definition of D65 that CSS has adopted. This D65 interpretation uses xy chromaticity points rounded to 4 decimals.
+>>> jz=Color('jzazbz(0.25 0 0)')
+>>> jz
+color(--jzazbz 0.25 0 0 / 1)
+>>> hsluv=jz.convert('hsluv')
+>>> hsluv
+color(--hsluv none 0 100 / 1)
+>>> hsluv.convert('jzazbz')
+color(--jzazbz 0.22207 -0.00016 -0.00012 / 1)
+Edit
+ Share
+>>> color=Color('white')
+>>> color[:]
+[1.0, 1.0, 1.0, 1.0]
+>>> color.convert('prophoto-rgb').convert('srgb')[:]
+[1.0000000000000004, 0.9999999999999997, 0.9999999999999997, 1.0]
+Edit
+ Share
+>>> Color.interpolate(['lch(75 100 180)','lch(75 0 0)'],space='lch')
+<coloraide.interpolate.linear.InterpolatorLinear object at 0x7f9f1bb6fe50>
+>>> Color.interpolate(['lch(75 100 180)','lch(75 0 none)'],space='lch')
+<coloraide.interpolate.linear.InterpolatorLinear object at 0x7f9f1bb6f450>
+Edit
+ Share
+>>> c1=Color('darkgray')
+>>> c1[:-1]
+[0.6627450980392157, 0.6627450980392157, 0.6627450980392157]
+>>> c2=c1.convert('xyz-d65').convert('srgb')
+>>> c2[:-1]
+[0.6627450980392157, 0.6627450980392156, 0.6627450980392156]
+Edit
+ Share
+>>> Color('darkgray').convert('hsl')[:-1]
+[nan, 0.0, 0.6627450980392157]
+>>> Color('darkgray').convert('xyz-d65').convert('hsl')[:-1]
+[nan, 3.2919403637141254e-16, 0.6627450980392156]
+Edit
+ Share
+>>> fromcoloraide.catimportWHITES
+>>> fromcoloraideimportutil
+>>> WHITES['2deg']['D65']
+
+
+===== PAGE 3 =====
+Gamut: srgb
+Some may use the same points rounded to 5 decimals.
+Gamut: srgb
+Some may use a variant that is calculated differently and may round the result some number of decimals.
+Gamut: srgb
+The point is that when color algorithms are developed, an assumption of what the definition of specific white points has to made, and the people who write these algorithms can often make very different
+assumptions. Some papers on new color space may even make general claims of using a D65 white point without ever specifying precisely what was used.
+If you were to do a search for how to convert XYZ D65 values to sRGB, you might find slightly different transform matrices, each assuming a different D65 white point, further, the final matrix may be
+rounded to 16 bits or 32 bits. Without knowing the specific white points used in a given algorithm, it is easy to piece together color logic that uses a different definition of a given white point at different
+stages of manipulation. This can often introduce noise.
+ColorAide, like all libraries, must make assumptions regarding all the white points it uses. We noted that previously that, when talking about D65, ColorAide uses a white point generated from xy
+chromaticity points that are rounded to 4 decimals. This isn't a statement about what is more accurate, but simply noting that it is a fairly common convention, and we've adopted it.
+In order to reduce noise introduced in conversion to various color spaces, ColorAide chromatically adapts one white point to another whenever it changes, even if we are switching from one definition of
+a D65 white point to another definition of the same D65 white point. This also implies that a color space may claim it has a D65 white point, but that white point may be different from another color space
+that claims a D65 white point. It is also possible that ColorAide may opt to adapt the algorithm to accommodate our definition of D65 to allow a consistent white point between spaces and avoid extra
+chromatic adaptations. Whatever is decided, a color space assuming an input directly from XYZ will state what the white point assumption is, and if the incoming XYZ differs from that assumption,
+chromatic adaptation will occur. This helps to ensure cleaner conversions between spaces.
+There are times when we may have only the name of a white point, but no specifics to determine what the precise values of the white point used was. An algorithm may also have low precision values
+(16 bit vs the 64 bit values that are often used in ColorAide) making it difficult infer what the original white used was. In these cases, we often must make an assumption and accept any noise that is
+introduced.
+
+
+(0.3127, 0.329)
+>>> util.xy_to_xyz(WHITES['2deg']['D65'])
+[0.9504559270516716, 1.0, 1.0890577507598784]
+Edit
+ Share
+>>> fromcoloraideimportutil
+>>> util.xy_to_xyz((0.31272,0.32903))
+[0.9504300519709449, 1.0, 1.0888064918092575]
+Edit
+ Share
+>>> [0.95047,1.00000,1.08883]
+[0.95047, 1.0, 1.08883]
+Edit
+ Share

@@ -7,11 +7,10 @@ from typing import Any
 
 from engine.enums.scope.css_properties import (
     CSS_PROPERTIES_BY_ID,
-    CSS_PROPERTY_COMPUTED_ALIASES,
 )
 from engine.models.prototype_structural_extractor.snapshot_models import (
+    ElementInventoryEntry,
     RenderSnapshot,
-    SnapshotNode,
     SnapshotOptions,
 )
 
@@ -46,7 +45,7 @@ _PURE_COLOR_PROPERTIES = {
 def normalize_snapshot_nodes(
     raw_nodes: list[dict[str, Any]],
     style_traces: dict[int, dict[str, Any]],
-    rules_used: list[dict[str, Any]],
+    styles_inventory: list[dict[str, Any]],
     palette: list[dict[str, Any]],
     *,
     options: SnapshotOptions,
@@ -60,7 +59,7 @@ def normalize_snapshot_nodes(
     ]
     retained_source_indexes = {node["source_index"] for node in filtered_raw_nodes}
 
-    snapshot_nodes: list[SnapshotNode] = []
+    snapshot_nodes: list[ElementInventoryEntry] = []
     source_index_to_snapshot_id = {
         node["source_index"]: node["node_id"]
         for node in filtered_raw_nodes
@@ -92,18 +91,10 @@ def normalize_snapshot_nodes(
     for raw_node in filtered_raw_nodes:
         backend_node_id = raw_node["backend_node_id"]
         node_trace = style_traces.get(backend_node_id, {})
-        computed_styles = _filter_computed_styles(
-            raw_node["styles"].get("computed", []),
-            node_trace,
-        )
+        computed_styles = _filter_computed_styles(node_trace.get("computed_styles", {}))
 
         raw_node["styles"] = {
-            "computed": computed_styles or None,
-            "background_colors": _normalize_background_values(node_trace.get("background_colors")),
             "effective_background": _normalize_color_value("background-color", node_trace.get("effective_background")),
-        }
-        raw_node["style_trace"] = {
-            "tracked_styles": node_trace.get("tracked_styles"),
         }
         raw_node["parent_id"] = retained_parent_map.get(raw_node["node_id"])
         raw_node["children_ids"] = tuple(sorted(children_map.get(raw_node["node_id"], [])))
@@ -121,14 +112,14 @@ def normalize_snapshot_nodes(
                 "identity": raw_node["identity"],
                 "layout": raw_node["layout"],
                 "styles": raw_node["styles"],
+                "computed_styles": computed_styles,
                 "text": raw_node["text"],
                 "flags": raw_node["flags"],
                 "children_ids": raw_node["children_ids"],
                 "paint_order": raw_node.get("paint_order"),
-                "style_trace": raw_node["style_trace"],
             }
         )
-        snapshot_nodes.append(SnapshotNode(**normalized))
+        snapshot_nodes.append(ElementInventoryEntry(**normalized))
 
     metadata = {
         "module": "prototype_structural_extractor.prototype_state_pipeline",
@@ -141,37 +132,45 @@ def normalize_snapshot_nodes(
     return RenderSnapshot(
         metadata=_prune_empty(metadata),
         document=_prune_empty(document_metrics),
-        nodes=tuple(snapshot_nodes),
-        rules_used=tuple(_prune_empty(rule) for rule in rules_used),
+        elements_inventory=tuple(snapshot_nodes),
+        styles_inventory=tuple(_prune_empty(rule) for rule in styles_inventory),
         palette=tuple(_prune_empty(entry) for entry in palette),
     )
 
 
-def _filter_computed_styles(computed_values: list[str], style_trace: dict[str, Any]) -> dict[str, Any]:
-    declarations = set()
-    for origin_entries in (style_trace.get("tracked_styles") or {}).values():
-        for rule in origin_entries:
-            for declaration in rule.get("declarations", []):
-                name = declaration.get("name")
-                if name:
-                    declarations.add(name)
-
+def _filter_computed_styles(computed_styles: dict[str, Any]) -> dict[str, Any]:
     filtered: dict[str, Any] = {}
-    for raw_value in computed_values:
-        if ":" not in raw_value:
+    for property_name, payload in (computed_styles or {}).items():
+        if property_name not in CSS_PROPERTIES_BY_ID or not isinstance(payload, dict):
             continue
-        name, value = raw_value.split(":", 1)
-        property_name = CSS_PROPERTY_COMPUTED_ALIASES.get(name, name)
-        if property_name not in CSS_PROPERTIES_BY_ID:
+
+        computed_value = _normalize_color_value(
+            property_name,
+            payload.get("computed_value"),
+        )
+        if computed_value in ("", None):
             continue
-        spec = CSS_PROPERTIES_BY_ID[property_name]
-        shorthand_targets = {child.value for child in spec.shorthand_for}
-        related_shorthands = {spec.longhand_of.value} if spec.longhand_of else set()
-        if property_name in declarations or shorthand_targets.intersection(declarations) or related_shorthands.intersection(declarations):
-            normalized_value = _normalize_color_value(property_name, value)
-            if normalized_value in ("", None):
-                continue
-            filtered[property_name] = normalized_value
+
+        normalized_payload = {
+            "computed_value": computed_value,
+        }
+        if payload.get("style_id"):
+            normalized_payload = {
+                "style_id": payload["style_id"],
+            }
+        if payload.get("kind"):
+            normalized_payload["kind"] = payload["kind"]
+        if payload.get("declared_property"):
+            normalized_payload["declared_property"] = payload["declared_property"]
+        normalized_payload["computed_value"] = computed_value
+        if payload.get("inherited_from_element_id"):
+            normalized_payload["inherited_from_element_id"] = payload[
+                "inherited_from_element_id"
+            ]
+        if payload.get("resolution_status"):
+            normalized_payload["resolution_status"] = payload["resolution_status"]
+
+        filtered[property_name] = normalized_payload
     return filtered
 
 
@@ -179,7 +178,7 @@ def _prune_empty(value: Any) -> Any:
     if isinstance(value, dict):
         cleaned: dict[str, Any] = {}
         for key, inner in value.items():
-            keep_empty = key in {"children_ids", "node_ids", "styles", "style_trace", "usage"}
+            keep_empty = key in {"children_ids", "node_ids", "styles", "computed_styles", "usage"}
             if inner in (None, "", (), [], {}) and not keep_empty:
                 continue
             normalized = _prune_empty(inner)
@@ -195,19 +194,6 @@ def _prune_empty(value: Any) -> Any:
         return tuple(_prune_empty(item) for item in value if item not in (None, "", {}, ()))
 
     return value
-
-
-def _normalize_background_values(values: list[str] | None) -> list[str] | None:
-    if not values:
-        return None
-    normalized_values = []
-    for value in values:
-        normalized = _normalize_color_value("background-color", value)
-        if not normalized:
-            continue
-        if normalized not in normalized_values:
-            normalized_values.append(normalized)
-    return normalized_values or None
 
 
 def _normalize_color_value(property_name: str, value: Any) -> str | None:

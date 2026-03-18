@@ -1,0 +1,530 @@
+
+
+===== PAGE 1 =====
+Introduction ColorAide
+Manipulating Colors
+Once a Color object is created, you have access to all the color channels. Color channels can be read individually or extracted all at once. Getting and setting color channels is flexible and easy, allowing
+for intuitive access.
+Accessing Coordinates
+There are various ways to get and set the current values of color coordinates. Colors can be accessed by channel name or numerical index directly. We can also manipulate colors within different color
+spaces.
+Access By Channel Name
+One of the more intuitive ways to access color values is by channel name. Each color space defines the name of each of the available channels. alpha is the one channel name that is always constant
+no matter the color space.
+Gamut: srgb
+Some channels may be also be recognized using an alias. Check the color space's documentation to learn the recognized channel names and aliases.
+Gamut: srgb
+Access By Index
+Color channels can also be read or set by index. Channels are always in logical order. This means, for instance, an RGB color space will have its channel in the order of r, g, b, and alpha. Thealpha
+channel always being the last channel in any color space. Check out the color space's documentation to learn more about available channels and the order in which they are stored.
+Gamut: srgb
+Because a Color object essentially operates similar to a list, negative values are also allowed.
+Gamut: srgb
+Access By Iteration
+Color objects can also be treated as an iterable object. This allows us to simply loop through the values.
+>>> color=Color("orange")
+>>> color
+color(srgb 1 0.64706 0 / 1)
+>>> color['r']
+1.0
+>>> color['g']
+0.6470588235294118
+>>> color['b']
+0.0
+>>> color['alpha']
+1.0
+Edit
+ Share
+>>> color=Color("orange")
+>>> color
+color(srgb 1 0.64706 0 / 1)
+>>> color['red']=0
+>>> color['green']=0
+>>> color['blue']=1
+>>> color
+color(srgb 0 0 1 / 1)
+Edit
+ Share
+>>> color=Color("orange")
+>>> color
+color(srgb 1 0.64706 0 / 1)
+>>> color[0]
+1.0
+>>> color[1]
+0.6470588235294118
+>>> color[2]
+0.0
+>>> color[3]
+1.0
+Edit
+ Share
+>>> color=Color("orange")
+>>> color
+color(srgb 1 0.64706 0 / 1)
+>>> color[-1]=0.5
+>>> color
+color(srgb 1 0.64706 0 / 0.5)
+Edit
+ Share
+>>> color=Color("orange")
+>>> color
+color(srgb 1 0.64706 0 / 1)
+>>> [cforcincolor]
+[1.0, 0.6470588235294118, 0.0, 1.0]
+
+
+===== PAGE 2 =====
+Gamut: srgb
+Access By Slicing
+As previously mentioned, Color objects operate very similar to lists, and as such, can also be read or set via slicing.
+Gamut: srgb
+Access by Type
+When dealing with colors, you have two types of channels: color channels and an alpha channel. These values can be accessed and separated by slicing as mentioned earlier, but some convenience
+functions have been added to make this easier. coords() and alpha() will retrieve the color channels and the alpha channel respectively.
+Gamut: srgb
+In addition, both of these functions offer a special parameter nans that controls whether undefined values are returned as specified or whether they are resolved to defined values.
+Gamut: srgb
+Lastly, you can control the precision of your output values with the precision parameter in either coords() or alpha(). For more information or to learn more about more advanced controls of
+precision, see the sections on precision and rounding which applies to both serialization and coordinate retrieval.
+Gamut: srgb
+If per channel precision control is desired for coords() a list can be provided where each index in the list corresponds to the given channel at that index.
+Gamut: srgb
+Access By Functions
+Colors can also be accessed and modified in more advanced ways with special access functions get() and set().
+get() provides access to any channel via the channel name for a given color space, but what sets it apart from other channel access methods is that it can indirectly access channels in other color
+spaces as well.
+Edit
+ Share
+>>> color=Color("orange")
+>>> color
+color(srgb 1 0.64706 0 / 1)
+>>> color[:-1]
+[1.0, 0.6470588235294118, 0.0]
+>>> color[:-1]=[0,0,1]
+>>> color
+color(srgb 0 0 1 / 1)
+Edit
+ Share
+New 2.0
+>>> color=Color("srgb",[1,0,1],0.5)
+>>> color
+color(srgb 1 0 1 / 0.5)
+>>> color.alpha()
+0.5
+>>> color.coords()
+[1.0, 0.0, 1.0]
+Edit
+ Share
+>>> color=Color("hsl",[NaN,0,0.75],0.5)
+>>> color
+color(--hsl none 0 0.75 / 0.5)
+>>> color.coords()
+[nan, 0.0, 0.75]
+>>> color.coords(nans=False)
+[0.0, 0.0, 0.75]
+Edit
+ Share
+>>> color=Color("hsl",[NaN,0,0.7534848],0.523456)
+>>> color
+color(--hsl none 0 0.75348 / 0.52346)
+>>> color.coords(precision=2)
+[nan, 0.0, 0.75]
+>>> color.alpha(precision=1)
+0.5
+Edit
+ Share
+>>> color=Color("purple")
+>>> color
+color(srgb 0.50196 0 0.50196 / 1)
+>>> color.coords(precision=[2,3,5])
+[0.5, 0.0, 0.50196]
+Edit
+ Share
+New in 4.0: Precision Output Control
+>>> color=Color("pink")
+>>> color
+color(srgb 1 0.75294 0.79608 / 1)
+>>> color.get('red')
+
+
+===== PAGE 3 =====
+Gamut: srgb
+Numerical values for channels can be used as well, but the input should still be a string.
+Gamut: srgb
+Parsing numerical representations of channels is new in 2.14
+Like get(), set() is a method that allows for the setting of any color channel via the color channel names. The value can be set via numerical values or functions with more complex logic.
+Gamut: srgb
+Since set() returns a reference to the current color object, we can also chain multiple set() operations.
+Gamut: srgb
+Even more interesting is that, like get(), you can modify a channel in another color space indirectly.
+Gamut: srgb
+When getting/setting a color channel in a different color space than the current color space, the underlying color must be converted to the target color space in order to access the channel. When doing
+this to get/set multiple channels, this can be a bit inefficient. In order to make such operations more efficient, both get() and set() allow for bulk operations. When performing bulk channel operations,
+the channels operations are performed in the order they are specified; therefore, it is important to group together channels of the same color space to ensure they are accessed with a single conversion.
+To get multiple channels, simply provide a list of channels.
+Gamut: srgb
+To set multiple channels, pass a single dictionary containing the channel names and values.
+Gamut: srgb
+
+
+1.0
+>>> color.get('oklch.hue')
+7.085489349755127
+Edit
+ Share
+>>> color=Color("pink")
+>>> color
+color(srgb 1 0.75294 0.79608 / 1)
+>>> color.get('0')
+1.0
+>>> color.get('oklch.0')
+0.8677384508411227
+Edit
+ Share
+New in 2.14
+>>> color=Color("pink")
+>>> color
+color(srgb 1 0.75294 0.79608 / 1)
+>>> color.set('blue',0.5)
+color(srgb 1 0.75294 0.5 / 1)
+>>> color.set('green',lambdag:g*1.3)
+color(srgb 1 0.97882 0.5 / 1)
+>>> color.set('2',0.0)
+color(srgb 1 0.97882 0 / 1)
+Edit
+ Share
+>>> color=Color('black')
+>>> color
+color(srgb 0 0 0 / 1)
+>>> color.set('red',1).set('green',1)
+color(srgb 1 1 0 / 1)
+Edit
+ Share
+>>> color=Color("orange")
+>>> color
+color(srgb 1 0.64706 0 / 1)
+>>> color.set('hsl.lightness',0.80)
+color(srgb 1 0.85882 0.6 / 1)
+>>> color.set('hsl.0',0.2)
+color(srgb 1 0.60133 0.6 / 1)
+Edit
+ Share
+>>> color=Color('orange')
+>>> color
+color(srgb 1 0.64706 0 / 1)
+>>> color.get(['hsl.lightness','hsl.hue','alpha'])
+[0.5, 38.82352941176471, 1.0]
+Edit
+ Share
+>>> color=Color('orange')
+>>> color
+color(srgb 1 0.64706 0 / 1)
+>>> color.set(
+... {
+... 'oklch.lightness':lambdal:l-l*0.25,
+... 'oklch.hue':270
+... }
+... )
+color(srgb 0.34573 0.45438 0.89059 / 1)
+Edit
+ Share
+
+
+===== PAGE 4 =====
+Lastly, you can control the precision of your output values with the precision parameter. For more information or to learn more about more advanced controls of precision, see the sections on precision
+and rounding which applies to both serialization and coordinate retrieval.
+Gamut: srgb
+Channels can be requested with per channel precision control by providing a list of precision. Each index in the precision list corresponds to input index of each channel in the order they passed in.
+Gamut: srgb
+Indirect channel modification is very useful, but keep in mind that it may give you access to color spaces that are incompatible due to gamut size. Additionally, the feature converts the color to the
+target color space, modifies it, and then converts it back making it susceptible to any possible round trip errors.
+Access By Context Manager
+If you'd like to quickly change over to another space to temporarily work with it in another space, you also can utilize the within() method.
+Gamut: srgb
+Achromatic hue normalization happens automatically, so an achromatic hue will be given an undefined value if the color is achromatic. You can prevent hue normalization to ensure you have an actual
+number to work with by using the norm parameter to turn off hue normalization. This handles both the conversion to the target space and when returning.
+Gamut: srgb
+If it is desired to take control over both the input conversion and the final output conversion separately, norm_out can be used to prevent the hue normalization when exiting the context.
+Gamut: srgb
+Colors are converted to the specified space and, when leaving the context, the color is back in its original space. This assumes no uncaught exceptions are thrown when operating with the colors as this
+provides no exception handling.
+Both norm and norm_out can be used simultaneously. If only norm is used, then both assume the same value. The default assumption is hue normalization is set to True.
+>>> color=Color("hsl",[NaN,0,0.7534848],0.523456)
+>>> color
+color(--hsl none 0 0.75348 / 0.52346)
+>>> color.get('lightness',precision=2)
+0.75
+>>> color.get('alpha',precision=1)
+0.5
+Edit
+ Share
+>>> color=Color('orange')
+>>> color
+color(srgb 1 0.64706 0 / 1)
+>>> color.get(['alpha','oklch.lightness','oklch.hue'],precision=[5,3,0])
+[1.0, 0.793, 71.0]
+Edit
+ Share
+Indirect Channel Modifications
+New in 1.5: Getting/Setting Multiple Channels
+New in 4.0: Precision Output Control
+New in 8.1.0
+>>> color=Color("orange")
+>>> color
+color(srgb 1 0.64706 0 / 1)
+>>> withcolor.within('hsl')asc:
+... c['lightness']=0.80
+... c['hue']=0.2
+... 
+>>> color
+color(srgb 1 0.60133 0.6 / 1)
+Edit
+ Share
+>>> color=Color("gray")
+>>> color
+color(srgb 0.50196 0.50196 0.50196 / 1)
+>>> withcolor.within('oklch',norm=False)asc:
+... c['chroma']=0.1
+... c['hue']+=180
+... 
+>>> color
+color(srgb 0.68436 0.39983 0.51727 / 1)
+Edit
+ Share
+>>> color=Color("orange").convert('hsl')
+>>> color
+color(--hsl 38.824deg 1 0.5 / 1)
+>>> withcolor.within('oklch',norm_out=False)asc:
+... c['chroma']=0
+... 
+>>> color
+color(--hsl 330deg 0 0.7341 / 1)
+Edit
+ Share
+
+
+===== PAGE 5 =====
+This is a convenience function, and though computationally faster than get() and set() relative getting/setting manually calling conversion is computationally faster still. But when convenience
+is preferable to speed, these can be useful, and an easy way to change a color in a different space without cloning or forgetting to convert the color back.
+get() and set() are still handy if you want to force resolution of undefined values or controlling precision.
+Undefined Values
+Colors can sometimes have undefined channels. This can actually happen in a number of ways. In almost all cases, undefined values are generated or manually inserted in order to help out with
+interpolation.
+1. Hues can naturally become undefined if the color is achromatic.
+Gamut: srgb
+2. When specifying raw data, channels can be explicitly set to undefined, and when an insufficient amount of channel data is provided, the missing channels will be assumed as undefined, the
+exception is the alpha channel which is assumed to be 1 unless explicitly defined or explicitly set as undefined.
+Gamut: srgb
+3. Undefined values can also occur when a user specifies a channel with the none keyword in CSS syntax.
+Gamut: srgb
+4. Lastly, a user can use the mask method which is a quick way to set one or multiple channels as undefined. Additionally, it returns a clone leaving the original untouched by default.
+Gamut: srgb
+The alpha channel can also be masked:
+Gamut: srgb
+You can also do inverse masks, or masks that apply to every channel not specified.
+Gamut: srgb
+Checking for Undefined Values
+As previously mentioned, a color channel can be undefined for a number of reasons. And in cases such as interpolation, undefined values can even be useful. On the other hand, sometimes knowing
+there is an undefined value or being able to ignore it can be useful.
+Undefined values are represented as the float value NaN. And since NaN values are not numbers – hence the name "not a number" – they don't quite work the same as normal numbers. They don't
+contribute to math operations like add, multiply, and divide. Any math operation performed with a NaN will simply yield NaN. NaN values are essentially infectious.
+At first glance, the behavior of NaN values can seem confusing, but it is actually pretty intuitive. If we define a color with an undefined channel, and try to add to that value, what should we get? In reality, if
+the value is undefined, how could we possibly add to it? The only sane answer is to return NaN again.
+Gamut: srgb
+Because a NaN (or undefined value) may cause surprising results, it can be useful to check if a hue (or any channel) is undefined before applying certain operations where such a value may be
+undesirable, especially if the color potentially came from an unknown source. To make checking for undefined values easy, the convenience function is_nan has been made available. You can simply
+give is_nan the property you wish to check, and it will return either True or False.
+Gamut: srgb
+This is equivalent to using the math library and comparing the value directly:
+Tip
+>>> color=Color('white').convert('hsl')
+>>> color[:]
+[nan, 0.0, 1.0, 1.0]
+Edit
+ Share
+>>> Color('srgb',[1])[:]
+[1.0, nan, nan, 1.0]
+>>> Color('srgb',[1,0,0],NaN)[:]
+[1.0, 0.0, 0.0, nan]
+Edit
+ Share
+>>> fromcoloraideimportNaN
+>>> color=Color("srgb",[0.3,NaN,0.4])
+>>> color[:]
+[0.3, nan, 0.4, 1.0]
+>>> color=Color('rgb(30% none 40%)')
+>>> color[:]
+[0.3, nan, 0.4, 1.0]
+Edit
+ Share
+>>> Color('white')[:]
+[1.0, 1.0, 1.0, 1.0]
+>>> Color('white').mask(['red','green'])[:]
+[nan, nan, 1.0, 1.0]
+Edit
+ Share
+>>> Color('white').mask('alpha')[-1]
+nan
+Edit
+ Share
+>>> c=Color('white').mask('blue',invert=True)
+>>> c[:]
+[nan, nan, 1.0, nan]
+Edit
+ Share
+>>> color=Color('color(srgb 1 none 1)')
+>>> color['green']+0.5
+nan
+Edit
+ Share
+>>> Color('hsl(none 0% 100%)').is_nan('hue')
+True
+Edit
+ Share
+>>> importmath
+>>> math.isnan(Color('hsl(none 0% 100%)')['hue'])
+
+
+===== PAGE 6 =====
+Gamut: srgb
+Forcing Defined Values
+Another way to deal with NaN values is to just ignore them. get(), set(), coords(), and alpha() all can use the nans option to ensure read operations return a defined value.
+Gamut: srgb
+In the context of set(), nans specifically ensures that when a callback function is provided that the input value is transformed into a real value opposed to an undefined value.
+We can also use normalize() to just set all channels to defined values, but keep mind, when an achromatic color has a real hue, they will then influence interpolation results if interpolating in that same
+color space.
+Gamut: srgb
+How are Undefined Values Resolved?
+ColorAide will resolve undefined values when necessary. Resolving undefined values may be needed to compute color distance, convert a color, serialize a color, or various other reasons.
+Normally, an undefined value defaults to 0 when forced to be defined, but there are a few cases where this may not always be true.
+1. When a color is achromatic the hue becomes meaningless in most cylindrical color spaces. This makes sense as achromatic colors have no hues, but this is also because the algorithms usually
+work out this way. When chroma is small enough, it usually makes the hue mathematically insignificant. In these cases, when a hue must be defined, we will generally assume 0 as an arbitrary
+default, but there are some color spaces who have algorithms where the hue actually becomes more important for precise conversions.
+The color spaces CAM16 JMh and HCT are color models that allow you to set the viewing environment. One of the options determines whether the eye is adapted to the illuminant or not. If not
+adapted, which is our default for both CAM16 JMh and HCT, you can get an achromatic response where grayscale colors lean heavily into one specific hue. Additionally, achromatic chroma may
+grow to a value much greater than 0 as lightness increases. If we were to use 0 as a default for chroma and/or hue, we'd actually not convert back to a real achromatic color.
+We can see in the example below that using 0 for an undefined hue in CAM16 JMh will not convert gray back to sRGB properly, but using the one calculated for the color space gets us much
+closer.
+Gamut: srgb
+Some color spaces, due to things like adapting luminance and background luminance, will have their own achromatic response, meaning that achromatic colors are neutral, but may not be pure
+white, gray, etc.
+2. Most of the time, if you set all color channels to undefined, when resolved, the color will be black (or white in the case of CMYK). Unfortunately, using 0 for undefined channels in some color spaces
+can create colors outside the viewable gamut. One such example is ACEScct (a logarithmic encoding of ACES) which has a greater value than zero for black. In this case, setting undefined channels
+to zero will cause nonsense colors. In this specific case, we use ACEScct's value for black instead of 0 for more a more practical default.
+Gamut: srgb
+ACEScc, another color space that performs a logarithmic encoding of ACES, will also resolve undefined channels to a non-zero value, not because zero is out of gamut, but to ensure
+consistency across all ACES color spaces which resolve to zero or non-zero equivalent values.
+
+
+True
+Edit
+ Share
+>>> c=Color('srgb',[])
+>>> c
+color(srgb none none none / 1)
+>>> c.get('red',nans=False)
+0.0
+>>> c.set('green',lambdax:x+0.5,nans=False)
+color(srgb none 0.5 none / 1)
+Edit
+ Share
+set()
+>>> c=Color('srgb',[])
+>>> c.normalize(nans=False)
+color(srgb 0 0 0 / 1)
+Edit
+ Share
+>>> srgb=Color('gray')
+>>> srgb
+color(srgb 0.50196 0.50196 0.50196 / 1)
+>>> jmh=srgb.convert('cam16-jmh')
+>>> jmh.coords(nans=False)
+[43.042092459543426, 1.4670107518796203, 209.53509858059104]
+>>> jmh.convert('srgb')
+color(srgb 0.50196 0.50196 0.50196 / 1)
+>>> jmh.set('hue',0).convert('srgb')
+color(srgb 0.51857 0.49597 0.49766 / 1)
+Edit
+ Share
+>>> aces=Color('black').convert('acescct')
+>>> aces
+color(--acescct 0.07291 0.07291 0.07291 / 1)
+>>> aces.mask(['alpha'],invert=True,in_place=True)
+color(--acescct none none none / 1)
+>>> aces.coords(nans=False)
+[0.0729055341958355, 0.0729055341958355, 0.0729055341958355]
+>>> aces.in_gamut()
+True
+>>> aces[:]=[0]*3
+>>> aces.in_gamut()
+False
+Edit
+ Share
+New 2.3
+
+
+===== PAGE 7 =====
+Achromatic Colors
+An achromatic color is a color without any real hue. Essentially, it is devoid of color leaving only shades of gray. Different color spaces represent achromatic colors in different ways.
+ColorAide has some special handling of achromatic colors and a few ways to test if a color is achromatic.
+Checking For Achromatic Colors
+ColorAide generally respects an input color's defined channels, but during conversion, or if normalize() is called, cylindrical color spaces will have their hue set to undefined if the color is achromatic (or
+very close to achromatic). One easy way to check for achromatic colors is simply to check if the hue is undefined with is_nan().
+Gamut: srgb
+Unfortunately, this assumes that the hue has not been manually altered and this doesn't work with non cylindrical colors. Luckily, ColorAide has a universal way to check if any color is achromatic by
+using is_achromatic().
+Gamut: srgb
+is_achromatic() tries to use a reasonable threshold to determine achromatic colors. The method used is usually specific to the color space as it is fastest to test in the color space being evaluated.
+Normalizing Achromatic Colors
+When ColorAide converts to a cylindrical color, if the color is achromatic, the hue will get set as undefined. This is mainly because when a color gets very close to achromatic, the hues can become
+nonsensical. Many cylindrical spaces, as chroma (or saturation) approaches zero, the color approaches being achromatic. And as chroma gets smaller, the impact of the hue becomes smaller and
+smaller. In these cases, when we get very close to achromatic, we don't care what the hue is, so it gets set as undefined. Additionally, having hue set to undefined allows us to interpolate achromatic
+colors in a sane way, see Interpolation for more info.
+There are times that a color can be defined such that it is not in this normalized achromatic state. We can manually define a color not in this state, and we can also force a color out of this state.
+Here we can disable the normalization when converting. We can do this with convert() and update()
+Gamut: srgb
+We can also remove the normalization by setting nans to False when using normalize().
+Gamut: srgb
+If we want to force a color back into this normalized state, we can just call normalize() without any parameters. Normalize will remove any existing undefined channels and set achromatic hues to
+undefined.
+Gamut: srgb
+New 2.0
+>>> c=Color('gray').convert('hsl')
+>>> c.is_nan('hue')
+True
+Edit
+ Share
+>>> color1=Color('orange')
+>>> color1
+color(srgb 1 0.64706 0 / 1)
+>>> color1.is_achromatic()
+False
+>>> color2=Color('gray').convert('lab')
+>>> color2
+color(--lab 53.585 0 0 / 1)
+>>> color2.is_achromatic()
+True
+>>> color3=Color('darkgray').convert('hsl').set('hue',270)
+>>> color3
+color(--hsl 270deg 0 0.66275 / 1)
+>>> color3.is_achromatic()
+True
+Edit
+ Share
+>>> Color('white').convert('lch')
+color(--lch 100 0 none / 1)
+>>> Color('white').convert('lch',norm=False)
+color(--lch 100 0 0deg / 1)
+Edit
+ Share
+>>> Color('white').convert('lch').normalize(nans=False)
+color(--lch 100 0 0deg / 1)
+Edit
+ Share
+>>> c=Color('lch',[1,0,0])
+>>> c
+color(--lch 1 0 0deg / 1)
+>>> c.normalize()
+color(--lch 1 0 none / 1)
+Edit
+ Share

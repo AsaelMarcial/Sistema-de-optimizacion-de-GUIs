@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Iterable, Mapping
 
-from engine.models.environmental_assessment.energy_model import EnergyModel
+from engine.domain.models.environmental_assessment.energy_consumption import EnergyModel
 
 
 DEFAULT_COEFFICIENTS_R = [

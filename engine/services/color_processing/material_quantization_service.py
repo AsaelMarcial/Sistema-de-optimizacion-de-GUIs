@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from engine.models.color_processing.color_processing_models import (
+from engine.domain.models.palette import (
     MaterialQuantizationAssessment,
 )
 

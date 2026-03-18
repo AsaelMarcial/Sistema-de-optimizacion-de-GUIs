@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from engine.models.pipeline_context import PipelineContext
+from engine.pipeline.context import PipelineContext
 from engine.services.transformation.heuristic_evaluator import evaluate_and_apply_heuristics
 
 

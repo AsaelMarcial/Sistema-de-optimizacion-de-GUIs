@@ -1,0 +1,3585 @@
+{
+  "metadata": {
+    "module": "prototype_structural_extractor.prototype_state_pipeline",
+    "basePath": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_b068f928\\input\\Pagina web",
+    "capturedAt": "2026-03-18T01:33:23.588639+00:00",
+    "nodeCount": 63,
+    "options": {
+      "wait_after_load_ms": 500,
+      "include_invisible": true,
+      "include_user_agent_rules": false,
+      "include_color_frequencies": true,
+      "capture_screenshot": true,
+      "initial_viewport_width": 1440,
+      "initial_viewport_height": 900,
+      "scroll_step_px": 900,
+      "max_stability_checks": 8,
+      "stability_interval_ms": 250
+    }
+  },
+  "document": {
+    "url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+    "title": "Página Completa Ejemplo",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "documentSize": {
+      "width": 1440,
+      "height": 1453
+    },
+    "scroll": {
+      "x": 0,
+      "y": 0
+    }
+  },
+  "elements_inventory": [
+    {
+      "node_id": "node-1",
+      "backend_node_id": 6,
+      "document_order": 1,
+      "identity": {
+        "tag": "html",
+        "node_name": "HTML",
+        "attributes": {
+          "lang": "es"
+        },
+        "selector_hint": "html[data-node-index='2']",
+        "xpath": "/html[1]"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 1452.5,
+        "absolute_bounds": {
+          "left": 0,
+          "top": 0,
+          "right": 1440,
+          "bottom": 1452.5
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": false
+      },
+      "text": null,
+      "parent_id": null,
+      "children_ids": [
+        "node-2"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-2",
+      "backend_node_id": 19,
+      "document_order": 2,
+      "identity": {
+        "tag": "body",
+        "node_name": "BODY",
+        "selector_hint": "body[data-node-index='16']",
+        "xpath": "/html[1]/body[1]"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 1452.5,
+        "absolute_bounds": {
+          "left": 0,
+          "top": 0,
+          "right": 1440,
+          "bottom": 1452.5
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": false
+      },
+      "text": null,
+      "parent_id": "node-1",
+      "children_ids": [
+        "node-17",
+        "node-19",
+        "node-3",
+        "node-53",
+        "node-8"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-3",
+      "backend_node_id": 21,
+      "document_order": 3,
+      "identity": {
+        "tag": "header",
+        "node_name": "HEADER",
+        "selector_hint": "header[data-node-index='18']",
+        "xpath": "/html[1]/body[1]/header[1]"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 77,
+        "absolute_bounds": {
+          "left": 0,
+          "top": 0,
+          "right": 1440,
+          "bottom": 77
+        }
+      },
+      "styles": {},
+      "computed_styles": {
+        "display": {
+          "style_id": "style-3",
+          "kind": "matched",
+          "declared_property": "display",
+          "computed_value": "flex"
+        }
+      },
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": null,
+      "parent_id": "node-2",
+      "children_ids": [
+        "node-4",
+        "node-6"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-4",
+      "backend_node_id": 23,
+      "document_order": 4,
+      "identity": {
+        "tag": "h1",
+        "node_name": "H1",
+        "selector_hint": "h1[data-node-index='20']",
+        "xpath": "/html[1]/body[1]/header[1]/h1[1]"
+      },
+      "layout": {
+        "x": 20,
+        "y": 20,
+        "width": 189.625,
+        "height": 37,
+        "absolute_bounds": {
+          "left": 20,
+          "top": 20,
+          "right": 209.625,
+          "bottom": 57
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(34, 34, 34)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Mi Sitio Web",
+      "parent_id": "node-3",
+      "children_ids": [
+        "node-5"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-5",
+      "backend_node_id": 24,
+      "document_order": 5,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/header[1]/h1[1]/text()[1]"
+      },
+      "layout": {
+        "x": 20,
+        "y": 20,
+        "width": 189.625,
+        "height": 36,
+        "absolute_bounds": {
+          "left": 20,
+          "top": 20,
+          "right": 209.625,
+          "bottom": 56
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Mi Sitio Web",
+      "parent_id": "node-4",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-6",
+      "backend_node_id": 26,
+      "document_order": 6,
+      "identity": {
+        "tag": "span",
+        "node_name": "SPAN",
+        "selector_hint": "span[data-node-index='23']",
+        "xpath": "/html[1]/body[1]/header[1]/span[1]"
+      },
+      "layout": {
+        "x": 1239.46875,
+        "y": 29.5,
+        "width": 180.53125,
+        "height": 18,
+        "absolute_bounds": {
+          "left": 1239.46875,
+          "top": 29.5,
+          "right": 1420.0,
+          "bottom": 47.5
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(34, 34, 34)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Diseño moderno y simple",
+      "parent_id": "node-3",
+      "children_ids": [
+        "node-7"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-7",
+      "backend_node_id": 27,
+      "document_order": 7,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/header[1]/span[1]/text()[1]"
+      },
+      "layout": {
+        "x": 1239.46875,
+        "y": 29.5,
+        "width": 180.53125,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 1239.46875,
+          "top": 29.5,
+          "right": 1420.0,
+          "bottom": 46.5
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Diseño moderno y simple",
+      "parent_id": "node-6",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-8",
+      "backend_node_id": 30,
+      "document_order": 8,
+      "identity": {
+        "tag": "nav",
+        "node_name": "NAV",
+        "selector_hint": "nav[data-node-index='27']",
+        "xpath": "/html[1]/body[1]/nav[1]"
+      },
+      "layout": {
+        "x": 0,
+        "y": 77,
+        "width": 1440,
+        "height": 48,
+        "absolute_bounds": {
+          "left": 0,
+          "top": 77,
+          "right": 1440,
+          "bottom": 125
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": null,
+      "parent_id": "node-2",
+      "children_ids": [
+        "node-11",
+        "node-13",
+        "node-15",
+        "node-9"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-9",
+      "backend_node_id": 32,
+      "document_order": 9,
+      "identity": {
+        "tag": "a",
+        "node_name": "A",
+        "attributes": {
+          "href": "#"
+        },
+        "selector_hint": "a[data-node-index='29']",
+        "xpath": "/html[1]/body[1]/nav[1]/a[1]"
+      },
+      "layout": {
+        "x": 507.921875,
+        "y": 77,
+        "width": 77.359375,
+        "height": 48,
+        "absolute_bounds": {
+          "left": 507.921875,
+          "top": 77,
+          "right": 585.28125,
+          "bottom": 125
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(51, 51, 51)"
+      },
+      "computed_styles": {
+        "display": {
+          "style_id": "style-7",
+          "kind": "matched",
+          "declared_property": "display",
+          "computed_value": "inline-block"
+        }
+      },
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Inicio",
+      "parent_id": "node-8",
+      "children_ids": [
+        "node-10"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-10",
+      "backend_node_id": 33,
+      "document_order": 10,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/nav[1]/a[1]/text()[1]"
+      },
+      "layout": {
+        "x": 527.921875,
+        "y": 92,
+        "width": 37.359375,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 527.921875,
+          "top": 92,
+          "right": 565.28125,
+          "bottom": 109
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Inicio",
+      "parent_id": "node-9",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-11",
+      "backend_node_id": 35,
+      "document_order": 11,
+      "identity": {
+        "tag": "a",
+        "node_name": "A",
+        "attributes": {
+          "href": "#"
+        },
+        "selector_hint": "a[data-node-index='32']",
+        "xpath": "/html[1]/body[1]/nav[1]/a[2]"
+      },
+      "layout": {
+        "x": 589.734375,
+        "y": 77,
+        "width": 104.90625,
+        "height": 48,
+        "absolute_bounds": {
+          "left": 589.734375,
+          "top": 77,
+          "right": 694.640625,
+          "bottom": 125
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(51, 51, 51)"
+      },
+      "computed_styles": {
+        "display": {
+          "style_id": "style-7",
+          "kind": "matched",
+          "declared_property": "display",
+          "computed_value": "inline-block"
+        }
+      },
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Servicios",
+      "parent_id": "node-8",
+      "children_ids": [
+        "node-12"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-12",
+      "backend_node_id": 36,
+      "document_order": 12,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/nav[1]/a[2]/text()[1]"
+      },
+      "layout": {
+        "x": 609.734375,
+        "y": 92,
+        "width": 64.90625,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 609.734375,
+          "top": 92,
+          "right": 674.640625,
+          "bottom": 109
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Servicios",
+      "parent_id": "node-11",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-13",
+      "backend_node_id": 38,
+      "document_order": 13,
+      "identity": {
+        "tag": "a",
+        "node_name": "A",
+        "attributes": {
+          "href": "#"
+        },
+        "selector_hint": "a[data-node-index='35']",
+        "xpath": "/html[1]/body[1]/nav[1]/a[3]"
+      },
+      "layout": {
+        "x": 699.09375,
+        "y": 77,
+        "width": 124.484375,
+        "height": 48,
+        "absolute_bounds": {
+          "left": 699.09375,
+          "top": 77,
+          "right": 823.578125,
+          "bottom": 125
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(51, 51, 51)"
+      },
+      "computed_styles": {
+        "display": {
+          "style_id": "style-7",
+          "kind": "matched",
+          "declared_property": "display",
+          "computed_value": "inline-block"
+        }
+      },
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Testimonios",
+      "parent_id": "node-8",
+      "children_ids": [
+        "node-14"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-14",
+      "backend_node_id": 39,
+      "document_order": 14,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/nav[1]/a[3]/text()[1]"
+      },
+      "layout": {
+        "x": 719.09375,
+        "y": 92,
+        "width": 84.484375,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 719.09375,
+          "top": 92,
+          "right": 803.578125,
+          "bottom": 109
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Testimonios",
+      "parent_id": "node-13",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-15",
+      "backend_node_id": 41,
+      "document_order": 15,
+      "identity": {
+        "tag": "a",
+        "node_name": "A",
+        "attributes": {
+          "href": "#"
+        },
+        "selector_hint": "a[data-node-index='38']",
+        "xpath": "/html[1]/body[1]/nav[1]/a[4]"
+      },
+      "layout": {
+        "x": 828.03125,
+        "y": 77,
+        "width": 104.046875,
+        "height": 48,
+        "absolute_bounds": {
+          "left": 828.03125,
+          "top": 77,
+          "right": 932.078125,
+          "bottom": 125
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(51, 51, 51)"
+      },
+      "computed_styles": {
+        "display": {
+          "style_id": "style-7",
+          "kind": "matched",
+          "declared_property": "display",
+          "computed_value": "inline-block"
+        }
+      },
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Contacto",
+      "parent_id": "node-8",
+      "children_ids": [
+        "node-16"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-16",
+      "backend_node_id": 42,
+      "document_order": 16,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/nav[1]/a[4]/text()[1]"
+      },
+      "layout": {
+        "x": 848.03125,
+        "y": 92,
+        "width": 64.046875,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 848.03125,
+          "top": 92,
+          "right": 912.078125,
+          "bottom": 109
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Contacto",
+      "parent_id": "node-15",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-17",
+      "backend_node_id": 45,
+      "document_order": 17,
+      "identity": {
+        "tag": "section",
+        "node_name": "SECTION",
+        "class_list": [
+          "slider"
+        ],
+        "attributes": {
+          "class": "slider"
+        },
+        "selector_hint": "section.slider",
+        "xpath": "/html[1]/body[1]/section[1]"
+      },
+      "layout": {
+        "x": 0,
+        "y": 125,
+        "width": 1440,
+        "height": 237,
+        "absolute_bounds": {
+          "left": 0,
+          "top": 125,
+          "right": 1440,
+          "bottom": 362
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(102, 102, 102)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Bienvenido a nuestra página",
+      "parent_id": "node-2",
+      "children_ids": [
+        "node-18"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-18",
+      "backend_node_id": 46,
+      "document_order": 18,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/section[1]/text()[1]"
+      },
+      "layout": {
+        "x": 517.171875,
+        "y": 225,
+        "width": 405.640625,
+        "height": 36,
+        "absolute_bounds": {
+          "left": 517.171875,
+          "top": 225,
+          "right": 922.8125,
+          "bottom": 261
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Bienvenido a nuestra página",
+      "parent_id": "node-17",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-19",
+      "backend_node_id": 48,
+      "document_order": 19,
+      "identity": {
+        "tag": "div",
+        "node_name": "DIV",
+        "class_list": [
+          "container"
+        ],
+        "attributes": {
+          "class": "container"
+        },
+        "selector_hint": "div.container",
+        "xpath": "/html[1]/body[1]/div[1]"
+      },
+      "layout": {
+        "x": 100,
+        "y": 382,
+        "width": 1240,
+        "height": 942.5,
+        "absolute_bounds": {
+          "left": 100,
+          "top": 382,
+          "right": 1340,
+          "bottom": 1324.5
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": null,
+      "parent_id": "node-2",
+      "children_ids": [
+        "node-20",
+        "node-22",
+        "node-38",
+        "node-40",
+        "node-45",
+        "node-47"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-20",
+      "backend_node_id": 50,
+      "document_order": 20,
+      "identity": {
+        "tag": "h2",
+        "node_name": "H2",
+        "selector_hint": "h2[data-node-index='47']",
+        "xpath": "/html[1]/body[1]/div[1]/h2[1]"
+      },
+      "layout": {
+        "x": 120,
+        "y": 382,
+        "width": 1200,
+        "height": 28,
+        "absolute_bounds": {
+          "left": 120,
+          "top": 382,
+          "right": 1320,
+          "bottom": 410
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(244, 244, 244)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Nuestros Servicios",
+      "parent_id": "node-19",
+      "children_ids": [
+        "node-21"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-21",
+      "backend_node_id": 51,
+      "document_order": 21,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/div[1]/h2[1]/text()[1]"
+      },
+      "layout": {
+        "x": 120,
+        "y": 382,
+        "width": 217.4375,
+        "height": 27,
+        "absolute_bounds": {
+          "left": 120,
+          "top": 382,
+          "right": 337.4375,
+          "bottom": 409
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Nuestros Servicios",
+      "parent_id": "node-20",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-22",
+      "backend_node_id": 2,
+      "document_order": 22,
+      "identity": {
+        "tag": "div",
+        "node_name": "DIV",
+        "class_list": [
+          "services"
+        ],
+        "attributes": {
+          "class": "services"
+        },
+        "selector_hint": "div.services",
+        "xpath": "/html[1]/body[1]/div[1]/div[1]"
+      },
+      "layout": {
+        "x": 120,
+        "y": 429.90625,
+        "width": 1200,
+        "height": 286.875,
+        "absolute_bounds": {
+          "left": 120,
+          "top": 429.90625,
+          "right": 1320,
+          "bottom": 716.78125
+        }
+      },
+      "styles": {},
+      "computed_styles": {
+        "display": {
+          "style_id": "style-9",
+          "kind": "matched",
+          "declared_property": "display",
+          "computed_value": "flex"
+        }
+      },
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": null,
+      "parent_id": "node-19",
+      "children_ids": [
+        "node-23",
+        "node-28",
+        "node-33"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-23",
+      "backend_node_id": 54,
+      "document_order": 23,
+      "identity": {
+        "tag": "div",
+        "node_name": "DIV",
+        "class_list": [
+          "card"
+        ],
+        "attributes": {
+          "class": "card"
+        },
+        "selector_hint": "div.card",
+        "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]"
+      },
+      "layout": {
+        "x": 120,
+        "y": 429.90625,
+        "width": 590,
+        "height": 133.4375,
+        "absolute_bounds": {
+          "left": 120,
+          "top": 429.90625,
+          "right": 710,
+          "bottom": 563.34375
+        }
+      },
+      "styles": {},
+      "computed_styles": {
+        "border-radius": {
+          "style_id": "style-11",
+          "kind": "matched",
+          "declared_property": "border-radius",
+          "computed_value": "5px"
+        }
+      },
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": null,
+      "parent_id": "node-22",
+      "children_ids": [
+        "node-24",
+        "node-26"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-24",
+      "backend_node_id": 56,
+      "document_order": 24,
+      "identity": {
+        "tag": "h3",
+        "node_name": "H3",
+        "selector_hint": "h3[data-node-index='54']",
+        "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/h3[1]"
+      },
+      "layout": {
+        "x": 140,
+        "y": 468.625,
+        "width": 550,
+        "height": 22,
+        "absolute_bounds": {
+          "left": 140,
+          "top": 468.625,
+          "right": 690,
+          "bottom": 490.625
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(255, 255, 255)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Diseño Web",
+      "parent_id": "node-23",
+      "children_ids": [
+        "node-25"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-25",
+      "backend_node_id": 57,
+      "document_order": 25,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/h3[1]/text()[1]"
+      },
+      "layout": {
+        "x": 361.625,
+        "y": 468.625,
+        "width": 106.734375,
+        "height": 21,
+        "absolute_bounds": {
+          "left": 361.625,
+          "top": 468.625,
+          "right": 468.359375,
+          "bottom": 489.625
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Diseño Web",
+      "parent_id": "node-24",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-26",
+      "backend_node_id": 59,
+      "document_order": 26,
+      "identity": {
+        "tag": "p",
+        "node_name": "P",
+        "selector_hint": "p[data-node-index='57']",
+        "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/p[1]"
+      },
+      "layout": {
+        "x": 140,
+        "y": 509.34375,
+        "width": 550,
+        "height": 18,
+        "absolute_bounds": {
+          "left": 140,
+          "top": 509.34375,
+          "right": 690,
+          "bottom": 527.34375
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(255, 255, 255)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Diseñamos sitios atractivos y funcionales para tu negocio.",
+      "parent_id": "node-23",
+      "children_ids": [
+        "node-27"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-27",
+      "backend_node_id": 60,
+      "document_order": 27,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/p[1]/text()[1]"
+      },
+      "layout": {
+        "x": 209.5625,
+        "y": 509.34375,
+        "width": 410.875,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 209.5625,
+          "top": 509.34375,
+          "right": 620.4375,
+          "bottom": 526.34375
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Diseñamos sitios atractivos y funcionales para tu negocio.",
+      "parent_id": "node-26",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-28",
+      "backend_node_id": 63,
+      "document_order": 28,
+      "identity": {
+        "tag": "div",
+        "node_name": "DIV",
+        "class_list": [
+          "card"
+        ],
+        "attributes": {
+          "class": "card"
+        },
+        "selector_hint": "div.card",
+        "xpath": "/html[1]/body[1]/div[1]/div[1]/div[2]"
+      },
+      "layout": {
+        "x": 730,
+        "y": 429.90625,
+        "width": 590,
+        "height": 133.4375,
+        "absolute_bounds": {
+          "left": 730,
+          "top": 429.90625,
+          "right": 1320,
+          "bottom": 563.34375
+        }
+      },
+      "styles": {},
+      "computed_styles": {
+        "border-radius": {
+          "style_id": "style-11",
+          "kind": "matched",
+          "declared_property": "border-radius",
+          "computed_value": "5px"
+        }
+      },
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": null,
+      "parent_id": "node-22",
+      "children_ids": [
+        "node-29",
+        "node-31"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-29",
+      "backend_node_id": 65,
+      "document_order": 29,
+      "identity": {
+        "tag": "h3",
+        "node_name": "H3",
+        "selector_hint": "h3[data-node-index='63']",
+        "xpath": "/html[1]/body[1]/div[1]/div[1]/div[2]/h3[1]"
+      },
+      "layout": {
+        "x": 750,
+        "y": 468.625,
+        "width": 550,
+        "height": 22,
+        "absolute_bounds": {
+          "left": 750,
+          "top": 468.625,
+          "right": 1300,
+          "bottom": 490.625
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(255, 255, 255)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Marketing Digital",
+      "parent_id": "node-28",
+      "children_ids": [
+        "node-30"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-30",
+      "backend_node_id": 66,
+      "document_order": 30,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/div[1]/div[1]/div[2]/h3[1]/text()[1]"
+      },
+      "layout": {
+        "x": 949.625,
+        "y": 468.625,
+        "width": 150.75,
+        "height": 21,
+        "absolute_bounds": {
+          "left": 949.625,
+          "top": 468.625,
+          "right": 1100.375,
+          "bottom": 489.625
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Marketing Digital",
+      "parent_id": "node-29",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-31",
+      "backend_node_id": 68,
+      "document_order": 31,
+      "identity": {
+        "tag": "p",
+        "node_name": "P",
+        "selector_hint": "p[data-node-index='66']",
+        "xpath": "/html[1]/body[1]/div[1]/div[1]/div[2]/p[1]"
+      },
+      "layout": {
+        "x": 750,
+        "y": 509.34375,
+        "width": 550,
+        "height": 18,
+        "absolute_bounds": {
+          "left": 750,
+          "top": 509.34375,
+          "right": 1300,
+          "bottom": 527.34375
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(255, 255, 255)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Te ayudamos a aumentar tu presencia en línea y redes sociales.",
+      "parent_id": "node-28",
+      "children_ids": [
+        "node-32"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-32",
+      "backend_node_id": 69,
+      "document_order": 32,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/div[1]/div[1]/div[2]/p[1]/text()[1]"
+      },
+      "layout": {
+        "x": 796.421875,
+        "y": 509.34375,
+        "width": 457.15625,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 796.421875,
+          "top": 509.34375,
+          "right": 1253.578125,
+          "bottom": 526.34375
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Te ayudamos a aumentar tu presencia en línea y redes sociales.",
+      "parent_id": "node-31",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-33",
+      "backend_node_id": 72,
+      "document_order": 33,
+      "identity": {
+        "tag": "div",
+        "node_name": "DIV",
+        "class_list": [
+          "card"
+        ],
+        "attributes": {
+          "class": "card"
+        },
+        "selector_hint": "div.card",
+        "xpath": "/html[1]/body[1]/div[1]/div[1]/div[3]"
+      },
+      "layout": {
+        "x": 120,
+        "y": 583.34375,
+        "width": 1200,
+        "height": 133.4375,
+        "absolute_bounds": {
+          "left": 120,
+          "top": 583.34375,
+          "right": 1320,
+          "bottom": 716.78125
+        }
+      },
+      "styles": {},
+      "computed_styles": {
+        "border-radius": {
+          "style_id": "style-11",
+          "kind": "matched",
+          "declared_property": "border-radius",
+          "computed_value": "5px"
+        }
+      },
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": null,
+      "parent_id": "node-22",
+      "children_ids": [
+        "node-34",
+        "node-36"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-34",
+      "backend_node_id": 74,
+      "document_order": 34,
+      "identity": {
+        "tag": "h3",
+        "node_name": "H3",
+        "selector_hint": "h3[data-node-index='72']",
+        "xpath": "/html[1]/body[1]/div[1]/div[1]/div[3]/h3[1]"
+      },
+      "layout": {
+        "x": 140,
+        "y": 622.0625,
+        "width": 1160,
+        "height": 22,
+        "absolute_bounds": {
+          "left": 140,
+          "top": 622.0625,
+          "right": 1300,
+          "bottom": 644.0625
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(255, 255, 255)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Soporte Técnico",
+      "parent_id": "node-33",
+      "children_ids": [
+        "node-35"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-35",
+      "backend_node_id": 75,
+      "document_order": 35,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/div[1]/div[1]/div[3]/h3[1]/text()[1]"
+      },
+      "layout": {
+        "x": 646.703125,
+        "y": 622.0625,
+        "width": 146.59375,
+        "height": 21,
+        "absolute_bounds": {
+          "left": 646.703125,
+          "top": 622.0625,
+          "right": 793.296875,
+          "bottom": 643.0625
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Soporte Técnico",
+      "parent_id": "node-34",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-36",
+      "backend_node_id": 77,
+      "document_order": 36,
+      "identity": {
+        "tag": "p",
+        "node_name": "P",
+        "selector_hint": "p[data-node-index='75']",
+        "xpath": "/html[1]/body[1]/div[1]/div[1]/div[3]/p[1]"
+      },
+      "layout": {
+        "x": 140,
+        "y": 662.78125,
+        "width": 1160,
+        "height": 18,
+        "absolute_bounds": {
+          "left": 140,
+          "top": 662.78125,
+          "right": 1300,
+          "bottom": 680.78125
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(255, 255, 255)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Brindamos soporte técnico especializado 24/7.",
+      "parent_id": "node-33",
+      "children_ids": [
+        "node-37"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-37",
+      "backend_node_id": 78,
+      "document_order": 37,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/div[1]/div[1]/div[3]/p[1]/text()[1]"
+      },
+      "layout": {
+        "x": 554.5625,
+        "y": 662.78125,
+        "width": 330.859375,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 554.5625,
+          "top": 662.78125,
+          "right": 885.421875,
+          "bottom": 679.78125
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Brindamos soporte técnico especializado 24/7.",
+      "parent_id": "node-36",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-38",
+      "backend_node_id": 82,
+      "document_order": 38,
+      "identity": {
+        "tag": "h2",
+        "node_name": "H2",
+        "selector_hint": "h2[data-node-index='80']",
+        "xpath": "/html[1]/body[1]/div[1]/h2[2]"
+      },
+      "layout": {
+        "x": 120,
+        "y": 756.78125,
+        "width": 1200,
+        "height": 28,
+        "absolute_bounds": {
+          "left": 120,
+          "top": 756.78125,
+          "right": 1320,
+          "bottom": 784.78125
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(244, 244, 244)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Testimonios",
+      "parent_id": "node-19",
+      "children_ids": [
+        "node-39"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-39",
+      "backend_node_id": 83,
+      "document_order": 39,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/div[1]/h2[2]/text()[1]"
+      },
+      "layout": {
+        "x": 120,
+        "y": 756.78125,
+        "width": 139.578125,
+        "height": 27,
+        "absolute_bounds": {
+          "left": 120,
+          "top": 756.78125,
+          "right": 259.578125,
+          "bottom": 783.78125
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Testimonios",
+      "parent_id": "node-38",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-40",
+      "backend_node_id": 3,
+      "document_order": 40,
+      "identity": {
+        "tag": "div",
+        "node_name": "DIV",
+        "class_list": [
+          "testimonials"
+        ],
+        "attributes": {
+          "class": "testimonials"
+        },
+        "selector_hint": "div.testimonials",
+        "xpath": "/html[1]/body[1]/div[1]/div[2]"
+      },
+      "layout": {
+        "x": 120,
+        "y": 804.6875,
+        "width": 1200,
+        "height": 156,
+        "absolute_bounds": {
+          "left": 120,
+          "top": 804.6875,
+          "right": 1320,
+          "bottom": 960.6875
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": null,
+      "parent_id": "node-19",
+      "children_ids": [
+        "node-41",
+        "node-43"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-41",
+      "backend_node_id": 86,
+      "document_order": 41,
+      "identity": {
+        "tag": "div",
+        "node_name": "DIV",
+        "class_list": [
+          "testimonial"
+        ],
+        "attributes": {
+          "class": "testimonial"
+        },
+        "selector_hint": "div.testimonial",
+        "xpath": "/html[1]/body[1]/div[1]/div[2]/div[1]"
+      },
+      "layout": {
+        "x": 140,
+        "y": 844.6875,
+        "width": 1160,
+        "height": 18,
+        "absolute_bounds": {
+          "left": 140,
+          "top": 844.6875,
+          "right": 1300,
+          "bottom": 862.6875
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(238, 238, 238)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "\"Excelente servicio y atención personalizada.\"",
+      "parent_id": "node-40",
+      "children_ids": [
+        "node-42"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-42",
+      "backend_node_id": 87,
+      "document_order": 42,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/div[1]/div[2]/div[1]/text()[1]"
+      },
+      "layout": {
+        "x": 556.890625,
+        "y": 844.6875,
+        "width": 326.203125,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 556.890625,
+          "top": 844.6875,
+          "right": 883.09375,
+          "bottom": 861.6875
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "\"Excelente servicio y atención personalizada.\"",
+      "parent_id": "node-41",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-43",
+      "backend_node_id": 89,
+      "document_order": 43,
+      "identity": {
+        "tag": "div",
+        "node_name": "DIV",
+        "class_list": [
+          "testimonial"
+        ],
+        "attributes": {
+          "class": "testimonial"
+        },
+        "selector_hint": "div.testimonial",
+        "xpath": "/html[1]/body[1]/div[1]/div[2]/div[2]"
+      },
+      "layout": {
+        "x": 140,
+        "y": 882.6875,
+        "width": 1160,
+        "height": 18,
+        "absolute_bounds": {
+          "left": 140,
+          "top": 882.6875,
+          "right": 1300,
+          "bottom": 900.6875
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(238, 238, 238)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "\"Mi sitio ahora luce profesional y mis ventas aumentaron.\"",
+      "parent_id": "node-40",
+      "children_ids": [
+        "node-44"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-44",
+      "backend_node_id": 90,
+      "document_order": 44,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/div[1]/div[2]/div[2]/text()[1]"
+      },
+      "layout": {
+        "x": 514.65625,
+        "y": 882.6875,
+        "width": 410.671875,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 514.65625,
+          "top": 882.6875,
+          "right": 925.328125,
+          "bottom": 899.6875
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "\"Mi sitio ahora luce profesional y mis ventas aumentaron.\"",
+      "parent_id": "node-43",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-45",
+      "backend_node_id": 93,
+      "document_order": 45,
+      "identity": {
+        "tag": "h2",
+        "node_name": "H2",
+        "selector_hint": "h2[data-node-index='92']",
+        "xpath": "/html[1]/body[1]/div[1]/h2[3]"
+      },
+      "layout": {
+        "x": 120,
+        "y": 980.59375,
+        "width": 1200,
+        "height": 28,
+        "absolute_bounds": {
+          "left": 120,
+          "top": 980.59375,
+          "right": 1320,
+          "bottom": 1008.59375
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(244, 244, 244)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Contáctanos",
+      "parent_id": "node-19",
+      "children_ids": [
+        "node-46"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-46",
+      "backend_node_id": 94,
+      "document_order": 46,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/div[1]/h2[3]/text()[1]"
+      },
+      "layout": {
+        "x": 120,
+        "y": 980.59375,
+        "width": 145.359375,
+        "height": 27,
+        "absolute_bounds": {
+          "left": 120,
+          "top": 980.59375,
+          "right": 265.359375,
+          "bottom": 1007.59375
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Contáctanos",
+      "parent_id": "node-45",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-47",
+      "backend_node_id": 96,
+      "document_order": 47,
+      "identity": {
+        "tag": "form",
+        "node_name": "FORM",
+        "class_list": [
+          "contact-form"
+        ],
+        "attributes": {
+          "class": "contact-form"
+        },
+        "selector_hint": "form.contact-form",
+        "xpath": "/html[1]/body[1]/div[1]/form[1]"
+      },
+      "layout": {
+        "x": 120,
+        "y": 1028.5,
+        "width": 1200,
+        "height": 296,
+        "absolute_bounds": {
+          "left": 120,
+          "top": 1028.5,
+          "right": 1320,
+          "bottom": 1324.5
+        }
+      },
+      "styles": {},
+      "computed_styles": {
+        "border-radius": {
+          "style_id": "style-15",
+          "kind": "matched",
+          "declared_property": "border-radius",
+          "computed_value": "5px"
+        }
+      },
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": null,
+      "parent_id": "node-19",
+      "children_ids": [
+        "node-48",
+        "node-49",
+        "node-50",
+        "node-51"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-48",
+      "backend_node_id": 98,
+      "document_order": 48,
+      "identity": {
+        "tag": "input",
+        "node_name": "INPUT",
+        "attributes": {
+          "type": "text",
+          "placeholder": "Tu nombre"
+        },
+        "selector_hint": "input[data-node-index='97']",
+        "xpath": "/html[1]/body[1]/div[1]/form[1]/input[1]"
+      },
+      "layout": {
+        "x": 140,
+        "y": 1058.5,
+        "width": 1182,
+        "height": 37,
+        "absolute_bounds": {
+          "left": 140,
+          "top": 1058.5,
+          "right": 1322,
+          "bottom": 1095.5
+        }
+      },
+      "styles": {},
+      "computed_styles": {
+        "border-bottom-color": {
+          "style_id": "style-17",
+          "kind": "matched",
+          "declared_property": "border",
+          "computed_value": "rgb(204, 204, 204)"
+        },
+        "border-left-color": {
+          "style_id": "style-17",
+          "kind": "matched",
+          "declared_property": "border",
+          "computed_value": "rgb(204, 204, 204)"
+        },
+        "border-radius": {
+          "style_id": "style-17",
+          "kind": "matched",
+          "declared_property": "border-radius",
+          "computed_value": "3px"
+        },
+        "border-right-color": {
+          "style_id": "style-17",
+          "kind": "matched",
+          "declared_property": "border",
+          "computed_value": "rgb(204, 204, 204)"
+        },
+        "border-top-color": {
+          "style_id": "style-17",
+          "kind": "matched",
+          "declared_property": "border",
+          "computed_value": "rgb(204, 204, 204)"
+        }
+      },
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": true,
+        "has_siblings": true
+      },
+      "text": null,
+      "parent_id": "node-47",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-49",
+      "backend_node_id": 100,
+      "document_order": 49,
+      "identity": {
+        "tag": "input",
+        "node_name": "INPUT",
+        "attributes": {
+          "type": "email",
+          "placeholder": "Tu correo electrónico"
+        },
+        "selector_hint": "input[data-node-index='99']",
+        "xpath": "/html[1]/body[1]/div[1]/form[1]/input[2]"
+      },
+      "layout": {
+        "x": 140,
+        "y": 1115.5,
+        "width": 1182,
+        "height": 37,
+        "absolute_bounds": {
+          "left": 140,
+          "top": 1115.5,
+          "right": 1322,
+          "bottom": 1152.5
+        }
+      },
+      "styles": {},
+      "computed_styles": {
+        "border-bottom-color": {
+          "style_id": "style-17",
+          "kind": "matched",
+          "declared_property": "border",
+          "computed_value": "rgb(204, 204, 204)"
+        },
+        "border-left-color": {
+          "style_id": "style-17",
+          "kind": "matched",
+          "declared_property": "border",
+          "computed_value": "rgb(204, 204, 204)"
+        },
+        "border-radius": {
+          "style_id": "style-17",
+          "kind": "matched",
+          "declared_property": "border-radius",
+          "computed_value": "3px"
+        },
+        "border-right-color": {
+          "style_id": "style-17",
+          "kind": "matched",
+          "declared_property": "border",
+          "computed_value": "rgb(204, 204, 204)"
+        },
+        "border-top-color": {
+          "style_id": "style-17",
+          "kind": "matched",
+          "declared_property": "border",
+          "computed_value": "rgb(204, 204, 204)"
+        }
+      },
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": true,
+        "has_siblings": true
+      },
+      "text": null,
+      "parent_id": "node-47",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-50",
+      "backend_node_id": 102,
+      "document_order": 50,
+      "identity": {
+        "tag": "textarea",
+        "node_name": "TEXTAREA",
+        "attributes": {
+          "rows": "5",
+          "placeholder": "Escribe tu mensaje aquí"
+        },
+        "selector_hint": "textarea[data-node-index='101']",
+        "xpath": "/html[1]/body[1]/div[1]/form[1]/textarea[1]"
+      },
+      "layout": {
+        "x": 140,
+        "y": 1172.5,
+        "width": 1182,
+        "height": 97,
+        "absolute_bounds": {
+          "left": 140,
+          "top": 1172.5,
+          "right": 1322,
+          "bottom": 1269.5
+        }
+      },
+      "styles": {},
+      "computed_styles": {
+        "border-bottom-color": {
+          "style_id": "style-17",
+          "kind": "matched",
+          "declared_property": "border",
+          "computed_value": "rgb(204, 204, 204)"
+        },
+        "border-left-color": {
+          "style_id": "style-17",
+          "kind": "matched",
+          "declared_property": "border",
+          "computed_value": "rgb(204, 204, 204)"
+        },
+        "border-radius": {
+          "style_id": "style-17",
+          "kind": "matched",
+          "declared_property": "border-radius",
+          "computed_value": "3px"
+        },
+        "border-right-color": {
+          "style_id": "style-17",
+          "kind": "matched",
+          "declared_property": "border",
+          "computed_value": "rgb(204, 204, 204)"
+        },
+        "border-top-color": {
+          "style_id": "style-17",
+          "kind": "matched",
+          "declared_property": "border",
+          "computed_value": "rgb(204, 204, 204)"
+        }
+      },
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": true,
+        "has_siblings": true
+      },
+      "text": null,
+      "parent_id": "node-47",
+      "children_ids": [],
+      "paint_order": 6
+    },
+    {
+      "node_id": "node-51",
+      "backend_node_id": 104,
+      "document_order": 51,
+      "identity": {
+        "tag": "button",
+        "node_name": "BUTTON",
+        "attributes": {
+          "type": "submit"
+        },
+        "selector_hint": "button[data-node-index='103']",
+        "xpath": "/html[1]/body[1]/div[1]/form[1]/button[1]"
+      },
+      "layout": {
+        "x": 140,
+        "y": 1283.5,
+        "width": 53.796875,
+        "height": 21,
+        "absolute_bounds": {
+          "left": 140,
+          "top": 1283.5,
+          "right": 193.796875,
+          "bottom": 1304.5
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(240, 240, 240)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Enviar",
+      "parent_id": "node-47",
+      "children_ids": [
+        "node-52"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-52",
+      "backend_node_id": 105,
+      "document_order": 52,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/div[1]/form[1]/button[1]/text()[1]"
+      },
+      "layout": {
+        "x": 148,
+        "y": 1286.5,
+        "width": 37.796875,
+        "height": 15,
+        "absolute_bounds": {
+          "left": 148,
+          "top": 1286.5,
+          "right": 185.796875,
+          "bottom": 1301.5
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Enviar",
+      "parent_id": "node-51",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-53",
+      "backend_node_id": 109,
+      "document_order": 53,
+      "identity": {
+        "tag": "footer",
+        "node_name": "FOOTER",
+        "selector_hint": "footer[data-node-index='108']",
+        "xpath": "/html[1]/body[1]/footer[1]"
+      },
+      "layout": {
+        "x": 0,
+        "y": 1344.5,
+        "width": 1440,
+        "height": 108,
+        "absolute_bounds": {
+          "left": 0,
+          "top": 1344.5,
+          "right": 1440,
+          "bottom": 1452.5
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "| |",
+      "parent_id": "node-2",
+      "children_ids": [
+        "node-54",
+        "node-56",
+        "node-58",
+        "node-59",
+        "node-61",
+        "node-62"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-54",
+      "backend_node_id": 111,
+      "document_order": 54,
+      "identity": {
+        "tag": "p",
+        "node_name": "P",
+        "selector_hint": "p[data-node-index='110']",
+        "xpath": "/html[1]/body[1]/footer[1]/p[1]"
+      },
+      "layout": {
+        "x": 20,
+        "y": 1380.5,
+        "width": 1400,
+        "height": 18,
+        "absolute_bounds": {
+          "left": 20,
+          "top": 1380.5,
+          "right": 1420,
+          "bottom": 1398.5
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(34, 34, 34)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "© 2025 Mi Sitio Web. Todos los derechos reservados.",
+      "parent_id": "node-53",
+      "children_ids": [
+        "node-55"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-55",
+      "backend_node_id": 112,
+      "document_order": 55,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/footer[1]/p[1]/text()[1]"
+      },
+      "layout": {
+        "x": 529.859375,
+        "y": 1380.5,
+        "width": 380.28125,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 529.859375,
+          "top": 1380.5,
+          "right": 910.140625,
+          "bottom": 1397.5
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "© 2025 Mi Sitio Web. Todos los derechos reservados.",
+      "parent_id": "node-54",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-56",
+      "backend_node_id": 114,
+      "document_order": 56,
+      "identity": {
+        "tag": "a",
+        "node_name": "A",
+        "attributes": {
+          "href": "#"
+        },
+        "selector_hint": "a[data-node-index='113']",
+        "xpath": "/html[1]/body[1]/footer[1]/a[1]"
+      },
+      "layout": {
+        "x": 592.6875,
+        "y": 1414.5,
+        "width": 70.265625,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 592.6875,
+          "top": 1414.5,
+          "right": 662.953125,
+          "bottom": 1431.5
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(34, 34, 34)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Facebook",
+      "parent_id": "node-53",
+      "children_ids": [
+        "node-57"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-57",
+      "backend_node_id": 115,
+      "document_order": 57,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/footer[1]/a[1]/text()[1]"
+      },
+      "layout": {
+        "x": 592.6875,
+        "y": 1414.5,
+        "width": 70.265625,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 592.6875,
+          "top": 1414.5,
+          "right": 662.953125,
+          "bottom": 1431.5
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Facebook",
+      "parent_id": "node-56",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-58",
+      "backend_node_id": 116,
+      "document_order": 58,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/footer[1]/text()[1]"
+      },
+      "layout": {
+        "x": 672.953125,
+        "y": 1414.5,
+        "width": 13.046875,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 672.953125,
+          "top": 1414.5,
+          "right": 686.0,
+          "bottom": 1431.5
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": true
+      },
+      "text": "|",
+      "parent_id": "node-53",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-59",
+      "backend_node_id": 117,
+      "document_order": 59,
+      "identity": {
+        "tag": "a",
+        "node_name": "A",
+        "attributes": {
+          "href": "#"
+        },
+        "selector_hint": "a[data-node-index='116']",
+        "xpath": "/html[1]/body[1]/footer[1]/a[2]"
+      },
+      "layout": {
+        "x": 696,
+        "y": 1414.5,
+        "width": 47.125,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 696,
+          "top": 1414.5,
+          "right": 743.125,
+          "bottom": 1431.5
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(34, 34, 34)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Twitter",
+      "parent_id": "node-53",
+      "children_ids": [
+        "node-60"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-60",
+      "backend_node_id": 118,
+      "document_order": 60,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/footer[1]/a[2]/text()[1]"
+      },
+      "layout": {
+        "x": 696,
+        "y": 1414.5,
+        "width": 47.125,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 696,
+          "top": 1414.5,
+          "right": 743.125,
+          "bottom": 1431.5
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Twitter",
+      "parent_id": "node-59",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-61",
+      "backend_node_id": 119,
+      "document_order": 61,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/footer[1]/text()[2]"
+      },
+      "layout": {
+        "x": 753.125,
+        "y": 1414.5,
+        "width": 13.046875,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 753.125,
+          "top": 1414.5,
+          "right": 766.171875,
+          "bottom": 1431.5
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": true
+      },
+      "text": "|",
+      "parent_id": "node-53",
+      "children_ids": [],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-62",
+      "backend_node_id": 120,
+      "document_order": 62,
+      "identity": {
+        "tag": "a",
+        "node_name": "A",
+        "attributes": {
+          "href": "#"
+        },
+        "selector_hint": "a[data-node-index='119']",
+        "xpath": "/html[1]/body[1]/footer[1]/a[3]"
+      },
+      "layout": {
+        "x": 776.171875,
+        "y": 1414.5,
+        "width": 71.140625,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 776.171875,
+          "top": 1414.5,
+          "right": 847.3125,
+          "bottom": 1431.5
+        }
+      },
+      "styles": {
+        "effective_background": "rgb(34, 34, 34)"
+      },
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": false,
+        "is_leaf": false,
+        "has_siblings": true
+      },
+      "text": "Instagram",
+      "parent_id": "node-53",
+      "children_ids": [
+        "node-63"
+      ],
+      "paint_order": 1
+    },
+    {
+      "node_id": "node-63",
+      "backend_node_id": 121,
+      "document_order": 63,
+      "identity": {
+        "tag": "#text",
+        "node_name": "#text",
+        "xpath": "/html[1]/body[1]/footer[1]/a[3]/text()[1]"
+      },
+      "layout": {
+        "x": 776.171875,
+        "y": 1414.5,
+        "width": 71.140625,
+        "height": 17,
+        "absolute_bounds": {
+          "left": 776.171875,
+          "top": 1414.5,
+          "right": 847.3125,
+          "bottom": 1431.5
+        }
+      },
+      "styles": {},
+      "computed_styles": {},
+      "flags": {
+        "is_out_of_scope": false,
+        "is_visible": true,
+        "is_stacking_context": false,
+        "is_text_node": true,
+        "is_leaf": true,
+        "has_siblings": false
+      },
+      "text": "Instagram",
+      "parent_id": "node-62",
+      "children_ids": [],
+      "paint_order": 1
+    }
+  ],
+  "styles_inventory": [
+    {
+      "style_id": "style-1",
+      "kind": "matched",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": "body",
+      "declarations": [
+        {
+          "name": "background-color",
+          "value": "#f4f4f4",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 1,
+        "start_column": 12,
+        "end_line": 6,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-2"
+      ],
+      "usage_count": 1
+    },
+    {
+      "style_id": "style-2",
+      "kind": "inherited",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": "body",
+      "declarations": [
+        {
+          "name": "background-color",
+          "value": "#f4f4f4",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 1,
+        "start_column": 12,
+        "end_line": 6,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-11",
+        "node-13",
+        "node-15",
+        "node-17",
+        "node-19",
+        "node-20",
+        "node-22",
+        "node-23",
+        "node-24",
+        "node-26",
+        "node-28",
+        "node-29",
+        "node-3",
+        "node-31",
+        "node-33",
+        "node-34",
+        "node-36",
+        "node-38",
+        "node-4",
+        "node-40",
+        "node-41",
+        "node-43",
+        "node-45",
+        "node-47",
+        "node-48",
+        "node-49",
+        "node-50",
+        "node-51",
+        "node-53",
+        "node-54",
+        "node-56",
+        "node-59",
+        "node-6",
+        "node-62",
+        "node-8",
+        "node-9"
+      ],
+      "usage_count": 36
+    },
+    {
+      "style_id": "style-3",
+      "kind": "matched",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": "header",
+      "declarations": [
+        {
+          "name": "background-color",
+          "value": "#222",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "color",
+          "value": "white",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "display",
+          "value": "flex",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 8,
+        "start_column": 14,
+        "end_line": 15,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-3"
+      ],
+      "usage_count": 1
+    },
+    {
+      "style_id": "style-4",
+      "kind": "inherited",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": "header",
+      "declarations": [
+        {
+          "name": "background-color",
+          "value": "#222",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "color",
+          "value": "white",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "display",
+          "value": "flex",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 8,
+        "start_column": 14,
+        "end_line": 15,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-4",
+        "node-6"
+      ],
+      "usage_count": 2
+    },
+    {
+      "style_id": "style-5",
+      "kind": "matched",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": "nav",
+      "declarations": [
+        {
+          "name": "background-color",
+          "value": "#333",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 21,
+        "start_column": 11,
+        "end_line": 24,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-8"
+      ],
+      "usage_count": 1
+    },
+    {
+      "style_id": "style-6",
+      "kind": "inherited",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": "nav",
+      "declarations": [
+        {
+          "name": "background-color",
+          "value": "#333",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 21,
+        "start_column": 11,
+        "end_line": 24,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-11",
+        "node-13",
+        "node-15",
+        "node-9"
+      ],
+      "usage_count": 4
+    },
+    {
+      "style_id": "style-7",
+      "kind": "matched",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": "nav a",
+      "declarations": [
+        {
+          "name": "color",
+          "value": "white",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "text-decoration",
+          "value": "none",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "display",
+          "value": "inline-block",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 26,
+        "start_column": 13,
+        "end_line": 31,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-11",
+        "node-13",
+        "node-15",
+        "node-9"
+      ],
+      "usage_count": 4
+    },
+    {
+      "style_id": "style-8",
+      "kind": "matched",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": ".slider",
+      "declarations": [
+        {
+          "name": "background-color",
+          "value": "#666",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "color",
+          "value": "white",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 37,
+        "start_column": 15,
+        "end_line": 43,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-17"
+      ],
+      "usage_count": 1
+    },
+    {
+      "style_id": "style-9",
+      "kind": "matched",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": ".services",
+      "declarations": [
+        {
+          "name": "display",
+          "value": "flex",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 51,
+        "start_column": 17,
+        "end_line": 56,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-22"
+      ],
+      "usage_count": 1
+    },
+    {
+      "style_id": "style-10",
+      "kind": "inherited",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": ".services",
+      "declarations": [
+        {
+          "name": "display",
+          "value": "flex",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 51,
+        "start_column": 17,
+        "end_line": 56,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-23",
+        "node-24",
+        "node-26",
+        "node-28",
+        "node-29",
+        "node-31",
+        "node-33",
+        "node-34",
+        "node-36"
+      ],
+      "usage_count": 9
+    },
+    {
+      "style_id": "style-11",
+      "kind": "matched",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": ".card",
+      "declarations": [
+        {
+          "name": "background-color",
+          "value": "white",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "box-shadow",
+          "value": "0 0 10px rgba(0, 0, 0, 0.1)",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "border-radius",
+          "value": "5px",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 58,
+        "start_column": 13,
+        "end_line": 65,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-23",
+        "node-28",
+        "node-33"
+      ],
+      "usage_count": 3
+    },
+    {
+      "style_id": "style-12",
+      "kind": "inherited",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": ".card",
+      "declarations": [
+        {
+          "name": "background-color",
+          "value": "white",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "box-shadow",
+          "value": "0 0 10px rgba(0, 0, 0, 0.1)",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "border-radius",
+          "value": "5px",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 58,
+        "start_column": 13,
+        "end_line": 65,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-24",
+        "node-26",
+        "node-29",
+        "node-31",
+        "node-34",
+        "node-36"
+      ],
+      "usage_count": 6
+    },
+    {
+      "style_id": "style-13",
+      "kind": "matched",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": ".testimonials",
+      "declarations": [
+        {
+          "name": "background-color",
+          "value": "#eee",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 67,
+        "start_column": 21,
+        "end_line": 71,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-40"
+      ],
+      "usage_count": 1
+    },
+    {
+      "style_id": "style-14",
+      "kind": "inherited",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": ".testimonials",
+      "declarations": [
+        {
+          "name": "background-color",
+          "value": "#eee",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 67,
+        "start_column": 21,
+        "end_line": 71,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-41",
+        "node-43"
+      ],
+      "usage_count": 2
+    },
+    {
+      "style_id": "style-15",
+      "kind": "matched",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": ".contact-form",
+      "declarations": [
+        {
+          "name": "background-color",
+          "value": "white",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "box-shadow",
+          "value": "0 0 10px rgba(0, 0, 0, 0.1)",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "border-radius",
+          "value": "5px",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 78,
+        "start_column": 21,
+        "end_line": 83,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-47"
+      ],
+      "usage_count": 1
+    },
+    {
+      "style_id": "style-16",
+      "kind": "inherited",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": ".contact-form",
+      "declarations": [
+        {
+          "name": "background-color",
+          "value": "white",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "box-shadow",
+          "value": "0 0 10px rgba(0, 0, 0, 0.1)",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "border-radius",
+          "value": "5px",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 78,
+        "start_column": 21,
+        "end_line": 83,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-48",
+        "node-49",
+        "node-50",
+        "node-51"
+      ],
+      "usage_count": 4
+    },
+    {
+      "style_id": "style-17",
+      "kind": "matched",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": ".contact-form input, .contact-form textarea",
+      "declarations": [
+        {
+          "name": "width",
+          "value": "100%",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "border",
+          "value": "1px solid #ccc",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "border-radius",
+          "value": "3px",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 86,
+        "start_column": 30,
+        "end_line": 92,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-48",
+        "node-49",
+        "node-50"
+      ],
+      "usage_count": 3
+    },
+    {
+      "style_id": "style-18",
+      "kind": "matched",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": "footer",
+      "declarations": [
+        {
+          "name": "background-color",
+          "value": "#222",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "color",
+          "value": "white",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 94,
+        "start_column": 14,
+        "end_line": 99,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-53"
+      ],
+      "usage_count": 1
+    },
+    {
+      "style_id": "style-19",
+      "kind": "inherited",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": "footer",
+      "declarations": [
+        {
+          "name": "background-color",
+          "value": "#222",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "color",
+          "value": "white",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 94,
+        "start_column": 14,
+        "end_line": 99,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-54",
+        "node-56",
+        "node-59",
+        "node-62"
+      ],
+      "usage_count": 4
+    },
+    {
+      "style_id": "style-20",
+      "kind": "matched",
+      "origin": "author",
+      "style_sheet_id": "style-sheet-42516-1",
+      "selector_text": "footer a",
+      "declarations": [
+        {
+          "name": "color",
+          "value": "#ccc",
+          "important": false,
+          "implicit": false
+        },
+        {
+          "name": "text-decoration",
+          "value": "none",
+          "important": false,
+          "implicit": false
+        }
+      ],
+      "source_range": {
+        "start_line": 101,
+        "start_column": 16,
+        "end_line": 105,
+        "end_column": 6
+      },
+      "source_url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_b068f928/input/Pagina%20web/__glow_render__.html",
+      "node_ids": [
+        "node-56",
+        "node-59",
+        "node-62"
+      ],
+      "usage_count": 3
+    }
+  ],
+  "palette": [
+    {
+      "color_id": "color-1",
+      "value": "rgb(102, 102, 102)",
+      "usage_count": 1,
+      "usage": [
+        {
+          "tag": "section",
+          "property": "background-color",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "color_id": "color-2",
+      "value": "rgb(204, 204, 204)",
+      "usage_count": 6,
+      "usage": [
+        {
+          "tag": "a",
+          "property": "color",
+          "count": 3
+        },
+        {
+          "tag": "input",
+          "property": "border",
+          "count": 2
+        },
+        {
+          "tag": "textarea",
+          "property": "border",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "color_id": "color-3",
+      "value": "rgb(238, 238, 238)",
+      "usage_count": 1,
+      "usage": [
+        {
+          "tag": "div",
+          "property": "background-color",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "color_id": "color-4",
+      "value": "rgb(244, 244, 244)",
+      "usage_count": 1,
+      "usage": [
+        {
+          "tag": "body",
+          "property": "background-color",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "color_id": "color-5",
+      "value": "rgb(255, 255, 255)",
+      "usage_count": 11,
+      "usage": [
+        {
+          "tag": "a",
+          "property": "color",
+          "count": 4
+        },
+        {
+          "tag": "div",
+          "property": "background-color",
+          "count": 3
+        },
+        {
+          "tag": "footer",
+          "property": "color",
+          "count": 1
+        },
+        {
+          "tag": "form",
+          "property": "background-color",
+          "count": 1
+        },
+        {
+          "tag": "header",
+          "property": "color",
+          "count": 1
+        },
+        {
+          "tag": "section",
+          "property": "color",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "color_id": "color-6",
+      "value": "rgb(34, 34, 34)",
+      "usage_count": 2,
+      "usage": [
+        {
+          "tag": "footer",
+          "property": "background-color",
+          "count": 1
+        },
+        {
+          "tag": "header",
+          "property": "background-color",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "color_id": "color-7",
+      "value": "rgb(51, 51, 51)",
+      "usage_count": 1,
+      "usage": [
+        {
+          "tag": "nav",
+          "property": "background-color",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}

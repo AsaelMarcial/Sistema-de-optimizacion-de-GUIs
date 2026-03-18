@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from engine.models.pipeline_context import PipelineContext
-from engine.models.prototype_structural_extractor.snapshot_models import SnapshotOptions
-from engine.services.prototype_structural_extractor.render_snapshot_service import (
+from engine.adapters.browser.snapshot_analyzer import (
     capture_prototype_state_artifacts,
 )
+from engine.domain.models.snapshot import SnapshotOptions
+from engine.pipeline.context import PipelineContext
 
 
 def _capture(context: PipelineContext, *, transformed: bool) -> None:
@@ -37,6 +37,7 @@ def _capture(context: PipelineContext, *, transformed: bool) -> None:
         context.environmental_artifacts = artifacts
     else:
         context.original_artifacts = artifacts
+        context.color_processing_input = artifacts.screenshot_path
 
     context.trace.add_step(
         f"{label}.render_done",

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 
-from engine.models.pipeline_context import PipelineContext
+from engine.pipeline.context import PipelineContext
 
 DEFAULT_ASSET_EXTENSIONS = (
     ".css",

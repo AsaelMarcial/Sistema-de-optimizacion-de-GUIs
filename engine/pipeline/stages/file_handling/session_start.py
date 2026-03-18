@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from engine.services.file_handling.session_handler import clean_old_sessions, generate_session_id
-from engine.models.pipeline_context import PipelineContext
+from engine.adapters.file_system.file_handler import clean_old_sessions, generate_session_id
+from engine.pipeline.context import PipelineContext
 
 
 def start_session(context: PipelineContext) -> None:

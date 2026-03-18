@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from engine.models.pipeline_context import PipelineContext
+from engine.pipeline.context import PipelineContext
 from engine.pipeline.stages.transformation.apply_heuristics import apply_heuristics
 from engine.pipeline.stages.transformation.load_transformed_html import load_transformed_html
 from engine.pipeline.stages.transformation.stage_assets import stage_assets

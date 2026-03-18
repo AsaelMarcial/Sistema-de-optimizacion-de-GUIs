@@ -162,7 +162,22 @@ def build_layout_nodes(snapshot_payload: dict[str, Any]) -> tuple[list[dict[str,
     supplemental_media_metadata: dict[int, list[dict[str, Any]]] = {}
 
     for index, backend_node_id in enumerate(backend_node_ids):
-        if index >= len(node_types) or node_types[index] != 1:
+        if index >= len(node_types):
+            continue
+
+        node_type = node_types[index]
+        if node_type in {3, 4}:
+            parent_index = parent_indexes[index] if index < len(parent_indexes) else -1
+            if not isinstance(parent_index, int) or parent_index < 0 or parent_index not in retained_indexes:
+                continue
+            raw_text = _decode_string(strings, node_values[index], "")
+            if not raw_text:
+                raw_text = _decode_sparse_value(strings, text_values, index)
+            if _normalize_text([raw_text]):
+                retained_indexes.append(index)
+            continue
+
+        if node_type != 1:
             continue
 
         tag_name = _decode_string(strings, node_names[index], "").lower()
@@ -246,12 +261,86 @@ def build_layout_nodes(snapshot_payload: dict[str, Any]) -> tuple[list[dict[str,
 
         return "/" + "/".join(reversed(segments))
 
+    def _build_text_xpath(index: int) -> str:
+        parent_index = parent_indexes[index] if index < len(parent_indexes) else -1
+        if not isinstance(parent_index, int) or parent_index < 0:
+            return "/text()[1]"
+
+        parent_xpath = _build_xpath(parent_index)
+        text_siblings = [
+            child_index
+            for child_index in children_map.get(parent_index, [])
+            if child_index < len(node_types)
+            and node_types[child_index] in {3, 4}
+            and _normalize_text(
+                [
+                    _decode_string(strings, node_values[child_index], "")
+                    or _decode_sparse_value(strings, text_values, child_index)
+                ]
+            )
+        ]
+        sibling_position = text_siblings.index(index) + 1 if index in text_siblings else 1
+        return f"{parent_xpath}/text()[{sibling_position}]"
+
     raw_nodes: list[dict[str, Any]] = []
     for document_order, source_index in enumerate(retained_indexes, start=1):
-        tag_name = _decode_string(strings, node_names[source_index], "").lower()
-        attrs = _decode_attributes(strings, attributes[source_index] if source_index < len(attributes) else [])
+        node_type = node_types[source_index]
         layout_entry = layout_map.get(source_index, {})
         bounds = layout_entry.get("bounds", [0, 0, 0, 0])
+
+        if node_type in {3, 4}:
+            raw_text = _decode_string(strings, node_values[source_index], "")
+            if not raw_text:
+                raw_text = _decode_sparse_value(strings, text_values, source_index)
+            normalized_text = _normalize_text([raw_text])
+            parent_source_index = _nearest_retained_parent(source_index)
+            parent_node = next(
+                (node for node in raw_nodes if node["source_index"] == parent_source_index),
+                None,
+            )
+            parent_layout = (parent_node or {}).get("layout", {})
+            raw_nodes.append(
+                {
+                    "source_index": source_index,
+                    "backend_node_id": backend_node_ids[source_index],
+                    "parent_source_index": parent_source_index,
+                    "document_order": document_order,
+                    "paint_order": layout_entry.get("paint_order"),
+                    "is_out_of_scope": False,
+                    "identity": {
+                        "tag": "#text",
+                        "node_name": "#text",
+                        "selector_hint": None,
+                        "xpath": _build_text_xpath(source_index),
+                    },
+                    "layout": {
+                        "x": bounds[0] if len(bounds) > 0 else parent_layout.get("x", 0),
+                        "y": bounds[1] if len(bounds) > 1 else parent_layout.get("y", 0),
+                        "width": bounds[2] if len(bounds) > 2 else parent_layout.get("width", 0),
+                        "height": bounds[3] if len(bounds) > 3 else parent_layout.get("height", 0),
+                        "absolute_bounds": {
+                            "left": bounds[0] if len(bounds) > 0 else (parent_layout.get("absolute_bounds") or {}).get("left", 0),
+                            "top": bounds[1] if len(bounds) > 1 else (parent_layout.get("absolute_bounds") or {}).get("top", 0),
+                            "right": (bounds[0] + bounds[2]) if len(bounds) > 2 else (parent_layout.get("absolute_bounds") or {}).get("right", 0),
+                            "bottom": (bounds[1] + bounds[3]) if len(bounds) > 3 else (parent_layout.get("absolute_bounds") or {}).get("bottom", 0),
+                        },
+                    },
+                    "styles": {
+                        "computed": [],
+                    },
+                    "text": normalized_text or None,
+                    "flags": {
+                        "is_out_of_scope": False,
+                        "is_visible": bool(normalized_text),
+                        "is_stacking_context": False,
+                        "is_text_node": True,
+                    },
+                }
+            )
+            continue
+
+        tag_name = _decode_string(strings, node_names[source_index], "").lower()
+        attrs = _decode_attributes(strings, attributes[source_index] if source_index < len(attributes) else [])
         style_indexes = layout_entry.get("style_indexes", [])
         computed_styles = _decode_computed_styles(
             strings,
@@ -305,6 +394,7 @@ def build_layout_nodes(snapshot_payload: dict[str, Any]) -> tuple[list[dict[str,
                     "is_out_of_scope": HTML_ELEMENTS_BY_ID[tag_name].scope_group.value == "out_of_scope_visible",
                     "is_visible": _is_layout_visible(bounds),
                     "is_stacking_context": bool(layout_entry.get("is_stacking_context", False)),
+                    "is_text_node": False,
                 },
             }
         )

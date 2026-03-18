@@ -2,21 +2,20 @@
 
 ## 1) Estado actual del sistema y cómo se integra
 
-Actualmente este stage se coordina desde `engine/pipeline/stages/prototype_structural_extractor`:
-
-- `engine/pipeline/stages/prototype_structural_extractor/capture_original.py`: captura del prototipo original.
-- `engine/pipeline/stages/prototype_structural_extractor/capture_transformed.py`: captura del prototipo transformado.
+Actualmente este stage se coordina desde `engine/pipeline/stages/prototype_structural_extractor/stage.py`.
 
 La lógica reutilizable vive en:
 
 - `engine/services/prototype_structural_extractor/page_capture_service.py`: render del HTML y screenshot final.
 - `engine/services/prototype_structural_extractor/render_snapshot_service.py`: snapshot, extracción y serialización.
+- `engine/services/prototype_structural_extractor/style_trace_service.py`: inventario global de estilos y resolución real de cascada por propiedad.
+- `engine/services/prototype_structural_extractor/snapshot_normalization_service.py`: normalización final del contrato serializable.
 
 Y la orquestación oficial vive en:
 
 - `engine/pipeline/pipeline.py`
 
-Con esta base, Módulo 1 es el stage canónico de captura y snapshot estructural (DOM+CSSOM+CDP). El artefacto externo actual sigue siendo `render_snapshot_original.json` por compatibilidad.
+Con esta base, Módulo 1 es el stage canónico de captura y snapshot estructural (DOM+CSSOM+CDP). El artefacto externo actual sigue siendo `render_snapshot_original.json` por compatibilidad, pero su contrato ya usa inventarios explícitos de elementos y estilos.
 
 ## 2) Validación de viabilidad y orden lógico
 
@@ -30,9 +29,15 @@ Orden recomendado para reducir errores:
 1. Cargar HTML con base path y esperar `load + networkidle + fonts.ready`.
 2. Ejecutar barrido de DOM para recolectar estructura, geometría, estilos computados y estado visual (visible/no visible).
 3. Abrir sesión CDP (`DOM.enable`, `CSS.enable`) y resolver `nodeId` por selector estable (`domPath`).
-4. Consultar `CSS.getMatchedStylesForNode` para traza declarativa.
+4. Consultar `CSS.getMatchedStylesForNode` para traza declarativa por nodo.
 5. Consultar `CSS.getBackgroundColors` para fondo efectivo y consolidar cada nodo.
-6. Activar `CSS.startRuleUsageTracking` / `CSS.stopRuleUsageTracking` para `RuleUsage`.
+6. Resolver la cascada real por propiedad computada usando:
+   - `matchedCSSRules`
+   - `inherited`
+   - `matchingSelectors`
+   - especificidad del selector matched
+   - expansión de shorthand con `CSS.getLonghandProperties`
+   - resolución contextual con `CSS.resolveValues`
 7. Guardar JSON + metadatos de extracción (conteo, URL, viewport, timestamp).
 
 ## 3) Propiedades de color y caja capturadas en v1
@@ -58,15 +63,52 @@ Se incluyeron explícitamente las propiedades solicitadas:
   - `boxes.margin`, `boxes.padding`, `boxes.borderWidth`
   - y box model de CDP vía `DOM.getBoxModel`
 
-## 4) Estructura declarativa CDP agregada
+## 4) Contrato del snapshot actual
 
-Para trazabilidad por nodo se serializa:
+El snapshot serializa:
 
-- `declaredSources.cdpMatchedStyles.ruleMatches` (RuleMatch)
-- `declaredSources.cdpMatchedStyles.ruleMatches[*].selectorList` (SelectorList)
-- `declaredSources.cdpMatchedStyles.inheritedStyleEntries` (InheritedStyleEntry)
-- `declaredSources.backgroundColors` y `effectiveBackground` (desde `CSS.getBackgroundColors`)
-- `snapshot.ruleUsage` (RuleUsage global)
+- `metadata`
+- `document`
+- `elements_inventory`
+- `styles_inventory`
+- `palette`
+
+`styles_inventory` es el inventario global deduplicado de estilos declarados relevantes en scope. Cada entrada conserva:
+
+- `style_id`
+- `kind`
+- `origin`
+- `style_sheet_id`
+- `selector_text`
+- `declarations`
+- `matching_selector_index`
+- `specificity`
+- `source_range`
+- `layer_name`
+- `layer_order`
+- `source_url`
+- `node_ids`
+- `usage_count`
+
+`elements_inventory` es el inventario de elementos retenidos por el snapshot. Cada elemento conserva identidad, layout, jerarquía, flags, texto, estilos de fondo y un mapa `computed_styles`.
+
+Cada `computed_styles[property_name]` apunta al estilo ganador real de la cascada con este shape:
+
+- `computed_value`
+- `style_id`
+- `declared_property`
+- `kind`
+- `inherited_from_element_id` cuando aplique
+
+Si no existe atribución confiable, se serializa:
+
+- `computed_value`
+- `resolution_status: "unresolved"`
+
+Este diseño mantiene separado:
+
+- inventario global de estilos declarados
+- inventario de elementos y propiedad computada -> estilo ganador
 
 ## 5) LayoutTreeSnapshot vs enfoque actual
 
@@ -86,9 +128,13 @@ Propuesta aplicada:
 
 - `engine/services/prototype_structural_extractor/render_snapshot_service.py`
   - lógica principal de extracción del snapshot
-  - orquestación de cobertura y serialización
+  - orquestación de captura y serialización
+- `engine/services/prototype_structural_extractor/style_trace_service.py`
+  - inventario global de estilos
+  - candidatos de cascada
+  - selección del estilo ganador por propiedad computada
 - `engine/pipeline/stages/prototype_structural_extractor/`
-  - coordinación del stage para original y transformado
+  - coordinación del stage para original y transformado desde un único `stage.py`
 - `engine/pipeline/stages/prototype_structural_extractor/docs/module1_snapshot_design.md`
   - justificación, decisiones y roadmap
 
@@ -112,7 +158,7 @@ No son reemplazo del snapshot extractor, pero sí pueden aportar en Módulos 3�
 - Validación JSON: `jsonschema` o `pydantic`
 - Calidad de código: `ruff`, `black`, `mypy`
 - CSS analysis/lint: `stylelint` + `postcss` (para correlación fuente/override)
-- Colores: `colorAid.js` (HCT), y opcional `material-color-utilities` como verificación cruzada
+- Colores: `ColorAide` / `coloraide` (HCT, distance, contrast, alpha helpers), y `material-color-utilities` como referencia de modelos tonales
 - Reportes: `pandas`/`polars` para exportar comparación Antes/Después
 
 ## 10) Plan de acción sugerido
@@ -127,5 +173,5 @@ No son reemplazo del snapshot extractor, pero sí pueden aportar en Módulos 3�
 
 - Solo se incluyen nodos `HTML`, `BODY` y descendientes dentro de `body`.
 - Se excluyen etiquetas de metadata/embedded-media/math/scripting/edits/web-components/deprecated (por ejemplo `META`, `LINK`, `SCRIPT`, `IMG`, `VIDEO`, `SVG`, `MATH`, `SLOT`, `TEMPLATE`, etc.).
-- En `cdpMatchedStyles` se filtran reglas sin match efectivo y, por defecto, se excluye origen `user-agent` para evitar ruido de defaults.
-- `computedColors` se filtra para conservar solo propiedades con declaración real detectada en inline/attributes/matched/inherited (no el universo completo de valores por default).
+- En el inventario de estilos se filtran declaraciones fuera de scope y, por defecto, se puede excluir origen `user-agent` para reducir ruido.
+- La resolución de cascada solo atribuye una propiedad cuando encuentra una declaración real que produzca exactamente el valor computado final; si no, la propiedad queda `unresolved`.

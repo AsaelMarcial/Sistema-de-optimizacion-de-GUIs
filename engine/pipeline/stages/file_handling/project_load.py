@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import os
 
-from engine.models.pipeline_context import PipelineContext
-from engine.services.file_handling.file_handler import load_project_input
+from engine.adapters.file_system.file_handler import load_project_input
+from engine.pipeline.context import PipelineContext
 
 
 def load_project(context: PipelineContext) -> None:
@@ -37,6 +37,11 @@ def load_project(context: PipelineContext) -> None:
         context.environmental_screenshot_rel,
     )
     context.results_output_path = os.path.join(context.artifacts_dir, "results.json")
+    context.palette_analysis_output_path = os.path.join(context.artifacts_dir, "palette_analysis.json")
+    context.palette_preview_output_path = os.path.join(
+        context.output_dir,
+        context.palette_preview_rel,
+    )
 
     context.trace.add_step("upload.handled", {"base_path": context.base_path})
     if not context.base_path:
