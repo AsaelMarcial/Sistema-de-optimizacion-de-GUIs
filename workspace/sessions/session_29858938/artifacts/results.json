@@ -1,0 +1,1107 @@
+{
+    "total_current": 0.12085665057168737,
+    "carbon_footprint": 0.21240556337974056,
+    "energy_wh": 0.4471696071152433,
+    "environmental_energy_wh": 0.4470821,
+    "environmental_co2eq_per_use": 0.21236399749999998,
+    "session_id": "29858938",
+    "session_dirname": "session_29858938",
+    "html_name": "menu.html",
+    "heuristics": [
+        {
+            "nombre": "Modo oscuro",
+            "cumple": false,
+            "recomendacion": "Se aplicó dark mode por fondo claro."
+        },
+        {
+            "nombre": "Minimizar el uso de colores brillantes",
+            "cumple": true,
+            "recomendacion": "Se redujo la intensidad de 0 colores.",
+            "detalles": []
+        },
+        {
+            "nombre": "Reducción de tamaños excesivos",
+            "cumple": true,
+            "recomendacion": "Se ajustaron 0 elementos grandes.",
+            "detalles": []
+        },
+        {
+            "nombre": "Uso moderado de decoraciones visuales",
+            "cumple": true,
+            "recomendacion": "Se eliminaron 0 estilos innecesarios.",
+            "detalles": []
+        }
+    ],
+    "debug": {
+        "started_at": 1774385398.5161626,
+        "steps": [
+            {
+                "t": 0.0,
+                "step": "pipeline.prepare_project_session.validate_requires",
+                "data": {}
+            },
+            {
+                "t": 0.0,
+                "step": "pipeline.prepare_project_session.start",
+                "data": {}
+            },
+            {
+                "t": 0.029,
+                "step": "upload.received",
+                "data": {
+                    "filename": "Pagina_de_prueba_2.zip"
+                }
+            },
+            {
+                "t": 0.0365,
+                "step": "upload.handled",
+                "data": {
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\input\\Pagina"
+                }
+            },
+            {
+                "t": 0.0365,
+                "step": "project.html_detected",
+                "data": {
+                    "html_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\input\\Pagina\\menu.html",
+                    "html_name": "menu.html"
+                }
+            },
+            {
+                "t": 0.0365,
+                "step": "session.created",
+                "data": {
+                    "session_id": "29858938",
+                    "output_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\output",
+                    "artifacts_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\artifacts",
+                    "session_dirname": "session_29858938"
+                }
+            },
+            {
+                "t": 0.0365,
+                "step": "pipeline.prepare_project_session.complete",
+                "data": {
+                    "session_id": "29858938",
+                    "html_name": "menu.html"
+                }
+            },
+            {
+                "t": 0.0365,
+                "step": "pipeline.prepare_project_session.validate_produces",
+                "data": {}
+            },
+            {
+                "t": 0.0366,
+                "step": "pipeline.capture_original_state.validate_requires",
+                "data": {}
+            },
+            {
+                "t": 0.0366,
+                "step": "pipeline.capture_original_state.start",
+                "data": {
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\input\\Pagina",
+                    "output_image": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\artifacts\\debug_original.png"
+                }
+            },
+            {
+                "t": 4.4092,
+                "step": "original_prototype.render_done",
+                "data": {
+                    "screenshot_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\artifacts\\debug_original.png",
+                    "snapshot_node_count": 4
+                }
+            },
+            {
+                "t": 4.4092,
+                "step": "original_prototype.colors_classified",
+                "data": {
+                    "distinct_colors": 111
+                }
+            },
+            {
+                "t": 4.4092,
+                "step": "analysis.render_snapshot_generated",
+                "data": {
+                    "snapshot_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\artifacts\\render_snapshot_original.json",
+                    "node_count": 4
+                }
+            },
+            {
+                "t": 4.4092,
+                "step": "analysis.css_overview_captured",
+                "data": {
+                    "unused_declaration_count": 0,
+                    "contrast_issue_count": 0
+                }
+            },
+            {
+                "t": 4.4093,
+                "step": "pipeline.capture_original_state.complete",
+                "data": {
+                    "node_count": 4,
+                    "distinct_colors": 111,
+                    "css_overview_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\artifacts\\css_overview_original.json"
+                }
+            },
+            {
+                "t": 4.4093,
+                "step": "pipeline.capture_original_state.validate_produces",
+                "data": {}
+            },
+            {
+                "t": 4.4093,
+                "step": "pipeline.assess_original_environmental_impact.validate_requires",
+                "data": {}
+            },
+            {
+                "t": 4.4093,
+                "step": "pipeline.assess_original_environmental_impact.start",
+                "data": {}
+            },
+            {
+                "t": 4.4095,
+                "step": "assessment.original",
+                "data": {
+                    "total_current": 0.12085665057168737,
+                    "energy_wh": 0.4471696071152433,
+                    "co2eq_per_use": 0.21240556337974056
+                }
+            },
+            {
+                "t": 4.4095,
+                "step": "pipeline.assess_original_environmental_impact.complete",
+                "data": {
+                    "current_a": 0.120857,
+                    "energy_wh": 0.44717,
+                    "co2eq_per_use": 0.212406,
+                    "energy_kwh": 0.0004471696071152433,
+                    "co2eq_total": 509.77335211137733,
+                    "sci_score": 0.21240556337974056,
+                    "emission_factor": 475.0,
+                    "user_count": 100,
+                    "usage_hours": 24,
+                    "ahorro_potencial": 0
+                }
+            },
+            {
+                "t": 4.4095,
+                "step": "pipeline.assess_original_environmental_impact.validate_produces",
+                "data": {}
+            },
+            {
+                "t": 4.4096,
+                "step": "pipeline.build_inventories.validate_requires",
+                "data": {}
+            },
+            {
+                "t": 4.4096,
+                "step": "pipeline.build_inventories.start",
+                "data": {}
+            },
+            {
+                "t": 4.4311,
+                "step": "inventories.built",
+                "data": {
+                    "elements_count": 4,
+                    "styles_count": 2,
+                    "colors_count": 2,
+                    "observed_color_count": 2
+                }
+            },
+            {
+                "t": 4.4311,
+                "step": "pipeline.build_inventories.complete",
+                "data": {
+                    "elements_count": 4,
+                    "styles_count": 2,
+                    "colors_count": 2
+                }
+            },
+            {
+                "t": 4.4311,
+                "step": "pipeline.build_inventories.validate_produces",
+                "data": {}
+            },
+            {
+                "t": 4.4312,
+                "step": "pipeline.build_contrast_report.validate_requires",
+                "data": {}
+            },
+            {
+                "t": 4.4312,
+                "step": "pipeline.build_contrast_report.start",
+                "data": {}
+            },
+            {
+                "t": 4.4318,
+                "step": "pipeline.build_contrast_report.complete",
+                "data": {
+                    "contrast_issue_count": 0,
+                    "linked_issue_count": 0
+                }
+            },
+            {
+                "t": 4.4318,
+                "step": "pipeline.build_contrast_report.validate_produces",
+                "data": {}
+            },
+            {
+                "t": 4.4319,
+                "step": "pipeline.build_effect_color_report.validate_requires",
+                "data": {}
+            },
+            {
+                "t": 4.4319,
+                "step": "pipeline.build_effect_color_report.start",
+                "data": {}
+            },
+            {
+                "t": 4.4327,
+                "step": "pipeline.build_effect_color_report.complete",
+                "data": {
+                    "effect_entry_count": 0,
+                    "effect_property_count": 0
+                }
+            },
+            {
+                "t": 4.4327,
+                "step": "pipeline.build_effect_color_report.validate_produces",
+                "data": {}
+            },
+            {
+                "t": 4.4327,
+                "step": "pipeline.enrich_color_inventory.validate_requires",
+                "data": {}
+            },
+            {
+                "t": 4.4328,
+                "step": "pipeline.enrich_color_inventory.start",
+                "data": {}
+            },
+            {
+                "t": 5.2765,
+                "step": "inventories.colors_enriched",
+                "data": {
+                    "display_color_count": 43,
+                    "inventory_color_count": 2,
+                    "matched_inventory_colors": 2,
+                    "unmatched_visual_pixels": 367
+                }
+            },
+            {
+                "t": 5.2765,
+                "step": "pipeline.enrich_color_inventory.complete",
+                "data": {
+                    "display_color_count": 43,
+                    "inventory_color_count": 2
+                }
+            },
+            {
+                "t": 5.2765,
+                "step": "pipeline.enrich_color_inventory.validate_produces",
+                "data": {}
+            },
+            {
+                "t": 5.2765,
+                "step": "pipeline.analyze_color_inventory.validate_requires",
+                "data": {}
+            },
+            {
+                "t": 5.2765,
+                "step": "pipeline.analyze_color_inventory.start",
+                "data": {}
+            },
+            {
+                "t": 5.2834,
+                "step": "scheme.input_built",
+                "data": {
+                    "semantic_color_count": 2,
+                    "confirmed_pixel_count": 1295633,
+                    "residual_pixel_count": 367
+                }
+            },
+            {
+                "t": 5.2834,
+                "step": "pipeline.analyze_color_inventory.complete",
+                "data": {
+                    "semantic_color_count": 2,
+                    "chromatic_family_count": 0
+                }
+            },
+            {
+                "t": 5.2834,
+                "step": "pipeline.analyze_color_inventory.validate_produces",
+                "data": {}
+            },
+            {
+                "t": 5.2834,
+                "step": "pipeline.build_color_scheme.validate_requires",
+                "data": {}
+            },
+            {
+                "t": 5.2834,
+                "step": "pipeline.build_color_scheme.start",
+                "data": {}
+            },
+            {
+                "t": 5.3023,
+                "step": "scheme.built",
+                "data": {
+                    "semantic_color_count": 2,
+                    "chromatic_palette_count": 0
+                }
+            },
+            {
+                "t": 5.3023,
+                "step": "pipeline.build_color_scheme.complete",
+                "data": {
+                    "semantic_color_count": 2,
+                    "confirmed_pixel_count": 1295633
+                }
+            },
+            {
+                "t": 5.3023,
+                "step": "pipeline.build_color_scheme.validate_produces",
+                "data": {}
+            },
+            {
+                "t": 5.3023,
+                "step": "pipeline.map_color_inventory_to_scheme.validate_requires",
+                "data": {}
+            },
+            {
+                "t": 5.3023,
+                "step": "pipeline.map_color_inventory_to_scheme.start",
+                "data": {}
+            },
+            {
+                "t": 5.3033,
+                "step": "inventories.colors_mapped_to_scheme",
+                "data": {
+                    "mapped_colors": 2
+                }
+            },
+            {
+                "t": 5.3033,
+                "step": "pipeline.map_color_inventory_to_scheme.complete",
+                "data": {
+                    "mapped_colors": 2
+                }
+            },
+            {
+                "t": 5.3033,
+                "step": "pipeline.map_color_inventory_to_scheme.validate_produces",
+                "data": {}
+            },
+            {
+                "t": 5.3034,
+                "step": "pipeline.set_tokens.validate_requires",
+                "data": {}
+            },
+            {
+                "t": 5.3034,
+                "step": "pipeline.set_tokens.start",
+                "data": {}
+            },
+            {
+                "t": 5.3082,
+                "step": "pipeline.set_tokens.complete",
+                "data": {
+                    "token_count": 16,
+                    "graph_root_count": 1
+                }
+            },
+            {
+                "t": 5.3082,
+                "step": "pipeline.set_tokens.validate_produces",
+                "data": {}
+            },
+            {
+                "t": 5.3082,
+                "step": "pipeline.check_tokens.validate_requires",
+                "data": {}
+            },
+            {
+                "t": 5.3082,
+                "step": "pipeline.check_tokens.start",
+                "data": {}
+            },
+            {
+                "t": 5.3133,
+                "step": "pipeline.check_tokens.complete",
+                "data": {
+                    "token_count": 16,
+                    "failed_tokens": 0
+                }
+            },
+            {
+                "t": 5.3133,
+                "step": "pipeline.check_tokens.validate_produces",
+                "data": {}
+            },
+            {
+                "t": 5.3133,
+                "step": "pipeline.transform_source_project.validate_requires",
+                "data": {}
+            },
+            {
+                "t": 5.3135,
+                "step": "pipeline.transform_source_project.start",
+                "data": {
+                    "output_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\output"
+                }
+            },
+            {
+                "t": 5.3173,
+                "step": "transformed.resources_prepared",
+                "data": {
+                    "output_dir": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\output"
+                }
+            },
+            {
+                "t": 5.3204,
+                "step": "transformed.heuristics_applied",
+                "data": {
+                    "heuristics_count": 4
+                }
+            },
+            {
+                "t": 5.3206,
+                "step": "transformed.html_loaded",
+                "data": {
+                    "html_environmental_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\output\\Pagina\\menu.html"
+                }
+            },
+            {
+                "t": 5.3206,
+                "step": "pipeline.transform_source_project.complete",
+                "data": {
+                    "heuristics_count": 4,
+                    "transformed_html_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\output\\Pagina\\menu.html"
+                }
+            },
+            {
+                "t": 5.3206,
+                "step": "pipeline.transform_source_project.validate_produces",
+                "data": {}
+            },
+            {
+                "t": 5.3206,
+                "step": "pipeline.assess_transformed_environmental_impact.validate_requires",
+                "data": {}
+            },
+            {
+                "t": 5.3206,
+                "step": "pipeline.assess_transformed_environmental_impact.start",
+                "data": {
+                    "base_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\output\\Pagina",
+                    "output_image": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\artifacts\\debug_environmental.png"
+                }
+            },
+            {
+                "t": 7.792,
+                "step": "environmental_prototype.render_done",
+                "data": {
+                    "screenshot_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\artifacts\\debug_environmental.png"
+                }
+            },
+            {
+                "t": 7.792,
+                "step": "environmental_prototype.colors_classified",
+                "data": {
+                    "distinct_colors": 1
+                }
+            },
+            {
+                "t": 7.7921,
+                "step": "assessment.environmental",
+                "data": {
+                    "environmental_current": 0.120833,
+                    "environmental_energy_wh": 0.4470821,
+                    "environmental_co2eq_per_use": 0.21236399749999998
+                }
+            },
+            {
+                "t": 7.7921,
+                "step": "pipeline.assess_transformed_environmental_impact.complete",
+                "data": {
+                    "distinct_colors": 1,
+                    "co2eq_per_use_savings": 4.2e-05
+                }
+            },
+            {
+                "t": 7.7921,
+                "step": "pipeline.assess_transformed_environmental_impact.validate_produces",
+                "data": {}
+            },
+            {
+                "t": 7.7921,
+                "step": "pipeline.assemble_results.validate_requires",
+                "data": {}
+            },
+            {
+                "t": 7.7921,
+                "step": "pipeline.assemble_results.start",
+                "data": {}
+            },
+            {
+                "t": 7.7949,
+                "step": "transformed.zip_created",
+                "data": {
+                    "zip_output_path": "C:\\Users\\llmes\\OneDrive\\Documentos\\Git Projects\\Sistema-de-optimizacion-de-GUIs\\workspace\\sessions\\session_29858938\\artifacts\\Pagina_de_prueba_2.zip"
+                }
+            }
+        ]
+    },
+    "debug_screenshots": {
+        "original": "debug_original.png",
+        "environmental": "debug_environmental.png"
+    },
+    "recommendations": {
+        "items": [],
+        "summary": null
+    },
+    "download_url": "/sessions/session_29858938/artifacts/Pagina_de_prueba_2.zip",
+    "environmental_assessment": {
+        "before": {
+            "current_a": 0.120857,
+            "energy_wh": 0.44717,
+            "co2eq_per_use": 0.212406,
+            "energy_kwh": 0.0004471696071152433,
+            "co2eq_total": 509.77335211137733,
+            "sci_score": 0.21240556337974056,
+            "emission_factor": 475.0,
+            "user_count": 100,
+            "usage_hours": 24,
+            "ahorro_potencial": 0
+        },
+        "after": {
+            "current_a": 0.120833,
+            "energy_wh": 0.447082,
+            "co2eq_per_use": 0.212364,
+            "energy_kwh": 0.0004470821,
+            "co2eq_total": 509.6735939999999,
+            "sci_score": 0.21236399749999998,
+            "emission_factor": 475.0,
+            "user_count": 100,
+            "usage_hours": 24,
+            "ahorro_potencial": 0
+        },
+        "savings": {
+            "current_a": 2.4e-05,
+            "current_a_percent": 0.0199,
+            "energy_wh": 8.8e-05,
+            "energy_wh_percent": 0.0197,
+            "co2eq_per_use": 4.2e-05,
+            "co2eq_per_use_percent": 0.0198
+        }
+    },
+    "render_snapshot": {
+        "artifact": "render_snapshot_original.json",
+        "node_count": 4,
+        "palette_color_count": 2
+    },
+    "color_processing": {
+        "artifact": "color_scheme.json",
+        "palette_preview_artifact": "palette_preview.png",
+        "palette_preview_output": "palette_preview.png",
+        "palette_preview_location": "artifacts",
+        "pixel_color_frequency_count": 2,
+        "pixel_color_statistics_count": 2,
+        "pixel_color_frequency_raw_count": 111,
+        "named_color_breakdown": [
+            {
+                "name": "black",
+                "display_name": "Black",
+                "family": "Colores grises",
+                "hex_value": "#000000",
+                "count": 1295229,
+                "percentage": 99.9688
+            },
+            {
+                "name": "white",
+                "display_name": "White",
+                "family": "Colores blancos",
+                "hex_value": "#ffffff",
+                "count": 404,
+                "percentage": 0.0312
+            }
+        ],
+        "confirmed_pixel_count": 1295633,
+        "residual_pixel_count": 367,
+        "core_palettes": {
+            "achromatic_palette": {
+                "palette_id": "palette-achromatic-1",
+                "palette_type": "achromatic",
+                "seed_name": "black",
+                "seed_color_id": "color-1",
+                "seed_hex": "#000000",
+                "seed_rgb": [
+                    0,
+                    0,
+                    0
+                ],
+                "seed_hct": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "hue": 0.0,
+                "chroma": 6.0,
+                "semantic_weight": 3,
+                "confirmed_pixel_count": 1295229,
+                "display_name": "Neutral",
+                "seed_display_name": "Black",
+                "seed_family_name": "Neutral",
+                "source_color_ids": [
+                    "color-1"
+                ],
+                "tones": [
+                    {
+                        "tone": 0,
+                        "hex_value": "#000000",
+                        "rgb": [
+                            0,
+                            0,
+                            0
+                        ],
+                        "hct": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "tone": 10,
+                        "hex_value": "#22191b",
+                        "rgb": [
+                            34,
+                            25,
+                            27
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            10.0
+                        ]
+                    },
+                    {
+                        "tone": 20,
+                        "hex_value": "#372e30",
+                        "rgb": [
+                            55,
+                            46,
+                            48
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            20.0
+                        ]
+                    },
+                    {
+                        "tone": 30,
+                        "hex_value": "#4f4446",
+                        "rgb": [
+                            79,
+                            68,
+                            70
+                        ],
+                        "hct": [
+                            0.0,
+                            6.0,
+                            30.0
+                        ]
+                    },
+                    {
+                        "tone": 40,
+                        "hex_value": "#675b5e",
+                        "rgb": [
+                            103,
+                            91,
+                            94
+                        ],
+                        "hct": [
+                            0.0,
+                            6.0,
+                            40.0
+                        ]
+                    },
+                    {
+                        "tone": 50,
+                        "hex_value": "#807476",
+                        "rgb": [
+                            128,
+                            116,
+                            118
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            50.0
+                        ]
+                    },
+                    {
+                        "tone": 60,
+                        "hex_value": "#9b8d90",
+                        "rgb": [
+                            155,
+                            141,
+                            144
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            60.0
+                        ]
+                    },
+                    {
+                        "tone": 70,
+                        "hex_value": "#b6a8aa",
+                        "rgb": [
+                            182,
+                            168,
+                            170
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            70.0
+                        ]
+                    },
+                    {
+                        "tone": 80,
+                        "hex_value": "#d2c3c5",
+                        "rgb": [
+                            210,
+                            195,
+                            197
+                        ],
+                        "hct": [
+                            0.0,
+                            6.0,
+                            80.0
+                        ]
+                    },
+                    {
+                        "tone": 90,
+                        "hex_value": "#efdfe1",
+                        "rgb": [
+                            239,
+                            223,
+                            225
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            90.0
+                        ]
+                    },
+                    {
+                        "tone": 95,
+                        "hex_value": "#fdedef",
+                        "rgb": [
+                            253,
+                            237,
+                            239
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            95.0
+                        ]
+                    },
+                    {
+                        "tone": 98,
+                        "hex_value": "#fff8f8",
+                        "rgb": [
+                            255,
+                            248,
+                            248
+                        ],
+                        "hct": [
+                            359.9223,
+                            1.6661,
+                            98.0002
+                        ]
+                    },
+                    {
+                        "tone": 99,
+                        "hex_value": "#fffbfb",
+                        "rgb": [
+                            255,
+                            251,
+                            251
+                        ],
+                        "hct": [
+                            235.2919,
+                            0.8097,
+                            99.0431
+                        ]
+                    },
+                    {
+                        "tone": 100,
+                        "hex_value": "#ffffff",
+                        "rgb": [
+                            255,
+                            255,
+                            255
+                        ],
+                        "hct": [
+                            209.5429,
+                            2.8716,
+                            100.0
+                        ]
+                    }
+                ]
+            },
+            "chromatic_palettes": [],
+            "max_chromatic_palettes": 12,
+            "selected_chromatic_palettes": 0
+        }
+    },
+    "token_processing": {
+        "artifact": "tokens_original.json",
+        "graph_artifact": "inventory_graph.json",
+        "token_count": 16,
+        "failed_token_count": 0
+    },
+    "accessibility": {
+        "contrast": {
+            "artifact": "contrast_report_original.json",
+            "issue_count": 0,
+            "issues": [],
+            "linked_issue_count": 0
+        }
+    },
+    "effect_colors": {
+        "artifact": "effect_colors_original.json",
+        "entry_count": 0,
+        "entries": [],
+        "properties": []
+    },
+    "view": {
+        "initial_reduction": 4.156587974057935e-05,
+        "dominant_rows": [
+            {
+                "label": "Colores grises",
+                "hex": "#000000",
+                "percentage": 99.9688
+            },
+            {
+                "label": "Colores blancos",
+                "hex": "#ffffff",
+                "percentage": 0.0312
+            }
+        ],
+        "dominant_color_count": 2,
+        "top_three_percentage": 100.0,
+        "palette_rows": [
+            {
+                "family_type": "achromatic",
+                "label": "Neutral",
+                "tone_count": 14,
+                "tones": [
+                    {
+                        "tone": 0,
+                        "hex_value": "#000000",
+                        "rgb": [
+                            0,
+                            0,
+                            0
+                        ],
+                        "hct": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "tone": 10,
+                        "hex_value": "#22191b",
+                        "rgb": [
+                            34,
+                            25,
+                            27
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            10.0
+                        ]
+                    },
+                    {
+                        "tone": 20,
+                        "hex_value": "#372e30",
+                        "rgb": [
+                            55,
+                            46,
+                            48
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            20.0
+                        ]
+                    },
+                    {
+                        "tone": 30,
+                        "hex_value": "#4f4446",
+                        "rgb": [
+                            79,
+                            68,
+                            70
+                        ],
+                        "hct": [
+                            0.0,
+                            6.0,
+                            30.0
+                        ]
+                    },
+                    {
+                        "tone": 40,
+                        "hex_value": "#675b5e",
+                        "rgb": [
+                            103,
+                            91,
+                            94
+                        ],
+                        "hct": [
+                            0.0,
+                            6.0,
+                            40.0
+                        ]
+                    },
+                    {
+                        "tone": 50,
+                        "hex_value": "#807476",
+                        "rgb": [
+                            128,
+                            116,
+                            118
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            50.0
+                        ]
+                    },
+                    {
+                        "tone": 60,
+                        "hex_value": "#9b8d90",
+                        "rgb": [
+                            155,
+                            141,
+                            144
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            60.0
+                        ]
+                    },
+                    {
+                        "tone": 70,
+                        "hex_value": "#b6a8aa",
+                        "rgb": [
+                            182,
+                            168,
+                            170
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            70.0
+                        ]
+                    },
+                    {
+                        "tone": 80,
+                        "hex_value": "#d2c3c5",
+                        "rgb": [
+                            210,
+                            195,
+                            197
+                        ],
+                        "hct": [
+                            0.0,
+                            6.0,
+                            80.0
+                        ]
+                    },
+                    {
+                        "tone": 90,
+                        "hex_value": "#efdfe1",
+                        "rgb": [
+                            239,
+                            223,
+                            225
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            90.0
+                        ]
+                    },
+                    {
+                        "tone": 95,
+                        "hex_value": "#fdedef",
+                        "rgb": [
+                            253,
+                            237,
+                            239
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            95.0
+                        ]
+                    },
+                    {
+                        "tone": 98,
+                        "hex_value": "#fff8f8",
+                        "rgb": [
+                            255,
+                            248,
+                            248
+                        ],
+                        "hct": [
+                            359.9223,
+                            1.6661,
+                            98.0002
+                        ]
+                    },
+                    {
+                        "tone": 99,
+                        "hex_value": "#fffbfb",
+                        "rgb": [
+                            255,
+                            251,
+                            251
+                        ],
+                        "hct": [
+                            235.2919,
+                            0.8097,
+                            99.0431
+                        ]
+                    },
+                    {
+                        "tone": 100,
+                        "hex_value": "#ffffff",
+                        "rgb": [
+                            255,
+                            255,
+                            255
+                        ],
+                        "hct": [
+                            209.5429,
+                            2.8716,
+                            100.0
+                        ]
+                    }
+                ]
+            }
+        ],
+        "contrast_rows": [],
+        "change_history_groups": []
+    }
+}

@@ -1,0 +1,84 @@
+{
+    "glow": {
+        "color": {
+            "neutral": {
+                "0": {
+                    "$type": "color",
+                    "$value": "#000000"
+                },
+                "10": {
+                    "$type": "color",
+                    "$value": "#22191b"
+                },
+                "100": {
+                    "$type": "color",
+                    "$value": "#ffffff"
+                },
+                "20": {
+                    "$type": "color",
+                    "$value": "#372e30"
+                },
+                "30": {
+                    "$type": "color",
+                    "$value": "#4f4446"
+                },
+                "40": {
+                    "$type": "color",
+                    "$value": "#675b5e"
+                },
+                "50": {
+                    "$type": "color",
+                    "$value": "#807476"
+                },
+                "60": {
+                    "$type": "color",
+                    "$value": "#9b8d90"
+                },
+                "70": {
+                    "$type": "color",
+                    "$value": "#b6a8aa"
+                },
+                "80": {
+                    "$type": "color",
+                    "$value": "#d2c3c5"
+                },
+                "90": {
+                    "$type": "color",
+                    "$value": "#efdfe1"
+                },
+                "95": {
+                    "$type": "color",
+                    "$value": "#fdedef"
+                },
+                "98": {
+                    "$type": "color",
+                    "$value": "#fff8f8"
+                },
+                "99": {
+                    "$type": "color",
+                    "$value": "#fffbfb"
+                }
+            }
+        },
+        "main_surface": {
+            "background-color": {
+                "subtle": {
+                    "1": {
+                        "$type": "color",
+                        "$value": "{glow.color.neutral.0}"
+                    }
+                }
+            }
+        },
+        "text": {
+            "color": {
+                "emphasis": {
+                    "5": {
+                        "$type": "color",
+                        "$value": "{glow.color.neutral.100}"
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,72 @@
+{
+    "count": 4,
+    "entries": [
+        {
+            "effect_id": "effect-1",
+            "element_id": "node-20",
+            "tag_name": "div",
+            "property_name": "box-shadow",
+            "resolved_value": "rgba(0, 0, 0, 0.1) 0px 0px 10px 0px",
+            "colors": [
+                {
+                    "value": "rgba(0, 0, 0, 0.1)",
+                    "hex": "#0000001a",
+                    "alpha": 0.1
+                }
+            ],
+            "selector_hint": "div.card"
+        },
+        {
+            "effect_id": "effect-2",
+            "element_id": "node-23",
+            "tag_name": "div",
+            "property_name": "box-shadow",
+            "resolved_value": "rgba(0, 0, 0, 0.1) 0px 0px 10px 0px",
+            "colors": [
+                {
+                    "value": "rgba(0, 0, 0, 0.1)",
+                    "hex": "#0000001a",
+                    "alpha": 0.1
+                }
+            ],
+            "selector_hint": "div.card"
+        },
+        {
+            "effect_id": "effect-3",
+            "element_id": "node-26",
+            "tag_name": "div",
+            "property_name": "box-shadow",
+            "resolved_value": "rgba(0, 0, 0, 0.1) 0px 0px 10px 0px",
+            "colors": [
+                {
+                    "value": "rgba(0, 0, 0, 0.1)",
+                    "hex": "#0000001a",
+                    "alpha": 0.1
+                }
+            ],
+            "selector_hint": "div.card"
+        },
+        {
+            "effect_id": "effect-4",
+            "element_id": "node-34",
+            "tag_name": "form",
+            "property_name": "box-shadow",
+            "resolved_value": "rgba(0, 0, 0, 0.1) 0px 0px 10px 0px",
+            "colors": [
+                {
+                    "value": "rgba(0, 0, 0, 0.1)",
+                    "hex": "#0000001a",
+                    "alpha": 0.1
+                }
+            ],
+            "selector_hint": "form.contact-form"
+        }
+    ],
+    "by_property": [
+        {
+            "property_name": "box-shadow",
+            "entry_count": 4,
+            "distinct_color_count": 1
+        }
+    ]
+}

@@ -1,0 +1,200 @@
+{
+    "matched_inventory_colors": [
+        {
+            "color": [
+                244,
+                244,
+                244
+            ],
+            "count": 552813,
+            "color_id": "color-1",
+            "percentage": 26.4211,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(244, 244, 244)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                255,
+                0,
+                0
+            ],
+            "count": 489911,
+            "color_id": "color-6",
+            "percentage": 23.4147,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(255, 0, 0)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                0,
+                255,
+                34
+            ],
+            "count": 308929,
+            "color_id": "color-7",
+            "percentage": 14.7649,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(0, 255, 34)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                222,
+                155,
+                255
+            ],
+            "count": 193241,
+            "color_id": "color-10",
+            "percentage": 9.2357,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(222, 155, 255)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                200,
+                0,
+                255
+            ],
+            "count": 183996,
+            "color_id": "color-8",
+            "percentage": 8.7939,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(200, 0, 255)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                0,
+                0,
+                255
+            ],
+            "count": 152719,
+            "color_id": "color-9",
+            "percentage": 7.299,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(0, 0, 255)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                255,
+                179,
+                0
+            ],
+            "count": 108011,
+            "color_id": "color-2",
+            "percentage": 5.1623,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(255, 179, 0)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                255,
+                0,
+                204
+            ],
+            "count": 67899,
+            "color_id": "color-4",
+            "percentage": 3.2452,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(255, 0, 204)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                204,
+                204,
+                204
+            ],
+            "count": 7374,
+            "color_id": "color-11",
+            "percentage": 0.3524,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(204, 204, 204)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                0,
+                0,
+                0
+            ],
+            "count": 6862,
+            "color_id": "color-13",
+            "percentage": 0.328,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(0, 0, 0)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                0,
+                255,
+                200
+            ],
+            "count": 1757,
+            "color_id": "color-3",
+            "percentage": 0.084,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(0, 255, 200)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        }
+    ],
+    "unmatched_visual_pixels": {
+        "count": 18808,
+        "percentage": 0.8989,
+        "distinct_clusters": 189
+    },
+    "total_pixels_considered": 2092320,
+    "excluded_regions_summary": {
+        "excluded_rect_count": 0
+    }
+}

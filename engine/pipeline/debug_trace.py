@@ -22,6 +22,14 @@ class DebugTrace:
             }
         )
 
+    def add_stage_event(
+        self,
+        stage_name: str,
+        event: str,
+        data: dict[str, Any] | None = None,
+    ) -> None:
+        self.add_step(f"pipeline.{stage_name}.{event}", data or {})
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "started_at": self.started_at,

@@ -1,3 +1,12 @@
 from __future__ import annotations
 
-# TODO: Define the closed transformation vocabularies here once transformation commands are modeled.
+from enum import StrEnum
+
+
+class TransformationKind(StrEnum):
+    HEURISTIC = "heuristic"
+
+
+class TransformationStatus(StrEnum):
+    APPLIED = "applied"
+    SKIPPED = "skipped"

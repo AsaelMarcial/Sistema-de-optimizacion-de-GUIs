@@ -1,0 +1,243 @@
+{
+    "tree": [
+        {
+            "node_id": "node-1",
+            "backend_node_id": 3,
+            "document_order": 1,
+            "identity": {
+                "tag": "html",
+                "node_name": "HTML",
+                "data_attributes": {
+                    "data-glow-capture-node-id": "node-1"
+                },
+                "attributes": {
+                    "data-glow-capture-node-id": "node-1"
+                },
+                "selector_hint": "html[data-node-index='1']",
+                "xpath": "/html[1]"
+            },
+            "layout": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 1440.0,
+                "height": 900.0,
+                "absolute_bounds": {
+                    "left": 0.0,
+                    "top": 0.0,
+                    "right": 1440.0,
+                    "bottom": 900.0
+                }
+            },
+            "styles": {},
+            "computed_styles": {},
+            "flags": {
+                "is_out_of_scope": false,
+                "is_visible": true,
+                "is_stacking_context": true,
+                "is_text_node": false,
+                "is_leaf": false,
+                "has_siblings": false
+            },
+            "paint_order": 1,
+            "children": [
+                {
+                    "node_id": "node-3",
+                    "backend_node_id": 2,
+                    "document_order": 2,
+                    "identity": {
+                        "tag": "body",
+                        "node_name": "BODY",
+                        "data_attributes": {
+                            "data-glow-capture-node-id": "node-3"
+                        },
+                        "attributes": {
+                            "style": "background:#000;color:#fff",
+                            "data-glow-capture-node-id": "node-3"
+                        },
+                        "selector_hint": "body[data-node-index='3']",
+                        "xpath": "/html[1]/body[1]"
+                    },
+                    "layout": {
+                        "x": 8.0,
+                        "y": 8.0,
+                        "width": 1424.0,
+                        "height": 870.5625,
+                        "absolute_bounds": {
+                            "left": 8.0,
+                            "top": 8.0,
+                            "right": 1432.0,
+                            "bottom": 878.5625
+                        }
+                    },
+                    "styles": {},
+                    "computed_styles": {
+                        "background": {
+                            "resolution_status": "unresolved",
+                            "computed_value": "rgb(0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box"
+                        },
+                        "background-color": {
+                            "style_id": "style-1",
+                            "kind": "inline",
+                            "declared_property": "background",
+                            "resolution_status": "exact_match",
+                            "computed_value": "rgb(0, 0, 0)"
+                        },
+                        "color": {
+                            "resolution_status": "unresolved",
+                            "computed_value": "rgb(255, 255, 255)"
+                        }
+                    },
+                    "flags": {
+                        "is_out_of_scope": false,
+                        "is_visible": true,
+                        "is_stacking_context": false,
+                        "is_text_node": false,
+                        "is_leaf": false,
+                        "has_siblings": false
+                    },
+                    "color_properties": [
+                        {
+                            "color_property_id": "node-3:background-color:2",
+                            "property_name": "background-color",
+                            "source_kind": "own",
+                            "resolved_value": "rgb(0, 0, 0)",
+                            "status": "exact_match",
+                            "color_id": "color-1",
+                            "winning_style_ref": {
+                                "style_id": "style-1",
+                                "declared_property": "background"
+                            },
+                            "before": {
+                                "value": "rgb(0, 0, 0)",
+                                "color_id": "color-1"
+                            }
+                        },
+                        {
+                            "color_property_id": "node-3:color:3",
+                            "property_name": "color",
+                            "source_kind": "own",
+                            "resolved_value": "rgb(255, 255, 255)",
+                            "status": "unresolved",
+                            "color_id": "color-2",
+                            "before": {
+                                "value": "rgb(255, 255, 255)",
+                                "color_id": "color-2"
+                            }
+                        }
+                    ],
+                    "paint_order": 1,
+                    "children": [
+                        {
+                            "node_id": "node-4",
+                            "backend_node_id": 5,
+                            "document_order": 3,
+                            "identity": {
+                                "tag": "h1",
+                                "node_name": "H1",
+                                "data_attributes": {
+                                    "data-glow-capture-node-id": "node-4"
+                                },
+                                "attributes": {
+                                    "data-glow-capture-node-id": "node-4"
+                                },
+                                "selector_hint": "h1[data-node-index='4']",
+                                "xpath": "/html[1]/body[1]/h1[1]"
+                            },
+                            "layout": {
+                                "x": 8.0,
+                                "y": 8.0,
+                                "width": 1424.0,
+                                "height": 37.0,
+                                "absolute_bounds": {
+                                    "left": 8.0,
+                                    "top": 8.0,
+                                    "right": 1432.0,
+                                    "bottom": 45.0
+                                }
+                            },
+                            "styles": {
+                                "effective_background": "rgb(0, 0, 0)",
+                                "effective_background_color_id": "color-1"
+                            },
+                            "computed_styles": {
+                                "background": {
+                                    "resolution_status": "unresolved",
+                                    "computed_value": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box"
+                                },
+                                "background-color": {
+                                    "resolution_status": "unresolved",
+                                    "computed_value": "transparent"
+                                },
+                                "color": {
+                                    "resolution_status": "unresolved",
+                                    "computed_value": "rgb(255, 255, 255)"
+                                }
+                            },
+                            "flags": {
+                                "is_out_of_scope": false,
+                                "is_visible": true,
+                                "is_stacking_context": false,
+                                "is_text_node": false,
+                                "is_leaf": false,
+                                "has_siblings": false
+                            },
+                            "color_properties": [
+                                {
+                                    "color_property_id": "node-4:color:3",
+                                    "property_name": "color",
+                                    "source_kind": "own",
+                                    "resolved_value": "rgb(255, 255, 255)",
+                                    "status": "unresolved",
+                                    "color_id": "color-2",
+                                    "before": {
+                                        "value": "rgb(255, 255, 255)",
+                                        "color_id": "color-2"
+                                    }
+                                }
+                            ],
+                            "text": "Hola",
+                            "paint_order": 1,
+                            "children": [
+                                {
+                                    "node_id": "node-doc-4",
+                                    "backend_node_id": 6,
+                                    "document_order": 4,
+                                    "identity": {
+                                        "tag": "#text",
+                                        "node_name": "#text",
+                                        "xpath": "/html[1]/body[1]/h1[1]/text()[1]"
+                                    },
+                                    "layout": {
+                                        "x": 8.0,
+                                        "y": 8.0,
+                                        "width": 65.78125,
+                                        "height": 36.0,
+                                        "absolute_bounds": {
+                                            "left": 8.0,
+                                            "top": 8.0,
+                                            "right": 73.78125,
+                                            "bottom": 44.0
+                                        }
+                                    },
+                                    "styles": {},
+                                    "computed_styles": {},
+                                    "flags": {
+                                        "is_out_of_scope": false,
+                                        "is_visible": true,
+                                        "is_stacking_context": false,
+                                        "is_text_node": true,
+                                        "is_leaf": true,
+                                        "has_siblings": false
+                                    },
+                                    "text": "Hola",
+                                    "paint_order": 1,
+                                    "children": []
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

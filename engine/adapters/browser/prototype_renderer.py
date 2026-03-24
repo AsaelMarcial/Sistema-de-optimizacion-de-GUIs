@@ -6,15 +6,27 @@ from typing import Any
 from playwright.sync_api import Browser, Page, sync_playwright
 
 from app.config import get_artifacts_dir
+from engine.adapters.browser.page_stability import wait_for_render_stability
+from engine.adapters.browser.render_io import remove_temp_render_html, write_temp_render_html
+from engine.adapters.utils.io import ensure_parent_dir
 from engine.domain.models.snapshot import SnapshotOptions
-from engine.services.prototype_structural_extractor.page_stabilization_service import (
-    wait_for_render_stability,
-)
-from engine.services.prototype_structural_extractor.render_io_service import (
-    remove_temp_render_html,
-    write_temp_render_html,
-)
-from engine.utils.file_utils import ensure_parent_dir
+
+CAPTURE_NODE_ID_ATTRIBUTE = "data-glow-capture-node-id"
+
+_STAMP_CAPTURE_NODE_IDS_SCRIPT = f"""
+() => {{
+  let index = 0;
+  for (const element of Array.from(document.querySelectorAll('*'))) {{
+    index += 1;
+    element.setAttribute('{CAPTURE_NODE_ID_ATTRIBUTE}', `node-${{index}}`);
+  }}
+  return index;
+}}
+"""
+
+
+def stamp_render_node_ids(page: Page) -> int:
+    return int(page.evaluate(_STAMP_CAPTURE_NODE_IDS_SCRIPT) or 0)
 
 
 def create_render_page(
@@ -40,6 +52,7 @@ def create_render_page(
         max_checks=options.max_stability_checks,
         scroll_step_px=options.scroll_step_px,
     )
+    stamp_render_node_ids(page)
     return playwright, browser, page, temp_html_path, stability
 
 

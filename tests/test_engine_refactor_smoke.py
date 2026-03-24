@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 import importlib
+import io
+import json
 import tempfile
 import unittest
 import zipfile
@@ -9,36 +9,78 @@ from pathlib import Path
 from coloraide.everything import ColorAll
 
 from app import create_app
-from engine.enums.core.web_colors import WebColor, nearest_web_color
-from engine.enums.scope.css_properties import CSS_PROPERTIES_BY_ID
-from engine.enums.scope.html_elements import HTML_ELEMENTS_BY_ID
-from engine.enums.scope.json_exports import build_scope_elements_payload, build_scope_properties_payload
-from engine.models.color_processing.color_processing_models import TonalPaletteModel
-from engine.models.prototype_structural_extractor.snapshot_models import SnapshotOptions
-from engine.models.pipeline_context import PipelineContext
-from engine.services.color_processing.material_quantization_service import (
-    get_material_quantization_assessment,
-)
-from engine.services.color_processing.palette_analysis_service import build_palette_analysis
-from engine.services.color_processing.palette_preview_service import render_palette_preview
-from engine.services.color_processing.pixel_frequency_service import pixels_to_color_frequency
-from engine.services.color_processing.pixel_frequency_service import (
-    pixels_to_color_statistics,
-)
-from engine.services.file_handling.file_handler import load_project_input
-from engine.services.prototype_structural_extractor.render_snapshot_service import (
+from engine.adapters.browser.snapshot_analyzer import (
     capture_prototype_state_artifacts,
     extract_prototype_state_snapshot,
 )
-from engine.utils.coloraide_utils import (
+from engine.adapters.file_system.file_handler import load_project_input
+from engine.adapters.utils.palette_preview import render_palette_preview
+from engine.adapters.utils.screenshot import pixels_to_color_frequency, pixels_to_color_records
+from engine.domain.data.material_quantization import (
+    get_material_quantization_assessment,
+)
+from engine.domain.data.css_properties import CSS_PROPERTIES_BY_ID
+from engine.domain.data.html_elements import HTML_ELEMENTS_BY_ID
+from engine.domain.data.web_colors import WebColor, nearest_web_color
+from engine.domain.enums.scope.json_exports import (
+    build_scope_elements_payload,
+    build_scope_properties_payload,
+)
+from engine.domain.enums.types.color import (
+    ColorConfirmationStatus,
+    ColorFamilyType,
+    PaletteRoleBias,
+)
+from engine.domain.enums.types.elements import ElementSourceKind
+from engine.domain.enums.types.style import (
+    StyleKind,
+    StyleOrigin,
+    StyleResolutionStatus,
+    StyleUsageStatus,
+)
+from engine.domain.enums.types.transformations import (
+    TransformationKind,
+    TransformationStatus,
+)
+from engine.domain.models.environmental_assessment.carbon_footprint import (
+    CarbonFootprintModel,
+    assess_interface,
+    calculate,
+)
+from engine.domain.models.environmental_assessment.energy_consumption import (
+    EnergyModel,
+    calculate_power,
+    estimate_current,
+)
+from engine.domain.models.color import ColorInventoryModel
+from engine.domain.models.palette import TonalPaletteModel
+from engine.domain.models.session import SessionModel
+from engine.domain.models.snapshot import SnapshotOptions
+from engine.domain.models.style import StyleInventoryModel
+from engine.domain.models.inventory_graph import InventoryGraphModel
+from engine.domain.models.token import (
+    Token,
+    TokenInventory,
+    TokenState,
+    TokenValidationModel,
+    TokenValidationStatus,
+)
+from engine.domain.utils.coloraide import (
     color_to_hex,
     composite_over,
     contrast_ratio,
     delta_e_distance,
     hct_coords,
 )
+from engine.domain.utils.formatters import color_frequency_to_statistics
+from engine.domain.utils.palette_analysis import build_palette_analysis
+from engine.domain.utils.tokenization import build_token_inventory
 from engine.validators.file_handling.archive_validators import validate_zip_members
+from engine.validators.token_rules import apply_token_rules
+from engine.pipeline.context import PipelineContext
 from engine.pipeline.pipeline import run_pipeline
+from engine.pipeline.stages.assemble_results import _build_results_view
+from engine.pipeline.stages.build_inventories import _build_element_color_properties
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -58,6 +100,28 @@ class InMemoryUpload:
 
 
 class EngineRefactorSmokeTests(unittest.TestCase):
+    def _snapshot_fixture_projection(self, fixture_path: Path) -> dict[str, object]:
+        html_content = fixture_path.read_text(encoding="utf-8")
+        artifacts = capture_prototype_state_artifacts(
+            html_content=html_content,
+            base_path=str(FIXTURES_DIR),
+            options=SnapshotOptions(include_color_frequencies=False, capture_screenshot=False),
+        )
+        return {
+            "snapshot": artifacts.snapshot.to_dict(),
+            "elements_inventory": artifacts.snapshot.build_elements_inventory().to_dict(),
+            "styles_inventory": (
+                artifacts.styles_inventory_seed.to_dict()
+                if artifacts.styles_inventory_seed is not None
+                else []
+            ),
+            "palette": (
+                artifacts.colors_inventory_seed.to_palette_dicts()
+                if artifacts.colors_inventory_seed is not None
+                else []
+            ),
+        }
+
     def test_no_legacy_namespace_or_service_imports_remain(self) -> None:
         blocked_tokens = (
             "engine.core",
@@ -79,11 +143,11 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             "engine.transformation.services",
             "engine.pipeline.services",
             "engine.analysis.utils.html_parser",
-            "engine.services.color_service",
-            "engine.services.debug_trace_service",
-            "engine.services.results_compiler_service",
-            "engine.services.file_handling.asset_staging_service",
-            "engine.services.file_handling.artifact_storage_service",
+            "engine." "services.color_service",
+            "engine." "services.debug_trace_service",
+            "engine." "services.results_compiler_service",
+            "engine." "services.file_handling.asset_staging_service",
+            "engine." "services.file_handling.artifact_storage_service",
         )
         python_files = [path for path in Path("engine").rglob("*.py")] + [
             path for path in Path("app").rglob("*.py")
@@ -109,71 +173,77 @@ class EngineRefactorSmokeTests(unittest.TestCase):
 
     def test_stage_modules_export_single_run_stage_function(self) -> None:
         expected_public_functions = {
-            "color_processing": "run_color_processing_stage",
-            "environmental_assessment": "run_environmental_assessment_stage",
-            "file_handling": "run_file_handling_stage",
-            "prototype_structural_extractor": "run_prototype_structural_extractor_stage",
-            "recommendations": "run_recommendations_stage",
-            "results": "run_results_stage",
-            "transformation": "run_transformation_stage",
+            "prepare_project_session.py": "run_stage",
+            "capture_original_state.py": "run_stage",
+            "build_color_scheme.py": "run_stage",
+            "assess_original_environmental_impact.py": "run_stage",
+            "transform_source_project.py": "run_stage",
+            "assess_transformed_environmental_impact.py": "run_stage",
+            "assemble_results.py": "run_stage",
+            "build_inventories.py": "run_stage",
+            "enrich_color_inventory.py": "run_stage",
+            "map_color_inventory_to_scheme.py": "run_stage",
+            "set_tokens.py": "run_stage",
+            "check_tokens.py": "run_stage",
         }
-        for package_name, function_name in expected_public_functions.items():
-            package_dir = STAGES_DIR / package_name
-            self.assertTrue(package_dir.is_dir(), msg=package_name)
-            self.assertTrue((package_dir / "stage.py").exists(), msg=package_name)
-            package_module = importlib.import_module(f"engine.pipeline.stages.{package_name}.stage")
-            self.assertTrue(hasattr(package_module, function_name), msg=package_name)
+        for module_name, function_name in expected_public_functions.items():
+            module_path = STAGES_DIR / module_name
+            self.assertTrue(module_path.exists(), msg=module_name)
+            package_module = importlib.import_module(
+                f"engine.pipeline.stages.{module_name.removesuffix('.py')}"
+            )
+            self.assertTrue(hasattr(package_module, function_name), msg=module_name)
+            self.assertTrue(hasattr(package_module, "CONTRACT"), msg=f"{module_name} missing CONTRACT")
 
-    def test_stage_directory_no_longer_uses_flat_stage_files(self) -> None:
-        for old_name in (
-            "color_processing_stage.py",
-            "environmental_assessment_stage.py",
-            "file_handling_stage.py",
-            "prototype_structural_extractor_stage.py",
-            "recommendations_stage.py",
-            "results_stage.py",
-            "transformation_stage.py",
+    def test_stage_directory_is_flat_without_nested_stage_packages(self) -> None:
+        for removed_dir in (
+            "color_processing",
+            "environmental_assessment",
+            "file_handling",
+            "prototype_structural_extractor",
+            "recommendations",
+            "results",
+            "transformation",
         ):
-            self.assertFalse((STAGES_DIR / old_name).exists(), msg=old_name)
+            self.assertFalse((STAGES_DIR / removed_dir).exists(), msg=removed_dir)
 
-    def test_analysis_module_only_keeps_optional_html_parser(self) -> None:
+    def test_analysis_module_is_removed_without_optional_html_parser_wrapper(self) -> None:
         self.assertFalse((Path("engine/analysis")).exists())
-        self.assertTrue((Path("engine/utils/html_utils.py")).exists())
+        self.assertFalse((Path("engine/utils/html_utils.py")).exists())
 
-    def test_pipeline_context_contains_shared_runtime_state_fields(self) -> None:
+    def test_pipeline_context_uses_hierarchical_runtime_state(self) -> None:
         context = PipelineContext(file=None)
         self.assertEqual(context.trace.__class__.__name__, "DebugTrace")
-        self.assertTrue(hasattr(context, "project_input"))
-        self.assertTrue(hasattr(context, "workspace"))
-        self.assertTrue(hasattr(context, "original_artifacts"))
-        self.assertTrue(hasattr(context, "environmental_artifacts"))
-        self.assertTrue(hasattr(context, "footprint"))
-        self.assertTrue(hasattr(context, "environmental_assessment"))
-        self.assertTrue(hasattr(context, "heuristics_results"))
-        self.assertTrue(hasattr(context, "results"))
+        context.set("session.input.html.name", "index.html")
+        context.set("elements.inventory", ())
+        self.assertEqual(context.get("session.input.html.name"), "index.html")
+        self.assertTrue(context.has("elements.inventory"))
+        self.assertIsInstance(context.snapshot(), dict)
+        self.assertIsNone(context.get("results"))
         self.assertTrue(hasattr(context, "error"))
 
-    def test_color_processing_uses_models_package(self) -> None:
+    def test_session_model_builds_related_input_output_and_artifact_directories(self) -> None:
+        session = SessionModel.build(
+            session_id="abc12345",
+            session_dirname="session_abc12345",
+            base_dir="workspace/sessions",
+        )
+
+        self.assertEqual(session.input.kind.value, "input")
+        self.assertEqual(session.output.kind.value, "output")
+        self.assertEqual(session.artifacts.kind.value, "artifacts")
+        self.assertTrue(session.input.path.endswith("session_abc12345\\input"))
+        self.assertTrue(session.output.path.endswith("session_abc12345\\output"))
+        self.assertTrue(session.artifacts.path.endswith("session_abc12345\\artifacts"))
+
+    def test_color_processing_uses_canonical_domain_and_adapter_modules(self) -> None:
         self.assertFalse((Path("engine/color_processing/models.py")).exists())
         self.assertFalse((Path("engine/color_processing/models")).exists())
-        self.assertTrue((Path("engine/models/color_processing")).is_dir())
-        self.assertTrue(
-            (Path("engine/models/color_processing/color_processing_models.py")).exists()
-        )
-        self.assertFalse(
-            (Path("engine/models/color_processing/pixel_color_frequency.py")).exists()
-        )
-        self.assertFalse(
-            (Path("engine/models/color_processing/pixel_color_statistic.py")).exists()
-        )
-        self.assertFalse(
-            (
-                Path(
-                    "engine/models/color_processing/material_quantization_assessment.py"
-                )
-            ).exists()
-        )
-        self.assertTrue((Path("engine/utils")).exists())
+        self.assertTrue((Path("engine/domain/models/palette.py")).exists())
+        self.assertTrue((Path("engine/domain/utils/palette_analysis.py")).exists())
+        self.assertTrue((Path("engine/adapters/utils/screenshot.py")).exists())
+        self.assertFalse((Path("engine/models/color_processing")).exists())
+        self.assertFalse((Path("engine/utils")).exists())
         self.assertTrue((Path("engine/validators")).exists())
 
     def test_scope_payloads_are_generated_from_python_source(self) -> None:
@@ -220,6 +290,18 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertEqual(outline_item["colorRole"], "foreground")
         self.assertEqual(column_rule_item["colorRole"], "foreground")
 
+    def test_closed_domain_enums_are_available(self) -> None:
+        self.assertEqual(StyleKind.INLINE.value, "inline")
+        self.assertEqual(StyleOrigin.AUTHOR.value, "author")
+        self.assertEqual(StyleUsageStatus.USED.value, "used")
+        self.assertEqual(StyleResolutionStatus.UNRESOLVED.value, "unresolved")
+        self.assertEqual(ElementSourceKind.INHERITED.value, "inherited")
+        self.assertEqual(ColorFamilyType.CHROMATIC.value, "chromatic")
+        self.assertEqual(ColorConfirmationStatus.CONFIRMED.value, "confirmed")
+        self.assertEqual(PaletteRoleBias.BACKGROUND.value, "background")
+        self.assertEqual(TransformationKind.HEURISTIC.value, "heuristic")
+        self.assertEqual(TransformationStatus.APPLIED.value, "applied")
+
     def test_validate_zip_members_rejects_traversal(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             zip_path = Path(temp_dir) / "unsafe.zip"
@@ -240,6 +322,8 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         assert not isinstance(project_input, str)
         self.assertEqual(project_input.html_filename, "render_scope_matrix.html")
         self.assertIn("Snapshot Matrix", project_input.html_content)
+        self.assertEqual(project_input.session.session_id, "testsess1")
+        self.assertEqual(project_input.workspace.session_id, "testsess1")
 
     def test_render_snapshot_contains_expected_scope_and_text(self) -> None:
         html_content = RENDER_SCOPE_MATRIX.read_text(encoding="utf-8")
@@ -248,7 +332,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             base_path=str(FIXTURES_DIR),
         )
 
-        tags = [node["identity"]["tag"] for node in snapshot["elements_inventory"]]
+        tags = [node["identity"]["tag"] for node in snapshot["nodes"]]
         self.assertNotIn("script", tags)
         self.assertNotIn("source", tags)
         self.assertNotIn("track", tags)
@@ -259,13 +343,13 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertIn("selectedcontent", tags)
 
         image_nodes = [
-            node for node in snapshot["elements_inventory"] if node["identity"]["tag"] == "img"
+            node for node in snapshot["nodes"] if node["identity"]["tag"] == "img"
         ]
         self.assertEqual(len(image_nodes), 1)
         self.assertTrue(image_nodes[0]["flags"]["is_out_of_scope"])
         picture_nodes = [
             node
-            for node in snapshot["elements_inventory"]
+            for node in snapshot["nodes"]
             if node["identity"]["tag"] == "picture"
         ]
         self.assertEqual(len(picture_nodes), 1)
@@ -273,7 +357,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
 
         title_nodes = [
             node
-            for node in snapshot["elements_inventory"]
+            for node in snapshot["nodes"]
             if node["identity"].get("id") == "title"
         ]
         self.assertEqual(len(title_nodes), 1)
@@ -281,12 +365,13 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertTrue(title_nodes[0]["identity"]["xpath"].startswith("/html[1]/body[1]"))
         self.assertFalse(title_nodes[0]["flags"]["is_text_node"])
 
-        self.assertIn("elements_inventory", snapshot)
-        self.assertIn("styles_inventory", snapshot)
-        self.assertNotIn("nodes", snapshot)
+        self.assertIn("nodes", snapshot)
+        self.assertIn("tree", snapshot)
+        self.assertNotIn("elements_inventory", snapshot)
+        self.assertNotIn("styles_inventory", snapshot)
         self.assertNotIn("rules_used", snapshot)
 
-        for node in snapshot["elements_inventory"]:
+        for node in snapshot["nodes"]:
             self.assertIn("node_id", node)
             self.assertIn("is_leaf", node["flags"])
             self.assertIn("has_siblings", node["flags"])
@@ -294,8 +379,8 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             self.assertIn("computed_styles", node)
             self.assertNotIn("style_trace", node)
 
-        node_ids = {node["node_id"] for node in snapshot["elements_inventory"]}
-        for node in snapshot["elements_inventory"]:
+        node_ids = {node["node_id"] for node in snapshot["nodes"]}
+        for node in snapshot["nodes"]:
             parent_id = node.get("parent_id")
             if parent_id:
                 self.assertIn(parent_id, node_ids)
@@ -303,16 +388,15 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 self.assertIn(child_id, node_ids)
 
     def test_render_snapshot_filters_matching_styles_to_scope(self) -> None:
-        html_content = RENDER_SCOPE_MATRIX.read_text(encoding="utf-8")
-        snapshot = extract_prototype_state_snapshot(
-            html_content=html_content,
-            base_path=str(FIXTURES_DIR),
-        )
+        projection = self._snapshot_fixture_projection(RENDER_SCOPE_MATRIX)
+        snapshot = projection["snapshot"]
+        assert isinstance(snapshot, dict)
+        styles_inventory = projection["styles_inventory"]
+        assert isinstance(styles_inventory, list)
 
         title_node = next(
-            node for node in snapshot["elements_inventory"] if node["identity"].get("id") == "title"
+            node for node in snapshot["nodes"] if node["identity"].get("id") == "title"
         )
-        styles_inventory = snapshot["styles_inventory"]
         all_declarations = [
             declaration["name"]
             for style in styles_inventory
@@ -330,17 +414,17 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertNotIn("background_colors", title_node["styles"])
         self.assertEqual(
             list(title_node["computed_styles"]["color"].keys()),
-            ["style_id", "kind", "declared_property", "computed_value"],
+            ["style_id", "kind", "declared_property", "resolution_status", "computed_value"],
+        )
+        self.assertEqual(
+            title_node["computed_styles"]["color"]["resolution_status"],
+            "exact_match",
         )
 
     def test_styles_inventory_is_global_and_deduplicated(self) -> None:
-        html_content = RENDER_SCOPE_MATRIX.read_text(encoding="utf-8")
-        snapshot = extract_prototype_state_snapshot(
-            html_content=html_content,
-            base_path=str(FIXTURES_DIR),
-        )
-
-        styles_inventory = snapshot["styles_inventory"]
+        projection = self._snapshot_fixture_projection(RENDER_SCOPE_MATRIX)
+        styles_inventory = projection["styles_inventory"]
+        assert isinstance(styles_inventory, list)
         self.assertGreater(len(styles_inventory), 0)
         self.assertTrue(all("style_id" in rule for rule in styles_inventory))
         self.assertTrue(all("kind" in rule for rule in styles_inventory))
@@ -375,30 +459,32 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         )
 
     def test_cascade_resolution_links_computed_properties_to_real_styles(self) -> None:
-        html_content = RENDER_CASCADE_MATRIX.read_text(encoding="utf-8")
-        snapshot = extract_prototype_state_snapshot(
-            html_content=html_content,
-            base_path=str(FIXTURES_DIR),
-        )
+        projection = self._snapshot_fixture_projection(RENDER_CASCADE_MATRIX)
+        snapshot = projection["snapshot"]
+        styles_inventory = projection["styles_inventory"]
+        assert isinstance(snapshot, dict)
+        assert isinstance(styles_inventory, list)
 
         elements = {
             node["identity"].get("id"): node
-            for node in snapshot["elements_inventory"]
+            for node in snapshot["nodes"]
             if node["identity"].get("id")
         }
         styles_by_id = {
             style["style_id"]: style
-            for style in snapshot["styles_inventory"]
+            for style in styles_inventory
         }
 
         winner_color = elements["winner"]["computed_styles"]["color"]
-        self.assertEqual(winner_color["kind"], "matched")
+        self.assertEqual(winner_color["kind"], "external")
+        self.assertEqual(winner_color["resolution_status"], "exact_match")
         self.assertEqual(winner_color["declared_property"], "color")
         self.assertEqual(styles_by_id[winner_color["style_id"]]["selector_text"], "#winner")
 
         important_color = elements["important"]["computed_styles"]["color"]
         if important_color.get("style_id"):
-            self.assertEqual(important_color["kind"], "matched")
+            self.assertEqual(important_color["kind"], "external")
+            self.assertEqual(important_color["resolution_status"], "exact_match")
             self.assertEqual(important_color["declared_property"], "color")
             self.assertEqual(styles_by_id[important_color["style_id"]]["selector_text"], "p")
         else:
@@ -426,14 +512,14 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         )
 
     def test_elements_inventory_computed_styles_have_style_or_unresolved(self) -> None:
-        html_content = RENDER_SCOPE_MATRIX.read_text(encoding="utf-8")
-        snapshot = extract_prototype_state_snapshot(
-            html_content=html_content,
-            base_path=str(FIXTURES_DIR),
-        )
+        projection = self._snapshot_fixture_projection(RENDER_SCOPE_MATRIX)
+        styles_inventory = projection["styles_inventory"]
+        elements_inventory = projection["elements_inventory"]
+        assert isinstance(styles_inventory, list)
+        assert isinstance(elements_inventory, list)
 
-        style_ids = {style["style_id"] for style in snapshot["styles_inventory"]}
-        for element in snapshot["elements_inventory"]:
+        style_ids = {style["style_id"] for style in styles_inventory}
+        for element in elements_inventory:
             for payload in element.get("computed_styles", {}).values():
                 self.assertIn("computed_value", payload)
                 self.assertTrue("style_id" in payload or payload.get("resolution_status") == "unresolved")
@@ -441,15 +527,13 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                     self.assertIn(payload["style_id"], style_ids)
 
     def test_snapshot_omits_unmatched_default_computed_properties(self) -> None:
-        html_content = RENDER_CASCADE_MATRIX.read_text(encoding="utf-8")
-        snapshot = extract_prototype_state_snapshot(
-            html_content=html_content,
-            base_path=str(FIXTURES_DIR),
-        )
+        projection = self._snapshot_fixture_projection(RENDER_CASCADE_MATRIX)
+        snapshot = projection["snapshot"]
+        assert isinstance(snapshot, dict)
 
         elements = {
             node["identity"].get("id"): node
-            for node in snapshot["elements_inventory"]
+            for node in snapshot["nodes"]
             if node["identity"].get("id")
         }
 
@@ -470,19 +554,18 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertNotIn("display", winner_styles)
 
     def test_snapshot_includes_raw_text_nodes_alongside_parent_elements(self) -> None:
-        html_content = RENDER_SCOPE_MATRIX.read_text(encoding="utf-8")
         snapshot = extract_prototype_state_snapshot(
-            html_content=html_content,
+            html_content=RENDER_SCOPE_MATRIX.read_text(encoding="utf-8"),
             base_path=str(FIXTURES_DIR),
         )
 
         title_node = next(
-            node for node in snapshot["elements_inventory"] if node["identity"].get("id") == "title"
+            node for node in snapshot["nodes"] if node["identity"].get("id") == "title"
         )
         self.assertEqual(title_node["text"], "Snapshot Matrix")
         text_children = [
             node
-            for node in snapshot["elements_inventory"]
+            for node in snapshot["nodes"]
             if node["identity"]["tag"] == "#text" and node.get("parent_id") == title_node["node_id"]
         ]
         self.assertEqual(len(text_children), 1)
@@ -490,13 +573,9 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertTrue(text_children[0]["flags"]["is_text_node"])
 
     def test_palette_contains_directly_applied_colors(self) -> None:
-        html_content = RENDER_SCOPE_MATRIX.read_text(encoding="utf-8")
-        snapshot = extract_prototype_state_snapshot(
-            html_content=html_content,
-            base_path=str(FIXTURES_DIR),
-        )
-
-        palette = snapshot["palette"]
+        projection = self._snapshot_fixture_projection(RENDER_SCOPE_MATRIX)
+        palette = projection["palette"]
+        assert isinstance(palette, list)
         self.assertGreater(len(palette), 0)
         self.assertTrue(all("color_id" in entry for entry in palette))
         self.assertTrue(all("value" in entry for entry in palette))
@@ -524,7 +603,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
 
         tracked_declarations = {
             declaration["name"]
-            for rule in snapshot["styles_inventory"]
+            for rule in projection["styles_inventory"]
             for declaration in rule.get("declarations", [])
         }
         self.assertIn("box-shadow", tracked_declarations)
@@ -553,12 +632,44 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertEqual(color_data[0]["count"], 3)
 
     def test_pixel_color_statistics_include_percentage(self) -> None:
-        color_data = pixels_to_color_statistics(
-            [[[255, 0, 0], [255, 0, 0]], [[0, 0, 255], [255, 0, 0]]]
+        color_data = color_frequency_to_statistics(
+            pixels_to_color_records(
+                [[[255, 0, 0], [255, 0, 0]], [[0, 0, 255], [255, 0, 0]]]
+            )
         )
         self.assertEqual(color_data[0]["color_id"], "pixel-color-1")
         self.assertEqual(color_data[0]["count"], 3)
         self.assertAlmostEqual(color_data[0]["percentage"], 75.0)
+
+    def test_environmental_assessment_uses_immutable_models_and_functions(self) -> None:
+        pixels = (
+            {"color": [255, 255, 255], "count": 2},
+            {"color": [0, 0, 0], "count": 1},
+        )
+        energy_model = EnergyModel.build_default()
+        carbon_model = CarbonFootprintModel.build_default()
+
+        current_a = estimate_current(pixels, energy_model)
+        self.assertEqual(current_a, calculate_power(pixels, energy_model))
+        assessment = calculate(
+            current_a=current_a,
+            time_hours=1,
+            carbon_model=carbon_model,
+            user_count=10,
+            usage_hours=2,
+        )
+        interface_assessment = assess_interface(
+            pixels,
+            energy_model=energy_model,
+            carbon_model=carbon_model,
+            time_hours=1,
+            user_count=10,
+            usage_hours=2,
+        )
+
+        self.assertIn("energy_wh", assessment)
+        self.assertIn("co2eq_per_use", assessment)
+        self.assertAlmostEqual(interface_assessment["current_a"], current_a)
 
     def test_coloraide_dependency_supports_hct_distance_and_named_colors(self) -> None:
         color = ColorAll("#ff0000")
@@ -700,6 +811,38 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertEqual(len(chromatic_palettes), 1)
         self.assertEqual(chromatic_palettes[0]["display_name"], "Violet")
 
+    def test_palette_analysis_ignores_colors_without_semantic_or_pixel_support(self) -> None:
+        palette_analysis = build_palette_analysis(
+            snapshot_palette=(
+                {
+                    "color_id": "color-1",
+                    "value": "rgb(255, 255, 255)",
+                    "usage_count": 5,
+                    "usage": [{"tag": "body", "property": "background-color", "count": 5}],
+                    "display_pixel_count": 90,
+                },
+                {
+                    "color_id": "color-2",
+                    "value": "rgb(255, 0, 0)",
+                    "usage_count": 0,
+                    "usage": [],
+                    "display_pixel_count": 0,
+                    "added_from_pixel_evidence": True,
+                },
+            ),
+            pixel_color_frequencies=[
+                {"color": [255, 255, 255], "count": 90},
+                {"color": [255, 0, 0], "count": 3},
+            ],
+            material_quantization_assessment=get_material_quantization_assessment(),
+        ).to_dict()
+
+        self.assertEqual(len(palette_analysis["semantic_colors"]), 1)
+        self.assertEqual(
+            len(palette_analysis["core_palettes"]["chromatic_palettes"]),
+            0,
+        )
+
     def test_palette_preview_renderer_outputs_png(self) -> None:
         palette_analysis = build_palette_analysis(
             snapshot_palette=(
@@ -730,6 +873,134 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             self.assertTrue(output_path.exists())
             self.assertGreater(output_path.stat().st_size, 0)
 
+    def test_token_model_tracks_alias_assignments_and_validations(self) -> None:
+        token = Token.semantic(
+            path=("glow", "text", "color", "emphasis", "4"),
+            alias_to="glow.color.neutral.100",
+            resolved_value="#ffffff",
+            element_key="text",
+            property_id="color",
+            value_label="emphasis.4",
+            source_color_ids=("color-1",),
+            source_element_ids=("node-1",),
+            source_property_refs=("node-1:color",),
+            assigned_element_ids=("node-1",),
+            created_by_stage="tests",
+        ).with_validation(
+            TokenValidationModel(
+                rule_id="text_contrast",
+                status=TokenValidationStatus.FAILED,
+                reason="contrast too low",
+                metrics={"contrast": 3.2, "minimum": 4.5},
+            )
+        )
+
+        self.assertTrue(token.is_semantic_alias)
+        self.assertTrue(token.has_failed_validations)
+        self.assertEqual(token.effective_assignment_count, 1)
+        payload = token.to_dict()
+        self.assertEqual(token.path_string, "glow.text.color.emphasis.4")
+        self.assertEqual(payload["alias_to"], "glow.color.neutral.100")
+        self.assertEqual(payload["validations"][0]["status"], "failed")
+        self.assertEqual(payload["css_variable_name"], "--glow-text-color-emphasis-4")
+
+    def test_inventory_graph_builds_relations_and_effective_backgrounds(self) -> None:
+        html_content = RENDER_SCOPE_MATRIX.read_text(encoding="utf-8")
+        artifacts = capture_prototype_state_artifacts(
+            html_content=html_content,
+            base_path=str(FIXTURES_DIR),
+            options=SnapshotOptions(include_color_frequencies=False, capture_screenshot=False),
+        )
+        elements_inventory = _build_element_color_properties(
+            artifacts.snapshot.build_elements_inventory(),
+            ColorInventoryModel.build(artifacts.colors_inventory_seed),
+        )
+        styles_inventory = StyleInventoryModel.build(artifacts.styles_inventory_seed)
+        colors_inventory = ColorInventoryModel.build(artifacts.colors_inventory_seed)
+        graph = InventoryGraphModel.build(
+            elements=elements_inventory,
+            styles=styles_inventory,
+            colors=colors_inventory,
+        )
+
+        title_entry = next(
+            entry for entry in elements_inventory if entry.identity.id == "title"
+        )
+        parent = graph.parent_of(title_entry.node_id)
+        self.assertIsNotNone(parent)
+        assert parent is not None
+        self.assertIn(title_entry.node_id, [child.node_id for child in graph.children_of(parent.node_id)])
+        self.assertGreaterEqual(len(graph.ancestors_of(title_entry.node_id)), 1)
+        effective_background = graph.effective_background_of(title_entry.node_id)
+        self.assertIsNotNone(effective_background)
+        assert effective_background is not None
+        self.assertTrue(effective_background.hex_value.startswith("#"))
+        effective_foreground = graph.effective_color_of(title_entry.node_id)
+        self.assertIsNotNone(effective_foreground)
+        surface_container = graph.surface_container_of(title_entry.node_id)
+        self.assertIsNotNone(surface_container)
+        self.assertTrue(
+            isinstance(graph.adjacent_elements_of(title_entry.node_id), tuple)
+        )
+
+    def test_token_inventory_and_rules_build_from_existing_palette_and_inventory(self) -> None:
+        html_content = RENDER_SCOPE_MATRIX.read_text(encoding="utf-8")
+        artifacts = capture_prototype_state_artifacts(
+            html_content=html_content,
+            base_path=str(FIXTURES_DIR),
+            options=SnapshotOptions(include_color_frequencies=True, capture_screenshot=False),
+        )
+        colors_inventory = ColorInventoryModel.build(artifacts.colors_inventory_seed)
+        elements_inventory = _build_element_color_properties(
+            artifacts.snapshot.build_elements_inventory(),
+            colors_inventory,
+        )
+        styles_inventory = StyleInventoryModel.build(artifacts.styles_inventory_seed)
+        palette_analysis = build_palette_analysis(
+            snapshot_palette=colors_inventory.to_palette_dicts(),
+            pixel_color_frequencies=artifacts.color_frequencies or [],
+            material_quantization_assessment=get_material_quantization_assessment(),
+        )
+        mapped_colors = ColorInventoryModel.build(
+            [
+                entry.with_palette_mapping(
+                    palette_id=semantic_color.mapped_palette_id or "palette-achromatic-1",
+                    tone=semantic_color.mapped_tone or 0,
+                    tone_rgb=semantic_color.mapped_tone_rgb or entry.rgb,
+                    tone_distance=semantic_color.mapped_tone_distance or 0.0,
+                )
+                if (semantic_color := next((item for item in palette_analysis.semantic_colors if item.color_id == entry.color_id), None))
+                and semantic_color.mapped_palette_id is not None
+                else entry
+                for entry in colors_inventory
+            ]
+        )
+        graph = InventoryGraphModel.build(
+            elements=elements_inventory,
+            styles=styles_inventory,
+            colors=mapped_colors,
+            palettes=tuple(palette_analysis.core_palettes),
+        )
+        token_inventory = build_token_inventory(graph, palette_analysis)
+        validated_inventory = apply_token_rules(
+            token_inventory,
+            InventoryGraphModel.build(
+                elements=graph.elements,
+                styles=graph.styles,
+                colors=graph.colors,
+                palettes=graph.palettes,
+                tokens=token_inventory,
+            ),
+        )
+
+        self.assertGreater(len(token_inventory), 0)
+        self.assertTrue(any(token.path_string.startswith("glow.color.") for token in token_inventory))
+        self.assertTrue(any(token.is_semantic or token.is_component for token in token_inventory))
+        self.assertEqual(len(validated_inventory), len(token_inventory))
+        self.assertTrue(
+            any(token.validations for token in validated_inventory if token.is_semantic)
+        )
+
     def test_material_quantization_assessment_is_available(self) -> None:
         assessment = get_material_quantization_assessment().to_dict()
         self.assertTrue(assessment["recommended"])
@@ -753,18 +1024,165 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertIn("items", results["recommendations"])
         self.assertIn("render_snapshot", results)
         self.assertIn("color_processing", results)
-        self.assertEqual(results["color_processing"]["artifact"], "palette_analysis.json")
+        self.assertIn("token_processing", results)
+        self.assertIn("accessibility", results)
+        self.assertIn("effect_colors", results)
+        self.assertEqual(results["color_processing"]["artifact"], "color_scheme.json")
+        self.assertEqual(results["accessibility"]["contrast"]["artifact"], "contrast_report_original.json")
+        self.assertEqual(results["effect_colors"]["artifact"], "effect_colors_original.json")
         self.assertEqual(results["color_processing"]["palette_preview_artifact"], "palette_preview.png")
         self.assertEqual(results["color_processing"]["palette_preview_output"], "palette_preview.png")
-        self.assertEqual(results["color_processing"]["palette_preview_location"], "output")
+        self.assertEqual(results["color_processing"]["palette_preview_location"], "artifacts")
+        self.assertEqual(results["token_processing"]["artifact"], "tokens_original.json")
+        self.assertEqual(results["token_processing"]["graph_artifact"], "inventory_graph.json")
         preview_output = (
             Path("workspace/sessions")
             / results["session_dirname"]
-            / "output"
+            / "artifacts"
             / results["color_processing"]["palette_preview_output"]
         )
         self.assertTrue(preview_output.exists())
         self.assertEqual(results["render_snapshot"]["artifact"], "render_snapshot_original.json")
+        css_overview_path = (
+            Path("workspace/sessions")
+            / results["session_dirname"]
+            / "artifacts"
+            / "css_overview_original.json"
+        )
+        self.assertTrue(css_overview_path.exists())
+        css_overview_payload = json.loads(css_overview_path.read_text(encoding="utf-8"))
+        self.assertIn("colors", css_overview_payload)
+        self.assertIn("contrast_issues", css_overview_payload)
+        self.assertIn("unused_declarations", css_overview_payload)
+        self.assertTrue(
+            all(
+                "color_id" in entry or not entry
+                for entries in css_overview_payload["colors"].values()
+                for entry in entries
+            )
+        )
+        colors_inventory_path = (
+            Path("workspace/sessions")
+            / results["session_dirname"]
+            / "artifacts"
+            / "colors_inventory_original.json"
+        )
+        self.assertTrue(colors_inventory_path.exists())
+        colors_inventory_payload = json.loads(colors_inventory_path.read_text(encoding="utf-8"))
+        self.assertIn("entries", colors_inventory_payload)
+        self.assertTrue(
+            any(
+                entry.get("mapped_palette_id") is not None
+                or entry.get("display_pixel_count", 0) > 0
+                for entry in colors_inventory_payload["entries"]
+            )
+        )
+        self.assertTrue(
+            any(
+                entry.get("observed_usage_count", 0) > 0
+                and entry.get("observed_roles")
+                for entry in colors_inventory_payload["entries"]
+            )
+        )
+        contrast_report_path = (
+            Path("workspace/sessions")
+            / results["session_dirname"]
+            / "artifacts"
+            / "contrast_report_original.json"
+        )
+        self.assertTrue(contrast_report_path.exists())
+        contrast_report_payload = json.loads(contrast_report_path.read_text(encoding="utf-8"))
+        self.assertIn("issues", contrast_report_payload)
+        if contrast_report_payload["issues"]:
+            self.assertTrue(
+                any(
+                    issue.get("element_id")
+                    and issue.get("foreground", {}).get("color_id")
+                    for issue in contrast_report_payload["issues"]
+                )
+            )
+        effect_colors_path = (
+            Path("workspace/sessions")
+            / results["session_dirname"]
+            / "artifacts"
+            / "effect_colors_original.json"
+        )
+        self.assertTrue(effect_colors_path.exists())
+        effect_colors_payload = json.loads(effect_colors_path.read_text(encoding="utf-8"))
+        self.assertIn("entries", effect_colors_payload)
+        self.assertIn("by_property", effect_colors_payload)
+        tokens_path = (
+            Path("workspace/sessions")
+            / results["session_dirname"]
+            / "artifacts"
+            / "tokens_original.json"
+        )
+        inventory_graph_path = (
+            Path("workspace/sessions")
+            / results["session_dirname"]
+            / "artifacts"
+            / "inventory_graph.json"
+        )
+        self.assertTrue(tokens_path.exists())
+        self.assertTrue(inventory_graph_path.exists())
+        tokens_payload = json.loads(tokens_path.read_text(encoding="utf-8"))
+        self.assertIn("glow", tokens_payload)
+        self.assertIn("color", tokens_payload["glow"])
+        graph_payload = json.loads(inventory_graph_path.read_text(encoding="utf-8"))
+        self.assertIn("summary", graph_payload)
+        self.assertIn("tokens", graph_payload)
+        self.assertIn("relations", graph_payload)
+        self.assertIn("css_overview", graph_payload)
+        self.assertIn("contrast_report", graph_payload)
+        self.assertIn("effect_color_report", graph_payload)
+        self.assertIn("color_scheme", graph_payload)
+        self.assertIn("pixel_frequencies_display", graph_payload)
+        self.assertIn("element_visual_context", graph_payload["relations"])
+        self.assertIn("element_adjacency", graph_payload["relations"])
+        self.assertGreater(graph_payload["summary"]["element_count"], 0)
+        self.assertGreaterEqual(
+            graph_payload["summary"]["visible_element_count"],
+            graph_payload["summary"]["text_element_count"],
+        )
+        self.assertGreaterEqual(graph_payload["summary"]["color_count"], 1)
+        self.assertGreaterEqual(graph_payload["summary"]["pixel_count"], 1)
+        self.assertEqual(
+            graph_payload["summary"]["contrast_issue_count"],
+            len(graph_payload["contrast_report"]["issues"]),
+        )
+        self.assertEqual(
+            graph_payload["summary"]["unused_declaration_count"],
+            graph_payload["css_overview"]["unused_declarations"]["count"],
+        )
+        self.assertEqual(
+            graph_payload["summary"]["display_pixel_count"],
+            graph_payload["pixel_frequencies_display"]["total_pixels_considered"],
+        )
+
+    def test_run_pipeline_preserves_zip_project_skeleton_in_output(self) -> None:
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr(
+                "Pagina/menu.html",
+                "<html><body style=\"background:#000;color:#fff\"><h1>Hola</h1></body></html>",
+            )
+            archive.writestr("Pagina/css/site.css", "body { margin: 0; }")
+
+        app = create_app()
+        upload = InMemoryUpload("Pagina_de_prueba_2.zip", buffer.getvalue())
+        with app.test_request_context("/results", method="POST"):
+            results, error = run_pipeline(upload)
+
+        self.assertIsNone(error)
+        assert results is not None
+        session_dir = Path("workspace/sessions") / results["session_dirname"]
+        self.assertTrue((session_dir / "input" / "Pagina" / "menu.html").exists())
+        self.assertTrue((session_dir / "output" / "Pagina" / "menu.html").exists())
+        self.assertTrue((session_dir / "output" / "Pagina" / "css" / "site.css").exists())
+        self.assertFalse((session_dir / "output" / "palette_preview.png").exists())
+        self.assertFalse((session_dir / "output" / "Pagina_de_prueba_2.zip").exists())
+        self.assertTrue((session_dir / "artifacts" / "palette_preview.png").exists())
+        self.assertTrue((session_dir / "artifacts" / "Pagina_de_prueba_2.zip").exists())
 
     def test_placeholder_gitkeeps_are_removed_from_cleaned_domains(self) -> None:
         forbidden_gitkeeps = (
@@ -784,27 +1202,26 @@ class EngineRefactorSmokeTests(unittest.TestCase):
 
     def test_root_layer_topology_is_present(self) -> None:
         expected_paths = (
-            Path("engine/models/debug_trace.py"),
-            Path("engine/models/file_handling"),
-            Path("engine/models/color_processing"),
-            Path("engine/models/environmental_assessment"),
-            Path("engine/models/prototype_structural_extractor"),
-            Path("engine/models/recommendations"),
-            Path("engine/services/file_handling"),
-            Path("engine/services/color_processing"),
-            Path("engine/services/color_processing/palette_analysis_service.py"),
-            Path("engine/services/environmental_assessment"),
-            Path("engine/services/prototype_structural_extractor"),
-            Path("engine/services/transformation"),
-            Path("engine/enums/core/web_colors.py"),
+            Path("engine/domain/models/color.py"),
+            Path("engine/domain/models/palette.py"),
+            Path("engine/domain/models/snapshot.py"),
+            Path("engine/domain/models/environmental_assessment/energy_consumption.py"),
+            Path("engine/domain/models/environmental_assessment/carbon_footprint.py"),
+            Path("engine/domain/data/web_colors.py"),
+            Path("engine/domain/enums/scope/css_properties.py"),
+            Path("engine/domain/enums/scope/html_elements.py"),
+            Path("engine/domain/enums/scope/json_exports.py"),
+            Path("engine/domain/enums/types/style.py"),
+            Path("engine/domain/enums/types/color.py"),
+            Path("engine/domain/enums/types/elements.py"),
+            Path("engine/domain/enums/types/transformations.py"),
+            Path("engine/adapters/file_system/file_handler.py"),
+            Path("engine/adapters/file_system/code_processor.py"),
+            Path("engine/adapters/browser/snapshot_analyzer.py"),
+            Path("engine/adapters/browser/prototype_renderer.py"),
+            Path("engine/adapters/utils/io.py"),
+            Path("engine/adapters/utils/screenshot.py"),
             Path("engine/validators/file_handling"),
-            Path("engine/utils/coloraide_utils.py"),
-            Path("engine/utils/color_utils.py"),
-            Path("engine/utils/file_utils.py"),
-            Path("engine/utils/html_utils.py"),
-            Path("engine/utils/image_utils.py"),
-            Path("engine/utils/serialization_utils.py"),
-            Path("engine/utils/fs_utils.py"),
         )
         for path in expected_paths:
             self.assertTrue(path.exists(), msg=str(path))
@@ -830,6 +1247,20 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             Path("engine/prototype_structural_extractor"),
             Path("engine/transformation"),
             Path("engine/recommendations"),
+            Path("engine/models/debug_trace.py"),
+            Path("engine/models/pipeline_context.py"),
+            Path("engine/models/color_processing"),
+            Path("engine/models/environmental_assessment"),
+            Path("engine/models/prototype_structural_extractor"),
+            Path("engine/models/recommendations"),
+            Path("engine/services/file_handling"),
+            Path("engine/services/color_processing"),
+            Path("engine/services/environmental_assessment"),
+            Path("engine/services/prototype_structural_extractor"),
+            Path("engine/services/transformation"),
+            Path("engine/enums/core"),
+            Path("engine/enums/scope"),
+            Path("engine/utils"),
             Path("engine/services/color_service.py"),
             Path("engine/services/debug_trace_service.py"),
             Path("engine/services/results_compiler_service.py"),
@@ -840,11 +1271,9 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             self.assertFalse(path.exists(), msg=str(path))
 
     def test_legacy_wrapper_symbols_are_removed(self) -> None:
-        page_capture_content = Path(
-            "engine/services/prototype_structural_extractor/page_capture_service.py"
-        ).read_text(encoding="utf-8")
-
-        self.assertNotIn("def render_gui(", page_capture_content)
+        self.assertFalse(
+            Path("engine/services/prototype_structural_extractor/page_capture_service.py").exists()
+        )
         self.assertFalse(Path("engine/transformation/transformations_pipeline.py").exists())
         self.assertFalse(Path("engine/file_handling/project_intake_pipeline.py").exists())
         self.assertFalse(Path("engine/environmental_assessment/environmental_assessment_pipeline.py").exists())
@@ -852,13 +1281,6 @@ class EngineRefactorSmokeTests(unittest.TestCase):
 
     def test_wrapper_package_inits_are_removed(self) -> None:
         removed_inits = (
-            Path("engine/pipeline/stages/color_processing/__init__.py"),
-            Path("engine/pipeline/stages/environmental_assessment/__init__.py"),
-            Path("engine/pipeline/stages/file_handling/__init__.py"),
-            Path("engine/pipeline/stages/prototype_structural_extractor/__init__.py"),
-            Path("engine/pipeline/stages/recommendations/__init__.py"),
-            Path("engine/pipeline/stages/results/__init__.py"),
-            Path("engine/pipeline/stages/transformation/__init__.py"),
             Path("engine/services/file_handling/__init__.py"),
             Path("engine/services/color_processing/__init__.py"),
             Path("engine/services/environmental_assessment/__init__.py"),
@@ -876,12 +1298,94 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         for path in removed_inits:
             self.assertFalse(path.exists(), msg=str(path))
 
-    def test_pixel_frequency_service_only_keeps_domain_entrypoints(self) -> None:
-        content = Path("engine/services/color_processing/pixel_frequency_service.py").read_text(
-            encoding="utf-8"
+    def test_nested_stage_directories_are_removed(self) -> None:
+        removed_stage_dirs = (
+            Path("engine/pipeline/stages/color_processing"),
+            Path("engine/pipeline/stages/environmental_assessment"),
+            Path("engine/pipeline/stages/file_handling"),
+            Path("engine/pipeline/stages/prototype_structural_extractor"),
+            Path("engine/pipeline/stages/recommendations"),
+            Path("engine/pipeline/stages/results"),
+            Path("engine/pipeline/stages/transformation"),
         )
-        self.assertNotIn("def load_image_array(", content)
+        for path in removed_stage_dirs:
+            self.assertFalse(path.exists(), msg=str(path))
+
+    def test_pixel_frequency_service_only_keeps_domain_entrypoints(self) -> None:
+        self.assertFalse(Path("engine/services/color_processing/pixel_frequency_service.py").exists())
+        content = Path("engine/adapters/utils/screenshot.py").read_text(encoding="utf-8")
         self.assertNotIn("def json_default_numpy_serializer(", content)
+
+    def test_results_view_model_is_precomputed_in_python(self) -> None:
+        results = {
+            "carbon_footprint": 697.5,
+            "environmental_co2eq_per_use": 654.45,
+            "color_processing": {
+                "named_color_breakdown": [
+                    {
+                        "display_name": "WhiteSmoke",
+                        "family": "Neutral",
+                        "hex_value": "#f5f5f5",
+                        "percentage": 26.63,
+                    },
+                    {
+                        "display_name": "Red",
+                        "family": "Red",
+                        "hex_value": "#ff0000",
+                        "percentage": 23.70,
+                    },
+                    {
+                        "display_name": "Violet",
+                        "family": "Violet",
+                        "hex_value": "#ee82ee",
+                        "percentage": 9.35,
+                    },
+                    {
+                        "display_name": "MediumOrchid",
+                        "family": "Violet",
+                        "hex_value": "#ba55d3",
+                        "percentage": 8.90,
+                    },
+                ],
+                "core_palettes": {
+                    "achromatic_palette": {
+                        "display_name": "Neutral",
+                        "tones": [{"tone": 0, "hex_value": "#000000"}],
+                    },
+                    "chromatic_palettes": [
+                        {
+                            "display_name": "Violet",
+                            "tones": [{"tone": 50, "hex_value": "#9b5dbb"}],
+                        },
+                        {
+                            "display_name": "Red",
+                            "tones": [{"tone": 50, "hex_value": "#ef0000"}],
+                        },
+                    ],
+                },
+            },
+        }
+
+        view = _build_results_view(results)
+
+        self.assertAlmostEqual(view["initial_reduction"], 43.05)
+        self.assertEqual(view["dominant_color_count"], 3)
+        self.assertEqual(view["dominant_rows"][0]["label"], "Neutral")
+        self.assertEqual(view["dominant_rows"][1]["label"], "Red")
+        self.assertEqual(view["dominant_rows"][2]["label"], "Violet")
+        self.assertAlmostEqual(view["dominant_rows"][2]["percentage"], 18.25)
+        self.assertEqual(len(view["palette_rows"]), 3)
+        self.assertEqual(view["palette_rows"][0]["label"], "Neutral")
+
+    def test_results_template_no_longer_contains_macro_preparation_block(self) -> None:
+        template = Path("app/templates/results.html").read_text(encoding="utf-8")
+
+        self.assertNotIn("{% macro broad_family", template)
+        self.assertNotIn("dominant_rows = namespace", template)
+        self.assertNotIn("top_three = namespace", template)
+        self.assertNotIn("core_palettes = color_processing.core_palettes", template)
+        self.assertIn("Contrast report", template)
+        self.assertIn("Effect color evidence", template)
 
 
 if __name__ == "__main__":

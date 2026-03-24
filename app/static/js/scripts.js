@@ -1,156 +1,10 @@
-class StyledCard extends HTMLElement {
-  constructor() {
-    super();
-    const shadow = this.attachShadow({ mode: "open" });
-
-    const style = document.createElement("style");
-    style.textContent = `
-          :host {
-              display: block;
-              background-color: #002923;
-              border-radius: 8px;
-              color: white;
-              width: 400px;
-              height: 100px;
-              padding: 16px;
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-              font-family: Arial, sans-serif;
-              margin: 15px;
-              align-content: center;
-          }
-
-          .header {
-              font-size: 1.5em;
-              text-align: center;
-              margin-bottom: 15px;
-          }
-
-          .value {
-              font-size: 2.5em;
-              font-weight: bold;
-              text-align: center;
-              color: white;
-          }
-
-          .description {
-              font-size: 1em;
-              color: #CCCCCC;
-              text-align: left;
-              margin-top: 15px;
-          }
-      `;
-
-    const container = document.createElement("div");
-    container.innerHTML = `
-          <div class="header">
-              <slot name="header">Default Header</slot>
-          </div>
-          <div class="value">
-              <slot name="value">0.0</slot>
-          </div>
-          <div class="description">
-              <slot name="description">Default Description</slot>
-          </div>
-      `;
-
-    shadow.appendChild(style);
-    shadow.appendChild(container);
-  }
-}
-
-customElements.define("styled-card", StyledCard);
-
-class RecommendationItem extends HTMLElement {
-  constructor() {
-    super();
-    const shadow = this.attachShadow({ mode: "open" });
-
-    const style = document.createElement("style");
-    style.textContent = `
-      @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
-
-      :host {
-        display: block;
-        margin-bottom: 10px;
-      }
-
-      .recommendation-item {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 15px;
-        border: 2px solid rgb(0, 128, 0);
-        border-radius: 10px;
-        background-color: black;
-        color: white;
-      }
-
-      .icon {
-        font-family: 'Material Icons';
-        font-size: 3rem;
-        color: rgb(0, 128, 0);
-        margin-right: 10px;
-      }
-
-      .title {
-        flex-grow: 1;
-        font-size: 1.5rem;
-        color: white;
-      }
-
-      .score {
-        font-size: 1.5rem;
-        color: white;
-        margin-right: 10px;
-      }
-
-      .action {
-        font-family: 'Material Icons';
-        font-size: 3rem;
-        cursor: pointer;
-        color: rgb(0, 128, 0);
-      }
-    `;
-
-    const container = document.createElement("div");
-    container.className = "recommendation-item";
-    container.innerHTML = `
-      <span class="icon">help</span>
-      <span class="title"></span>
-      <span class="score"></span>
-      <span class="action">arrow_downward</span>
-    `;
-
-    shadow.appendChild(style);
-    shadow.appendChild(container);
-  }
-
-  connectedCallback() {
-    const shadow = this.shadowRoot;
-
-    shadow.querySelector(".icon").textContent =
-      this.getAttribute("icon") || "help";
-    shadow.querySelector(".title").textContent =
-      this.getAttribute("title") || "Title";
-    shadow.querySelector(".score").textContent =
-      this.getAttribute("score") || "Score";
-  }
-}
-
-customElements.define("recommendation-item", RecommendationItem);
-
-document.addEventListener("DOMContentLoaded", () => {
-  fetch("/header")
-    .then((response) => response.text())
-    .then((html) => {
-      document.body.insertAdjacentHTML("afterbegin", html);
-    });
-});
-
 function showAnalyzeButton() {
   const button = document.getElementById("analyze-button");
   const fileInput = document.getElementById("file-input");
   const fileNameDisplay = document.getElementById("file-name");
+  const emptyLabel =
+    fileNameDisplay?.dataset.emptyLabel ||
+    "Arrastra aquí tu archivo HTML o ZIP, o haz clic para seleccionarlo.";
 
   if (!button || !fileInput || !fileNameDisplay) {
     return;
@@ -160,15 +14,15 @@ function showAnalyzeButton() {
     button.style.display = "block";
     fileNameDisplay.textContent = fileInput.files[0].name;
   } else {
-    fileNameDisplay.textContent =
-      "Drag your HTML file here or click to upload and watch the magic happen!";
+    fileNameDisplay.textContent = emptyLabel;
     button.style.display = "none";
   }
 }
 
-function initializeUploadPage() {
+function initUploadPage() {
   const uploadBox = document.getElementById("upload-box");
   const fileInput = document.getElementById("file-input");
+
   if (!uploadBox || !fileInput) {
     return;
   }
@@ -193,8 +47,58 @@ function initializeUploadPage() {
   });
 }
 
+function formatMetricValue(value, digits = 2) {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value);
+}
+
+function formatAdaptiveMetric(value) {
+  const absolute = Math.abs(value);
+  if (absolute >= 100) {
+    return formatMetricValue(value, 1);
+  }
+  if (absolute >= 10) {
+    return formatMetricValue(value, 2);
+  }
+  if (absolute >= 1) {
+    return formatMetricValue(value, 3);
+  }
+  return formatMetricValue(value, 4);
+}
+
+function formatEnergyMetric(wh) {
+  if (Math.abs(wh) >= 1000) {
+    return {
+      value: formatAdaptiveMetric(wh / 1000),
+      unit: "kWh consumed",
+    };
+  }
+
+  return {
+    value: formatAdaptiveMetric(wh),
+    unit: "Wh consumed",
+  };
+}
+
+function clampPositiveInteger(rawValue, fallback) {
+  const parsed = Number.parseInt(rawValue, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function setText(id, value) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.textContent = value;
+  }
+}
+
 function updateImpact() {
-  const page = document.querySelector(".results-page");
+  const page = document.querySelector(".report-page");
   const userInput = document.getElementById("user_count");
   const hoursInput = document.getElementById("usage_hours");
 
@@ -202,47 +106,47 @@ function updateImpact() {
     return;
   }
 
-  const users = parseInt(userInput.value, 10);
-  const hours = parseInt(hoursInput.value, 10);
-  const energyWh = parseFloat(page.dataset.energyWh || "0");
-  const co2eqPerUse = parseFloat(page.dataset.carbonFootprint || "0");
-  const environmentalCo2eqPerUse = parseFloat(
-    page.dataset.environmentalCarbonFootprint || "0"
-  );
+  const users = clampPositiveInteger(userInput.value, 100);
+  const hours = clampPositiveInteger(hoursInput.value, 24);
+  userInput.value = String(users);
+  hoursInput.value = String(hours);
+
+  const energyWh = Number.parseFloat(page.dataset.energyWh || "0") || 0;
+  const carbonPerUse = Number.parseFloat(page.dataset.carbonFootprint || "0") || 0;
+  const environmentalPerUse =
+    Number.parseFloat(page.dataset.environmentalCarbonFootprint || "0") || 0;
 
   const totalEnergy = energyWh * users * hours;
-  const totalCo2eq = co2eqPerUse * users * hours;
-  const totalEnvironmentalCo2eq = environmentalCo2eqPerUse * users * hours;
-  const reductionCo2eq = totalCo2eq - totalEnvironmentalCo2eq;
+  const totalCarbon = carbonPerUse * users * hours;
+  const totalEnvironmental = environmentalPerUse * users * hours;
+  const reduction = totalCarbon - totalEnvironmental;
+  const reductionAbsolute = Math.abs(reduction);
+  const improvementPercent =
+    totalCarbon !== 0 ? (reduction / totalCarbon) * 100 : 0;
+  const formattedEnergy = formatEnergyMetric(totalEnergy);
 
-  document
-    .getElementById("energy_card")
-    ?.querySelector('span[slot="value"]')
-    ?.replaceChildren(document.createTextNode(`${totalEnergy.toFixed(2)} Wh`));
-  document
-    .getElementById("carbon_card")
-    ?.querySelector('span[slot="value"]')
-    ?.replaceChildren(document.createTextNode(`${totalCo2eq.toFixed(4)} kg CO₂eq`));
-  document
-    .getElementById("reduction_card")
-    ?.querySelector('span[slot="value"]')
-    ?.replaceChildren(document.createTextNode(`${reductionCo2eq.toFixed(4)} kg CO₂eq`));
+  const lead = reduction >= 0 ? "could emit" : "currently emits";
+  const tail = reduction >= 0 ? "kg less CO₂eq" : "kg more CO₂eq";
+  const pill =
+    reduction >= 0
+      ? `↓ ${formatAdaptiveMetric(Math.abs(improvementPercent))}% improvement potential`
+      : `↑ ${formatAdaptiveMetric(Math.abs(improvementPercent))}% footprint increase`;
+  const support =
+    reduction >= 0
+      ? "The optimized variant reduces carbon mostly by redistributing luminance, lowering bright structural surfaces, and cleaning up emphasis."
+      : "In this run the optimized variant slightly increases the footprint, so the next pass should focus on lowering bright area before tuning accents.";
 
-  const setText = (id, value) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.textContent = value;
-    }
-  };
-
-  setText("e-users", String(users));
-  setText("e-hours", String(hours));
-  setText("e-total", totalEnergy.toFixed(2));
-  setText("c-e", totalEnergy.toFixed(2));
-  setText("c-total", totalCo2eq.toFixed(4));
-  setText("a-orig", totalCo2eq.toFixed(4));
-  setText("a-environmental", totalEnvironmentalCo2eq.toFixed(4));
-  setText("a-total", reductionCo2eq.toFixed(4));
+  setText("heroReductionLead", lead);
+  setText("heroReductionValue", formatAdaptiveMetric(reductionAbsolute));
+  setText("heroReductionTail", tail);
+  setText("heroImprovementPill", pill);
+  setText("heroSupportCopy", support);
+  setText("summaryCarbonValue", formatAdaptiveMetric(totalCarbon));
+  setText("summaryCarbonUnit", "kg CO₂eq generated");
+  setText("summaryEnergyValue", formattedEnergy.value);
+  setText("summaryEnergyUnit", formattedEnergy.unit);
+  setText("summaryUsers", String(users));
+  setText("summaryHours", String(hours));
 }
 
 async function copyTextToClipboard(text) {
@@ -256,44 +160,41 @@ async function copyTextToClipboard(text) {
   textarea.setAttribute("readonly", "");
   textarea.style.position = "absolute";
   textarea.style.left = "-9999px";
+  textarea.style.top = "0";
   document.body.appendChild(textarea);
+  textarea.focus();
   textarea.select();
-  document.execCommand("copy");
+  const copied = document.execCommand && document.execCommand("copy");
   document.body.removeChild(textarea);
+
+  if (!copied) {
+    throw new Error("Clipboard copy failed");
+  }
 }
 
 function setPaletteCopyFeedback(button, copiedText) {
   const status = document.getElementById("paletteCopyStatus");
-  const icon = button.querySelector(".tonal-swatch-icon");
-  const originalMessage = button.dataset.copyColor || copiedText;
+  const originalTitle = button.getAttribute("aria-label") || "";
+  const originalTooltip = button.getAttribute("title") || copiedText;
 
   if (status) {
     status.textContent = `Color ${copiedText} copiado al portapapeles.`;
   }
 
   button.classList.add("copied");
-  button.dataset.copyMessage = `Copiado ${copiedText}`;
   button.setAttribute("title", `Copiado ${copiedText}`);
-  if (icon) {
-    icon.textContent = "check";
-  }
+  button.setAttribute("aria-label", `Copiado ${copiedText}`);
 
   window.clearTimeout(button._copyTimer);
   button._copyTimer = window.setTimeout(() => {
     button.classList.remove("copied");
-    button.dataset.copyMessage = originalMessage;
-    button.setAttribute(
-      "title",
-      `${button.dataset.copyLabel || "Color"} · ${copiedText} · Click para copiar`
-    );
-    if (icon) {
-      icon.textContent = "eco";
-    }
+    button.setAttribute("title", originalTooltip);
+    button.setAttribute("aria-label", originalTitle);
   }, 1400);
 }
 
-function initializePaletteSwatches() {
-  const swatches = document.querySelectorAll(".tonal-swatch-button");
+function initPaletteSwatches() {
+  const swatches = document.querySelectorAll(".swatch");
   if (!swatches.length) {
     return;
   }
@@ -309,14 +210,14 @@ function initializePaletteSwatches() {
         await copyTextToClipboard(copiedText);
         setPaletteCopyFeedback(button, copiedText);
       } catch (error) {
-        button.dataset.copyMessage = "No se pudo copiar";
+        button.setAttribute("title", "No se pudo copiar");
       }
     });
   });
 }
 
-function initializeResultsPage() {
-  const page = document.querySelector(".results-page");
+function initReportPage() {
+  const page = document.querySelector(".report-page");
   if (!page) {
     return;
   }
@@ -325,27 +226,12 @@ function initializeResultsPage() {
   if (updateButton) {
     updateButton.addEventListener("click", updateImpact);
   }
+
   updateImpact();
-
-  const btns = document.querySelectorAll(".tab-btn");
-  const img = document.getElementById("previewImage");
-  const srcOriginal = page.dataset.previewOriginal;
-  const srcEnvironmental = page.dataset.previewEnvironmental;
-
-  if (btns.length && img && srcOriginal && srcEnvironmental) {
-    btns.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        btns.forEach((item) => item.classList.remove("active"));
-        btn.classList.add("active");
-
-        const target = btn.getAttribute("data-target");
-        img.src = target === "environmental" ? srcEnvironmental : srcOriginal;
-      });
-    });
-  }
-
-  initializePaletteSwatches();
+  initPaletteSwatches();
 }
 
-document.addEventListener("DOMContentLoaded", initializeResultsPage);
-document.addEventListener("DOMContentLoaded", initializeUploadPage);
+document.addEventListener("DOMContentLoaded", () => {
+  initUploadPage();
+  initReportPage();
+});

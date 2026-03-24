@@ -1,0 +1,166 @@
+{
+    "matched_inventory_colors": [
+        {
+            "color": [
+                12,
+                12,
+                12
+            ],
+            "count": 1134619,
+            "color_id": "color-1",
+            "percentage": 91.4098,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(12, 12, 12)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                255,
+                0,
+                0
+            ],
+            "count": 50507,
+            "color_id": "color-3",
+            "percentage": 4.0691,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(255, 0, 0)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                255,
+                255,
+                255
+            ],
+            "count": 14500,
+            "color_id": "color-4",
+            "percentage": 1.1682,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(255, 255, 255)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                220,
+                220,
+                255
+            ],
+            "count": 2170,
+            "color_id": "color-2",
+            "percentage": 0.1748,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(220, 220, 255)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                118,
+                118,
+                118
+            ],
+            "count": 1036,
+            "color_id": "color-16",
+            "percentage": 0.0835,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(118, 118, 118)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                240,
+                240,
+                240
+            ],
+            "count": 675,
+            "color_id": "color-10",
+            "percentage": 0.0544,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(240, 240, 240)",
+                "clustered": true,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                0,
+                128,
+                255
+            ],
+            "count": 612,
+            "color_id": "color-20",
+            "percentage": 0.0493,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(0, 128, 255)",
+                "clustered": true,
+                "matched_cluster_count": 2
+            }
+        },
+        {
+            "color": [
+                255,
+                255,
+                0
+            ],
+            "count": 568,
+            "color_id": "color-12",
+            "percentage": 0.0458,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(255, 255, 0)",
+                "clustered": false,
+                "matched_cluster_count": 1
+            }
+        },
+        {
+            "color": [
+                128,
+                128,
+                128
+            ],
+            "count": 1,
+            "color_id": "color-14",
+            "percentage": 0.0001,
+            "source": "display",
+            "metadata": {
+                "matched_to_inventory": true,
+                "value": "rgb(128, 128, 128)",
+                "clustered": false,
+                "matched_cluster_count": 1
+            }
+        }
+    ],
+    "unmatched_visual_pixels": {
+        "count": 36556,
+        "percentage": 2.9451,
+        "distinct_clusters": 133
+    },
+    "total_pixels_considered": 1241244,
+    "excluded_regions_summary": {
+        "excluded_rect_count": 8
+    }
+}

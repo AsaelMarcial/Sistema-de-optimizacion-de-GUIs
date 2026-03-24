@@ -5,253 +5,523 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Resultados</title>
     <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link
       href="https://fonts.googleapis.com/icon?family=Material+Icons"
       rel="stylesheet"
     />
     <link
       rel="stylesheet"
-      href="{{ url_for('static', filename='css/styles.css') }}"
+      href="{{ url_for('static', filename='css/results.css') }}"
     />
     <script defer src="{{ url_for('static', filename='js/scripts.js') }}"></script>
   </head>
-  <body>
-    <div
-      class="main-container results-page"
+  <body class="report-body">
+    {% include 'header.html' %}
+
+    <main
+      class="main-container report-page"
       data-energy-wh="{{ results.energy_wh | round(4) }}"
       data-carbon-footprint="{{ results.carbon_footprint | round(6) }}"
       data-environmental-carbon-footprint="{{ results.environmental_co2eq_per_use | round(6) }}"
-      data-preview-original="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.original) }}"
-      data-preview-environmental="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.environmental) }}"
     >
-      {% if results.debug %}
-        <details class="debug-panel">
-          <summary><strong>Debug (temporal)</strong></summary>
-          <pre class="debug-json">{{ results.debug | tojson(indent=2) }}</pre>
-        </details>
-      {% endif %}
+      <section class="section" aria-labelledby="impact-title">
+        <header class="section-header">
+          <span class="eyebrow">
+            <span class="eyebrow__dot"></span>
+            <span>Sustainable interface analysis</span>
+          </span>
+        </header>
 
-      <h1>Resultados del análisis</h1>
+        <div class="section-body">
+          <div class="split">
+            <article>
+              <div class="card card--glow">
+                <div class="stack stack--vertical stack--spread">
+                  <div class="heading-group heading-group--tight">
+                    <h1 class="title title--display title--card" id="impact-title">
+                      <span class="title__line">Your interface</span>
+                      <span class="title__line" id="heroReductionLead">could emit</span>
+                      <span class="title__line title__line--inline">
+                        <strong class="title__accent" id="heroReductionValue">{{ results.view.initial_reduction | round(4) }}</strong>
+                        <em class="title__accent title__accent--tail" id="heroReductionTail">kg less CO₂eq</em>
+                      </span>
+                    </h1>
 
-                <p class="results-hero-sub" id="heroSupportCopy">
-                  A large share of the impact comes from luminous structural surfaces, not from content complexity.
-                </p>
-              </div>
+                    <p class="text-secondary" id="heroSupportCopy">
+                      A large share of the impact comes from luminous structural surfaces, not from content complexity.
+                    </p>
+                  </div>
 
-              <div class="results-hero-footer">
-                <span class="results-delta-pill" id="heroImprovementPill">Analyzing improvement potential</span>
-                <p class="results-hero-copy">
-                  Your current design is moderately efficient, but its carbon footprint is still driven by bright fills, decorative excess, and high-luminance containers.
-                </p>
+                  <div class="stack stack--vertical stack--compact">
+                    <span class="pill pill--accent" id="heroImprovementPill">Analyzing improvement potential</span>
+
+                    <p class="text-tertiary">
+                      Your current design is moderately efficient, but its carbon footprint is still driven by bright fills, decorative excess, and high-luminance containers.
+                    </p>
+                  </div>
+                </div>
               </div>
             </article>
 
-            <div class="results-side-stack">
-              <section class="results-card results-card-summary results-card-glow-soft">
-                <span class="results-eyebrow">
-                  <span class="results-eyebrow-dot"></span>
-                  Impact summary
-                </span>
+            <article>
+              <div class="card card--container">
+                <div class="mosaic">
+                  <article id="carbon_card" class="card card--soft metric">
+                    <span class="metric__label">Carbon footprint</span>
+                    <div class="metric__value" id="summaryCarbonValue">{{ results.carbon_footprint | round(4) }}</div>
+                    <div class="metric__text" id="summaryCarbonUnit">kg CO₂eq generated</div>
+                  </article>
 
-        <!-- HUELLA -->
-        <styled-card id="carbon_card">
-          <span slot="header">Huella de carbono</span>
-          <span slot="value">Calculando...</span>
-          <span slot="description">
-            <strong>Fórmula:</strong> <code>CO₂eq = (E / 1000) × 0.475</code>
-            <details>
-              <summary>Ver cálculo</summary>
-              <ul>
-                <li><strong>E:</strong> <span id="c-e">-</span> Wh</li>
-                <li><strong>CO₂eq:</strong> <span id="c-total">-</span> kg</li>
-              </ul>
-            </details>
-          </span>
-        </styled-card>
+                  <article id="energy_card" class="card card--soft metric">
+                    <span class="metric__label">Energy consumption</span>
+                    <div class="metric__value" id="summaryEnergyValue">{{ results.energy_wh | round(2) }}</div>
+                    <div class="metric__text" id="summaryEnergyUnit">Wh consumed</div>
+                  </article>
 
-        <!-- AHORRO -->
-        <styled-card id="reduction_card">
-          <span slot="header">Ahorro potencial</span>
-          <span slot="value">Calculando...</span>
-          <span slot="description">
-            <strong>Fórmula:</strong> <code>ΔCO₂eq = CO₂eq - CO₂eq_sus</code>
-            <details>
-              <summary>Ver cálculo</summary>
-              <ul>
-                <li>
-                  <strong>Original:</strong> <span id="a-orig">-</span> kg
-                </li>
-                <li>
-                  <strong>Environmental:</strong> <span id="a-environmental">-</span> kg
-                </li>
-                <li><strong>Δ:</strong> <span id="a-total">-</span> kg</li>
-              </ul>
-            </details>
-          </span>
-        </styled-card>
-      </div>
+                  <section class="card card--soft metric metric--wide">
 
-      <div class="impact-controls">
-        <div>
-          <label for="user_count"><strong>Número de usuarios:</strong></label>
-          <input type="number" id="user_count" value="100" min="1" />
-        </div>
-        <div>
-          <label for="usage_hours"><strong>Horas de uso:</strong></label>
-          <input type="number" id="usage_hours" value="24" min="1" />
-        </div>
-        <button class="updateButton" id="update-impact-button" type="button">
-          Actualizar
-        </button>
-      </div>
+                    <div class="impact-form">
+                      <div class="field">
+                        <label for="user_count">Users</label>
+                        <input type="number" id="user_count" value="100" min="1" />
+                      </div>
 
-      <h1>Evaluación heurística y transformaciones</h1>
-      <div class="recommendation-container">
-        {% if results.heuristics %} {% for heuristica in results.heuristics %}
-        <div
-          class="recommendation-card {% if heuristica.cumple %}success{% else %}warning{% endif %}"
-        >
-          <div class="card-header">
-            <h2 class="heuristic-title">{{ heuristica.nombre }}</h2>
-            <span
-              class="status-badge {% if heuristica.cumple %}success{% else %}error{% endif %}"
-            >
-              {{ 'Cumple' if heuristica.cumple else 'No cumple' }}
-            </span>
-          </div>
-          <p class="recommendation-text">{{ heuristica.recomendacion }}</p>
-          {% if heuristica.detalles %}
-          <details class="details-dropdown">
-            <summary>Ver detalles</summary>
-            <ul>
-              {% for detalle in heuristica.detalles %}
-              <li>{{ detalle }}</li>
-              {% endfor %} 
-            </ul>
-          </details>
-          {% endif %}
-        </div>
-        {% endfor %} {% endif %}
-      </div>
+                      <div class="field">
+                        <label for="usage_hours">Hours</label>
+                        <input type="number" id="usage_hours" value="24" min="1" />
+                      </div>
 
-      {% set color_processing = results.color_processing or {} %}
-      {% set core_palettes = color_processing.core_palettes or {} %}
-      {% set achromatic_palette = core_palettes.achromatic_palette %}
-      {% set chromatic_palettes = core_palettes.chromatic_palettes or [] %}
-      {% if color_processing and (achromatic_palette or chromatic_palettes) %}
-      <section class="palette-preview-section">
-        <div class="palette-preview-heading">
-          <h1>Paletas tonales detectadas</h1>
-          {% if color_processing.palette_preview_artifact %}
-          <a
-            class="palette-preview-download"
-            href="{{ url_for('main.session_output', session_id=results.session_dirname, filename=(color_processing.palette_preview_output or color_processing.palette_preview_artifact)) }}"
-            download
-          >
-            Descargar paleta PNG
-          </a>
-          {% endif %}
-        </div>
-        {% if color_processing.named_color_breakdown %}
-        <p class="palette-preview-summary">
-          {% for item in color_processing.named_color_breakdown[:6] %}
-            <span>{{ item.percentage | round(2) }}% {{ item.display_name }}</span>
-          {% endfor %}
-        </p>
-        {% endif %}
-        <div class="tonal-palette-board">
-          <ul class="tonal-palette-grid" role="list">
-            {% if achromatic_palette %}
-            {% set achromatic_label = achromatic_palette.display_name or 'Base achromatica' %}
-            <li class="tonal-palette-card">
-              <div class="tonal-palette-card-header">
-                <h3 class="tonal-palette-card-title">{{ achromatic_label }}</h3>
-                <p class="tonal-palette-card-subtitle">{{ achromatic_palette.tones | length }} tonos</p>
+                      <button class="button button--primary" id="update-impact-button" type="button">
+                        Update
+                      </button>
+
+                      <div class="metric__text">
+                        <strong>Usage context.</strong> The report is calculated using
+                        <span id="summaryUsers">100</span> users and
+                        <span id="summaryHours">24</span> hours of use.
+                      </div>
+                    </div>
+                  </section>
+                </div>
               </div>
-              <ul class="tonal-swatch-list" role="list">
-                {% for tone in achromatic_palette.tones %}
-                {% set tone_is_light = tone.tone >= 80 %}
-                <li class="tonal-swatch-cell">
-                  <button
-                    type="button"
-                    class="tonal-swatch-button {% if tone_is_light %}tonal-swatch-button-light{% else %}tonal-swatch-button-dark{% endif %}"
-                    style="background: {{ tone.hex_value }};"
-                    data-copy-color="{{ tone.hex_value | upper }}"
-                    data-copy-label="{{ achromatic_label }} {{ tone.tone }}"
-                    data-copy-message="{{ tone.hex_value | upper }}"
-                    title="{{ achromatic_label }} tono {{ tone.tone }} · {{ tone.hex_value | upper }} · Click para copiar"
-                    aria-label="{{ achromatic_label }} tono {{ tone.tone }}, {{ tone.hex_value | upper }}, click para copiar"
-                  >
-                    <span class="material-icons tonal-swatch-icon" aria-hidden="true">eco</span>
-                  </button>
-                </li>
-                {% endfor %}
-              </ul>
-            </li>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="visual-load-title">
+        <header class="section-header">
+          <span class="eyebrow">
+            <span class="eyebrow__dot"></span>
+            <span>Visual load profile</span>
+          </span>
+        </header>
+
+        <div class="section-body">
+          <div class="split">
+            <article>
+              <div class="card card--soft">
+                <div class="stack stack--vertical">
+                  <div class="graph-list">
+                    {% for item in results.view.dominant_rows[:6] %}
+                    <div class="graph-row">
+                      <div class="graph-label">
+                        <span class="graph-dot" style="background: {{ item.hex }};"></span>
+                        <span>{{ item.label }}</span>
+                      </div>
+                      <div class="graph-track">
+                        <span class="graph-fill" style="width: {{ item.percentage }}%; background: {{ item.hex }};"></span>
+                      </div>
+                      <strong class="graph-value">{{ item.percentage | round(2) }}%</strong>
+                    </div>
+                    {% endfor %}
+                  </div>
+
+                  <div class="stack stack--vertical stack--compact">
+                    <span class="label-chip">
+                      <span class="label-chip__dot"></span>
+                      <span>Energy distribution</span>
+                    </span>
+
+                    <div class="distribution-track">
+                      {% for item in results.view.dominant_rows[:6] %}
+                      <span class="distribution-track__segment" style="width: {{ item.percentage }}%; background: {{ item.hex }};"></span>
+                      {% endfor %}
+                    </div>
+
+                    <p class="text-tertiary">
+                      The first three colors alone account for
+                      <strong>{{ results.view.top_three_percentage | round(2) }}%</strong>
+                      of the visible color mass identified in the analyzed interface.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article>
+              <div class="card card--glow">
+                <div class="stack stack--vertical stack--center">
+                  <div class="heading-group">
+                    <h2 class="title title--display title--card" id="visual-load-title">
+                      Most of the visual load comes from
+                      <span class="title__accent">{{ results.view.dominant_color_count }}</span>
+                      dominant colors,
+                    </h2>
+
+                    <p class="text-secondary">
+                      especially near-white structural surfaces.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="changes-title">
+        <header class="section-header">
+          <span class="eyebrow">
+            <span class="eyebrow__dot"></span>
+            <span>What changes visually</span>
+          </span>
+        </header>
+
+        <div class="section-body section-body--stack">
+          <div class="heading-group">
+            <h2 class="title title--display title--section" id="changes-title">
+              Sustainable redesign,
+              <span class="title__accent">without losing character</span>
+            </h2>
+
+            <p class="text-secondary">
+              This comparison keeps the same structure and intent, but redistributes emphasis so the interface communicates through hierarchy rather than brightness overload.
+            </p>
+          </div>
+
+          <div class="split">
+            <article>
+              <h3 class="sr-only" id="preview-original-title">Original HTML preview</h3>
+
+              <div class="preview-window card card--soft" aria-labelledby="preview-original-title">
+                <div class="preview-window__bar">
+                  <div class="preview-window__dots" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <span class="pill pill--neutral">Original</span>
+                </div>
+
+                <img
+                  src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.original) }}"
+                  alt="Vista previa original"
+                  class="preview-window__image"
+                />
+              </div>
+            </article>
+
+            <article>
+              <h3 class="sr-only" id="preview-optimized-title">Optimized HTML preview</h3>
+
+              <div class="preview-window card card--glow" aria-labelledby="preview-optimized-title">
+                <div class="preview-window__bar">
+                  <div class="preview-window__dots" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <span class="pill pill--accent">Optimized</span>
+                </div>
+
+                <img
+                  src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.environmental) }}"
+                  alt="Vista previa optimizada"
+                  class="preview-window__image"
+                />
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="palette-contrast-title">
+        <header class="section-header">
+          <span class="eyebrow">
+            <span class="eyebrow__dot"></span>
+            <span>Tonal system and traceability</span>
+          </span>
+        </header>
+
+        <div class="section-body section-body--stack">
+          <div class="heading-group">
+            <h2 class="title title--display title--section" id="palette-contrast-title">
+              Color palettes and
+              <span class="title__accent">contrast trace</span>
+            </h2>
+
+            <p class="text-secondary">
+              The report stays premium while exposing tonal families and the exact foreground/background pairings that create accessibility risk.
+            </p>
+          </div>
+
+          <div class="split">
+            {% if results.view.palette_rows %}
+            <article>
+              <div class="card card--soft">
+                <div class="stack stack--vertical stack--compact">
+                  <h3 class="title title--compact title--card">Detected tonal palettes</h3>
+
+                  <div class="palette">
+                    {% for palette in results.view.palette_rows %}
+                    {% set palette_label = 'Neutral' if (palette.label or '')|lower == 'base achromatica' else palette.label %}
+                    <div class="palette-row">
+                      <div class="palette-meta">
+                        <h4 class="palette-meta__title">{{ palette_label }}</h4>
+                        <span class="text-caption">{{ palette.tone_count }} tonos</span>
+                      </div>
+
+                      <div class="palette-swatches">
+                        <ul class="swatch-list" role="list" style="--swatch-count: {{ palette.tones | length }};">
+                          {% for tone in palette.tones %}
+                          {% set tone_is_light = tone.is_light if tone.is_light is defined else (tone.tone >= 80) %}
+                          <li class="swatch-list__item">
+                            <button
+                              type="button"
+                              class="swatch {% if tone_is_light %}swatch--light{% else %}swatch--dark{% endif %}"
+                              style="background: {{ tone.hex_value }};"
+                              data-copy-color="{{ tone.hex_value | upper }}"
+                              data-copy-label="{{ palette_label }} {{ tone.tone }}"
+                              data-copy-message="{{ tone.hex_value | upper }}"
+                              title="{{ palette_label }} tono {{ tone.tone }} · {{ tone.hex_value | upper }} · Click para copiar"
+                              aria-label="{{ palette_label }} tono {{ tone.tone }}, {{ tone.hex_value | upper }}, click para copiar"
+                            >
+                              <span class="material-icons swatch__icon" aria-hidden="true">eco</span>
+                            </button>
+                          </li>
+                          {% endfor %}
+                        </ul>
+                      </div>
+                    </div>
+                    {% endfor %}
+                  </div>
+
+                  <p id="paletteCopyStatus" class="sr-only" aria-live="polite"></p>
+                </div>
+              </div>
+            </article>
             {% endif %}
 
-            {% for palette in chromatic_palettes %}
-            {% set palette_label = palette.display_name or palette.seed_display_name or palette.seed_name %}
-            <li class="tonal-palette-card">
-              <div class="tonal-palette-card-header">
-                <h3 class="tonal-palette-card-title">{{ palette_label }}</h3>
-                <p class="tonal-palette-card-subtitle">{{ palette.tones | length }} tonos</p>
+            <article>
+              <div class="card card--soft">
+                <div class="stack stack--vertical stack--compact">
+                  <div class="contrast-summary">
+                    <h3 class="title title--compact title--card">Contrast report</h3>
+
+                    <p class="text-tertiary">
+                      Contrast issues: {{ results.accessibility.contrast.issue_count }}
+                    </p>
+                  </div>
+
+                  {% if results.view.contrast_rows %}
+                  <div class="contrast-list">
+                    {% for issue in results.view.contrast_rows[:8] %}
+                    <article class="contrast-item">
+                      <div class="contrast-item__meta">
+                        <span class="contrast-item__ratio">
+                          {{ issue.contrast_ratio | round(2) }} / {{ issue.required_ratio | round(1) }}
+                        </span>
+                      </div>
+
+                      <div class="contrast-preview" style="background: {{ issue.background_hex }};">
+                        <span class="contrast-preview__text" style="color: {{ issue.foreground_hex }};">Text</span>
+                      </div>
+
+                      <div class="contrast-tones">
+                        <span>BG {{ issue.background_tone_label }}</span>
+                        <span>FG {{ issue.foreground_tone_label }}</span>
+                      </div>
+
+                      <span class="contrast-item__selector">{{ issue.selector }}</span>
+                    </article>
+                    {% endfor %}
+                  </div>
+                  {% else %}
+                  <article class="contrast-empty">
+                    <strong>No contrast issues were detected in the analyzed render.</strong>
+                    <p class="text-tertiary">
+                      The artifact is still generated and stored for traceability as {{ results.accessibility.contrast.artifact }}.
+                    </p>
+                  </article>
+                  {% endif %}
+                </div>
               </div>
-              <ul class="tonal-swatch-list" role="list">
-                {% for tone in palette.tones %}
-                {% set tone_is_light = tone.tone >= 80 %}
-                <li class="tonal-swatch-cell">
-                  <button
-                    type="button"
-                    class="tonal-swatch-button {% if tone_is_light %}tonal-swatch-button-light{% else %}tonal-swatch-button-dark{% endif %}"
-                    style="background: {{ tone.hex_value }};"
-                    data-copy-color="{{ tone.hex_value | upper }}"
-                    data-copy-label="{{ palette_label }} {{ tone.tone }}"
-                    data-copy-message="{{ tone.hex_value | upper }}"
-                    title="{{ palette_label }} tono {{ tone.tone }} · {{ tone.hex_value | upper }} · Click para copiar"
-                    aria-label="{{ palette_label }} tono {{ tone.tone }}, {{ tone.hex_value | upper }}, click para copiar"
-                  >
-                    <span class="material-icons tonal-swatch-icon" aria-hidden="true">eco</span>
-                  </button>
-                </li>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      {# Effect color evidence intentionally removed from the visible UI. #}
+      {% if results.view.change_history_groups %}
+      <section class="section" aria-labelledby="change-history-title">
+        <header class="section-header">
+          <span class="eyebrow">
+            <span class="eyebrow__dot"></span>
+            <span>Transformation trace</span>
+          </span>
+        </header>
+
+        <div class="section-body section-body--stack">
+          <div class="heading-group">
+            <h2 class="title title--display title--section" id="change-history-title">
+              Change
+              <span class="title__accent">history</span>
+            </h2>
+
+            <p class="text-secondary">
+              Every transformed component is grouped by heuristic so the visual edits remain explainable and traceable.
+            </p>
+          </div>
+
+          <div class="change-history">
+            {% for group in results.view.change_history_groups %}
+            <article class="card card--soft change-group">
+              <div class="change-group__head">
+                <div class="stack stack--vertical stack--compact">
+                  <h3 class="title title--compact title--card">{{ group.title }}</h3>
+                  {% if group.summary %}
+                  <p class="text-tertiary">{{ group.summary }}</p>
+                  {% endif %}
+                </div>
+
+                {% if group.change_count %}
+                <span class="pill pill--neutral">{{ group.change_count }} changes</span>
+                {% endif %}
+              </div>
+
+              {% if group.changes %}
+              <div class="change-list">
+                {% for change in group.changes %}
+                <div class="change-item">
+                  <div class="change-item__meta">
+                    <strong>{{ change.name }}</strong>
+                    {% if change.savings_label %}
+                    <span class="pill pill--accent">{{ change.savings_label }}</span>
+                    {% endif %}
+                  </div>
+
+                  <div class="change-item__colors">
+                    <span class="change-swatch" style="background: {{ change.before_css }};"></span>
+                    <span class="text-caption">RGB({{ change.before_rgb }})</span>
+                    <span class="change-arrow" aria-hidden="true">→</span>
+                    <span class="change-swatch" style="background: {{ change.after_css }};"></span>
+                    <span class="text-caption">RGB({{ change.after_rgb }})</span>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+              {% elif group.notes %}
+              <ul class="change-notes">
+                {% for note in group.notes %}
+                <li>{{ note }}</li>
                 {% endfor %}
               </ul>
-            </li>
+              {% endif %}
+            </article>
             {% endfor %}
-          </ul>
+          </div>
         </div>
-        <p id="paletteCopyStatus" class="sr-only" aria-live="polite"></p>
       </section>
       {% endif %}
 
-      <div class="iframe-header"> 
-        <h2>Vista previa del HTML corregido</h2>
-        <a
-          href="{{ results.download_url }}"
-          download
-          class="download-button"
-        >
-          Descargar
-        </a>
-      </div>
-      
-      <div class="iframe-container">
-        <div class="preview-tabs">
-          <div class="tabs-header">
-            <button type="button" class="tab-btn active" data-target="original">Original</button>
-            <button type="button" class="tab-btn" data-target="environmental">Environmental</button>
+      {% if results.heuristics %}
+      <section class="section" aria-labelledby="heuristics-title">
+        <header class="section-header">
+          <span class="eyebrow">
+            <span class="eyebrow__dot"></span>
+            <span>Heuristic trace</span>
+          </span>
+        </header>
+
+        <div class="section-body section-body--stack">
+          <div class="heading-group">
+            <h2 class="title title--display title--section" id="heuristics-title">
+              Heuristic evaluation and
+              <span class="title__accent">transformations</span>
+            </h2>
+
+            <p class="text-secondary">
+              The applied heuristics stay separated from the raw change log so the rationale and the audit trail remain independently readable.
+            </p>
           </div>
-      
-          <div class="tabs-body">
-            <img
-              id="previewImage"
-              src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.original) }}"
-              alt="Vista previa"
-            />
+
+          <div class="heuristics">
+            {% for heuristica in results.heuristics %}
+            <article class="card card--soft heuristic">
+              <div class="heuristic__head">
+                <h3 class="heuristic__title">{{ heuristica.nombre }}</h3>
+                <span class="badge {% if heuristica.cumple %}badge--success{% else %}badge--warning{% endif %}">
+                  {{ 'Cumple' if heuristica.cumple else 'No cumple' }}
+                </span>
+              </div>
+
+              <p class="text-tertiary">{{ heuristica.recomendacion }}</p>
+
+              {% if heuristica.detalles %}
+              <details class="details">
+                <summary>Ver detalles</summary>
+                <ul>
+                  {% for detalle in heuristica.detalles %}
+                  <li>{{ detalle }}</li>
+                  {% endfor %}
+                </ul>
+              </details>
+              {% endif %}
+            </article>
+            {% endfor %}
           </div>
         </div>
-      </div>
-      
-    </div>
+      </section>
+      {% endif %}
 
+      <section class="section" aria-labelledby="export-title">
+        <header class="section-header">
+          <span class="eyebrow">
+            <span class="eyebrow__dot"></span>
+            <span>Export package</span>
+          </span>
+        </header>
+
+        <div class="section-body">
+          <article class="card card--glow">
+            <div class="split split--export">
+              <div class="heading-group">
+                <h2 class="title title--display title--card" id="export-title">
+                  Export the optimized version and keep the analysis with it
+                </h2>
+
+                <p class="text-secondary">
+                  Download the corrected HTML, the tonal palette PNG, and the changelog together so the sustainability result is explainable, reproducible, and ready to share with design or development teams.
+                </p>
+              </div>
+
+              <div class="stack stack--center-end">
+                <a
+                  href="{{ results.download_url }}"
+                  download
+                  class="button button--primary"
+                >
+                  Download optimized HTML
+                </a>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
   </body>
 </html>

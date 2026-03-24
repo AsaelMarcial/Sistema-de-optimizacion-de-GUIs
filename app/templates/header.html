@@ -1,27 +1,17 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Header</title>
-    <!-- Link al archivo CSS -->
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/styles.css') }}"
-    />
-  </head>
-  <body>
-    <header>
-      <a href="{{ url_for('main.index') }}">
-        <img
-          src="static/images/logo-placeholder.svg"
-          alt="Glow Logo"
-          class="logo"
-        />
-      </a>
-      <nav>
-        <a href="#">Descubre más</a>
-      </nav>
-    </header>
-  </body>
-</html>
+<header class="topbar">
+  <div class="brand">
+    <a class="brand-logo" href="{{ url_for('main.index') }}" aria-label="GLOW home">
+      <img src="{{ url_for('static', filename='images/logo-placeholder.svg') }}" alt="GLOW" />
+    </a>
+  </div>
+
+  {% if request.endpoint != 'main.index' %}
+  <nav class="nav" aria-label="Primary">
+    <a href="#impact">Impacto</a>
+    <a href="#drivers">Hallazgos</a>
+    <a href="#preview">Comparativa</a>
+    <a href="#history">Historial</a>
+    <a class="primary-btn" href="#download">Descargar diseño</a>
+  </nav>
+  {% endif %}
+</header>

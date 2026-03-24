@@ -3,53 +3,207 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Glow - Analizador de GUI en HTML</title>
+    <title>Glow | Analizador de sostenibilidad para interfaces HTML</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
     <link
       rel="stylesheet"
-      href="{{ url_for('static', filename='css/styles.css') }}"
+      href="{{ url_for('static', filename='css/results.css') }}"
     />
     <script defer src="{{ url_for('static', filename='js/scripts.js') }}"></script>
   </head>
-  <body>
-    <div class="container">
-      <h1>
-        Haz que tu interfaz brille con un diseño environmental y menor huella de
-        carbono
-      </h1>
-    </div>
+  <body class="report-body landing-body">
+    {% include 'header.html' %}
 
-    {% with messages = get_flashed_messages(with_categories=true) %} {% if
-    messages %}
-    <ul class="flashes">
-      {% for category, message in messages %}
-      <li class="flash {{ category }}">{{ message }}</li>
-      {% endfor %}
-    </ul>
-    {% endif %} {% endwith %}
+    <main class="main-container report-page landing-page">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <section class="section landing-section landing-section--tight" aria-label="Mensajes del sistema">
+            <div class="flash-stack">
+              {% for category, message in messages %}
+                <div class="flash flash--{{ category }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+          </section>
+        {% endif %}
+      {% endwith %}
 
-    <form
-      action="/results"
-      method="POST"
-      enctype="multipart/form-data"
-      id="upload-form"
-    >
-      <div class="upload-box" id="upload-box">
-        <p id="file-name">
-          Arrastra aquí tu archivo HTML o haz clic para subirlo y ¡observa la
-          magia!
-        </p>
-        <input
-          id="file-input"
-          type="file"
-          name="file"
-          accept=".html,.zip"
-          required
-          onchange="showAnalyzeButton()"
-        />
-      </div>
-      <button id="analyze-button" class="analyze-button" type="submit">
-        Analizar
-      </button>
-    </form>
+      <section class="section landing-section landing-section--hero" id="upload" aria-labelledby="upload-title">
+        <header class="section-header">
+          <span class="eyebrow">
+            <span class="eyebrow__dot"></span>
+            <span>Upload package</span>
+          </span>
+        </header>
+
+        <div class="section-body section-body--stack">
+          <div class="heading-group">
+            <h1 class="title title--display" id="upload-title">
+              Analiza tu interfaz HTML y obtén un reporte visual, energético y ambiental listo para decidir.
+            </h1>
+            <p class="text-secondary">
+              Sube una página o un proyecto estático y Glow identifica la carga visual, la huella de carbono,
+              las paletas tonales dominantes, las heurísticas comprometidas y una versión optimizada para comparar.
+            </p>
+          </div>
+
+          <div class="pill-row" aria-label="Capacidades principales">
+            <span class="pill pill--accent">HTML y ZIP</span>
+            <span class="pill pill--neutral">Assets relativos</span>
+            <span class="pill pill--accent">Comparativa before/after</span>
+            <span class="pill pill--neutral">Paletas y heurísticas</span>
+            <span class="pill pill--accent">Métricas de impacto</span>
+          </div>
+
+          <div class="landing-top-grid">
+            <article>
+              <div class="card card--soft how-panel">
+                <div class="how-panel__header">
+                  <span class="eyebrow">
+                    <span class="eyebrow__dot"></span>
+                    <span>Cómo funciona</span>
+                  </span>
+                </div>
+
+                <ol class="step-list" aria-label="Flujo de análisis">
+                  <li class="step-item">
+                    <strong>1. Sube el proyecto</strong>
+                    <p>Arrastra un archivo <code>.html</code> o un <code>.zip</code> con tu interfaz y sus assets.</p>
+                  </li>
+                  <li class="step-item">
+                    <strong>2. Ejecuta el análisis</strong>
+                    <p>Glow procesa colores, estructura, luminancia, peso visual y reglas heurísticas.</p>
+                  </li>
+                  <li class="step-item">
+                    <strong>3. Revisa y descarga</strong>
+                    <p>Obtén hallazgos, comparación before/after y un paquete optimizado para seguir iterando.</p>
+                  </li>
+                </ol>
+              </div>
+            </article>
+
+            <article>
+              <div class="card card--glow upload-panel">
+                <form
+                  action="{{ url_for('main.results') }}"
+                  method="POST"
+                  enctype="multipart/form-data"
+                  id="upload-form"
+                  class="upload-form"
+                >
+                  <div
+                    class="upload-box card card--soft"
+                    id="upload-box"
+                    role="button"
+                    tabindex="0"
+                    aria-describedby="upload-helper upload-hint"
+                  >
+                    <div class="upload-box__copy">
+                      <p
+                        id="file-name"
+                        data-empty-label="Arrastra aquí tu archivo HTML o ZIP, o haz clic para seleccionarlo."
+                      >
+                        Arrastra aquí tu archivo HTML o ZIP, o haz clic para seleccionarlo.
+                      </p>
+                      <p class="upload-hint" id="upload-helper">
+                        Entrada recomendada: <code>index.html</code> o ZIP con raíz clara y assets relativos.
+                      </p>
+                      <span class="upload-meta" id="upload-hint">
+                        Formatos permitidos: <code>.html</code>, <code>.zip</code>
+                      </span>
+                    </div>
+
+                    <input
+                      id="file-input"
+                      type="file"
+                      name="file"
+                      accept=".html,.zip"
+                      required
+                      onchange="showAnalyzeButton()"
+                    />
+                  </div>
+
+                  <button id="analyze-button" class="analyze-button button button--primary" type="submit">
+                    Analizar archivo
+                  </button>
+                </form>
+              </div>
+            </article>
+
+            <aside class="guide-panel" id="guide">
+              <div class="guide-stack">
+                <article class="card card--soft guide-card">
+                  <h3>Archivos permitidos</h3>
+                  <ul class="guide-list">
+                    <li>Un archivo <code>.html</code> autónomo.</li>
+                    <li>Un <code>.zip</code> con HTML, CSS, JS e imágenes.</li>
+                    <li>Assets referenciados con rutas relativas.</li>
+                  </ul>
+                </article>
+
+                <article class="card card--soft guide-card">
+                  <h3>Estructura recomendada</h3>
+                  <div class="structure-block" aria-label="Estructura recomendada">
+                    <span><code>/proyecto</code></span>
+                    <span><code>├── index.html</code></span>
+                    <span><code>├── styles/</code></span>
+                    <span><code>├── scripts/</code></span>
+                    <span><code>└── images/</code></span>
+                  </div>
+                </article>
+
+                <article class="card card--soft guide-card">
+                  <h3>Antes de subir</h3>
+                  <ul class="guide-list">
+                    <li>Evita ZIPs con contraseña o dependencias locales externas.</li>
+                    <li>Si usas build tools, exporta antes la versión HTML final.</li>
+                    <li>Entre más autocontenido esté el proyecto, mejor será la lectura del reporte.</li>
+                  </ul>
+                </article>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section class="section landing-section" aria-labelledby="deliverables-title">
+        <header class="section-header">
+          <span class="eyebrow">
+            <span class="eyebrow__dot"></span>
+            <span>Qué obtendrás</span>
+          </span>
+        </header>
+
+        <div class="section-body section-body--stack">
+          <div class="heading-group heading-group--tight">
+            <h2 class="title title--compact" id="deliverables-title">Un reporte accionable, no sólo una captura de estado</h2>
+            <p class="text-secondary">
+              Glow te regresa evidencia visual, métricas y una propuesta de optimización para explicar el resultado.
+            </p>
+          </div>
+
+          <div class="feature-grid">
+            <article class="card card--soft feature-card">
+              <h3>Impacto ambiental</h3>
+              <p>Estimación de energía y carbono por uso, con recálculo por usuarios y horas.</p>
+            </article>
+            <article class="card card--soft feature-card">
+              <h3>Carga visual</h3>
+              <p>Distribución de color, barras de dominancia y lectura del peso visual de la interfaz.</p>
+            </article>
+            <article class="card card--soft feature-card">
+              <h3>Paletas y trazabilidad</h3>
+              <p>Inventario tonal, historial de cambios y colores listos para copiar y reutilizar.</p>
+            </article>
+            <article class="card card--soft feature-card">
+              <h3>Comparativa final</h3>
+              <p>Vista before/after y paquete descargable para compartir el diseño optimizado.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
   </body>
 </html>

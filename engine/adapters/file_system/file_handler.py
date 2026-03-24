@@ -1,6 +1,5 @@
-from __future__ import annotations
-
 import os
+import shutil
 import time
 import uuid
 import zipfile
@@ -20,14 +19,16 @@ from app.config import (
     get_session_dir,
     get_session_dirname,
 )
-from engine.models.file_handling.project_input import ProjectInput
-from engine.models.file_handling.session_workspace import SessionWorkspace
-from engine.utils.file_utils import read_text
-from engine.utils.fs_utils import is_dir_empty, remove_empty_dirs, safe_remove, safe_rmtree
+from engine.adapters.utils.filesystem import is_dir_empty, remove_empty_dirs, safe_remove, safe_rmtree
+from engine.adapters.utils.io import read_text
+from engine.domain.models.session import ProjectInputModel, SessionModel
 from engine.validators.file_handling.archive_validators import validate_zip_members
 from engine.validators.file_handling.upload_validators import validate_uploaded_file
 
 TEMP_RENDER_FILES = {"__glow_render__.html"}
+
+SessionWorkspace = SessionModel
+ProjectInput = ProjectInputModel
 
 
 def generate_session_id() -> str:
@@ -35,24 +36,16 @@ def generate_session_id() -> str:
 
 
 def build_session_workspace(session_id: str) -> SessionWorkspace:
-    session_dir = get_session_dir(session_id)
-    input_dir = get_input_dir(session_id)
-    output_dir = get_output_dir(session_id)
-    artifacts_dir = get_artifacts_dir(session_id)
-
-    os.makedirs(session_dir, exist_ok=True)
-    os.makedirs(input_dir, exist_ok=True)
-    os.makedirs(output_dir, exist_ok=True)
-    os.makedirs(artifacts_dir, exist_ok=True)
-
-    return SessionWorkspace(
+    workspace = SessionWorkspace.build(
         session_id=session_id,
-        session_dir=session_dir,
-        input_dir=input_dir,
-        output_dir=output_dir,
-        artifacts_dir=artifacts_dir,
         session_dirname=get_session_dirname(session_id),
+        base_dir=SESSIONS_BASE_DIR,
+        input_dirname=INPUT_DIRNAME,
+        output_dirname=OUTPUT_DIRNAME,
+        artifacts_dirname=ARTIFACTS_DIRNAME,
     )
+    workspace.ensure_exists()
+    return workspace
 
 
 def build_input_session_dir(session_id: str) -> str:
@@ -224,9 +217,8 @@ def load_project_input(file, session_id: str) -> ProjectInput | str:
     except Exception:
         return "No se pudo leer el archivo HTML."
 
-    return ProjectInput(
-        session_id=resolved_session_id,
-        workspace=workspace,
+    project_input = ProjectInput(
+        session=workspace,
         upload_path=upload_path,
         base_path=base_path,
         normalized_base_path=normalized_base_path,
@@ -234,3 +226,19 @@ def load_project_input(file, session_id: str) -> ProjectInput | str:
         html_filename=os.path.basename(html_path),
         html_content=html_content,
     )
+    project_input.validate()
+    return project_input
+
+
+def create_output_bundle(
+    source_dir: str,
+    bundle_dir: str,
+    bundle_name: str,
+) -> tuple[str, str]:
+    bundle_stem = os.path.splitext(bundle_name)[0]
+    bundle_base = os.path.join(bundle_dir, bundle_stem)
+    final_zip_path = f"{bundle_base}.zip"
+    if os.path.exists(final_zip_path):
+        safe_remove(final_zip_path)
+    shutil.make_archive(bundle_base, "zip", source_dir)
+    return final_zip_path, os.path.basename(final_zip_path)

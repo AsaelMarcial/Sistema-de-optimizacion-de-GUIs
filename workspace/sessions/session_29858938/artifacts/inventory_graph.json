@@ -1,0 +1,2098 @@
+{
+    "summary": {
+        "element_count": 4,
+        "visible_element_count": 4,
+        "text_element_count": 2,
+        "root_count": 1,
+        "leaf_element_count": 1,
+        "out_of_scope_element_count": 0,
+        "stacking_context_count": 1,
+        "style_count": 2,
+        "declaration_count": 4,
+        "used_declaration_count": 4,
+        "computed_style_count": 6,
+        "exact_match_count": 1,
+        "ambiguous_match_count": 0,
+        "unresolved_match_count": 5,
+        "color_count": 2,
+        "mapped_color_count": 2,
+        "confirmed_color_count": 2,
+        "palette_count": 1,
+        "chromatic_palette_count": 0,
+        "token_count": 16,
+        "token_alias_count": 2,
+        "pixel_count": 1296000,
+        "raw_pixel_count": 1296000,
+        "raw_distinct_color_count": 111,
+        "display_pixel_count": 1296000,
+        "matched_inventory_pixel_count": 1295633,
+        "unmatched_visual_pixel_count": 367,
+        "unmatched_visual_cluster_count": 41,
+        "inline_style_count": 1,
+        "stylesheet_count": 0,
+        "external_stylesheet_count": 0,
+        "inline_stylesheet_count": 0,
+        "media_query_count": 0,
+        "contrast_issue_count": 0,
+        "unused_declaration_count": 0
+    },
+    "root_ids": [
+        "node-1"
+    ],
+    "elements": [
+        {
+            "node_id": "node-1",
+            "backend_node_id": 3,
+            "document_order": 1,
+            "identity": {
+                "tag": "html",
+                "node_name": "HTML",
+                "data_attributes": {
+                    "data-glow-capture-node-id": "node-1"
+                },
+                "attributes": {
+                    "data-glow-capture-node-id": "node-1"
+                },
+                "selector_hint": "html[data-node-index='1']",
+                "xpath": "/html[1]"
+            },
+            "layout": {
+                "x": 0.0,
+                "y": 0.0,
+                "width": 1440.0,
+                "height": 900.0,
+                "absolute_bounds": {
+                    "left": 0.0,
+                    "top": 0.0,
+                    "right": 1440.0,
+                    "bottom": 900.0
+                }
+            },
+            "styles": {},
+            "computed_styles": {},
+            "flags": {
+                "is_out_of_scope": false,
+                "is_visible": true,
+                "is_stacking_context": true,
+                "is_text_node": false,
+                "is_leaf": false,
+                "has_siblings": false
+            },
+            "children_ids": [
+                "node-3"
+            ],
+            "paint_order": 1
+        },
+        {
+            "node_id": "node-3",
+            "backend_node_id": 2,
+            "document_order": 2,
+            "identity": {
+                "tag": "body",
+                "node_name": "BODY",
+                "data_attributes": {
+                    "data-glow-capture-node-id": "node-3"
+                },
+                "attributes": {
+                    "style": "background:#000;color:#fff",
+                    "data-glow-capture-node-id": "node-3"
+                },
+                "selector_hint": "body[data-node-index='3']",
+                "xpath": "/html[1]/body[1]"
+            },
+            "layout": {
+                "x": 8.0,
+                "y": 8.0,
+                "width": 1424.0,
+                "height": 870.5625,
+                "absolute_bounds": {
+                    "left": 8.0,
+                    "top": 8.0,
+                    "right": 1432.0,
+                    "bottom": 878.5625
+                }
+            },
+            "styles": {},
+            "computed_styles": {
+                "background": {
+                    "resolution_status": "unresolved",
+                    "computed_value": "rgb(0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box"
+                },
+                "background-color": {
+                    "style_id": "style-1",
+                    "kind": "inline",
+                    "declared_property": "background",
+                    "resolution_status": "exact_match",
+                    "computed_value": "rgb(0, 0, 0)"
+                },
+                "color": {
+                    "resolution_status": "unresolved",
+                    "computed_value": "rgb(255, 255, 255)"
+                }
+            },
+            "flags": {
+                "is_out_of_scope": false,
+                "is_visible": true,
+                "is_stacking_context": false,
+                "is_text_node": false,
+                "is_leaf": false,
+                "has_siblings": false
+            },
+            "children_ids": [
+                "node-4"
+            ],
+            "color_properties": [
+                {
+                    "color_property_id": "node-3:background-color:2",
+                    "property_name": "background-color",
+                    "source_kind": "own",
+                    "resolved_value": "rgb(0, 0, 0)",
+                    "status": "exact_match",
+                    "color_id": "color-1",
+                    "winning_style_ref": {
+                        "style_id": "style-1",
+                        "declared_property": "background"
+                    },
+                    "before": {
+                        "value": "rgb(0, 0, 0)",
+                        "color_id": "color-1"
+                    }
+                },
+                {
+                    "color_property_id": "node-3:color:3",
+                    "property_name": "color",
+                    "source_kind": "own",
+                    "resolved_value": "rgb(255, 255, 255)",
+                    "status": "unresolved",
+                    "color_id": "color-2",
+                    "before": {
+                        "value": "rgb(255, 255, 255)",
+                        "color_id": "color-2"
+                    }
+                }
+            ],
+            "parent_id": "node-1",
+            "paint_order": 1
+        },
+        {
+            "node_id": "node-4",
+            "backend_node_id": 5,
+            "document_order": 3,
+            "identity": {
+                "tag": "h1",
+                "node_name": "H1",
+                "data_attributes": {
+                    "data-glow-capture-node-id": "node-4"
+                },
+                "attributes": {
+                    "data-glow-capture-node-id": "node-4"
+                },
+                "selector_hint": "h1[data-node-index='4']",
+                "xpath": "/html[1]/body[1]/h1[1]"
+            },
+            "layout": {
+                "x": 8.0,
+                "y": 8.0,
+                "width": 1424.0,
+                "height": 37.0,
+                "absolute_bounds": {
+                    "left": 8.0,
+                    "top": 8.0,
+                    "right": 1432.0,
+                    "bottom": 45.0
+                }
+            },
+            "styles": {
+                "effective_background": "rgb(0, 0, 0)",
+                "effective_background_color_id": "color-1"
+            },
+            "computed_styles": {
+                "background": {
+                    "resolution_status": "unresolved",
+                    "computed_value": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box"
+                },
+                "background-color": {
+                    "resolution_status": "unresolved",
+                    "computed_value": "transparent"
+                },
+                "color": {
+                    "resolution_status": "unresolved",
+                    "computed_value": "rgb(255, 255, 255)"
+                }
+            },
+            "flags": {
+                "is_out_of_scope": false,
+                "is_visible": true,
+                "is_stacking_context": false,
+                "is_text_node": false,
+                "is_leaf": false,
+                "has_siblings": false
+            },
+            "children_ids": [
+                "node-doc-4"
+            ],
+            "color_properties": [
+                {
+                    "color_property_id": "node-4:color:3",
+                    "property_name": "color",
+                    "source_kind": "own",
+                    "resolved_value": "rgb(255, 255, 255)",
+                    "status": "unresolved",
+                    "color_id": "color-2",
+                    "before": {
+                        "value": "rgb(255, 255, 255)",
+                        "color_id": "color-2"
+                    }
+                }
+            ],
+            "text": "Hola",
+            "parent_id": "node-3",
+            "paint_order": 1
+        },
+        {
+            "node_id": "node-doc-4",
+            "backend_node_id": 6,
+            "document_order": 4,
+            "identity": {
+                "tag": "#text",
+                "node_name": "#text",
+                "xpath": "/html[1]/body[1]/h1[1]/text()[1]"
+            },
+            "layout": {
+                "x": 8.0,
+                "y": 8.0,
+                "width": 65.78125,
+                "height": 36.0,
+                "absolute_bounds": {
+                    "left": 8.0,
+                    "top": 8.0,
+                    "right": 73.78125,
+                    "bottom": 44.0
+                }
+            },
+            "styles": {},
+            "computed_styles": {},
+            "flags": {
+                "is_out_of_scope": false,
+                "is_visible": true,
+                "is_stacking_context": false,
+                "is_text_node": true,
+                "is_leaf": true,
+                "has_siblings": false
+            },
+            "children_ids": [],
+            "text": "Hola",
+            "parent_id": "node-4",
+            "paint_order": 1
+        }
+    ],
+    "styles": [
+        {
+            "style_id": "style-1",
+            "kind": "inline",
+            "declarations": [
+                {
+                    "name": "background",
+                    "value": "#000",
+                    "important": false,
+                    "implicit": false,
+                    "declaration_id": "style-1-decl-1",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-3"
+                    ]
+                },
+                {
+                    "name": "color",
+                    "value": "#fff",
+                    "important": false,
+                    "implicit": false,
+                    "declaration_id": "style-1-decl-2",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-3"
+                    ]
+                }
+            ],
+            "node_ids": [
+                "node-3"
+            ],
+            "usage_count": 1,
+            "origin": "author",
+            "style_sheet_id": "18444.1",
+            "source_range": {
+                "start_line": 0,
+                "start_column": 0,
+                "end_line": 0,
+                "end_column": 26
+            }
+        },
+        {
+            "style_id": "style-2",
+            "kind": "inherited",
+            "declarations": [
+                {
+                    "name": "background",
+                    "value": "#000",
+                    "important": false,
+                    "implicit": false,
+                    "declaration_id": "style-2-decl-1",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-4"
+                    ]
+                },
+                {
+                    "name": "color",
+                    "value": "#fff",
+                    "important": false,
+                    "implicit": false,
+                    "declaration_id": "style-2-decl-2",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-4"
+                    ]
+                }
+            ],
+            "node_ids": [
+                "node-4"
+            ],
+            "usage_count": 1,
+            "origin": "author",
+            "style_sheet_id": "18444.1",
+            "source_range": {
+                "start_line": 0,
+                "start_column": 0,
+                "end_line": 0,
+                "end_column": 26
+            }
+        }
+    ],
+    "colors": [
+        {
+            "color_id": "color-1",
+            "value": "rgb(0, 0, 0)",
+            "usage_count": 3,
+            "usage": [
+                {
+                    "tag": "body",
+                    "property": "background",
+                    "count": 1
+                }
+            ],
+            "node_ids": [
+                "node-1",
+                "node-3",
+                "node-4"
+            ],
+            "hex_value": "#000000",
+            "rgb": [
+                0,
+                0,
+                0
+            ],
+            "alpha": 1.0,
+            "hct": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "nearest_web_color": "black",
+            "nearest_web_color_distance": 0.0,
+            "declared_in_snapshot": true,
+            "added_from_pixel_evidence": false,
+            "observed_usage_count": 3,
+            "observed_roles": [
+                {
+                    "role": "background",
+                    "count": 1,
+                    "node_ids": [
+                        "node-3"
+                    ],
+                    "sample_selectors": [
+                        "html > body"
+                    ]
+                },
+                {
+                    "role": "border",
+                    "count": 4,
+                    "node_ids": [
+                        "node-1"
+                    ],
+                    "sample_selectors": [
+                        "html"
+                    ]
+                },
+                {
+                    "role": "fill",
+                    "count": 3,
+                    "node_ids": [
+                        "node-1",
+                        "node-3",
+                        "node-4"
+                    ],
+                    "sample_selectors": [
+                        "html",
+                        "html > body",
+                        "html > body > h1"
+                    ]
+                },
+                {
+                    "role": "text",
+                    "count": 1,
+                    "node_ids": [
+                        "node-1"
+                    ],
+                    "sample_selectors": [
+                        "html"
+                    ]
+                }
+            ],
+            "display_pixel_count": 1295229,
+            "display_pixel_percentage": 99.9405,
+            "clustered_from_display_pixels": false,
+            "mapped_palette_id": "palette-achromatic-1",
+            "mapped_tone": 0,
+            "mapped_tone_rgb": [
+                0,
+                0,
+                0
+            ],
+            "mapped_tone_distance": 0.0
+        },
+        {
+            "color_id": "color-2",
+            "value": "rgb(255, 255, 255)",
+            "usage_count": 2,
+            "usage": [
+                {
+                    "tag": "body",
+                    "property": "color",
+                    "count": 1
+                }
+            ],
+            "node_ids": [
+                "node-3",
+                "node-4"
+            ],
+            "hex_value": "#ffffff",
+            "rgb": [
+                255,
+                255,
+                255
+            ],
+            "alpha": 1.0,
+            "hct": [
+                209.5429,
+                2.8716,
+                100.0
+            ],
+            "nearest_web_color": "white",
+            "nearest_web_color_distance": 0.0,
+            "declared_in_snapshot": true,
+            "added_from_pixel_evidence": false,
+            "observed_usage_count": 2,
+            "observed_roles": [
+                {
+                    "role": "border",
+                    "count": 8,
+                    "node_ids": [
+                        "node-3",
+                        "node-4"
+                    ],
+                    "sample_selectors": [
+                        "html > body",
+                        "html > body > h1"
+                    ]
+                },
+                {
+                    "role": "text",
+                    "count": 2,
+                    "node_ids": [
+                        "node-3",
+                        "node-4"
+                    ],
+                    "sample_selectors": [
+                        "html > body",
+                        "html > body > h1"
+                    ]
+                }
+            ],
+            "display_pixel_count": 404,
+            "display_pixel_percentage": 0.0312,
+            "clustered_from_display_pixels": true,
+            "mapped_palette_id": "palette-achromatic-1",
+            "mapped_tone": 100,
+            "mapped_tone_rgb": [
+                255,
+                255,
+                255
+            ],
+            "mapped_tone_distance": 0.0
+        }
+    ],
+    "palettes": [
+        {
+            "palette_id": "palette-achromatic-1",
+            "palette_type": "achromatic",
+            "seed_name": "black",
+            "seed_color_id": "color-1",
+            "seed_hex": "#000000",
+            "seed_rgb": [
+                0,
+                0,
+                0
+            ],
+            "seed_hct": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "hue": 0.0,
+            "chroma": 6.0,
+            "semantic_weight": 3,
+            "confirmed_pixel_count": 1295229,
+            "display_name": "Neutral",
+            "seed_display_name": "Black",
+            "seed_family_name": "Neutral",
+            "source_color_ids": [
+                "color-1"
+            ],
+            "tones": [
+                {
+                    "tone": 0,
+                    "hex_value": "#000000",
+                    "rgb": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "hct": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                },
+                {
+                    "tone": 10,
+                    "hex_value": "#22191b",
+                    "rgb": [
+                        34,
+                        25,
+                        27
+                    ],
+                    "hct": [
+                        360.0,
+                        6.0,
+                        10.0
+                    ]
+                },
+                {
+                    "tone": 20,
+                    "hex_value": "#372e30",
+                    "rgb": [
+                        55,
+                        46,
+                        48
+                    ],
+                    "hct": [
+                        360.0,
+                        6.0,
+                        20.0
+                    ]
+                },
+                {
+                    "tone": 30,
+                    "hex_value": "#4f4446",
+                    "rgb": [
+                        79,
+                        68,
+                        70
+                    ],
+                    "hct": [
+                        0.0,
+                        6.0,
+                        30.0
+                    ]
+                },
+                {
+                    "tone": 40,
+                    "hex_value": "#675b5e",
+                    "rgb": [
+                        103,
+                        91,
+                        94
+                    ],
+                    "hct": [
+                        0.0,
+                        6.0,
+                        40.0
+                    ]
+                },
+                {
+                    "tone": 50,
+                    "hex_value": "#807476",
+                    "rgb": [
+                        128,
+                        116,
+                        118
+                    ],
+                    "hct": [
+                        360.0,
+                        6.0,
+                        50.0
+                    ]
+                },
+                {
+                    "tone": 60,
+                    "hex_value": "#9b8d90",
+                    "rgb": [
+                        155,
+                        141,
+                        144
+                    ],
+                    "hct": [
+                        360.0,
+                        6.0,
+                        60.0
+                    ]
+                },
+                {
+                    "tone": 70,
+                    "hex_value": "#b6a8aa",
+                    "rgb": [
+                        182,
+                        168,
+                        170
+                    ],
+                    "hct": [
+                        360.0,
+                        6.0,
+                        70.0
+                    ]
+                },
+                {
+                    "tone": 80,
+                    "hex_value": "#d2c3c5",
+                    "rgb": [
+                        210,
+                        195,
+                        197
+                    ],
+                    "hct": [
+                        0.0,
+                        6.0,
+                        80.0
+                    ]
+                },
+                {
+                    "tone": 90,
+                    "hex_value": "#efdfe1",
+                    "rgb": [
+                        239,
+                        223,
+                        225
+                    ],
+                    "hct": [
+                        360.0,
+                        6.0,
+                        90.0
+                    ]
+                },
+                {
+                    "tone": 95,
+                    "hex_value": "#fdedef",
+                    "rgb": [
+                        253,
+                        237,
+                        239
+                    ],
+                    "hct": [
+                        360.0,
+                        6.0,
+                        95.0
+                    ]
+                },
+                {
+                    "tone": 98,
+                    "hex_value": "#fff8f8",
+                    "rgb": [
+                        255,
+                        248,
+                        248
+                    ],
+                    "hct": [
+                        359.9223,
+                        1.6661,
+                        98.0002
+                    ]
+                },
+                {
+                    "tone": 99,
+                    "hex_value": "#fffbfb",
+                    "rgb": [
+                        255,
+                        251,
+                        251
+                    ],
+                    "hct": [
+                        235.2919,
+                        0.8097,
+                        99.0431
+                    ]
+                },
+                {
+                    "tone": 100,
+                    "hex_value": "#ffffff",
+                    "rgb": [
+                        255,
+                        255,
+                        255
+                    ],
+                    "hct": [
+                        209.5429,
+                        2.8716,
+                        100.0
+                    ]
+                }
+            ]
+        }
+    ],
+    "tokens": [
+        {
+            "token_id": "glow.color.neutral.0",
+            "path": [
+                "glow",
+                "color",
+                "neutral",
+                "0"
+            ],
+            "name": "0",
+            "token": "0",
+            "value_kind": "foundation",
+            "resolved_value": "#000000",
+            "state": "validated",
+            "source_element_ids": [],
+            "assigned_element_ids": [],
+            "source_property_refs": [],
+            "source_color_ids": [],
+            "source_style_ids": [],
+            "source_palette_ids": [
+                "palette-achromatic-1"
+            ],
+            "source_values": [],
+            "validations": [],
+            "annotations": [
+                "foundation_color_token"
+            ],
+            "value": "#000000",
+            "palette_name": "Neutral",
+            "tone": 0,
+            "created_by_stage": "set_tokens",
+            "css_variable_name": "--glow-color-neutral-0",
+            "design_token_type": "color"
+        },
+        {
+            "token_id": "glow.color.neutral.10",
+            "path": [
+                "glow",
+                "color",
+                "neutral",
+                "10"
+            ],
+            "name": "10",
+            "token": "10",
+            "value_kind": "foundation",
+            "resolved_value": "#22191b",
+            "state": "validated",
+            "source_element_ids": [],
+            "assigned_element_ids": [],
+            "source_property_refs": [],
+            "source_color_ids": [],
+            "source_style_ids": [],
+            "source_palette_ids": [
+                "palette-achromatic-1"
+            ],
+            "source_values": [],
+            "validations": [],
+            "annotations": [
+                "foundation_color_token"
+            ],
+            "value": "#22191b",
+            "palette_name": "Neutral",
+            "tone": 10,
+            "created_by_stage": "set_tokens",
+            "css_variable_name": "--glow-color-neutral-10",
+            "design_token_type": "color"
+        },
+        {
+            "token_id": "glow.color.neutral.100",
+            "path": [
+                "glow",
+                "color",
+                "neutral",
+                "100"
+            ],
+            "name": "100",
+            "token": "100",
+            "value_kind": "foundation",
+            "resolved_value": "#ffffff",
+            "state": "validated",
+            "source_element_ids": [],
+            "assigned_element_ids": [],
+            "source_property_refs": [],
+            "source_color_ids": [],
+            "source_style_ids": [],
+            "source_palette_ids": [
+                "palette-achromatic-1"
+            ],
+            "source_values": [],
+            "validations": [],
+            "annotations": [
+                "foundation_color_token"
+            ],
+            "value": "#ffffff",
+            "palette_name": "Neutral",
+            "tone": 100,
+            "created_by_stage": "set_tokens",
+            "css_variable_name": "--glow-color-neutral-100",
+            "design_token_type": "color"
+        },
+        {
+            "token_id": "glow.color.neutral.20",
+            "path": [
+                "glow",
+                "color",
+                "neutral",
+                "20"
+            ],
+            "name": "20",
+            "token": "20",
+            "value_kind": "foundation",
+            "resolved_value": "#372e30",
+            "state": "validated",
+            "source_element_ids": [],
+            "assigned_element_ids": [],
+            "source_property_refs": [],
+            "source_color_ids": [],
+            "source_style_ids": [],
+            "source_palette_ids": [
+                "palette-achromatic-1"
+            ],
+            "source_values": [],
+            "validations": [],
+            "annotations": [
+                "foundation_color_token"
+            ],
+            "value": "#372e30",
+            "palette_name": "Neutral",
+            "tone": 20,
+            "created_by_stage": "set_tokens",
+            "css_variable_name": "--glow-color-neutral-20",
+            "design_token_type": "color"
+        },
+        {
+            "token_id": "glow.color.neutral.30",
+            "path": [
+                "glow",
+                "color",
+                "neutral",
+                "30"
+            ],
+            "name": "30",
+            "token": "30",
+            "value_kind": "foundation",
+            "resolved_value": "#4f4446",
+            "state": "validated",
+            "source_element_ids": [],
+            "assigned_element_ids": [],
+            "source_property_refs": [],
+            "source_color_ids": [],
+            "source_style_ids": [],
+            "source_palette_ids": [
+                "palette-achromatic-1"
+            ],
+            "source_values": [],
+            "validations": [],
+            "annotations": [
+                "foundation_color_token"
+            ],
+            "value": "#4f4446",
+            "palette_name": "Neutral",
+            "tone": 30,
+            "created_by_stage": "set_tokens",
+            "css_variable_name": "--glow-color-neutral-30",
+            "design_token_type": "color"
+        },
+        {
+            "token_id": "glow.color.neutral.40",
+            "path": [
+                "glow",
+                "color",
+                "neutral",
+                "40"
+            ],
+            "name": "40",
+            "token": "40",
+            "value_kind": "foundation",
+            "resolved_value": "#675b5e",
+            "state": "validated",
+            "source_element_ids": [],
+            "assigned_element_ids": [],
+            "source_property_refs": [],
+            "source_color_ids": [],
+            "source_style_ids": [],
+            "source_palette_ids": [
+                "palette-achromatic-1"
+            ],
+            "source_values": [],
+            "validations": [],
+            "annotations": [
+                "foundation_color_token"
+            ],
+            "value": "#675b5e",
+            "palette_name": "Neutral",
+            "tone": 40,
+            "created_by_stage": "set_tokens",
+            "css_variable_name": "--glow-color-neutral-40",
+            "design_token_type": "color"
+        },
+        {
+            "token_id": "glow.color.neutral.50",
+            "path": [
+                "glow",
+                "color",
+                "neutral",
+                "50"
+            ],
+            "name": "50",
+            "token": "50",
+            "value_kind": "foundation",
+            "resolved_value": "#807476",
+            "state": "validated",
+            "source_element_ids": [],
+            "assigned_element_ids": [],
+            "source_property_refs": [],
+            "source_color_ids": [],
+            "source_style_ids": [],
+            "source_palette_ids": [
+                "palette-achromatic-1"
+            ],
+            "source_values": [],
+            "validations": [],
+            "annotations": [
+                "foundation_color_token"
+            ],
+            "value": "#807476",
+            "palette_name": "Neutral",
+            "tone": 50,
+            "created_by_stage": "set_tokens",
+            "css_variable_name": "--glow-color-neutral-50",
+            "design_token_type": "color"
+        },
+        {
+            "token_id": "glow.color.neutral.60",
+            "path": [
+                "glow",
+                "color",
+                "neutral",
+                "60"
+            ],
+            "name": "60",
+            "token": "60",
+            "value_kind": "foundation",
+            "resolved_value": "#9b8d90",
+            "state": "validated",
+            "source_element_ids": [],
+            "assigned_element_ids": [],
+            "source_property_refs": [],
+            "source_color_ids": [],
+            "source_style_ids": [],
+            "source_palette_ids": [
+                "palette-achromatic-1"
+            ],
+            "source_values": [],
+            "validations": [],
+            "annotations": [
+                "foundation_color_token"
+            ],
+            "value": "#9b8d90",
+            "palette_name": "Neutral",
+            "tone": 60,
+            "created_by_stage": "set_tokens",
+            "css_variable_name": "--glow-color-neutral-60",
+            "design_token_type": "color"
+        },
+        {
+            "token_id": "glow.color.neutral.70",
+            "path": [
+                "glow",
+                "color",
+                "neutral",
+                "70"
+            ],
+            "name": "70",
+            "token": "70",
+            "value_kind": "foundation",
+            "resolved_value": "#b6a8aa",
+            "state": "validated",
+            "source_element_ids": [],
+            "assigned_element_ids": [],
+            "source_property_refs": [],
+            "source_color_ids": [],
+            "source_style_ids": [],
+            "source_palette_ids": [
+                "palette-achromatic-1"
+            ],
+            "source_values": [],
+            "validations": [],
+            "annotations": [
+                "foundation_color_token"
+            ],
+            "value": "#b6a8aa",
+            "palette_name": "Neutral",
+            "tone": 70,
+            "created_by_stage": "set_tokens",
+            "css_variable_name": "--glow-color-neutral-70",
+            "design_token_type": "color"
+        },
+        {
+            "token_id": "glow.color.neutral.80",
+            "path": [
+                "glow",
+                "color",
+                "neutral",
+                "80"
+            ],
+            "name": "80",
+            "token": "80",
+            "value_kind": "foundation",
+            "resolved_value": "#d2c3c5",
+            "state": "validated",
+            "source_element_ids": [],
+            "assigned_element_ids": [],
+            "source_property_refs": [],
+            "source_color_ids": [],
+            "source_style_ids": [],
+            "source_palette_ids": [
+                "palette-achromatic-1"
+            ],
+            "source_values": [],
+            "validations": [],
+            "annotations": [
+                "foundation_color_token"
+            ],
+            "value": "#d2c3c5",
+            "palette_name": "Neutral",
+            "tone": 80,
+            "created_by_stage": "set_tokens",
+            "css_variable_name": "--glow-color-neutral-80",
+            "design_token_type": "color"
+        },
+        {
+            "token_id": "glow.color.neutral.90",
+            "path": [
+                "glow",
+                "color",
+                "neutral",
+                "90"
+            ],
+            "name": "90",
+            "token": "90",
+            "value_kind": "foundation",
+            "resolved_value": "#efdfe1",
+            "state": "validated",
+            "source_element_ids": [],
+            "assigned_element_ids": [],
+            "source_property_refs": [],
+            "source_color_ids": [],
+            "source_style_ids": [],
+            "source_palette_ids": [
+                "palette-achromatic-1"
+            ],
+            "source_values": [],
+            "validations": [],
+            "annotations": [
+                "foundation_color_token"
+            ],
+            "value": "#efdfe1",
+            "palette_name": "Neutral",
+            "tone": 90,
+            "created_by_stage": "set_tokens",
+            "css_variable_name": "--glow-color-neutral-90",
+            "design_token_type": "color"
+        },
+        {
+            "token_id": "glow.color.neutral.95",
+            "path": [
+                "glow",
+                "color",
+                "neutral",
+                "95"
+            ],
+            "name": "95",
+            "token": "95",
+            "value_kind": "foundation",
+            "resolved_value": "#fdedef",
+            "state": "validated",
+            "source_element_ids": [],
+            "assigned_element_ids": [],
+            "source_property_refs": [],
+            "source_color_ids": [],
+            "source_style_ids": [],
+            "source_palette_ids": [
+                "palette-achromatic-1"
+            ],
+            "source_values": [],
+            "validations": [],
+            "annotations": [
+                "foundation_color_token"
+            ],
+            "value": "#fdedef",
+            "palette_name": "Neutral",
+            "tone": 95,
+            "created_by_stage": "set_tokens",
+            "css_variable_name": "--glow-color-neutral-95",
+            "design_token_type": "color"
+        },
+        {
+            "token_id": "glow.color.neutral.98",
+            "path": [
+                "glow",
+                "color",
+                "neutral",
+                "98"
+            ],
+            "name": "98",
+            "token": "98",
+            "value_kind": "foundation",
+            "resolved_value": "#fff8f8",
+            "state": "validated",
+            "source_element_ids": [],
+            "assigned_element_ids": [],
+            "source_property_refs": [],
+            "source_color_ids": [],
+            "source_style_ids": [],
+            "source_palette_ids": [
+                "palette-achromatic-1"
+            ],
+            "source_values": [],
+            "validations": [],
+            "annotations": [
+                "foundation_color_token"
+            ],
+            "value": "#fff8f8",
+            "palette_name": "Neutral",
+            "tone": 98,
+            "created_by_stage": "set_tokens",
+            "css_variable_name": "--glow-color-neutral-98",
+            "design_token_type": "color"
+        },
+        {
+            "token_id": "glow.color.neutral.99",
+            "path": [
+                "glow",
+                "color",
+                "neutral",
+                "99"
+            ],
+            "name": "99",
+            "token": "99",
+            "value_kind": "foundation",
+            "resolved_value": "#fffbfb",
+            "state": "validated",
+            "source_element_ids": [],
+            "assigned_element_ids": [],
+            "source_property_refs": [],
+            "source_color_ids": [],
+            "source_style_ids": [],
+            "source_palette_ids": [
+                "palette-achromatic-1"
+            ],
+            "source_values": [],
+            "validations": [],
+            "annotations": [
+                "foundation_color_token"
+            ],
+            "value": "#fffbfb",
+            "palette_name": "Neutral",
+            "tone": 99,
+            "created_by_stage": "set_tokens",
+            "css_variable_name": "--glow-color-neutral-99",
+            "design_token_type": "color"
+        },
+        {
+            "token_id": "glow.main_surface.background-color.subtle.1",
+            "path": [
+                "glow",
+                "main_surface",
+                "background-color",
+                "subtle",
+                "1"
+            ],
+            "name": "1",
+            "token": "1",
+            "value_kind": "semantic",
+            "resolved_value": "#000000",
+            "state": "validated",
+            "source_element_ids": [
+                "node-3"
+            ],
+            "assigned_element_ids": [
+                "node-3"
+            ],
+            "source_property_refs": [
+                "style-1:background-color"
+            ],
+            "source_color_ids": [
+                "color-1"
+            ],
+            "source_style_ids": [
+                "style-1"
+            ],
+            "source_palette_ids": [
+                "palette-achromatic-1"
+            ],
+            "source_values": [
+                "rgb(0, 0, 0)",
+                "#000000"
+            ],
+            "validations": [
+                {
+                    "rule_id": "main_surface",
+                    "status": "adjusted",
+                    "metrics": {},
+                    "before": {
+                        "resolved_value": "#000000"
+                    },
+                    "after": {
+                        "resolved_value": "#000000",
+                        "alias_to": "glow.color.neutral.0"
+                    },
+                    "reason": "Main surface remapped to achromatic foundation tones."
+                }
+            ],
+            "annotations": [
+                "semantic_token",
+                "background"
+            ],
+            "alias_to": "glow.color.neutral.0",
+            "value": "{glow.color.neutral.0}",
+            "element_key": "main_surface",
+            "property_id": "background-color",
+            "value_label": "subtle.1",
+            "palette_name": "Neutral",
+            "tone": 0,
+            "created_by_stage": "set_tokens",
+            "css_variable_name": "--glow-main-surface-background-color-subtle-1",
+            "design_token_type": "color"
+        },
+        {
+            "token_id": "glow.text.color.emphasis.5",
+            "path": [
+                "glow",
+                "text",
+                "color",
+                "emphasis",
+                "5"
+            ],
+            "name": "5",
+            "token": "5",
+            "value_kind": "semantic",
+            "resolved_value": "#ffffff",
+            "state": "validated",
+            "source_element_ids": [
+                "node-3",
+                "node-4"
+            ],
+            "assigned_element_ids": [
+                "node-3",
+                "node-4"
+            ],
+            "source_property_refs": [
+                "node-3:color",
+                "node-4:color"
+            ],
+            "source_color_ids": [
+                "color-2"
+            ],
+            "source_style_ids": [],
+            "source_palette_ids": [
+                "palette-achromatic-1"
+            ],
+            "source_values": [
+                "rgb(255, 255, 255)",
+                "#ffffff"
+            ],
+            "validations": [
+                {
+                    "rule_id": "text",
+                    "status": "passed",
+                    "metrics": {
+                        "contrast": 21.0,
+                        "minimum": 3.0
+                    },
+                    "before": {
+                        "resolved_value": "#ffffff"
+                    },
+                    "after": {
+                        "resolved_value": "#ffffff"
+                    },
+                    "reason": "Text token evaluated against the transformed background."
+                }
+            ],
+            "annotations": [
+                "semantic_token",
+                "color"
+            ],
+            "alias_to": "glow.color.neutral.100",
+            "value": "{glow.color.neutral.100}",
+            "element_key": "text",
+            "property_id": "color",
+            "value_label": "emphasis.5",
+            "palette_name": "Neutral",
+            "tone": 100,
+            "created_by_stage": "set_tokens",
+            "css_variable_name": "--glow-text-color-emphasis-5",
+            "design_token_type": "color"
+        }
+    ],
+    "relations": {
+        "element_to_parent_id": {
+            "node-3": "node-1",
+            "node-4": "node-3",
+            "node-doc-4": "node-4"
+        },
+        "element_to_children_ids": {
+            "node-1": [
+                "node-3"
+            ],
+            "node-3": [
+                "node-4"
+            ],
+            "node-4": [
+                "node-doc-4"
+            ]
+        },
+        "element_to_style_ids": {
+            "node-1": [],
+            "node-3": [
+                "style-1"
+            ],
+            "node-4": [],
+            "node-doc-4": []
+        },
+        "element_to_color_ids": {
+            "node-1": [],
+            "node-3": [
+                "color-1",
+                "color-2"
+            ],
+            "node-4": [
+                "color-2"
+            ],
+            "node-doc-4": []
+        },
+        "element_to_token_ids": {
+            "node-3": [
+                "glow.main_surface.background-color.subtle.1",
+                "glow.text.color.emphasis.5"
+            ],
+            "node-4": [
+                "glow.text.color.emphasis.5"
+            ]
+        },
+        "element_adjacency": {
+            "node-1": [
+                "node-3",
+                "node-4",
+                "node-doc-4"
+            ],
+            "node-3": [
+                "node-1",
+                "node-4",
+                "node-doc-4"
+            ],
+            "node-4": [
+                "node-1",
+                "node-3",
+                "node-doc-4"
+            ],
+            "node-doc-4": [
+                "node-1",
+                "node-3",
+                "node-4"
+            ]
+        },
+        "element_visual_context": {
+            "node-1": {
+                "effective_background_color_id": null,
+                "effective_foreground_color_id": null,
+                "surface_container_id": null
+            },
+            "node-3": {
+                "effective_background_color_id": "color-1",
+                "effective_foreground_color_id": "color-2",
+                "surface_container_id": "node-3"
+            },
+            "node-4": {
+                "effective_background_color_id": "color-1",
+                "effective_foreground_color_id": "color-2",
+                "surface_container_id": "node-4"
+            },
+            "node-doc-4": {
+                "effective_background_color_id": "color-1",
+                "effective_foreground_color_id": "color-2",
+                "surface_container_id": "node-4"
+            }
+        },
+        "color_to_token_ids": {
+            "color-1": [
+                "glow.main_surface.background-color.subtle.1"
+            ],
+            "color-2": [
+                "glow.text.color.emphasis.5"
+            ]
+        },
+        "palette_tone_to_token_ids": {
+            "palette-achromatic-1:0": [
+                "glow.color.neutral.0",
+                "glow.main_surface.background-color.subtle.1"
+            ],
+            "palette-achromatic-1:10": [
+                "glow.color.neutral.10"
+            ],
+            "palette-achromatic-1:100": [
+                "glow.color.neutral.100",
+                "glow.text.color.emphasis.5"
+            ],
+            "palette-achromatic-1:20": [
+                "glow.color.neutral.20"
+            ],
+            "palette-achromatic-1:30": [
+                "glow.color.neutral.30"
+            ],
+            "palette-achromatic-1:40": [
+                "glow.color.neutral.40"
+            ],
+            "palette-achromatic-1:50": [
+                "glow.color.neutral.50"
+            ],
+            "palette-achromatic-1:60": [
+                "glow.color.neutral.60"
+            ],
+            "palette-achromatic-1:70": [
+                "glow.color.neutral.70"
+            ],
+            "palette-achromatic-1:80": [
+                "glow.color.neutral.80"
+            ],
+            "palette-achromatic-1:90": [
+                "glow.color.neutral.90"
+            ],
+            "palette-achromatic-1:95": [
+                "glow.color.neutral.95"
+            ],
+            "palette-achromatic-1:98": [
+                "glow.color.neutral.98"
+            ],
+            "palette-achromatic-1:99": [
+                "glow.color.neutral.99"
+            ]
+        },
+        "style_declaration_to_token_ids": {
+            "style-1:background-color": [
+                "glow.main_surface.background-color.subtle.1"
+            ]
+        }
+    },
+    "css_overview": {
+        "metadata": {
+            "url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_29858938/input/Pagina/__glow_render__-twdvt7dp.html",
+            "title": "",
+            "viewport": {
+                "width": 1440,
+                "height": 900
+            },
+            "generator": "css_overview_adapter"
+        },
+        "summary": {
+            "element_count": 4,
+            "visible_element_count": 3,
+            "text_element_count": 1,
+            "inline_style_count": 1,
+            "stylesheet_count": 0,
+            "external_stylesheet_count": 0,
+            "inline_stylesheet_count": 0,
+            "media_query_count": 0,
+            "contrast_issue_count": 0,
+            "unused_declaration_count": 0
+        },
+        "stylesheets": {
+            "entries": []
+        },
+        "colors": {
+            "text": [
+                {
+                    "count": 2,
+                    "node_ids": [
+                        "node-3",
+                        "node-4"
+                    ],
+                    "sample_selectors": [
+                        "html > body",
+                        "html > body > h1"
+                    ],
+                    "color_id": "color-2"
+                },
+                {
+                    "count": 1,
+                    "node_ids": [
+                        "node-1"
+                    ],
+                    "sample_selectors": [
+                        "html"
+                    ],
+                    "color_id": "color-1"
+                }
+            ],
+            "background": [
+                {
+                    "count": 1,
+                    "node_ids": [
+                        "node-3"
+                    ],
+                    "sample_selectors": [
+                        "html > body"
+                    ],
+                    "color_id": "color-1"
+                }
+            ],
+            "border": [
+                {
+                    "count": 8,
+                    "node_ids": [
+                        "node-3",
+                        "node-4"
+                    ],
+                    "sample_selectors": [
+                        "html > body",
+                        "html > body > h1"
+                    ],
+                    "color_id": "color-2"
+                },
+                {
+                    "count": 4,
+                    "node_ids": [
+                        "node-1"
+                    ],
+                    "sample_selectors": [
+                        "html"
+                    ],
+                    "color_id": "color-1"
+                }
+            ],
+            "fill": [
+                {
+                    "count": 3,
+                    "node_ids": [
+                        "node-1",
+                        "node-3",
+                        "node-4"
+                    ],
+                    "sample_selectors": [
+                        "html",
+                        "html > body",
+                        "html > body > h1"
+                    ],
+                    "color_id": "color-1"
+                }
+            ],
+            "stroke": []
+        },
+        "typography": {
+            "font_families": [
+                {
+                    "font_family": "\"Times New Roman\"",
+                    "count": 3,
+                    "sample_selectors": [
+                        "html",
+                        "html > body",
+                        "html > body > h1"
+                    ]
+                }
+            ],
+            "text_styles": [
+                {
+                    "font_family": "\"Times New Roman\"",
+                    "font_size_px": 16.0,
+                    "font_weight": 400,
+                    "line_height": "normal",
+                    "count": 2,
+                    "sample_selectors": [
+                        "html",
+                        "html > body"
+                    ]
+                },
+                {
+                    "font_family": "\"Times New Roman\"",
+                    "font_size_px": 32.0,
+                    "font_weight": 700,
+                    "line_height": "normal",
+                    "count": 1,
+                    "sample_selectors": [
+                        "html > body > h1"
+                    ]
+                }
+            ]
+        },
+        "media_queries": [],
+        "contrast_issues": [],
+        "unused_declarations": {
+            "count": 0,
+            "entries": []
+        },
+        "unsupported_sections": []
+    },
+    "contrast_report": {
+        "count": 0,
+        "issues": []
+    },
+    "effect_color_report": {
+        "count": 0,
+        "entries": [],
+        "by_property": []
+    },
+    "pixel_frequencies_display": {
+        "matched_inventory_colors": [
+            {
+                "color": [
+                    0,
+                    0,
+                    0
+                ],
+                "count": 1295229,
+                "color_id": "color-1",
+                "percentage": 99.9405,
+                "source": "display",
+                "metadata": {
+                    "matched_to_inventory": true,
+                    "value": "rgb(0, 0, 0)",
+                    "clustered": false,
+                    "matched_cluster_count": 1
+                }
+            },
+            {
+                "color": [
+                    255,
+                    255,
+                    255
+                ],
+                "count": 404,
+                "color_id": "color-2",
+                "percentage": 0.0312,
+                "source": "display",
+                "metadata": {
+                    "matched_to_inventory": true,
+                    "value": "rgb(255, 255, 255)",
+                    "clustered": true,
+                    "matched_cluster_count": 1
+                }
+            }
+        ],
+        "unmatched_visual_pixels": {
+            "count": 367,
+            "percentage": 0.0283,
+            "distinct_clusters": 41
+        },
+        "total_pixels_considered": 1296000,
+        "excluded_regions_summary": {
+            "excluded_rect_count": 0
+        }
+    },
+    "pixel_frequencies_raw_summary": {
+        "pixel_count": 1296000,
+        "distinct_color_count": 111
+    },
+    "color_scheme": {
+        "semantic_colors": [
+            {
+                "color_id": "color-1",
+                "rgb": [
+                    0,
+                    0,
+                    0
+                ],
+                "alpha": 1.0,
+                "hct": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "family_type": "achromatic",
+                "usage_count": 3,
+                "foreground_count": 1,
+                "background_count": 2,
+                "other_count": 7,
+                "foreground_color_usages": [],
+                "background_color_usages": [
+                    {
+                        "property": "background",
+                        "total_count": 1,
+                        "tags": [
+                            {
+                                "tag": "body",
+                                "count": 1
+                            }
+                        ]
+                    }
+                ],
+                "other_usages": [],
+                "confirmed_pixel_count": 1295229,
+                "nearest_web_color": "black",
+                "nearest_web_color_distance": 0.0,
+                "confirmation_status": "confirmed",
+                "mapped_palette_id": "palette-achromatic-1",
+                "mapped_tone": 0,
+                "mapped_tone_rgb": [
+                    0,
+                    0,
+                    0
+                ],
+                "mapped_tone_distance": 0.0
+            },
+            {
+                "color_id": "color-2",
+                "rgb": [
+                    255,
+                    255,
+                    255
+                ],
+                "alpha": 1.0,
+                "hct": [
+                    209.5429,
+                    2.8716,
+                    100.0
+                ],
+                "family_type": "achromatic",
+                "usage_count": 2,
+                "foreground_count": 3,
+                "background_count": 0,
+                "other_count": 8,
+                "foreground_color_usages": [
+                    {
+                        "property": "color",
+                        "total_count": 1,
+                        "tags": [
+                            {
+                                "tag": "body",
+                                "count": 1
+                            }
+                        ]
+                    }
+                ],
+                "background_color_usages": [],
+                "other_usages": [],
+                "confirmed_pixel_count": 404,
+                "nearest_web_color": "white",
+                "nearest_web_color_distance": 0.0,
+                "confirmation_status": "confirmed",
+                "mapped_palette_id": "palette-achromatic-1",
+                "mapped_tone": 100,
+                "mapped_tone_rgb": [
+                    255,
+                    255,
+                    255
+                ],
+                "mapped_tone_distance": 0.0
+            }
+        ],
+        "named_color_breakdown": [
+            {
+                "name": "black",
+                "display_name": "Black",
+                "family": "Colores grises",
+                "hex_value": "#000000",
+                "count": 1295229,
+                "percentage": 99.9688
+            },
+            {
+                "name": "white",
+                "display_name": "White",
+                "family": "Colores blancos",
+                "hex_value": "#ffffff",
+                "count": 404,
+                "percentage": 0.0312
+            }
+        ],
+        "core_palettes": {
+            "achromatic_palette": {
+                "palette_id": "palette-achromatic-1",
+                "palette_type": "achromatic",
+                "seed_name": "black",
+                "seed_color_id": "color-1",
+                "seed_hex": "#000000",
+                "seed_rgb": [
+                    0,
+                    0,
+                    0
+                ],
+                "seed_hct": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "hue": 0.0,
+                "chroma": 6.0,
+                "semantic_weight": 3,
+                "confirmed_pixel_count": 1295229,
+                "display_name": "Neutral",
+                "seed_display_name": "Black",
+                "seed_family_name": "Neutral",
+                "source_color_ids": [
+                    "color-1"
+                ],
+                "tones": [
+                    {
+                        "tone": 0,
+                        "hex_value": "#000000",
+                        "rgb": [
+                            0,
+                            0,
+                            0
+                        ],
+                        "hct": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "tone": 10,
+                        "hex_value": "#22191b",
+                        "rgb": [
+                            34,
+                            25,
+                            27
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            10.0
+                        ]
+                    },
+                    {
+                        "tone": 20,
+                        "hex_value": "#372e30",
+                        "rgb": [
+                            55,
+                            46,
+                            48
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            20.0
+                        ]
+                    },
+                    {
+                        "tone": 30,
+                        "hex_value": "#4f4446",
+                        "rgb": [
+                            79,
+                            68,
+                            70
+                        ],
+                        "hct": [
+                            0.0,
+                            6.0,
+                            30.0
+                        ]
+                    },
+                    {
+                        "tone": 40,
+                        "hex_value": "#675b5e",
+                        "rgb": [
+                            103,
+                            91,
+                            94
+                        ],
+                        "hct": [
+                            0.0,
+                            6.0,
+                            40.0
+                        ]
+                    },
+                    {
+                        "tone": 50,
+                        "hex_value": "#807476",
+                        "rgb": [
+                            128,
+                            116,
+                            118
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            50.0
+                        ]
+                    },
+                    {
+                        "tone": 60,
+                        "hex_value": "#9b8d90",
+                        "rgb": [
+                            155,
+                            141,
+                            144
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            60.0
+                        ]
+                    },
+                    {
+                        "tone": 70,
+                        "hex_value": "#b6a8aa",
+                        "rgb": [
+                            182,
+                            168,
+                            170
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            70.0
+                        ]
+                    },
+                    {
+                        "tone": 80,
+                        "hex_value": "#d2c3c5",
+                        "rgb": [
+                            210,
+                            195,
+                            197
+                        ],
+                        "hct": [
+                            0.0,
+                            6.0,
+                            80.0
+                        ]
+                    },
+                    {
+                        "tone": 90,
+                        "hex_value": "#efdfe1",
+                        "rgb": [
+                            239,
+                            223,
+                            225
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            90.0
+                        ]
+                    },
+                    {
+                        "tone": 95,
+                        "hex_value": "#fdedef",
+                        "rgb": [
+                            253,
+                            237,
+                            239
+                        ],
+                        "hct": [
+                            360.0,
+                            6.0,
+                            95.0
+                        ]
+                    },
+                    {
+                        "tone": 98,
+                        "hex_value": "#fff8f8",
+                        "rgb": [
+                            255,
+                            248,
+                            248
+                        ],
+                        "hct": [
+                            359.9223,
+                            1.6661,
+                            98.0002
+                        ]
+                    },
+                    {
+                        "tone": 99,
+                        "hex_value": "#fffbfb",
+                        "rgb": [
+                            255,
+                            251,
+                            251
+                        ],
+                        "hct": [
+                            235.2919,
+                            0.8097,
+                            99.0431
+                        ]
+                    },
+                    {
+                        "tone": 100,
+                        "hex_value": "#ffffff",
+                        "rgb": [
+                            255,
+                            255,
+                            255
+                        ],
+                        "hct": [
+                            209.5429,
+                            2.8716,
+                            100.0
+                        ]
+                    }
+                ]
+            },
+            "chromatic_palettes": [],
+            "max_chromatic_palettes": 12,
+            "selected_chromatic_palettes": 0
+        },
+        "dynamic_scheme": {
+            "scheme_id": "project-color-analysis",
+            "source_color_ids": [
+                "color-1",
+                "color-2"
+            ],
+            "primary_palette_id": "palette-achromatic-1",
+            "achromatic_palette_id": "palette-achromatic-1",
+            "chromatic_palette_ids": [],
+            "is_dark": false,
+            "contrast_level": 0.0,
+            "contrast_curve": {
+                "low": 3.0,
+                "normal": 4.5,
+                "medium": 7.0,
+                "high": 11.0
+            },
+            "tone_delta_pairs": []
+        },
+        "material_quantization_assessment": {
+            "recommended": true,
+            "summary": "La cuantización tipo Material Color Utilities sí aplica, pero no debe ejecutarse sobre la captura completa sin filtrado previo.",
+            "resize_before_quantization": true,
+            "recommended_size": [
+                128,
+                128
+            ],
+            "recommended_quantizer": "QuantizerCelebi (Wu + Wsmeans)",
+            "recommended_max_colors": 128,
+            "notes": [
+                "La guía de MCU reduce la imagen a 128x128 antes de cuantizar para acelerar el proceso.",
+                "QuantizerCelebi usa Wu para semillas iniciales y Wsmeans para refinar clusters estables.",
+                "Para reconstruir la paleta del diseño conviene excluir ruido visual: fotos, video, gifs y sombras decorativas.",
+                "La estimación energética puede seguir usando la captura completa; la reconstrucción de paleta debe usar una entrada filtrada o una segunda captura especializada."
+            ]
+        },
+        "confirmed_pixel_count": 1295633,
+        "residual_pixel_count": 367,
+        "residual_distinct_colors": 41
+    }
+}
