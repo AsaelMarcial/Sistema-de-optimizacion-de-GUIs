@@ -32,27 +32,25 @@
 
       <h1>Resultados del análisis</h1>
 
-      <div class="assessment-grid">
-        <!-- ENERGÍA -->
-        <styled-card id="energy_card">
-          <span slot="header">Consumo energético</span>
-          <span slot="value">Calculando...</span>
-          <span slot="description">
-            <strong>Fórmula:</strong> <code>E = e × u × t</code>
-            <details>
-              <summary>Ver cálculo</summary>
-              <ul>
-                <li>
-                  <strong>e:</strong>
-                  <span id="e-unit">{{ results.energy_wh | round(2) }}</span> Wh
-                </li>
-                <li><strong>u:</strong> <span id="e-users">100</span></li>
-                <li><strong>t:</strong> <span id="e-hours">24</span></li>
-                <li><strong>E:</strong> <span id="e-total">-</span> Wh</li>
-              </ul>
-            </details>
-          </span>
-        </styled-card>
+                <p class="results-hero-sub" id="heroSupportCopy">
+                  A large share of the impact comes from luminous structural surfaces, not from content complexity.
+                </p>
+              </div>
+
+              <div class="results-hero-footer">
+                <span class="results-delta-pill" id="heroImprovementPill">Analyzing improvement potential</span>
+                <p class="results-hero-copy">
+                  Your current design is moderately efficient, but its carbon footprint is still driven by bright fills, decorative excess, and high-luminance containers.
+                </p>
+              </div>
+            </article>
+
+            <div class="results-side-stack">
+              <section class="results-card results-card-summary results-card-glow-soft">
+                <span class="results-eyebrow">
+                  <span class="results-eyebrow-dot"></span>
+                  Impact summary
+                </span>
 
         <!-- HUELLA -->
         <styled-card id="carbon_card">
