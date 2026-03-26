@@ -144,6 +144,24 @@ class ElementIdentityModel:
             payload["related_media"] = dict(self.related_media)
         return payload
 
+    def to_artifact_dict(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if self.id is not None:
+            payload["id"] = self.id
+        if self.name is not None:
+            payload["name"] = self.name
+        if self.role is not None:
+            payload["role"] = self.role
+        if self.class_list:
+            payload["class_list"] = list(self.class_list)
+        if self.selector_hint is not None:
+            payload["selector_hint"] = self.selector_hint
+        if self.xpath is not None:
+            payload["xpath"] = self.xpath
+        if self.related_media:
+            payload["related_media"] = dict(self.related_media)
+        return payload
+
 
 @dataclass(frozen=True, slots=True)
 class ElementWinningStyleReferenceModel:
@@ -384,6 +402,22 @@ class ElementFlagsModel:
             "has_siblings": self.has_siblings,
         }
 
+    def to_artifact_dict(self) -> dict[str, bool]:
+        payload: dict[str, bool] = {}
+        if self.is_out_of_scope:
+            payload["is_out_of_scope"] = True
+        if self.is_visible:
+            payload["is_visible"] = True
+        if self.is_stacking_context:
+            payload["is_stacking_context"] = True
+        if self.is_text_node:
+            payload["is_text_node"] = True
+        if self.is_leaf:
+            payload["is_leaf"] = True
+        if self.has_siblings:
+            payload["has_siblings"] = True
+        return payload
+
 
 @dataclass(frozen=True, slots=True)
 class ElementInventoryEntry:
@@ -403,27 +437,119 @@ class ElementInventoryEntry:
 
     @classmethod
     def build(cls, payload: Mapping[str, Any]) -> Self:
+        styles_payload = payload.get("styles") or {}
+        if not styles_payload and payload.get("effective_background") is not None:
+            effective_background_payload = payload.get("effective_background")
+            if isinstance(effective_background_payload, Mapping):
+                styles_payload = {
+                    "effective_background": (
+                        effective_background_payload.get("value")
+                        or effective_background_payload.get("effective_background")
+                        or effective_background_payload.get("css")
+                    ),
+                    "effective_background_color_id": (
+                        effective_background_payload.get("color_id")
+                        or effective_background_payload.get("effective_background_color_id")
+                    ),
+                }
+            else:
+                styles_payload = {
+                    "effective_background": effective_background_payload,
+                    "effective_background_color_id": payload.get("effective_background_color_id"),
+                }
+
+        computed_styles_payload = dict(payload.get("computed_styles") or {})
+        color_properties_payload = tuple(payload.get("color_properties") or ())
+        if not computed_styles_payload and not color_properties_payload and payload.get("properties"):
+            computed_styles_payload = {}
+            color_properties_list: list[dict[str, Any]] = []
+            for property_payload in payload.get("properties") or ():
+                if not isinstance(property_payload, Mapping):
+                    continue
+                property_name = str(
+                    property_payload.get("name") or property_payload.get("property_name") or ""
+                ).strip()
+                computed_value = property_payload.get("value")
+                if computed_value in (None, ""):
+                    computed_value = property_payload.get("computed_value")
+                if computed_value in (None, ""):
+                    computed_value = property_payload.get("resolved_value")
+                if not property_name or computed_value in (None, ""):
+                    continue
+
+                computed_payload: dict[str, Any] = {
+                    "computed_value": str(computed_value),
+                }
+                if property_payload.get("style_id") is not None:
+                    computed_payload["style_id"] = property_payload.get("style_id")
+                if property_payload.get("kind") is not None:
+                    computed_payload["kind"] = property_payload.get("kind")
+                if property_payload.get("declared_property") is not None:
+                    computed_payload["declared_property"] = property_payload.get("declared_property")
+                if property_payload.get("declaration_id") is not None:
+                    computed_payload["declaration_id"] = property_payload.get("declaration_id")
+                if property_payload.get("inherited_from_element_id") is not None:
+                    computed_payload["inherited_from_element_id"] = property_payload.get(
+                        "inherited_from_element_id"
+                    )
+                if property_payload.get("resolution_status") is not None:
+                    computed_payload["resolution_status"] = property_payload.get("resolution_status")
+                elif property_payload.get("status") is not None:
+                    computed_payload["resolution_status"] = property_payload.get("status")
+                computed_styles_payload[property_name] = computed_payload
+
+                if any(
+                    property_payload.get(key) is not None
+                    for key in ("color_id", "color_property_id", "source_kind")
+                ):
+                    color_properties_list.append(
+                        {
+                            "color_property_id": (
+                                property_payload.get("color_property_id")
+                                or f"{payload.get('node_id') or ''}:{property_name}"
+                            ),
+                            "property_name": property_name,
+                            "source_kind": property_payload.get("source_kind") or "own",
+                            "resolved_value": str(computed_value),
+                            "status": (
+                                property_payload.get("status")
+                                or property_payload.get("resolution_status")
+                                or "kept"
+                            ),
+                            "color_id": property_payload.get("color_id"),
+                            "winning_style_ref": {
+                                "style_id": property_payload.get("style_id"),
+                                "declaration_id": property_payload.get("declaration_id"),
+                                "declared_property": property_payload.get("declared_property"),
+                                "inherited_from_element_id": property_payload.get(
+                                    "inherited_from_element_id"
+                                ),
+                            },
+                        }
+                    )
+            color_properties_payload = tuple(color_properties_list)
+
         return cls(
             node_id=str(payload.get("node_id") or ""),
             backend_node_id=int(payload.get("backend_node_id") or 0),
             document_order=int(payload.get("document_order") or 0),
             identity=ElementIdentityModel.build(payload.get("identity") or {}),
             layout=ElementLayoutModel.build(payload.get("layout") or {}),
-            styles=ElementStyleStateModel.build(payload.get("styles") or {}),
+            styles=ElementStyleStateModel.build(styles_payload),
             computed_styles={
                 str(property_name): (
                     style_payload
                     if isinstance(style_payload, ComputedStyleValueModel)
                     else ComputedStyleValueModel.build(style_payload)
                 )
-                for property_name, style_payload in dict(payload.get("computed_styles") or {}).items()
+                for property_name, style_payload in computed_styles_payload.items()
                 if isinstance(style_payload, (ComputedStyleValueModel, Mapping))
             },
             color_properties=tuple(
                 color_property
                 if isinstance(color_property, ElementColorPropertyModel)
                 else ElementColorPropertyModel.build(color_property)
-                for color_property in (payload.get("color_properties") or ())
+                for color_property in color_properties_payload
                 if isinstance(color_property, (ElementColorPropertyModel, Mapping))
             ),
             flags=ElementFlagsModel.build(payload.get("flags") or {}),
@@ -456,27 +582,88 @@ class ElementInventoryEntry:
             styles = replace(styles, effective_background_color_id=effective_background_color_id)
         return replace(self, color_properties=color_properties, styles=styles)
 
+    def _property_payloads(self) -> list[dict[str, Any]]:
+        properties_by_name: dict[str, dict[str, Any]] = {}
+
+        for property_name, computed_style in sorted(self.computed_styles.items()):
+            property_payload: dict[str, Any] = {
+                "name": property_name,
+                "value": computed_style.computed_value,
+            }
+            if computed_style.style_id is not None:
+                property_payload["style_id"] = computed_style.style_id
+            if computed_style.kind is not None:
+                property_payload["kind"] = computed_style.kind.value
+            if computed_style.declared_property is not None:
+                property_payload["declared_property"] = computed_style.declared_property
+            if computed_style.declaration_id is not None:
+                property_payload["declaration_id"] = computed_style.declaration_id
+            if computed_style.inherited_from_element_id is not None:
+                property_payload["inherited_from_element_id"] = computed_style.inherited_from_element_id
+            if computed_style.resolution_status is not None:
+                property_payload["resolution_status"] = computed_style.resolution_status.value
+            properties_by_name[property_name] = property_payload
+
+        for color_property in self.color_properties:
+            property_payload = properties_by_name.setdefault(
+                color_property.property_name,
+                {
+                    "name": color_property.property_name,
+                    "value": color_property.resolved_value,
+                },
+            )
+            property_payload["color_property_id"] = color_property.color_property_id
+            property_payload["color_id"] = color_property.color_id
+            if color_property.source_kind.value != "own":
+                property_payload["source_kind"] = color_property.source_kind.value
+            winning_style_ref = color_property.winning_style_ref
+            if winning_style_ref.style_id is not None and "style_id" not in property_payload:
+                property_payload["style_id"] = winning_style_ref.style_id
+            if (
+                winning_style_ref.declaration_id is not None
+                and "declaration_id" not in property_payload
+            ):
+                property_payload["declaration_id"] = winning_style_ref.declaration_id
+            if (
+                winning_style_ref.declared_property is not None
+                and "declared_property" not in property_payload
+            ):
+                property_payload["declared_property"] = winning_style_ref.declared_property
+            if (
+                winning_style_ref.inherited_from_element_id is not None
+                and "inherited_from_element_id" not in property_payload
+            ):
+                property_payload["inherited_from_element_id"] = (
+                    winning_style_ref.inherited_from_element_id
+                )
+
+        return [properties_by_name[name] for name in sorted(properties_by_name)]
+
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "node_id": self.node_id,
             "backend_node_id": self.backend_node_id,
             "document_order": self.document_order,
-            "identity": self.identity.to_dict(),
+            "identity": self.identity.to_artifact_dict(),
             "layout": self.layout.to_dict(),
-            "styles": self.styles.to_dict(),
-            "computed_styles": {
-                property_name: style_payload.to_dict()
-                for property_name, style_payload in self.computed_styles.items()
-            },
-            "flags": self.flags.to_dict(),
-            "children_ids": self.children_ids,
         }
-        if self.color_properties:
-            payload["color_properties"] = [item.to_dict() for item in self.color_properties]
+        if property_payloads := self._property_payloads():
+            payload["properties"] = property_payloads
+        if self.styles.effective_background is not None or self.styles.effective_background_color_id is not None:
+            effective_background: dict[str, Any] = {}
+            if self.styles.effective_background is not None:
+                effective_background["value"] = self.styles.effective_background
+            if self.styles.effective_background_color_id is not None:
+                effective_background["color_id"] = self.styles.effective_background_color_id
+            payload["effective_background"] = effective_background
+        if flags_payload := self.flags.to_artifact_dict():
+            payload["flags"] = flags_payload
         if self.text is not None:
             payload["text"] = self.text
         if self.parent_id is not None:
             payload["parent_id"] = self.parent_id
+        if self.children_ids:
+            payload["children_ids"] = list(self.children_ids)
         if self.paint_order is not None:
             payload["paint_order"] = self.paint_order
         return payload

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import re
 
 from engine.domain.data.tokens import TRANSFORMATION_ORDER, TRANSFORMATION_RULES
+from engine.domain.models.color import ColorInventoryEntry
 from engine.domain.models.inventory_graph import InventoryGraphModel
 from engine.domain.models.token import (
     Token,
@@ -12,6 +14,11 @@ from engine.domain.models.token import (
     TokenValidationStatus,
 )
 from engine.domain.utils.token import resolve_initial_contrast, select_same_palette_tone
+
+_COLOR_FRAGMENT_RE = re.compile(
+    r"(#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]+\)|\b[a-zA-Z][a-zA-Z-]*\b)",
+    re.IGNORECASE,
+)
 
 
 def _append_validation(
@@ -45,6 +52,7 @@ def _achromatic_palette(graph: InventoryGraphModel):
 
 def _foundation_for_tone_targets(
     graph: InventoryGraphModel,
+    tokens: TokenInventory,
     tone_targets: tuple[int, ...],
 ) -> Token | None:
     palette = _achromatic_palette(graph)
@@ -54,7 +62,7 @@ def _foundation_for_tone_targets(
         foundation = next(
             (
                 token
-                for token in graph.tokens
+                for token in tokens
                 if token.is_foundation
                 and palette.palette_id in token.source_palette_ids
                 and token.tone == int(tone)
@@ -64,6 +72,118 @@ def _foundation_for_tone_targets(
         if foundation is not None:
             return foundation
     return None
+
+
+def _same_palette_foundation_for_tone_targets(
+    token: Token,
+    graph: InventoryGraphModel,
+    tokens: TokenInventory,
+    tone_targets: tuple[int, ...],
+) -> Token | None:
+    palette_ids = tuple(dict.fromkeys(token.source_palette_ids).keys())
+    current_tone = int(token.tone or 50)
+    allowed_tones = {int(tone) for tone in tone_targets}
+    for palette_id in palette_ids:
+        palette = graph.palette_by_id(palette_id)
+        if palette is None:
+            continue
+        candidates = sorted(
+            (
+                tone_stop
+                for tone_stop in palette.tones
+                if int(tone_stop.tone) in allowed_tones
+            ),
+            key=lambda tone_stop: (
+                abs(int(tone_stop.tone) - current_tone),
+                int(tone_stop.tone),
+            ),
+        )
+        for tone_stop in candidates:
+            foundation = next(
+                (
+                    item
+                    for item in tokens
+                    if item.is_foundation
+                    and palette.palette_id in item.source_palette_ids
+                    and item.tone == int(tone_stop.tone)
+                ),
+                None,
+            )
+            if foundation is not None:
+                return foundation
+    return None
+
+
+def _foundation_for_color_entry_tone_targets(
+    color_entry: ColorInventoryEntry,
+    graph: InventoryGraphModel,
+    tokens: TokenInventory,
+    tone_targets: tuple[int, ...],
+) -> Token | None:
+    palette_id = color_entry.mapped_palette_id
+    current_tone = int(color_entry.mapped_tone or 50)
+    allowed_tones = {int(tone) for tone in tone_targets}
+    if palette_id:
+        palette = graph.palette_by_id(palette_id)
+        if palette is not None:
+            candidates = sorted(
+                (
+                    tone_stop
+                    for tone_stop in palette.tones
+                    if int(tone_stop.tone) in allowed_tones
+                ),
+                key=lambda tone_stop: (
+                    abs(int(tone_stop.tone) - current_tone),
+                    int(tone_stop.tone),
+                ),
+            )
+            for tone_stop in candidates:
+                foundation = next(
+                    (
+                        item
+                        for item in tokens
+                        if item.is_foundation
+                        and palette.palette_id in item.source_palette_ids
+                        and item.tone == int(tone_stop.tone)
+                    ),
+                    None,
+                )
+                if foundation is not None:
+                    return foundation
+    return _foundation_for_tone_targets(graph, tokens, tone_targets)
+
+
+def _remap_effect_value(
+    token: Token,
+    graph: InventoryGraphModel,
+    tokens: TokenInventory,
+    tone_targets: tuple[int, ...],
+) -> str | None:
+    changed = False
+
+    def _replace(match: re.Match[str]) -> str:
+        nonlocal changed
+        fragment = str(match.group(0) or "").strip()
+        if not fragment:
+            return match.group(0)
+        color_entry = graph.colors.entry_by_value(fragment)
+        if color_entry is None:
+            return match.group(0)
+        foundation = _foundation_for_color_entry_tone_targets(
+            color_entry,
+            graph,
+            tokens,
+            tone_targets,
+        )
+        if foundation is None:
+            return match.group(0)
+        replacement = foundation.resolved_value
+        if replacement.strip().lower() != fragment.lower():
+            changed = True
+        return replacement
+
+    updated = _COLOR_FRAGMENT_RE.sub(_replace, token.resolved_value)
+    return updated if changed else None
 
 
 def _primary_background(token: Token, graph: InventoryGraphModel) -> tuple[str | None, str | None]:
@@ -87,12 +207,15 @@ def _min_text_contrast(token: Token, graph: InventoryGraphModel) -> float:
 def _apply_surface_alias(
     token: Token,
     graph: InventoryGraphModel,
+    tokens: TokenInventory,
     *,
     rule_id: str,
     tone_targets: tuple[int, ...],
     reason: str,
 ) -> Token:
-    foundation = _foundation_for_tone_targets(graph, tone_targets)
+    foundation = _same_palette_foundation_for_tone_targets(token, graph, tokens, tone_targets)
+    if foundation is None:
+        foundation = _foundation_for_tone_targets(graph, tokens, tone_targets)
     if foundation is None:
         return token
     updated = token.with_alias(
@@ -125,24 +248,60 @@ def _stage_applies(token: Token, stage_name: str) -> bool:
     return token.element_key in elements
 
 
-def _apply_main_surface(token: Token, graph: InventoryGraphModel) -> Token:
+def _apply_main_surface(
+    token: Token,
+    graph: InventoryGraphModel,
+    tokens: TokenInventory,
+) -> Token:
     if token.property_id == "background-color":
         return _apply_surface_alias(
             token,
             graph,
+            tokens,
             rule_id="main_surface",
             tone_targets=tuple(TRANSFORMATION_RULES["main_surface"].get("tone_targets") or (0, 10)),
-            reason="Main surface remapped to achromatic foundation tones.",
+            reason="Main surface remapped to darker same-palette tones with neutral fallback.",
+        )
+    if token.property_id == "background-image":
+        updated_value = _remap_effect_value(
+            token,
+            graph,
+            tokens,
+            tuple(TRANSFORMATION_RULES["main_surface"].get("tone_targets") or (0, 10)),
+        )
+        if updated_value is None:
+            return _append_validation(
+                token,
+                rule_id="main_surface",
+                status=TokenValidationStatus.PASSED,
+                reason="Main surface background image preserved because no mapped color stops were found.",
+            )
+        updated = token.with_resolved_value(
+            value=updated_value,
+            resolved_value=updated_value,
+            state=TokenState.VALIDATED,
+        )
+        return _append_validation(
+            updated,
+            rule_id="main_surface",
+            status=TokenValidationStatus.ADJUSTED,
+            reason="Main surface gradient/image recolored within the original palette family when possible.",
+            before={"resolved_value": token.resolved_value},
+            after={"resolved_value": updated_value},
         )
     return _append_validation(
         token,
         rule_id="main_surface",
         status=TokenValidationStatus.SKIPPED,
-        reason="Main surface rule only rewrites background-color in V1.",
+        reason="Main surface rule only rewrites background-color/background-image in V1.",
     )
 
 
-def _apply_shadow_elevation(token: Token, graph: InventoryGraphModel) -> Token:
+def _apply_shadow_elevation(
+    token: Token,
+    graph: InventoryGraphModel,
+    tokens: TokenInventory,
+) -> Token:
     if token.element_key in TRANSFORMATION_RULES["shadow_elevation"].get("prefer_none_for", ()):  # type: ignore[index]
         updated = token.with_resolved_value(value="none", resolved_value="none", state=TokenState.VALIDATED)
         return _append_validation(
@@ -153,6 +312,21 @@ def _apply_shadow_elevation(token: Token, graph: InventoryGraphModel) -> Token:
             before={"resolved_value": token.resolved_value},
             after={"resolved_value": "none"},
         )
+    updated_value = _remap_effect_value(token, graph, tokens, (20, 30, 40))
+    if updated_value is not None:
+        updated = token.with_resolved_value(
+            value=updated_value,
+            resolved_value=updated_value,
+            state=TokenState.VALIDATED,
+        )
+        return _append_validation(
+            updated,
+            rule_id="shadow_elevation",
+            status=TokenValidationStatus.ADJUSTED,
+            reason="Effect colors were remapped to darker same-palette tones for composed elements.",
+            before={"resolved_value": token.resolved_value},
+            after={"resolved_value": updated_value},
+        )
     return _append_validation(
         token,
         rule_id="shadow_elevation",
@@ -161,31 +335,102 @@ def _apply_shadow_elevation(token: Token, graph: InventoryGraphModel) -> Token:
     )
 
 
-def _apply_surface(token: Token, graph: InventoryGraphModel) -> Token:
+def _apply_surface(
+    token: Token,
+    graph: InventoryGraphModel,
+    tokens: TokenInventory,
+) -> Token:
     if token.property_id == "background-color":
         return _apply_surface_alias(
             token,
             graph,
+            tokens,
             rule_id="surface",
             tone_targets=tuple(TRANSFORMATION_RULES["surface"].get("tone_targets") or (10, 20)),
-            reason="Surface remapped to layered achromatic foundation tones.",
+            reason="Surface remapped to darker same-palette tones with neutral fallback.",
+        )
+    if token.property_id == "background-image":
+        updated_value = _remap_effect_value(
+            token,
+            graph,
+            tokens,
+            tuple(TRANSFORMATION_RULES["surface"].get("tone_targets") or (10, 20)),
+        )
+        if updated_value is None:
+            return _append_validation(
+                token,
+                rule_id="surface",
+                status=TokenValidationStatus.PASSED,
+                reason="Surface background image preserved because no mapped color stops were found.",
+            )
+        updated = token.with_resolved_value(
+            value=updated_value,
+            resolved_value=updated_value,
+            state=TokenState.VALIDATED,
+        )
+        return _append_validation(
+            updated,
+            rule_id="surface",
+            status=TokenValidationStatus.ADJUSTED,
+            reason="Surface gradient/image recolored within the original palette family when possible.",
+            before={"resolved_value": token.resolved_value},
+            after={"resolved_value": updated_value},
         )
     return _append_validation(
         token,
         rule_id="surface",
         status=TokenValidationStatus.SKIPPED,
-        reason="Surface rule only rewrites background-color in V1.",
+        reason="Surface rule only rewrites background-color/background-image in V1.",
     )
 
 
-def _apply_composed(token: Token, graph: InventoryGraphModel) -> Token:
+def _apply_composed(
+    token: Token,
+    graph: InventoryGraphModel,
+    tokens: TokenInventory,
+) -> Token:
     if token.property_id == "background-color":
         return _apply_surface_alias(
             token,
             graph,
+            tokens,
             rule_id="composed",
             tone_targets=tuple(TRANSFORMATION_RULES["composed"].get("tone_targets") or (20, 30)),
-            reason="Composed element remapped to elevated achromatic foundation tones.",
+            reason="Composed element remapped to darker same-palette tones with neutral fallback.",
+        )
+    if token.property_id == "background-image":
+        updated_value = _remap_effect_value(
+            token,
+            graph,
+            tokens,
+            tuple(TRANSFORMATION_RULES["composed"].get("tone_targets") or (20, 30)),
+        )
+        if updated_value is None:
+            return _append_validation(
+                token,
+                rule_id="composed",
+                status=TokenValidationStatus.PASSED,
+                reason="Composed background image preserved because no mapped color stops were found.",
+            )
+        updated = token.with_resolved_value(
+            value=updated_value,
+            resolved_value=updated_value,
+            state=TokenState.VALIDATED,
+        )
+        return _append_validation(
+            updated,
+            rule_id="composed",
+            status=TokenValidationStatus.ADJUSTED,
+            reason="Composed gradient/image recolored within the original palette family when possible.",
+            before={"resolved_value": token.resolved_value},
+            after={"resolved_value": updated_value},
+        )
+    if token.property_id in {"box-shadow", "text-shadow"}:
+        return _append_validation(
+            token,
+            rule_id="composed",
+            status=TokenValidationStatus.SKIPPED,
+            reason="Composed effect tokens are handled by the shadow_elevation stage.",
         )
     background_value, background_color_id = _primary_background(token, graph)
     if background_value is None:
@@ -195,7 +440,13 @@ def _apply_composed(token: Token, graph: InventoryGraphModel) -> Token:
             status=TokenValidationStatus.SKIPPED,
             reason="No effective background was resolved for the composed token.",
         )
-    updated = select_same_palette_tone(token, graph, background_value=background_value, min_contrast=3.0)
+    updated = select_same_palette_tone(
+        token,
+        graph,
+        tokens,
+        background_value=background_value,
+        min_contrast=3.0,
+    )
     if updated is None:
         return _append_validation(
             token,
@@ -214,7 +465,11 @@ def _apply_composed(token: Token, graph: InventoryGraphModel) -> Token:
     )
 
 
-def _apply_foreground_non_text(token: Token, graph: InventoryGraphModel) -> Token:
+def _apply_foreground_non_text(
+    token: Token,
+    graph: InventoryGraphModel,
+    tokens: TokenInventory,
+) -> Token:
     background_value, background_color_id = _primary_background(token, graph)
     if background_value is None:
         return _append_validation(
@@ -226,6 +481,7 @@ def _apply_foreground_non_text(token: Token, graph: InventoryGraphModel) -> Toke
     updated = select_same_palette_tone(
         token,
         graph,
+        tokens,
         background_value=background_value,
         min_contrast=float(TRANSFORMATION_RULES["foreground_non_text"].get("minimum_contrast", 3.0)),  # type: ignore[index]
     )
@@ -251,7 +507,11 @@ def _apply_foreground_non_text(token: Token, graph: InventoryGraphModel) -> Toke
     )
 
 
-def _apply_text(token: Token, graph: InventoryGraphModel) -> Token:
+def _apply_text(
+    token: Token,
+    graph: InventoryGraphModel,
+    tokens: TokenInventory,
+) -> Token:
     background_value, background_color_id = _primary_background(token, graph)
     if background_value is None:
         return _append_validation(
@@ -261,7 +521,13 @@ def _apply_text(token: Token, graph: InventoryGraphModel) -> Token:
             reason="No effective background was resolved for the text token.",
         )
     minimum = _min_text_contrast(token, graph)
-    updated = select_same_palette_tone(token, graph, background_value=background_value, min_contrast=minimum)
+    updated = select_same_palette_tone(
+        token,
+        graph,
+        tokens,
+        background_value=background_value,
+        min_contrast=minimum,
+    )
     ratio = resolve_initial_contrast(token.resolved_value, background_value) or 0.0
     if updated is None:
         return _append_validation(
@@ -342,12 +608,18 @@ _STAGE_HANDLERS = {
 
 def apply_token_rules(tokens: TokenInventory, graph: InventoryGraphModel) -> TokenInventory:
     current_tokens = tokens
-    current_graph = graph
+    current_graph = graph.bind_inventories(
+        elements=graph.elements,
+        styles=graph.styles,
+        colors=graph.colors,
+        palettes=graph.palettes,
+        tokens=current_tokens,
+    )
 
     for stage_name in TRANSFORMATION_ORDER:
         if stage_name == "component_promotion":
             current_tokens = _promote_component_conflicts(current_tokens)
-            current_graph = InventoryGraphModel.build(
+            current_graph = current_graph.bind_inventories(
                 elements=current_graph.elements,
                 styles=current_graph.styles,
                 colors=current_graph.colors,
@@ -360,11 +632,11 @@ def apply_token_rules(tokens: TokenInventory, graph: InventoryGraphModel) -> Tok
         updated_entries: list[Token] = []
         for token in current_tokens:
             if _stage_applies(token, stage_name):
-                updated_entries.append(handler(token, current_graph))
+                updated_entries.append(handler(token, current_graph, current_tokens))
             else:
                 updated_entries.append(token)
         current_tokens = TokenInventory.build(updated_entries)
-        current_graph = InventoryGraphModel.build(
+        current_graph = current_graph.bind_inventories(
             elements=current_graph.elements,
             styles=current_graph.styles,
             colors=current_graph.colors,

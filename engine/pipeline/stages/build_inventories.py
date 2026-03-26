@@ -4,7 +4,7 @@ from copy import deepcopy
 
 from engine.adapters.utils.io import save_json
 from engine.domain.models.element import ElementColorPropertyModel, ElementInventoryModel
-from engine.domain.models.snapshot import RenderSnapshot
+from engine.domain.models.snapshot import RenderArtifacts, RenderSnapshot
 from engine.domain.models.style import StyleInventoryModel
 from engine.domain.models.color import ColorInventoryModel
 from engine.pipeline.artifact_serializers import (
@@ -20,13 +20,9 @@ CONTRACT = StageContract(
     name="build_inventories",
     requires=(
         context_value(
-            "session.artifacts.original.snapshot",
-            RenderSnapshot,
-            validator=has_snapshot_structure,
+            "session.artifacts.original.capture",
+            RenderArtifacts,
         ),
-        context_value("session.artifacts.original.styles_inventory_seed", StyleInventoryModel),
-        context_value("session.artifacts.original.colors_inventory_seed", ColorInventoryModel),
-        context_value("session.artifacts.original.css_overview", dict),
         context_value(
             "session.output.paths.original.elements_inventory_json",
             str,
@@ -44,6 +40,11 @@ CONTRACT = StageContract(
         ),
         context_value(
             "session.output.paths.original.css_overview_json",
+            str,
+            validator=lambda value: bool(value.strip()),
+        ),
+        context_value(
+            "session.output.paths.original.snapshot_json",
             str,
             validator=lambda value: bool(value.strip()),
         ),
@@ -181,13 +182,18 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     if context.has("elements.inventory") and context.has("style.inventory") and context.has("color.inventory"):
         return context
 
-    snapshot = context.get("session.artifacts.original.snapshot")
-    styles_inventory_seed = context.get("session.artifacts.original.styles_inventory_seed")
-    colors_inventory_seed = context.get("session.artifacts.original.colors_inventory_seed")
-    css_overview = context.get("session.artifacts.original.css_overview")
+    capture = context.get("session.artifacts.original.capture")
     context.trace.add_stage_event(CONTRACT.name, "start")
 
-    elements_inventory = snapshot.build_elements_inventory()
+    snapshot = capture.snapshot
+    elements_inventory = capture.elements_inventory or snapshot.build_elements_inventory()
+    styles_inventory_seed = capture.styles_inventory_seed or StyleInventoryModel()
+    colors_inventory_seed = capture.colors_inventory_seed or ColorInventoryModel()
+    css_overview = capture.css_overview or {}
+
+    if not has_snapshot_structure(snapshot):
+        return context.set_error("Render capture bundle does not contain a valid snapshot structure.")
+
     styles_inventory = StyleInventoryModel.build(styles_inventory_seed)
     colors_inventory = _merge_colors_inventory_with_css_overview(
         ColorInventoryModel.build(colors_inventory_seed),
@@ -200,6 +206,16 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     context.set("style.inventory", styles_inventory)
     context.set("color.inventory", colors_inventory)
     context.set("session.artifacts.original.css_overview", linked_css_overview)
+    context.set("session.artifacts.original.snapshot_metadata", dict(snapshot.metadata))
+    save_json(
+        context.get("session.output.paths.original.snapshot_json"),
+        RenderSnapshot(
+            metadata=dict(snapshot.metadata),
+            document=dict(snapshot.document),
+            nodes=tuple(elements_inventory.entries),
+        ).to_dict(),
+        indent=4,
+    )
     save_json(
         context.get("session.output.paths.original.elements_inventory_json"),
         build_elements_inventory_artifact(elements_inventory),
@@ -220,6 +236,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         linked_css_overview,
         indent=4,
     )
+    context.delete("session.artifacts.original.capture")
 
     context.trace.add_step(
         "inventories.built",

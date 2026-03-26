@@ -1,0 +1,56 @@
+{
+    "count": 2,
+    "entries": [
+        {
+            "effect_id": "effect-1",
+            "element_id": "node-11",
+            "tag_name": "button",
+            "property_name": "background-image",
+            "resolved_value": "linear-gradient(to right, rgb(255, 0, 0), rgb(255, 255, 0))",
+            "colors": [
+                {
+                    "value": "rgb(255, 0, 0)",
+                    "hex": "#ff0000",
+                    "alpha": 1.0,
+                    "color_id": "color-2"
+                },
+                {
+                    "value": "rgb(255, 255, 0)",
+                    "hex": "#ffff00",
+                    "alpha": 1.0,
+                    "color_id": "color-5"
+                }
+            ],
+            "selector_hint": "button.boton-prueba",
+            "style_id": "style-8",
+            "declared_property": "background-image"
+        },
+        {
+            "effect_id": "effect-2",
+            "element_id": "node-11",
+            "tag_name": "button",
+            "property_name": "box-shadow",
+            "resolved_value": "rgba(255, 0, 255, 0.8) 0px 0px 20px 0px",
+            "colors": [
+                {
+                    "value": "rgba(255, 0, 255, 0.8)",
+                    "hex": "#ff00ffcc",
+                    "alpha": 0.8
+                }
+            ],
+            "selector_hint": "button.boton-prueba"
+        }
+    ],
+    "by_property": [
+        {
+            "property_name": "background-image",
+            "entry_count": 1,
+            "distinct_color_count": 2
+        },
+        {
+            "property_name": "box-shadow",
+            "entry_count": 1,
+            "distinct_color_count": 1
+        }
+    ]
+}

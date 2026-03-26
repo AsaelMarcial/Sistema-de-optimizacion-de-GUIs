@@ -15,9 +15,7 @@ from engine.pipeline.stage_contract import StageContract, context_value
 CONTRACT = StageContract(
     name="set_tokens",
     requires=(
-        context_value("elements.inventory"),
-        context_value("style.inventory"),
-        context_value("color.inventory"),
+        context_value("inventory.graph", InventoryGraphModel),
         context_value("scheme.color_scheme", ColorSchemeArtifactModel),
         context_value(
             "session.output.paths.tokens_original_json",
@@ -42,23 +40,18 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         return context
 
     color_scheme = context.get("scheme.color_scheme")
+    inventory_graph = context.get("inventory.graph")
     context.trace.add_stage_event(CONTRACT.name, "start")
-    initial_graph = InventoryGraphModel.build(
-        elements=context.get("elements.inventory"),
-        styles=context.get("style.inventory"),
-        colors=context.get("color.inventory"),
-        palettes=tuple(color_scheme.core_palettes),
-    )
-    token_inventory = build_token_inventory(initial_graph, color_scheme)
-    inventory_graph = InventoryGraphModel.build(
-        elements=initial_graph.elements,
-        styles=initial_graph.styles,
-        colors=initial_graph.colors,
-        palettes=initial_graph.palettes,
+    token_inventory = build_token_inventory(inventory_graph, color_scheme)
+    token_graph = inventory_graph.bind_inventories(
+        elements=inventory_graph.elements,
+        styles=inventory_graph.styles,
+        colors=inventory_graph.colors,
+        palettes=inventory_graph.palettes,
         tokens=token_inventory,
     )
     context.set("token.inventory", token_inventory)
-    context.set("inventory.graph", inventory_graph)
+    context.set("inventory.graph", token_graph)
     save_json(
         context.get("session.output.paths.tokens_original_json"),
         build_token_inventory_artifact(token_inventory),
@@ -67,7 +60,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     save_json(
         context.get("session.output.paths.inventory_graph_json"),
         build_inventory_graph_artifact(
-            inventory_graph,
+            token_graph,
             css_overview=(
                 context.get("session.artifacts.original.css_overview")
                 if context.has("session.artifacts.original.css_overview")
@@ -102,7 +95,8 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         "complete",
         {
             "token_count": len(token_inventory),
-            "graph_root_count": len(inventory_graph.root_ids),
+            "graph_root_count": len(token_graph.root_ids),
+            "tokenized_element_count": len(token_graph.element_to_token_ids),
         },
     )
     return context

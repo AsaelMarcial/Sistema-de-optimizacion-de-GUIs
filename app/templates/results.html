@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -31,35 +31,35 @@
         <header class="section-header">
           <span class="eyebrow">
             <span class="eyebrow__dot"></span>
-            <span>Sustainable interface analysis</span>
+            <span>Lectura sostenible de la interfaz</span>
           </span>
         </header>
 
         <div class="section-body">
-          <div class="split">
+          <div class="split split--hero">
             <article>
               <div class="card card--glow">
                 <div class="stack stack--vertical stack--spread">
                   <div class="heading-group heading-group--tight">
                     <h1 class="title title--display title--card" id="impact-title">
-                      <span class="title__line">Your interface</span>
-                      <span class="title__line" id="heroReductionLead">could emit</span>
+                      <span class="title__line">Tu interfaz</span>
+                      <span class="title__line" id="heroReductionLead">podría emitir</span>
                       <span class="title__line title__line--inline">
                         <strong class="title__accent" id="heroReductionValue">{{ results.view.initial_reduction | round(4) }}</strong>
-                        <em class="title__accent title__accent--tail" id="heroReductionTail">kg less CO₂eq</em>
+                        <em class="title__accent title__accent--tail" id="heroReductionTail">kg menos de CO₂eq</em>
                       </span>
                     </h1>
 
                     <p class="text-secondary" id="heroSupportCopy">
-                      A large share of the impact comes from luminous structural surfaces, not from content complexity.
+                      Una parte importante del impacto no viene del contenido, sino de las superficies luminosas y la jerarquía visual que sostiene la interfaz.
                     </p>
                   </div>
 
                   <div class="stack stack--vertical stack--compact">
-                    <span class="pill pill--accent" id="heroImprovementPill">Analyzing improvement potential</span>
+                    <span class="pill pill--accent" id="heroImprovementPill">Potencial de mejora en lectura e impacto</span>
 
                     <p class="text-tertiary">
-                      Your current design is moderately efficient, but its carbon footprint is still driven by bright fills, decorative excess, and high-luminance containers.
+                      La interfaz actual ya tiene intención y estructura, pero todavía depende demasiado de rellenos brillantes, énfasis decorativo y contenedores de alta luminancia.
                     </p>
                   </div>
                 </div>
@@ -70,38 +70,38 @@
               <div class="card card--container">
                 <div class="mosaic">
                   <article id="carbon_card" class="card card--soft metric">
-                    <span class="metric__label">Carbon footprint</span>
+                    <span class="metric__label">Huella de carbono</span>
                     <div class="metric__value" id="summaryCarbonValue">{{ results.carbon_footprint | round(4) }}</div>
-                    <div class="metric__text" id="summaryCarbonUnit">kg CO₂eq generated</div>
+                    <div class="metric__text" id="summaryCarbonUnit">kg CO₂eq emitidos</div>
                   </article>
 
                   <article id="energy_card" class="card card--soft metric">
-                    <span class="metric__label">Energy consumption</span>
+                    <span class="metric__label">Consumo energético</span>
                     <div class="metric__value" id="summaryEnergyValue">{{ results.energy_wh | round(2) }}</div>
-                    <div class="metric__text" id="summaryEnergyUnit">Wh consumed</div>
+                    <div class="metric__text" id="summaryEnergyUnit">Wh consumidos</div>
                   </article>
 
                   <section class="card card--soft metric metric--wide">
 
                     <div class="impact-form">
                       <div class="field">
-                        <label for="user_count">Users</label>
+                        <label for="user_count">Usuarios</label>
                         <input type="number" id="user_count" value="100" min="1" />
                       </div>
 
                       <div class="field">
-                        <label for="usage_hours">Hours</label>
+                        <label for="usage_hours">Horas</label>
                         <input type="number" id="usage_hours" value="24" min="1" />
                       </div>
 
                       <button class="button button--primary" id="update-impact-button" type="button">
-                        Update
+                        Actualizar
                       </button>
 
                       <div class="metric__text">
-                        <strong>Usage context.</strong> The report is calculated using
-                        <span id="summaryUsers">100</span> users and
-                        <span id="summaryHours">24</span> hours of use.
+                        <strong>Contexto de uso.</strong> Este cálculo considera
+                        <span id="summaryUsers">100</span> usuarios y
+                        <span id="summaryHours">24</span> horas de uso.
                       </div>
                     </div>
                   </section>
@@ -116,12 +116,12 @@
         <header class="section-header">
           <span class="eyebrow">
             <span class="eyebrow__dot"></span>
-            <span>Visual load profile</span>
+            <span>Perfil de carga visual</span>
           </span>
         </header>
 
         <div class="section-body">
-          <div class="split">
+          <div class="split split--visual">
             <article>
               <div class="card card--soft">
                 <div class="stack stack--vertical">
@@ -143,7 +143,7 @@
                   <div class="stack stack--vertical stack--compact">
                     <span class="label-chip">
                       <span class="label-chip__dot"></span>
-                      <span>Energy distribution</span>
+                      <span>Distribución tonal</span>
                     </span>
 
                     <div class="distribution-track">
@@ -153,9 +153,9 @@
                     </div>
 
                     <p class="text-tertiary">
-                      The first three colors alone account for
+                      Los tres tonos principales concentran
                       <strong>{{ results.view.top_three_percentage | round(2) }}%</strong>
-                      of the visible color mass identified in the analyzed interface.
+                      del peso cromático visible identificado en la interfaz analizada.
                     </p>
                   </div>
                 </div>
@@ -167,82 +167,16 @@
                 <div class="stack stack--vertical stack--center">
                   <div class="heading-group">
                     <h2 class="title title--display title--card" id="visual-load-title">
-                      Most of the visual load comes from
+                      Gran parte del peso visual se concentra en
                       <span class="title__accent">{{ results.view.dominant_color_count }}</span>
-                      dominant colors,
+                      tonos dominantes
                     </h2>
 
                     <p class="text-secondary">
-                      especially near-white structural surfaces.
+                      sobre todo en superficies estructurales de alta luminancia.
                     </p>
                   </div>
                 </div>
-              </div>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" aria-labelledby="changes-title">
-        <header class="section-header">
-          <span class="eyebrow">
-            <span class="eyebrow__dot"></span>
-            <span>What changes visually</span>
-          </span>
-        </header>
-
-        <div class="section-body section-body--stack">
-          <div class="heading-group">
-            <h2 class="title title--display title--section" id="changes-title">
-              Sustainable redesign,
-              <span class="title__accent">without losing character</span>
-            </h2>
-
-            <p class="text-secondary">
-              This comparison keeps the same structure and intent, but redistributes emphasis so the interface communicates through hierarchy rather than brightness overload.
-            </p>
-          </div>
-
-          <div class="split">
-            <article>
-              <h3 class="sr-only" id="preview-original-title">Original HTML preview</h3>
-
-              <div class="preview-window card card--soft" aria-labelledby="preview-original-title">
-                <div class="preview-window__bar">
-                  <div class="preview-window__dots" aria-hidden="true">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
-                  <span class="pill pill--neutral">Original</span>
-                </div>
-
-                <img
-                  src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.original) }}"
-                  alt="Vista previa original"
-                  class="preview-window__image"
-                />
-              </div>
-            </article>
-
-            <article>
-              <h3 class="sr-only" id="preview-optimized-title">Optimized HTML preview</h3>
-
-              <div class="preview-window card card--glow" aria-labelledby="preview-optimized-title">
-                <div class="preview-window__bar">
-                  <div class="preview-window__dots" aria-hidden="true">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
-                  <span class="pill pill--accent">Optimized</span>
-                </div>
-
-                <img
-                  src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.environmental) }}"
-                  alt="Vista previa optimizada"
-                  class="preview-window__image"
-                />
               </div>
             </article>
           </div>
@@ -253,28 +187,28 @@
         <header class="section-header">
           <span class="eyebrow">
             <span class="eyebrow__dot"></span>
-            <span>Tonal system and traceability</span>
+            <span>Paletas y contraste</span>
           </span>
         </header>
 
         <div class="section-body section-body--stack">
           <div class="heading-group">
             <h2 class="title title--display title--section" id="palette-contrast-title">
-              Color palettes and
-              <span class="title__accent">contrast trace</span>
+              Paletas tonales y
+              <span class="title__accent">contraste</span>
             </h2>
 
             <p class="text-secondary">
-              The report stays premium while exposing tonal families and the exact foreground/background pairings that create accessibility risk.
+              Aquí se ve qué familias sostienen la interfaz y dónde la legibilidad empieza a volverse frágil.
             </p>
           </div>
 
-          <div class="split">
+          <div class="split split--aside">
             {% if results.view.palette_rows %}
             <article>
               <div class="card card--soft">
                 <div class="stack stack--vertical stack--compact">
-                  <h3 class="title title--compact title--card">Detected tonal palettes</h3>
+                  <h3 class="title title--compact title--card">Paletas detectadas</h3>
 
                   <div class="palette">
                     {% for palette in results.view.palette_rows %}
@@ -320,10 +254,10 @@
               <div class="card card--soft">
                 <div class="stack stack--vertical stack--compact">
                   <div class="contrast-summary">
-                    <h3 class="title title--compact title--card">Contrast report</h3>
+                    <h3 class="title title--compact title--card">Contraste <span class="sr-only">Contrast report</span></h3>
 
                     <p class="text-tertiary">
-                      Contrast issues: {{ results.accessibility.contrast.issue_count }}
+                      {{ results.accessibility.contrast.issue_count }} señales de contraste delicadas
                     </p>
                   </div>
 
@@ -338,12 +272,12 @@
                       </div>
 
                       <div class="contrast-preview" style="background: {{ issue.background_hex }};">
-                        <span class="contrast-preview__text" style="color: {{ issue.foreground_hex }};">Text</span>
+                        <span class="contrast-preview__text" style="color: {{ issue.foreground_hex }};">Texto</span>
                       </div>
 
                       <div class="contrast-tones">
-                        <span>BG {{ issue.background_tone_label }}</span>
-                        <span>FG {{ issue.foreground_tone_label }}</span>
+                        <span>Fondo {{ issue.background_tone_label }}</span>
+                        <span>Texto {{ issue.foreground_tone_label }}</span>
                       </div>
 
                       <span class="contrast-item__selector">{{ issue.selector }}</span>
@@ -352,9 +286,9 @@
                   </div>
                   {% else %}
                   <article class="contrast-empty">
-                    <strong>No contrast issues were detected in the analyzed render.</strong>
+                    <strong>No se detectaron problemas de contraste en la vista analizada.</strong>
                     <p class="text-tertiary">
-                      The artifact is still generated and stored for traceability as {{ results.accessibility.contrast.artifact }}.
+                      El artefacto sigue generándose y se conserva para trazabilidad como {{ results.accessibility.contrast.artifact }}.
                     </p>
                   </article>
                   {% endif %}
@@ -365,25 +299,79 @@
         </div>
       </section>
 
-      {# Effect color evidence intentionally removed from the visible UI. #}
-      {% if results.view.change_history_groups %}
-      <section class="section" aria-labelledby="change-history-title">
+      <section class="section" aria-labelledby="changes-title">
         <header class="section-header">
           <span class="eyebrow">
             <span class="eyebrow__dot"></span>
-            <span>Transformation trace</span>
+            <span>Qué cambia en la interfaz</span>
           </span>
         </header>
 
         <div class="section-body section-body--stack">
           <div class="heading-group">
-            <h2 class="title title--display title--section" id="change-history-title">
-              Change
-              <span class="title__accent">history</span>
+            <h2 class="title title--display title--section" id="changes-title">
+              La interfaz conserva su carácter y
+              <span class="title__accent">redistribuye el énfasis</span>
             </h2>
 
             <p class="text-secondary">
-              Every transformed component is grouped by heuristic so the visual edits remain explainable and traceable.
+              La comparación mantiene la intención general, pero afina jerarquías, brillo y contraste para comunicar mejor con menos carga visual.
+            </p>
+          </div>
+
+          <div class="split split--preview">
+            <article>
+              <h3 class="sr-only" id="preview-original-title">Original HTML preview</h3>
+
+              <div class="preview-window card card--soft" aria-labelledby="preview-original-title">
+                <div class="preview-window__bar">
+                  <div class="preview-window__dots" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <span class="pill pill--neutral">Original</span>
+                </div>
+
+                <img
+                  src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.original) }}"
+                  alt="Vista previa original"
+                  class="preview-window__image"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+            </article>
+
+            <article>
+              <h3 class="sr-only" id="preview-optimized-title">Optimized HTML preview</h3>
+
+              <div class="preview-window card card--glow" aria-labelledby="preview-optimized-title">
+                <div class="preview-window__bar">
+                  <div class="preview-window__dots" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <span class="pill pill--accent">Versión ajustada</span>
+                </div>
+
+                <img
+                  src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.environmental) }}"
+                  alt="Vista previa ajustada"
+                  class="preview-window__image"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+            </article>
+          </div>
+
+          {% if results.view.change_history_groups %}
+          <div class="results-subheading heading-group heading-group--tight">
+            <h3 class="title title--compact title--section">Rastro de cambios</h3>
+            <p class="text-secondary">
+              Cada ajuste queda agrupado para que el resultado sea claro, explicable y fácil de revisar.
             </p>
           </div>
 
@@ -399,7 +387,7 @@
                 </div>
 
                 {% if group.change_count %}
-                <span class="pill pill--neutral">{{ group.change_count }} changes</span>
+                <span class="pill pill--neutral">{{ group.change_count }} ajustes</span>
                 {% endif %}
               </div>
 
@@ -434,28 +422,29 @@
             </article>
             {% endfor %}
           </div>
+          {% endif %}
         </div>
       </section>
-      {% endif %}
 
+      {# Effect color evidence intentionally removed from the visible UI. #}
       {% if results.heuristics %}
       <section class="section" aria-labelledby="heuristics-title">
         <header class="section-header">
           <span class="eyebrow">
             <span class="eyebrow__dot"></span>
-            <span>Heuristic trace</span>
+            <span>Heurísticas aplicadas</span>
           </span>
         </header>
 
         <div class="section-body section-body--stack">
           <div class="heading-group">
             <h2 class="title title--display title--section" id="heuristics-title">
-              Heuristic evaluation and
-              <span class="title__accent">transformations</span>
+              Criterios que guiaron
+              <span class="title__accent">la lectura</span>
             </h2>
 
             <p class="text-secondary">
-              The applied heuristics stay separated from the raw change log so the rationale and the audit trail remain independently readable.
+              Las reglas quedan separadas del rastro de cambios para entender qué motivó cada ajuste y cómo se sostiene.
             </p>
           </div>
 
@@ -492,7 +481,7 @@
         <header class="section-header">
           <span class="eyebrow">
             <span class="eyebrow__dot"></span>
-            <span>Export package</span>
+            <span>Paquete de salida</span>
           </span>
         </header>
 
@@ -501,11 +490,11 @@
             <div class="split split--export">
               <div class="heading-group">
                 <h2 class="title title--display title--card" id="export-title">
-                  Export the optimized version and keep the analysis with it
+                  Descarga la versión ajustada y conserva su trazabilidad
                 </h2>
 
                 <p class="text-secondary">
-                  Download the corrected HTML, the tonal palette PNG, and the changelog together so the sustainability result is explainable, reproducible, and ready to share with design or development teams.
+                  Descarga el HTML resultante, la paleta tonal y el historial de cambios juntos para compartir una lectura clara con diseño o desarrollo.
                 </p>
               </div>
 
@@ -515,7 +504,7 @@
                   download
                   class="button button--primary"
                 >
-                  Download optimized HTML
+                  Descargar versión ajustada
                 </a>
               </div>
             </div>

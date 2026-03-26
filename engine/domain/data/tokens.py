@@ -394,6 +394,7 @@ TRANSFORMATION_RULES: dict[str, dict[str, object]] = {
         "properties": (
             "background",
             "background-color",
+            "background-image",
             "border-color",
             "border-top-color",
             "border-right-color",

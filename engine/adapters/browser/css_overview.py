@@ -581,7 +581,6 @@ def _build_contrast_issues(elements: tuple[dict[str, Any], ...]) -> list[dict[st
                 "text_sample": text_sample,
                 "contrast_ratio": ratio,
                 "required_ratio": required_ratio,
-                "is_large_text": large_text,
                 "font_size_px": font_size_px,
                 "font_weight": font_weight,
                 "foreground": {
@@ -594,7 +593,8 @@ def _build_contrast_issues(elements: tuple[dict[str, Any], ...]) -> list[dict[st
                     "hex": background["hex"],
                     "alpha": background["alpha"],
                 },
-                "bounds": dict(element.get("bounds") or {}),
+                **({"is_large_text": True} if large_text else {}),
+                **({"bounds": dict(element.get("bounds") or {})} if element.get("bounds") else {}),
             }
         )
 

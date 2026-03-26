@@ -1,0 +1,219 @@
+{
+    "root_ids": [
+        "node-1"
+    ],
+    "element_ids": [
+        "node-1",
+        "node-3",
+        "node-4",
+        "node-doc-4"
+    ],
+    "style_ids": [
+        "style-1",
+        "style-2"
+    ],
+    "color_ids": [
+        "color-1",
+        "color-2"
+    ],
+    "token_ids": [
+        "glow.color.neutral.0",
+        "glow.color.neutral.10",
+        "glow.color.neutral.100",
+        "glow.color.neutral.20",
+        "glow.color.neutral.30",
+        "glow.color.neutral.40",
+        "glow.color.neutral.50",
+        "glow.color.neutral.60",
+        "glow.color.neutral.70",
+        "glow.color.neutral.80",
+        "glow.color.neutral.90",
+        "glow.color.neutral.95",
+        "glow.color.neutral.98",
+        "glow.color.neutral.99",
+        "glow.main_surface.background-color.subtle.1",
+        "glow.text.color.emphasis.5"
+    ],
+    "relations": {
+        "element_to_parent_id": {
+            "node-3": "node-1",
+            "node-4": "node-3",
+            "node-doc-4": "node-4"
+        },
+        "element_to_children_ids": {
+            "node-1": [
+                "node-3"
+            ],
+            "node-3": [
+                "node-4"
+            ],
+            "node-4": [
+                "node-doc-4"
+            ]
+        },
+        "element_to_style_ids": {
+            "node-1": [],
+            "node-3": [
+                "style-1"
+            ],
+            "node-4": [
+                "style-2"
+            ],
+            "node-doc-4": []
+        },
+        "element_to_color_ids": {
+            "node-1": [],
+            "node-3": [
+                "color-1",
+                "color-2"
+            ],
+            "node-4": [
+                "color-2"
+            ],
+            "node-doc-4": []
+        },
+        "element_to_token_ids": {
+            "node-3": [
+                "glow.main_surface.background-color.subtle.1",
+                "glow.text.color.emphasis.5"
+            ],
+            "node-4": [
+                "glow.text.color.emphasis.5"
+            ]
+        },
+        "style_ref_to_token_ids": {
+            "style-1:background-color": [
+                "glow.main_surface.background-color.subtle.1"
+            ],
+            "style-1:color": [
+                "glow.text.color.emphasis.5"
+            ],
+            "style-2:color": [
+                "glow.text.color.emphasis.5"
+            ]
+        },
+        "color_to_token_ids": {
+            "color-1": [
+                "glow.main_surface.background-color.subtle.1"
+            ],
+            "color-2": [
+                "glow.text.color.emphasis.5"
+            ]
+        },
+        "palette_tone_to_token_ids": {
+            "palette-achromatic-1:0": [
+                "glow.color.neutral.0",
+                "glow.main_surface.background-color.subtle.1"
+            ],
+            "palette-achromatic-1:10": [
+                "glow.color.neutral.10"
+            ],
+            "palette-achromatic-1:100": [
+                "glow.color.neutral.100",
+                "glow.text.color.emphasis.5"
+            ],
+            "palette-achromatic-1:20": [
+                "glow.color.neutral.20"
+            ],
+            "palette-achromatic-1:30": [
+                "glow.color.neutral.30"
+            ],
+            "palette-achromatic-1:40": [
+                "glow.color.neutral.40"
+            ],
+            "palette-achromatic-1:50": [
+                "glow.color.neutral.50"
+            ],
+            "palette-achromatic-1:60": [
+                "glow.color.neutral.60"
+            ],
+            "palette-achromatic-1:70": [
+                "glow.color.neutral.70"
+            ],
+            "palette-achromatic-1:80": [
+                "glow.color.neutral.80"
+            ],
+            "palette-achromatic-1:90": [
+                "glow.color.neutral.90"
+            ],
+            "palette-achromatic-1:95": [
+                "glow.color.neutral.95"
+            ],
+            "palette-achromatic-1:98": [
+                "glow.color.neutral.98"
+            ],
+            "palette-achromatic-1:99": [
+                "glow.color.neutral.99"
+            ]
+        },
+        "element_adjacency": {
+            "node-1": [
+                "node-3",
+                "node-4",
+                "node-doc-4"
+            ],
+            "node-3": [
+                "node-1",
+                "node-4",
+                "node-doc-4"
+            ],
+            "node-4": [
+                "node-1",
+                "node-3",
+                "node-doc-4"
+            ],
+            "node-doc-4": [
+                "node-1",
+                "node-3",
+                "node-4"
+            ]
+        }
+    },
+    "schema_version": "3.0",
+    "generated_from": "inventory.graph.tokens",
+    "summary": {
+        "element_count": 4,
+        "visible_element_count": 4,
+        "text_element_count": 2,
+        "root_count": 1,
+        "leaf_element_count": 1,
+        "out_of_scope_element_count": 0,
+        "stacking_context_count": 1,
+        "style_count": 2,
+        "declaration_count": 4,
+        "used_declaration_count": 4,
+        "computed_style_count": 6,
+        "exact_match_count": 3,
+        "ambiguous_match_count": 0,
+        "unresolved_match_count": 3,
+        "color_count": 2,
+        "mapped_color_count": 2,
+        "confirmed_color_count": 2,
+        "palette_count": 1,
+        "chromatic_palette_count": 0,
+        "token_count": 16,
+        "foundation_token_count": 14,
+        "semantic_token_count": 2,
+        "component_token_count": 0,
+        "validated_token_count": 16,
+        "failed_token_count": 0,
+        "tokenized_element_count": 2,
+        "tokenized_style_ref_count": 3,
+        "tokenized_color_count": 2,
+        "tokenized_palette_tone_count": 14,
+        "pixel_count": 1296000,
+        "raw_pixel_count": 1296000,
+        "raw_distinct_color_count": 111,
+        "display_pixel_count": 1296000,
+        "matched_inventory_pixel_count": 1295633,
+        "unmatched_visual_pixel_count": 367,
+        "unmatched_visual_cluster_count": 41,
+        "inline_style_count": 1,
+        "stylesheet_count": 0,
+        "external_stylesheet_count": 0,
+        "inline_stylesheet_count": 0,
+        "media_query_count": 0,
+        "contrast_issue_count": 0,
+        "unused_declaration_count": 0
+    }
+}

@@ -68,30 +68,18 @@ def build_inventory_graph_artifact(
         display_frequencies=display_frequencies,
         raw_pixel_frequencies=raw_pixel_frequencies,
     )
-    relations = _build_inventory_graph_relations(inventory_graph)
-
-    payload: dict[str, Any] = {
-        "summary": summary,
-        "root_ids": list(inventory_graph.root_ids),
-        "elements": [entry.to_dict() for entry in inventory_graph.elements],
-        "styles": inventory_graph.styles.to_dict(),
-        "colors": inventory_graph.colors.to_dict(),
-        "palettes": [palette.to_dict() for palette in inventory_graph.palettes],
-        "tokens": inventory_graph.tokens.to_rows(),
-        "relations": relations,
-    }
-    if css_overview:
-        payload["css_overview"] = dict(css_overview)
-    if contrast_report is not None:
-        payload["contrast_report"] = contrast_report.to_dict()
-    if effect_color_report is not None:
-        payload["effect_color_report"] = effect_color_report.to_dict()
-    if display_frequencies is not None:
-        payload["pixel_frequencies_display"] = display_frequencies.to_dict()
-    if raw_pixel_frequencies:
-        payload["pixel_frequencies_raw_summary"] = _build_raw_pixel_summary(raw_pixel_frequencies)
-    if color_scheme is not None:
-        payload["color_scheme"] = color_scheme.to_dict()
+    payload = inventory_graph.to_artifact_dict()
+    payload.update(
+        {
+            "schema_version": "3.0",
+            "generated_from": (
+                "inventory.graph.tokens"
+                if inventory_graph.token_ids
+                else "inventory.graph.base"
+            ),
+            "summary": summary,
+        }
+    )
     return payload
 
 
@@ -163,9 +151,22 @@ def _build_inventory_graph_summary(
         display_frequencies.unmatched_visual_pixels.count if display_frequencies is not None else 0
     )
     raw_summary = _build_raw_pixel_summary(raw_pixel_frequencies or ())
+    token_entries = tuple(inventory_graph.tokens)
+    foundation_token_count = sum(1 for token in token_entries if token.is_foundation)
+    semantic_token_count = sum(1 for token in token_entries if token.is_semantic)
+    component_token_count = sum(1 for token in token_entries if token.is_component)
+    validated_token_count = sum(
+        1
+        for token in token_entries
+        if getattr(getattr(token, "state", None), "value", getattr(token, "state", None))
+        in {"validated", "applied"}
+    )
+    failed_token_count = sum(
+        1 for token in token_entries if getattr(token, "has_failed_validations", False)
+    )
 
     return {
-        "element_count": len(inventory_graph.elements),
+        "element_count": len(inventory_graph.element_ids),
         "visible_element_count": len(visible_entries),
         "text_element_count": len(text_entries),
         "root_count": len(inventory_graph.root_ids),
@@ -176,7 +177,7 @@ def _build_inventory_graph_summary(
         "stacking_context_count": sum(
             1 for entry in inventory_graph.elements if entry.flags.is_stacking_context
         ),
-        "style_count": len(inventory_graph.styles),
+        "style_count": len(inventory_graph.style_ids),
         "declaration_count": len(declaration_entries),
         "used_declaration_count": sum(
             1
@@ -187,7 +188,7 @@ def _build_inventory_graph_summary(
         "exact_match_count": exact_match_count,
         "ambiguous_match_count": ambiguous_match_count,
         "unresolved_match_count": unresolved_match_count,
-        "color_count": len(inventory_graph.colors),
+        "color_count": len(inventory_graph.color_ids),
         "mapped_color_count": sum(
             1 for color_entry in inventory_graph.colors if color_entry.mapped_palette_id is not None
         ),
@@ -200,8 +201,16 @@ def _build_inventory_graph_summary(
             for palette in inventory_graph.palettes
             if getattr(palette.palette_type, "value", palette.palette_type) == "chromatic"
         ),
-        "token_count": len(inventory_graph.tokens),
-        "token_alias_count": sum(len(token.aliases) for token in inventory_graph.tokens),
+        "token_count": len(inventory_graph.token_ids),
+        "foundation_token_count": foundation_token_count,
+        "semantic_token_count": semantic_token_count,
+        "component_token_count": component_token_count,
+        "validated_token_count": validated_token_count,
+        "failed_token_count": failed_token_count,
+        "tokenized_element_count": len(inventory_graph.element_to_token_ids),
+        "tokenized_style_ref_count": len(inventory_graph.style_ref_to_token_ids),
+        "tokenized_color_count": len(inventory_graph.color_to_token_ids),
+        "tokenized_palette_tone_count": len(inventory_graph.palette_tone_to_token_ids),
         "pixel_count": raw_summary["pixel_count"] or display_total,
         "raw_pixel_count": raw_summary["pixel_count"],
         "raw_distinct_color_count": raw_summary["distinct_color_count"],
@@ -230,58 +239,4 @@ def _build_inventory_graph_summary(
 def _build_inventory_graph_relations(
     inventory_graph: InventoryGraphModel,
 ) -> dict[str, Any]:
-    visual_context: dict[str, dict[str, Any]] = {}
-    adjacency_map: dict[str, list[str]] = {}
-    parent_map: dict[str, str] = {}
-    children_map: dict[str, list[str]] = {}
-
-    for element_entry in inventory_graph.elements:
-        if element_entry.parent_id is not None:
-            parent_map[element_entry.node_id] = element_entry.parent_id
-        if element_entry.children_ids:
-            children_map[element_entry.node_id] = list(element_entry.children_ids)
-
-        effective_background = inventory_graph.effective_background_of(element_entry.node_id)
-        effective_foreground = inventory_graph.effective_color_of(element_entry.node_id)
-        surface_container = inventory_graph.surface_container_of(element_entry.node_id)
-        visual_context[element_entry.node_id] = {
-            "effective_background_color_id": (
-                effective_background.color_id if effective_background is not None else None
-            ),
-            "effective_foreground_color_id": (
-                effective_foreground.color_id if effective_foreground is not None else None
-            ),
-            "surface_container_id": (
-                surface_container.node_id if surface_container is not None else None
-            ),
-        }
-
-        adjacent_ids = [item.node_id for item in inventory_graph.adjacent_elements_of(element_entry.node_id)]
-        if adjacent_ids:
-            adjacency_map[element_entry.node_id] = adjacent_ids
-
-    return {
-        "element_to_parent_id": parent_map,
-        "element_to_children_ids": children_map,
-        "element_to_style_ids": {
-            key: list(value) for key, value in inventory_graph.element_to_style_ids.items()
-        },
-        "element_to_color_ids": {
-            key: list(value) for key, value in inventory_graph.element_to_color_ids.items()
-        },
-        "element_to_token_ids": {
-            key: list(value) for key, value in inventory_graph.element_to_token_ids.items()
-        },
-        "element_adjacency": adjacency_map,
-        "element_visual_context": visual_context,
-        "color_to_token_ids": {
-            key: list(value) for key, value in inventory_graph.color_to_token_ids.items()
-        },
-        "palette_tone_to_token_ids": {
-            key: list(value) for key, value in inventory_graph.palette_tone_to_token_ids.items()
-        },
-        "style_declaration_to_token_ids": {
-            key: list(value)
-            for key, value in inventory_graph.style_declaration_to_token_ids.items()
-        },
-    }
+    return dict(inventory_graph.to_artifact_dict().get("relations") or {})

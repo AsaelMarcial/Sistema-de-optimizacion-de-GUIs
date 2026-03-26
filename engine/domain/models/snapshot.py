@@ -31,6 +31,8 @@ class RenderSnapshot:
     @classmethod
     def build(cls, payload: Mapping[str, Any]) -> "RenderSnapshot":
         nodes_payload = payload.get("nodes") or payload.get("elements") or ()
+        if not nodes_payload and payload.get("tree"):
+            nodes_payload = _flatten_tree_payload(payload.get("tree") or ())
         return cls(
             metadata=dict(payload.get("metadata") or {}),
             document=dict(payload.get("document") or {}),
@@ -52,7 +54,6 @@ class RenderSnapshot:
         return {
             "metadata": self.metadata,
             "document": self.document,
-            "nodes": [entry.to_dict() for entry in self.nodes],
             "tree": list(elements_inventory.to_tree()),
         }
 
@@ -63,9 +64,40 @@ class RenderArtifacts:
     snapshot: RenderSnapshot
     snapshot_json_path: str | None
     color_frequencies: list[dict[str, Any]] | None = None
+    elements_inventory: ElementInventoryModel | None = None
     styles_inventory_seed: StyleInventoryModel | None = None
     colors_inventory_seed: ColorInventoryModel | None = None
+    css_overview: dict[str, Any] | None = None
 
 
 def snapshot_options_to_dict(options: SnapshotOptions) -> dict[str, Any]:
     return asdict(options)
+
+
+def _flatten_tree_payload(nodes_payload: Any) -> list[dict[str, Any]]:
+    flattened: list[dict[str, Any]] = []
+
+    def _visit(node_payload: Any, parent_id: str | None = None) -> None:
+        if not isinstance(node_payload, Mapping):
+            return
+        normalized = dict(node_payload)
+        children_payload = tuple(normalized.pop("children", ()) or ())
+        if parent_id is not None and normalized.get("parent_id") is None:
+            normalized["parent_id"] = parent_id
+        if children_payload and not normalized.get("children_ids"):
+            child_ids = [
+                str(child.get("node_id") or "").strip()
+                for child in children_payload
+                if isinstance(child, Mapping) and str(child.get("node_id") or "").strip()
+            ]
+            if child_ids:
+                normalized["children_ids"] = child_ids
+        flattened.append(normalized)
+        current_id = str(normalized.get("node_id") or "").strip() or parent_id
+        for child_payload in children_payload:
+            _visit(child_payload, current_id)
+
+    for node_payload in nodes_payload or ():
+        _visit(node_payload)
+
+    return flattened

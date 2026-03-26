@@ -153,11 +153,13 @@ class StyleDeclarationModel:
         payload: dict[str, Any] = {
             "name": self.name,
             "value": self.value,
-            "important": self.important,
-            "implicit": self.implicit,
         }
         if self.declaration_id is not None:
             payload["declaration_id"] = self.declaration_id
+        if self.important:
+            payload["important"] = True
+        if self.implicit:
+            payload["implicit"] = True
         if self.element_usage_count:
             payload["element_usage_count"] = self.element_usage_count
         if self.used_by_element_ids:
@@ -333,9 +335,11 @@ class StyleInventoryEntry:
             "style_id": self.style_id,
             "kind": self.kind.value,
             "declarations": [item.to_dict() for item in self.declarations],
-            "node_ids": list(self.node_ids),
-            "usage_count": self.usage_count,
         }
+        if self.node_ids:
+            payload["node_ids"] = list(self.node_ids)
+        if self.usage_count:
+            payload["usage_count"] = self.usage_count
         if self.origin is not None:
             payload["origin"] = self.origin.value
         if self.style_sheet_id is not None:

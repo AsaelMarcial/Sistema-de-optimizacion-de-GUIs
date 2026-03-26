@@ -71,6 +71,15 @@ def color_to_rgba_tuple(value: ColorLike) -> tuple[int, int, int, float]:
     return red, green, blue, round(float(color.alpha()), 4)
 
 
+def color_to_css(value: ColorLike) -> str:
+    red, green, blue, alpha = color_to_rgba_tuple(value)
+    if alpha <= 0:
+        return "transparent"
+    if alpha >= 1:
+        return f"rgb({red}, {green}, {blue})"
+    return f"rgba({red}, {green}, {blue}, {round(alpha, 4)})"
+
+
 def alpha_value(value: ColorLike) -> float:
     return round(float(parse_color(value).alpha()), 4)
 

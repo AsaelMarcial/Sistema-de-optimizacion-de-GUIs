@@ -518,6 +518,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     color_scheme_model = context.get("scheme.color_scheme")
     color_scheme = color_scheme_model.to_dict()
     original_snapshot = context.get("session.artifacts.original.snapshot")
+    original_snapshot_metadata = context.get("session.artifacts.original.snapshot_metadata", {})
     original_screenshot = Path(context.get("session.artifacts.original.screenshot", "")).name
     transformed_screenshot = Path(context.get("session.artifacts.output.screenshot", "")).name
     display_frequencies = context.get("session.artifacts.original.pixel_frequencies_display")
@@ -563,7 +564,11 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         },
         "render_snapshot": {
             "artifact": Path(context.get("session.output.paths.original.snapshot_json", "")).name,
-            "node_count": original_snapshot.metadata.get("nodeCount") if original_snapshot else None,
+            "node_count": (
+                original_snapshot.metadata.get("nodeCount")
+                if original_snapshot is not None
+                else original_snapshot_metadata.get("nodeCount")
+            ),
             "palette_color_count": len(context.get("color.inventory") or ()),
         },
         "color_processing": {
@@ -585,6 +590,21 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             "artifact": Path(context.get("session.output.paths.tokens_original_json", "")).name,
             "graph_artifact": Path(context.get("session.output.paths.inventory_graph_json", "")).name,
             "token_count": len(context.get("token.inventory") or ()),
+            "foundation_token_count": sum(
+                1
+                for token in (context.get("token.inventory") or ())
+                if getattr(token, "is_foundation", False)
+            ),
+            "semantic_token_count": sum(
+                1
+                for token in (context.get("token.inventory") or ())
+                if getattr(token, "is_semantic", False)
+            ),
+            "component_token_count": sum(
+                1
+                for token in (context.get("token.inventory") or ())
+                if getattr(token, "is_component", False)
+            ),
             "failed_token_count": len(
                 [
                     token
@@ -592,6 +612,26 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                     if getattr(token, "has_failed_validations", False)
                 ]
             ),
+            "tokenized_element_count": len(
+                getattr(context.get("inventory.graph"), "element_to_token_ids", {}) or {}
+            )
+            if context.has("inventory.graph")
+            else 0,
+            "tokenized_style_ref_count": len(
+                getattr(context.get("inventory.graph"), "style_ref_to_token_ids", {}) or {}
+            )
+            if context.has("inventory.graph")
+            else 0,
+            "tokenized_color_count": len(
+                getattr(context.get("inventory.graph"), "color_to_token_ids", {}) or {}
+            )
+            if context.has("inventory.graph")
+            else 0,
+            "tokenized_palette_tone_count": len(
+                getattr(context.get("inventory.graph"), "palette_tone_to_token_ids", {}) or {}
+            )
+            if context.has("inventory.graph")
+            else 0,
         },
         "accessibility": {
             "contrast": {

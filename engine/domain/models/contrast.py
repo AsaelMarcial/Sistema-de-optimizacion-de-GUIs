@@ -121,16 +121,18 @@ class ContrastIssueModel:
             "text_sample": self.text_sample,
             "contrast_ratio": round(self.contrast_ratio, 4),
             "required_ratio": round(self.required_ratio, 4),
-            "is_large_text": self.is_large_text,
             "font_size_px": round(self.font_size_px, 4),
             "font_weight": self.font_weight,
-            "bounds": dict(self.bounds),
             "foreground": self.foreground.to_dict(),
             "background": self.background.to_dict(),
             "background_validation": self.background_validation,
         }
         if self.element_id is not None:
             payload["element_id"] = self.element_id
+        if self.is_large_text:
+            payload["is_large_text"] = True
+        if self.bounds:
+            payload["bounds"] = dict(self.bounds)
         return payload
 
 

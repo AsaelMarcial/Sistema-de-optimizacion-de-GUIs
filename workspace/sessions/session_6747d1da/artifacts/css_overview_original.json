@@ -1,0 +1,574 @@
+{
+    "metadata": {
+        "url": "file:///C:/Users/llmes/OneDrive/Documentos/Git%20Projects/Sistema-de-optimizacion-de-GUIs/workspace/sessions/session_6747d1da/input/__glow_render__-h1yo73bs.html",
+        "title": "",
+        "viewport": {
+            "width": 1440,
+            "height": 900
+        },
+        "generator": "css_overview_adapter"
+    },
+    "summary": {
+        "element_count": 87,
+        "visible_element_count": 76,
+        "text_element_count": 39,
+        "inline_style_count": 6,
+        "stylesheet_count": 0,
+        "external_stylesheet_count": 0,
+        "inline_stylesheet_count": 0,
+        "media_query_count": 0,
+        "contrast_issue_count": 0,
+        "unused_declaration_count": 0
+    },
+    "stylesheets": {
+        "entries": []
+    },
+    "colors": {
+        "text": [
+            {
+                "count": 69,
+                "node_ids": [
+                    "node-3",
+                    "node-4",
+                    "node-6",
+                    "node-7",
+                    "node-8",
+                    "node-9",
+                    "node-10",
+                    "node-11",
+                    "node-17",
+                    "node-18",
+                    "node-19",
+                    "node-20",
+                    "node-21",
+                    "node-22",
+                    "node-23",
+                    "node-24",
+                    "node-25",
+                    "node-26",
+                    "node-27",
+                    "node-28",
+                    "node-29",
+                    "node-30",
+                    "node-31",
+                    "node-32",
+                    "node-33",
+                    "node-34",
+                    "node-35",
+                    "node-36",
+                    "node-37",
+                    "node-43",
+                    "node-44",
+                    "node-45",
+                    "node-46",
+                    "node-48",
+                    "node-49",
+                    "node-50",
+                    "node-51",
+                    "node-52",
+                    "node-53",
+                    "node-54",
+                    "node-55",
+                    "node-56",
+                    "node-57",
+                    "node-58",
+                    "node-59",
+                    "node-60",
+                    "node-61",
+                    "node-62",
+                    "node-63",
+                    "node-64",
+                    "node-65",
+                    "node-66",
+                    "node-67",
+                    "node-68",
+                    "node-69",
+                    "node-70",
+                    "node-71",
+                    "node-72",
+                    "node-73",
+                    "node-74",
+                    "node-75",
+                    "node-76",
+                    "node-77",
+                    "node-78",
+                    "node-79",
+                    "node-80",
+                    "node-85",
+                    "node-86",
+                    "node-87"
+                ],
+                "sample_selectors": [
+                    "html > body",
+                    "header#top",
+                    "header#top > hgroup",
+                    "header#top > hgroup > p",
+                    "header#top > hgroup > p > abbr"
+                ],
+                "color_id": "color-2"
+            },
+            {
+                "count": 6,
+                "node_ids": [
+                    "node-1",
+                    "node-12",
+                    "node-16",
+                    "node-40",
+                    "node-81",
+                    "node-84"
+                ],
+                "sample_selectors": [
+                    "html",
+                    "input#query",
+                    "header#top > search > form > button",
+                    "body > main > section > article > p > mark",
+                    "body > main > section > form > fieldset > select"
+                ],
+                "color_id": "color-6"
+            },
+            {
+                "count": 1,
+                "node_ids": [
+                    "node-5"
+                ],
+                "sample_selectors": [
+                    "h1#title"
+                ],
+                "color_id": "color-4"
+            }
+        ],
+        "background": [
+            {
+                "count": 3,
+                "node_ids": [
+                    "node-12",
+                    "node-81",
+                    "node-84"
+                ],
+                "sample_selectors": [
+                    "input#query",
+                    "body > main > section > form > fieldset > select",
+                    "body > main > section > form > fieldset > textarea"
+                ],
+                "color_id": "color-4"
+            },
+            {
+                "count": 1,
+                "node_ids": [
+                    "node-3"
+                ],
+                "sample_selectors": [
+                    "html > body"
+                ],
+                "color_id": "color-1"
+            },
+            {
+                "count": 1,
+                "node_ids": [
+                    "node-16"
+                ],
+                "sample_selectors": [
+                    "header#top > search > form > button"
+                ],
+                "color_id": "color-10"
+            },
+            {
+                "count": 1,
+                "node_ids": [
+                    "node-5"
+                ],
+                "sample_selectors": [
+                    "h1#title"
+                ],
+                "color_id": "color-3"
+            },
+            {
+                "count": 1,
+                "node_ids": [
+                    "node-40"
+                ],
+                "sample_selectors": [
+                    "body > main > section > article > p > mark"
+                ],
+                "color_id": "color-12"
+            }
+        ],
+        "border": [
+            {
+                "count": 244,
+                "node_ids": [
+                    "node-3",
+                    "node-4",
+                    "node-6",
+                    "node-7",
+                    "node-8",
+                    "node-9",
+                    "node-10",
+                    "node-11",
+                    "node-17",
+                    "node-18",
+                    "node-19",
+                    "node-20",
+                    "node-21",
+                    "node-22",
+                    "node-23",
+                    "node-24",
+                    "node-25",
+                    "node-26",
+                    "node-27",
+                    "node-28",
+                    "node-29",
+                    "node-30",
+                    "node-31",
+                    "node-32",
+                    "node-33",
+                    "node-34",
+                    "node-35",
+                    "node-36",
+                    "node-37",
+                    "node-43",
+                    "node-44",
+                    "node-45",
+                    "node-46",
+                    "node-48",
+                    "node-49",
+                    "node-50",
+                    "node-51",
+                    "node-52",
+                    "node-53",
+                    "node-54",
+                    "node-55",
+                    "node-56",
+                    "node-57",
+                    "node-58",
+                    "node-59",
+                    "node-60",
+                    "node-61",
+                    "node-62",
+                    "node-63",
+                    "node-64",
+                    "node-66",
+                    "node-67",
+                    "node-68",
+                    "node-71",
+                    "node-74",
+                    "node-77",
+                    "node-78",
+                    "node-80",
+                    "node-85",
+                    "node-86",
+                    "node-87"
+                ],
+                "sample_selectors": [
+                    "html > body",
+                    "header#top",
+                    "header#top > hgroup",
+                    "header#top > hgroup > p",
+                    "header#top > hgroup > p > abbr"
+                ],
+                "color_id": "color-2"
+            },
+            {
+                "count": 28,
+                "node_ids": [
+                    "node-65",
+                    "node-69",
+                    "node-70",
+                    "node-72",
+                    "node-73",
+                    "node-75",
+                    "node-76"
+                ],
+                "sample_selectors": [
+                    "html > body > main > section > table",
+                    "html > body > main > section > table > thead",
+                    "body > main > section > table > thead > tr",
+                    "html > body > main > section > table > tbody",
+                    "body > main > section > table > tbody > tr"
+                ],
+                "color_id": "color-14"
+            },
+            {
+                "count": 12,
+                "node_ids": [
+                    "node-1",
+                    "node-16",
+                    "node-40"
+                ],
+                "sample_selectors": [
+                    "html",
+                    "header#top > search > form > button",
+                    "body > main > section > article > p > mark"
+                ],
+                "color_id": "color-6"
+            },
+            {
+                "count": 12,
+                "node_ids": [
+                    "node-12",
+                    "node-81",
+                    "node-84"
+                ],
+                "sample_selectors": [
+                    "input#query",
+                    "body > main > section > form > fieldset > select",
+                    "body > main > section > form > fieldset > textarea"
+                ],
+                "color_id": "color-16"
+            },
+            {
+                "count": 4,
+                "node_ids": [
+                    "node-79"
+                ],
+                "sample_selectors": [
+                    "html > body > main > section > form > fieldset"
+                ],
+                "color_id": "color-10"
+            },
+            {
+                "count": 4,
+                "node_ids": [
+                    "node-5"
+                ],
+                "sample_selectors": [
+                    "h1#title"
+                ],
+                "color_id": "color-4"
+            }
+        ],
+        "fill": [
+            {
+                "count": 75,
+                "node_ids": [
+                    "node-1",
+                    "node-3",
+                    "node-4",
+                    "node-5",
+                    "node-6",
+                    "node-7",
+                    "node-8",
+                    "node-9",
+                    "node-10",
+                    "node-11",
+                    "node-12",
+                    "node-16",
+                    "node-17",
+                    "node-18",
+                    "node-19",
+                    "node-20",
+                    "node-21",
+                    "node-22",
+                    "node-23",
+                    "node-24",
+                    "node-25",
+                    "node-26",
+                    "node-27",
+                    "node-28",
+                    "node-29",
+                    "node-30",
+                    "node-31",
+                    "node-32",
+                    "node-33",
+                    "node-34",
+                    "node-35",
+                    "node-36",
+                    "node-37",
+                    "node-40",
+                    "node-43",
+                    "node-44",
+                    "node-45",
+                    "node-46",
+                    "node-48",
+                    "node-49",
+                    "node-50",
+                    "node-51",
+                    "node-52",
+                    "node-53",
+                    "node-54",
+                    "node-56",
+                    "node-57",
+                    "node-58",
+                    "node-59",
+                    "node-60",
+                    "node-61",
+                    "node-62",
+                    "node-63",
+                    "node-64",
+                    "node-65",
+                    "node-66",
+                    "node-67",
+                    "node-68",
+                    "node-69",
+                    "node-70",
+                    "node-71",
+                    "node-72",
+                    "node-73",
+                    "node-74",
+                    "node-75",
+                    "node-76",
+                    "node-77",
+                    "node-78",
+                    "node-79",
+                    "node-80",
+                    "node-81",
+                    "node-84",
+                    "node-85",
+                    "node-86",
+                    "node-87"
+                ],
+                "sample_selectors": [
+                    "html",
+                    "html > body",
+                    "header#top",
+                    "h1#title",
+                    "header#top > hgroup"
+                ],
+                "color_id": "color-6"
+            },
+            {
+                "count": 1,
+                "node_ids": [
+                    "node-55"
+                ],
+                "sample_selectors": [
+                    "main > section > article > figure > svg > rect"
+                ],
+                "color_id": "color-20"
+            }
+        ],
+        "stroke": [
+            {
+                "count": 1,
+                "node_ids": [
+                    "node-55"
+                ],
+                "sample_selectors": [
+                    "main > section > article > figure > svg > rect"
+                ],
+                "color_id": "color-4"
+            }
+        ]
+    },
+    "typography": {
+        "font_families": [
+            {
+                "font_family": "\"Times New Roman\"",
+                "count": 69,
+                "sample_selectors": [
+                    "html",
+                    "html > body",
+                    "header#top",
+                    "h1#title",
+                    "header#top > hgroup"
+                ]
+            },
+            {
+                "font_family": "monospace",
+                "count": 4,
+                "sample_selectors": [
+                    "body > main > section > article > p > code",
+                    "body > main > section > article > p > samp",
+                    "body > main > section > article > p > kbd",
+                    "body > main > section > form > fieldset > textarea"
+                ]
+            },
+            {
+                "font_family": "Arial",
+                "count": 3,
+                "sample_selectors": [
+                    "input#query",
+                    "header#top > search > form > button",
+                    "body > main > section > form > fieldset > select"
+                ]
+            }
+        ],
+        "text_styles": [
+            {
+                "font_family": "\"Times New Roman\"",
+                "font_size_px": 16.0,
+                "font_weight": 400,
+                "line_height": "normal",
+                "count": 66,
+                "sample_selectors": [
+                    "html",
+                    "html > body",
+                    "header#top",
+                    "header#top > hgroup",
+                    "header#top > hgroup > p"
+                ]
+            },
+            {
+                "font_family": "Arial",
+                "font_size_px": 13.3333,
+                "font_weight": 400,
+                "line_height": "normal",
+                "count": 3,
+                "sample_selectors": [
+                    "input#query",
+                    "header#top > search > form > button",
+                    "body > main > section > form > fieldset > select"
+                ]
+            },
+            {
+                "font_family": "monospace",
+                "font_size_px": 13.0,
+                "font_weight": 400,
+                "line_height": "normal",
+                "count": 3,
+                "sample_selectors": [
+                    "body > main > section > article > p > code",
+                    "body > main > section > article > p > samp",
+                    "body > main > section > article > p > kbd"
+                ]
+            },
+            {
+                "font_family": "\"Times New Roman\"",
+                "font_size_px": 8.0,
+                "font_weight": 400,
+                "line_height": "normal",
+                "count": 1,
+                "sample_selectors": [
+                    "main > section > article > p > ruby > rt"
+                ]
+            },
+            {
+                "font_family": "\"Times New Roman\"",
+                "font_size_px": 16.0,
+                "font_weight": 700,
+                "line_height": "normal",
+                "count": 1,
+                "sample_selectors": [
+                    "main > section > table > thead > tr > th"
+                ]
+            },
+            {
+                "font_family": "\"Times New Roman\"",
+                "font_size_px": 32.0,
+                "font_weight": 700,
+                "line_height": "normal",
+                "count": 1,
+                "sample_selectors": [
+                    "h1#title"
+                ]
+            },
+            {
+                "font_family": "monospace",
+                "font_size_px": 13.3333,
+                "font_weight": 400,
+                "line_height": "normal",
+                "count": 1,
+                "sample_selectors": [
+                    "body > main > section > form > fieldset > textarea"
+                ]
+            }
+        ]
+    },
+    "media_queries": [],
+    "contrast_issues": [],
+    "unused_declarations": {
+        "count": 0,
+        "entries": []
+    },
+    "unsupported_sections": []
+}

@@ -42,7 +42,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     inventory_graph = context.get("inventory.graph")
     context.trace.add_stage_event(CONTRACT.name, "start")
     validated_inventory = apply_token_rules(token_inventory, inventory_graph)
-    validated_graph = InventoryGraphModel.build(
+    validated_graph = inventory_graph.bind_inventories(
         elements=inventory_graph.elements,
         styles=inventory_graph.styles,
         colors=inventory_graph.colors,
@@ -85,11 +85,6 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                 if context.has("session.artifacts.original.pixel_frequencies_raw")
                 else None
             ),
-            color_scheme=(
-                context.get("scheme.color_scheme")
-                if context.has("scheme.color_scheme")
-                else None
-            ),
         ),
         indent=4,
     )
@@ -99,6 +94,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         {
             "token_count": len(validated_inventory),
             "failed_tokens": len([token for token in validated_inventory if token.has_failed_validations]),
+            "tokenized_element_count": len(validated_graph.element_to_token_ids),
         },
     )
     return context

@@ -1,0 +1,78 @@
+{
+    "inline": [
+        {
+            "style_id": "style-1",
+            "kind": "inline",
+            "declarations": [
+                {
+                    "name": "background",
+                    "value": "#000",
+                    "declaration_id": "style-1-decl-1",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-3"
+                    ]
+                },
+                {
+                    "name": "color",
+                    "value": "rgb(255, 255, 255)",
+                    "declaration_id": "style-1-decl-2",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-3"
+                    ]
+                }
+            ],
+            "node_ids": [
+                "node-3"
+            ],
+            "usage_count": 1,
+            "origin": "author",
+            "style_sheet_id": "48068.1",
+            "source_range": {
+                "start_line": 0,
+                "start_column": 0,
+                "end_line": 0,
+                "end_column": 26
+            }
+        }
+    ],
+    "inherited": [
+        {
+            "style_id": "style-2",
+            "kind": "inherited",
+            "declarations": [
+                {
+                    "name": "background",
+                    "value": "#000",
+                    "declaration_id": "style-2-decl-1",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-4"
+                    ]
+                },
+                {
+                    "name": "color",
+                    "value": "rgb(255, 255, 255)",
+                    "declaration_id": "style-2-decl-2",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-4"
+                    ]
+                }
+            ],
+            "node_ids": [
+                "node-4"
+            ],
+            "usage_count": 1,
+            "origin": "author",
+            "style_sheet_id": "48068.1",
+            "source_range": {
+                "start_line": 0,
+                "start_column": 0,
+                "end_line": 0,
+                "end_column": 26
+            }
+        }
+    ]
+}

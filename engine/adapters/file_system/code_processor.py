@@ -8,6 +8,7 @@ from collections import defaultdict
 from bs4 import BeautifulSoup
 
 from app.config import get_output_dir
+from engine.domain.data.css_properties import CSS_PROPERTIES_BY_ID
 from engine.domain.data.tokens import PROPERTY_TOKEN_RULES
 from engine.domain.utils.color_utils import (
     extract_hex_colors,
@@ -30,15 +31,58 @@ from engine.domain.utils.coloraide import (
 from engine.pipeline.debug_trace import DebugTrace
 
 DEFAULT_ASSET_EXTENSIONS = (
+    ".aac",
+    ".avif",
+    ".bmp",
     ".css",
+    ".eot",
     ".gif",
     ".html",
+    ".ico",
     ".jpeg",
     ".jpg",
     ".js",
+    ".json",
+    ".m4a",
+    ".map",
+    ".mp3",
+    ".mp4",
+    ".ogv",
+    ".ogg",
+    ".otf",
+    ".pdf",
     ".png",
     ".svg",
+    ".ttf",
+    ".txt",
+    ".wasm",
+    ".wav",
+    ".webm",
+    ".webmanifest",
     ".webp",
+    ".woff",
+    ".woff2",
+    ".xml",
+)
+_REMOTE_REFERENCE_PREFIXES = ("http://", "https://", "//", "data:", "javascript:", "mailto:", "tel:")
+_HTML_ASSET_ATTRIBUTES = (
+    ("a", "href"),
+    ("link", "href"),
+    ("img", "src"),
+    ("script", "src"),
+    ("source", "src"),
+    ("audio", "src"),
+    ("video", "src"),
+    ("iframe", "src"),
+    ("embed", "src"),
+    ("object", "data"),
+    ("form", "action"),
+)
+_SRCSET_ATTRIBUTES = (("img", "srcset"), ("source", "srcset"))
+_CSS_URL_REFERENCE_RE = re.compile(r"url\(\s*(['\"]?)([^)'\"]+|[^)]*?)\1\s*\)", re.IGNORECASE)
+_COLOR_FRAGMENT_RE = re.compile(
+    r"(#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]+\)|\b[a-zA-Z][a-zA-Z-]*\b)",
+    re.IGNORECASE,
 )
 
 
@@ -183,6 +227,402 @@ def _color_value_variants(value: str) -> tuple[str, ...]:
     return tuple(sorted(variants))
 
 
+def _parseable_color_variants(value: str) -> tuple[str, ...]:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return ()
+    try:
+        return tuple(
+            sorted(
+                {
+                    normalized.lower(),
+                    color_to_hex(normalized).lower(),
+                    rgb_to_css(color_to_rgb_tuple(normalized)).lower(),
+                }
+            )
+        )
+    except Exception:
+        return ()
+
+
+def _property_chain(property_name: str) -> tuple[str, ...]:
+    normalized = str(property_name or "").strip().lower()
+    if not normalized:
+        return ()
+
+    chain: list[str] = []
+    seen: set[str] = set()
+    current = normalized
+    while current and current not in seen:
+        seen.add(current)
+        chain.append(current)
+        spec = CSS_PROPERTIES_BY_ID.get(current)
+        if spec is None or spec.longhand_of is None:
+            break
+        current = spec.longhand_of.value
+    return tuple(chain)
+
+
+def _candidate_declared_properties(
+    property_name: str,
+    declared_property: str | None = None,
+) -> tuple[str, ...]:
+    candidates: list[str] = []
+    seen: set[str] = set()
+    for seed in (declared_property, property_name):
+        for candidate in _property_chain(str(seed or "").strip().lower()):
+            if not candidate or candidate in seen:
+                continue
+            seen.add(candidate)
+            candidates.append(candidate)
+    return tuple(candidates)
+
+
+def _property_ref_pairs(token) -> tuple[tuple[str, str], ...]:
+    pairs: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for item in token.source_property_refs:
+        normalized = str(item or "").strip()
+        if not normalized or ":" not in normalized:
+            continue
+        element_id, property_name = normalized.split(":", 1)
+        key = (element_id.strip(), property_name.strip().lower())
+        if not key[0] or not key[1] or key in seen:
+            continue
+        seen.add(key)
+        pairs.append(key)
+    return tuple(pairs)
+
+
+def _matching_color_fragments(
+    declaration_value: str,
+    target_variants: set[str],
+) -> tuple[str, ...]:
+    if not target_variants:
+        return ()
+
+    matches: list[str] = []
+    seen: set[str] = set()
+    for candidate in _COLOR_FRAGMENT_RE.findall(str(declaration_value or "")):
+        normalized_candidate = str(candidate or "").strip()
+        if not normalized_candidate:
+            continue
+        candidate_variants = set(_parseable_color_variants(normalized_candidate))
+        if not candidate_variants or not candidate_variants.intersection(target_variants):
+            continue
+        lowered = normalized_candidate.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        matches.append(normalized_candidate)
+    return tuple(matches)
+
+
+def _style_declaration_by_id(style_entry, declaration_id: str):
+    if style_entry is None or not declaration_id:
+        return None
+    for declaration in getattr(style_entry, "declarations", ()):
+        if getattr(declaration, "declaration_id", None) == declaration_id:
+            return declaration
+    return None
+
+
+def _token_source_spec(
+    token,
+    inventory_graph: InventoryGraphModel,
+) -> tuple[set[str], set[str], set[str], set[str]]:
+    exact_properties = {property_name.lower() for property_name in token.assigned_property_names}
+    fragment_properties: set[str] = set()
+    exact_values = {
+        str(item).strip().lower()
+        for item in token.source_values
+        if str(item).strip()
+    }
+    fragment_values = set(exact_values)
+    source_color_variants: set[str] = set()
+
+    property_ref_pairs = _property_ref_pairs(token)
+    property_refs_by_element: dict[str, set[str]] = defaultdict(set)
+    for element_id, property_name in property_ref_pairs:
+        property_refs_by_element[element_id].add(property_name)
+        exact_properties.add(property_name)
+        for candidate in _candidate_declared_properties(property_name):
+            if candidate == property_name:
+                exact_properties.add(candidate)
+            else:
+                fragment_properties.add(candidate)
+
+    for source_value in token.source_values:
+        source_color_variants.update(_parseable_color_variants(str(source_value)))
+
+    if (token.property_id or "").strip().lower() in {"background-image", "box-shadow", "text-shadow"}:
+        fragment_properties.update(exact_properties)
+        for source_value in token.source_values:
+            for fragment in _COLOR_FRAGMENT_RE.findall(str(source_value or "")):
+                fragment_values.update(_parseable_color_variants(fragment))
+
+    for color_id in token.source_color_ids:
+        color_entry = inventory_graph.color_by_id(color_id)
+        if color_entry is None:
+            continue
+        variants = _color_value_variants(color_entry.value)
+        fragment_values.update(variants)
+        exact_values.update(variants)
+        variants = _color_value_variants(color_entry.hex_value)
+        fragment_values.update(variants)
+        exact_values.update(variants)
+        variants = _color_value_variants(rgb_to_css(color_entry.rgb))
+        fragment_values.update(variants)
+        exact_values.update(variants)
+        source_color_variants.update(_parseable_color_variants(color_entry.value))
+        source_color_variants.update(_parseable_color_variants(color_entry.hex_value))
+        source_color_variants.update(_parseable_color_variants(rgb_to_css(color_entry.rgb)))
+
+    candidate_element_ids = {
+        str(item).strip()
+        for item in (*token.source_element_ids, *token.assigned_element_ids)
+        if str(item).strip()
+    }
+    candidate_element_ids.update(element_id for element_id, _property_name in property_ref_pairs)
+    allowed_style_ids = {str(item).strip() for item in token.source_style_ids if str(item).strip()}
+    for element_id in candidate_element_ids:
+        element_entry = inventory_graph.element_by_id(element_id)
+        if element_entry is None:
+            continue
+        referenced_properties = property_refs_by_element.get(element_id) or exact_properties
+
+        for color_property in element_entry.iter_color_properties():
+            normalized_property = str(color_property.property_name or "").strip().lower()
+            if normalized_property not in referenced_properties:
+                continue
+            if (
+                allowed_style_ids
+                and color_property.winning_style_ref.style_id
+                and color_property.winning_style_ref.style_id not in allowed_style_ids
+            ):
+                continue
+
+            source_color_variants.update(_parseable_color_variants(color_property.resolved_value))
+            declared_candidates = _candidate_declared_properties(
+                normalized_property,
+                color_property.winning_style_ref.declared_property,
+            )
+            for candidate in declared_candidates:
+                if candidate == normalized_property:
+                    exact_properties.add(candidate)
+                else:
+                    fragment_properties.add(candidate)
+
+            if (
+                not color_property.winning_style_ref.style_id
+                or not color_property.winning_style_ref.declaration_id
+            ):
+                continue
+            style_entry = inventory_graph.style_by_id(color_property.winning_style_ref.style_id)
+            declaration = _style_declaration_by_id(
+                style_entry,
+                color_property.winning_style_ref.declaration_id,
+            )
+            if declaration is None or not str(declaration.value or "").strip():
+                continue
+            authored_value = str(declaration.value).strip()
+            authored_color_fragments = _matching_color_fragments(authored_value, source_color_variants)
+            if any(candidate != normalized_property for candidate in declared_candidates):
+                fragment_values.update(fragment.lower() for fragment in authored_color_fragments)
+            else:
+                exact_values.add(authored_value.lower())
+                exact_values.update(_color_value_variants(authored_value))
+
+        for property_name, computed_style in element_entry.iter_computed_styles():
+            normalized_property = str(property_name or "").strip().lower()
+            if normalized_property not in referenced_properties:
+                continue
+            if allowed_style_ids and computed_style.style_id and computed_style.style_id not in allowed_style_ids:
+                continue
+            if computed_style.computed_value:
+                exact_values.add(str(computed_style.computed_value).strip().lower())
+                source_color_variants.update(_parseable_color_variants(computed_style.computed_value))
+            declared_candidates = _candidate_declared_properties(
+                normalized_property,
+                computed_style.declared_property,
+            )
+            for candidate in declared_candidates:
+                if candidate == normalized_property:
+                    exact_properties.add(candidate)
+                else:
+                    fragment_properties.add(candidate)
+            if computed_style.style_id and computed_style.declaration_id:
+                style_entry = inventory_graph.style_by_id(computed_style.style_id)
+                declaration = _style_declaration_by_id(
+                    style_entry,
+                    computed_style.declaration_id,
+                )
+                if declaration is None or not str(declaration.value or "").strip():
+                    continue
+                authored_value = str(declaration.value).strip()
+                authored_color_fragments = _matching_color_fragments(authored_value, source_color_variants)
+                if any(candidate != normalized_property for candidate in declared_candidates):
+                    fragment_values.update(fragment.lower() for fragment in authored_color_fragments)
+                else:
+                    exact_values.add(authored_value.lower())
+                    fragment_values.add(authored_value.lower())
+                    exact_values.update(_color_value_variants(authored_value))
+
+    return exact_properties, fragment_properties, exact_values, fragment_values
+
+
+def _replace_value_fragments(
+    value: str,
+    fragment_values: set[str],
+    replacement: str,
+) -> tuple[str, bool]:
+    updated_value = str(value or "")
+    changed = False
+    for source_value in sorted(fragment_values, key=len, reverse=True):
+        if not source_value:
+            continue
+        updated_value, count = re.subn(
+            re.escape(source_value),
+            replacement,
+            updated_value,
+            flags=re.IGNORECASE,
+        )
+        if count:
+            changed = True
+    return updated_value, changed
+
+
+def _split_reference_suffix(value: str) -> tuple[str, str]:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return "", ""
+    for marker in ("#", "?"):
+        index = normalized.find(marker)
+        if index != -1:
+            return normalized[:index], normalized[index:]
+    return normalized, ""
+
+
+def _is_remote_reference(value: str) -> bool:
+    normalized = str(value or "").strip()
+    return not normalized or normalized.startswith(_REMOTE_REFERENCE_PREFIXES) or normalized.startswith("#")
+
+
+def _resolve_local_reference_path(
+    reference: str,
+    *,
+    current_file_path: str,
+    project_base_path: str,
+) -> str | None:
+    path_value, _suffix = _split_reference_suffix(reference)
+    if _is_remote_reference(path_value):
+        return None
+
+    normalized_path = path_value.replace("\\", "/")
+    if normalized_path.startswith("/"):
+        return os.path.normpath(os.path.join(project_base_path, normalized_path.lstrip("/")))
+
+    current_dir = os.path.dirname(current_file_path)
+    return os.path.normpath(os.path.join(current_dir, normalized_path))
+
+
+def _rewrite_local_reference(
+    reference: str,
+    *,
+    current_file_path: str,
+    project_base_path: str,
+) -> str:
+    path_value, suffix = _split_reference_suffix(reference)
+    if _is_remote_reference(path_value):
+        return str(reference or "")
+
+    normalized_path = path_value.replace("\\", "/")
+    if not normalized_path.startswith("/"):
+        return f"{normalized_path}{suffix}"
+
+    resolved = _resolve_local_reference_path(
+        normalized_path,
+        current_file_path=current_file_path,
+        project_base_path=project_base_path,
+    )
+    if not resolved:
+        return f"{normalized_path}{suffix}"
+
+    relative_path = os.path.relpath(resolved, os.path.dirname(current_file_path)).replace("\\", "/")
+    return f"{relative_path}{suffix}"
+
+
+def _rewrite_srcset_references(
+    value: str,
+    *,
+    current_file_path: str,
+    project_base_path: str,
+) -> str:
+    candidates = [item.strip() for item in str(value or "").split(",") if item.strip()]
+    rewritten: list[str] = []
+    for candidate in candidates:
+        parts = candidate.split()
+        if not parts:
+            continue
+        asset_reference = _rewrite_local_reference(
+            parts[0],
+            current_file_path=current_file_path,
+            project_base_path=project_base_path,
+        )
+        if len(parts) > 1:
+            rewritten.append(" ".join((asset_reference, *parts[1:])))
+        else:
+            rewritten.append(asset_reference)
+    return ", ".join(rewritten)
+
+
+def _rewrite_local_asset_attributes(
+    soup: BeautifulSoup,
+    *,
+    current_file_path: str,
+    project_base_path: str,
+) -> None:
+    for tag_name, attribute_name in _HTML_ASSET_ATTRIBUTES:
+        for tag in soup.find_all(tag_name):
+            if not tag.has_attr(attribute_name):
+                continue
+            tag[attribute_name] = _rewrite_local_reference(
+                str(tag.get(attribute_name) or ""),
+                current_file_path=current_file_path,
+                project_base_path=project_base_path,
+            )
+    for tag_name, attribute_name in _SRCSET_ATTRIBUTES:
+        for tag in soup.find_all(tag_name):
+            if not tag.has_attr(attribute_name):
+                continue
+            tag[attribute_name] = _rewrite_srcset_references(
+                str(tag.get(attribute_name) or ""),
+                current_file_path=current_file_path,
+                project_base_path=project_base_path,
+            )
+
+
+def _rewrite_css_asset_urls(
+    css_text: str,
+    *,
+    current_file_path: str,
+    project_base_path: str,
+) -> str:
+    def _replace(match: re.Match[str]) -> str:
+        quote = match.group(1) or ""
+        raw_reference = str(match.group(2) or "").strip()
+        if _is_remote_reference(raw_reference):
+            return match.group(0)
+        rewritten = _rewrite_local_reference(
+            raw_reference,
+            current_file_path=current_file_path,
+            project_base_path=project_base_path,
+        )
+        return f"url({quote}{rewritten}{quote})"
+
+    return _CSS_URL_REFERENCE_RE.sub(_replace, css_text)
+
+
 def _build_token_replacement_specs(
     token_inventory: TokenInventoryModel,
     inventory_graph: InventoryGraphModel,
@@ -196,26 +636,29 @@ def _build_token_replacement_specs(
         property_rule = PROPERTY_TOKEN_RULES.get((token.property_id or "").lower())
         if property_rule is not None and not bool(property_rule.get("relevant_for_rewrite", True)):
             continue
-        source_values: set[str] = set()
-        source_values.update(str(item).strip().lower() for item in token.source_values if str(item).strip())
-        for color_id in token.source_color_ids:
-            color_entry = inventory_graph.color_by_id(color_id)
-            if color_entry is None:
-                continue
-            source_values.update(_color_value_variants(color_entry.value))
-            source_values.update(_color_value_variants(color_entry.hex_value))
-            source_values.update(_color_value_variants(rgb_to_css(color_entry.rgb)))
-        if not source_values:
+        exact_properties, fragment_properties, source_values, fragment_values = _token_source_spec(
+            token,
+            inventory_graph,
+        )
+        if not source_values and not fragment_values:
             continue
         replacement = f"var({token.css_variable_name})"
+        fragment_mode = (
+            "whole_declaration"
+            if (token.property_id or "").strip().lower() in {"background-image", "box-shadow", "text-shadow"}
+            else "fragment"
+        )
         specs.append(
             {
                 "token_id": token.token_id,
-                "properties": {property_name.lower() for property_name in token.assigned_property_names},
+                "properties": exact_properties,
+                "fragment_properties": fragment_properties,
                 "tags": set(),
                 "source_values": source_values,
+                "fragment_values": fragment_values,
                 "replacement": replacement,
                 "path": token.path_string,
+                "fragment_mode": fragment_mode,
             }
         )
     return specs
@@ -236,17 +679,43 @@ def _apply_inline_token_replacements(
                 tags = spec["tags"]
                 if tags and tag.name.lower() not in tags:
                     continue
-                if normalized_property not in spec["properties"]:
-                    continue
-                if normalized_value not in spec["source_values"]:
-                    continue
                 replacement = str(spec["replacement"])
-                if styles[property_name] == replacement:
+                if (
+                    normalized_property in spec["properties"]
+                    and normalized_value in spec["source_values"]
+                ):
+                    if styles[property_name] == replacement:
+                        break
+                    changes.append(
+                        f"<{tag.name}> {normalized_property}: {styles[property_name]} -> {replacement} via {spec['path']}"
+                    )
+                    styles[property_name] = replacement
+                    updated = True
                     break
-                changes.append(
-                    f"<{tag.name}> {normalized_property}: {styles[property_name]} -> {replacement} via {spec['path']}"
+                if normalized_property not in spec["fragment_properties"]:
+                    continue
+                if str(spec.get("fragment_mode") or "fragment") == "whole_declaration":
+                    if not _matching_color_fragments(styles[property_name], set(spec["fragment_values"])):
+                        continue
+                    if styles[property_name] == replacement:
+                        break
+                    changes.append(
+                        f"<{tag.name}> {normalized_property}: {styles[property_name]} -> {replacement} via {spec['path']}"
+                    )
+                    styles[property_name] = replacement
+                    updated = True
+                    break
+                rewritten_value, changed = _replace_value_fragments(
+                    styles[property_name],
+                    set(spec["fragment_values"]),
+                    replacement,
                 )
-                styles[property_name] = replacement
+                if not changed or rewritten_value == styles[property_name]:
+                    continue
+                changes.append(
+                    f"<{tag.name}> {normalized_property}: {styles[property_name]} -> {rewritten_value} via {spec['path']}"
+                )
+                styles[property_name] = rewritten_value
                 updated = True
                 break
         if updated:
@@ -278,20 +747,56 @@ def _apply_token_replacements_to_css_text(
                     changes.append(
                         f"{context_label}: {property_name} {source_value} -> {replacement} via {spec['path']} ({count})"
                     )
+        for property_name in spec["fragment_properties"]:
+            pattern = re.compile(
+                rf"({re.escape(str(property_name))}\s*:\s*)([^;}}]+)(\s*[;}}])",
+                re.IGNORECASE,
+            )
+
+            def _replace(match: re.Match[str]) -> str:
+                declaration_value = match.group(2)
+                if str(spec.get("fragment_mode") or "fragment") == "whole_declaration":
+                    if not _matching_color_fragments(declaration_value, set(spec["fragment_values"])):
+                        return match.group(0)
+                    if declaration_value == replacement:
+                        return match.group(0)
+                    changes.append(
+                        f"{context_label}: {property_name} -> {replacement} via {spec['path']}"
+                    )
+                    return f"{match.group(1)}{replacement}{match.group(3)}"
+                rewritten_value, changed = _replace_value_fragments(
+                    declaration_value,
+                    set(spec["fragment_values"]),
+                    replacement,
+                )
+                if not changed or rewritten_value == declaration_value:
+                    return match.group(0)
+                changes.append(
+                    f"{context_label}: {property_name} fragment -> {replacement} via {spec['path']}"
+                )
+                return f"{match.group(1)}{rewritten_value}{match.group(3)}"
+
+            updated_css = pattern.sub(_replace, updated_css)
     return updated_css, changes
 
 
 def _token_css_value(token) -> str:
-    if token.alias_to:
-        alias_var = "--" + token.alias_to.replace(".", "-").replace("_", "-")
-        return f"var({alias_var})"
     return token.resolved_value or token.value
 
 
-def _build_glow_css_variables(token_inventory: TokenInventoryModel) -> str:
+def _build_glow_css_variables(
+    token_inventory: TokenInventoryModel,
+    used_token_ids: set[str] | None = None,
+) -> str:
+    visible_ids = set(used_token_ids or ())
     ordered_tokens = sorted(
-        token_inventory,
-        key=lambda token: (0 if token.is_foundation else 1, token.path_string),
+        (
+            token
+            for token in token_inventory
+            if (token.is_semantic or token.is_component)
+            and (not visible_ids or token.token_id in visible_ids)
+        ),
+        key=lambda token: token.path_string,
     )
     lines = [":root {"]
     for token in ordered_tokens:
@@ -303,8 +808,12 @@ def _build_glow_css_variables(token_inventory: TokenInventoryModel) -> str:
     return "\n".join(lines)
 
 
-def _inject_glow_variables(soup: BeautifulSoup, token_inventory: TokenInventoryModel) -> None:
-    variable_block = _build_glow_css_variables(token_inventory)
+def _inject_glow_variables(
+    soup: BeautifulSoup,
+    token_inventory: TokenInventoryModel,
+    used_token_ids: set[str] | None = None,
+) -> None:
+    variable_block = _build_glow_css_variables(token_inventory, used_token_ids)
     if variable_block.strip() == ":root {\n}":
         return
     head = soup.head
@@ -333,7 +842,11 @@ def apply_tokens_to_project(
 ) -> list[dict[str, object]]:
     replacement_specs = _build_token_replacement_specs(token_inventory, inventory_graph)
     soup = BeautifulSoup(html_content, "html.parser")
-    _inject_glow_variables(soup, token_inventory)
+    _inject_glow_variables(
+        soup,
+        token_inventory,
+        {str(spec["token_id"]) for spec in replacement_specs},
+    )
     change_log = _apply_inline_token_replacements(soup, replacement_specs)
 
     for style_tag in soup.find_all("style"):
@@ -345,14 +858,25 @@ def apply_tokens_to_project(
             replacement_specs,
             context_label="style_embebido",
         )
-        style_tag.string = updated_css
+        style_tag.string = _rewrite_css_asset_urls(
+            updated_css,
+            current_file_path=output_path,
+            project_base_path=base_path,
+        )
         change_log.extend(css_changes)
 
     for link in soup.find_all("link", href=True):
         href = link["href"]
-        if href.startswith(("http://", "https://", "//")) or not href.endswith(".css"):
+        href_path, _href_suffix = _split_reference_suffix(str(href or ""))
+        if _is_remote_reference(href_path) or not href_path.lower().endswith(".css"):
             continue
-        css_path = os.path.join(base_path, href.lstrip("/"))
+        css_path = _resolve_local_reference_path(
+            str(href),
+            current_file_path=output_path,
+            project_base_path=base_path,
+        )
+        if not css_path:
+            continue
         if not os.path.exists(css_path):
             continue
         with open(css_path, "r", encoding="utf-8") as file:
@@ -362,23 +886,20 @@ def apply_tokens_to_project(
             replacement_specs,
             context_label=f"css_externo:{href}",
         )
+        updated_css = _rewrite_css_asset_urls(
+            updated_css,
+            current_file_path=css_path,
+            project_base_path=base_path,
+        )
         with open(css_path, "w", encoding="utf-8") as file:
             file.write(updated_css)
         change_log.extend(css_changes)
 
-    for tag in soup.find_all(["link", "img"]):
-        attr = "href" if tag.name == "link" else "src"
-        if tag.has_attr(attr):
-            path = tag[attr]
-            if path.startswith(("http://", "https://", "//", "data:")):
-                continue
-            clean_path = os.path.normpath(path.lstrip("/")).replace("\\", "/")
-            while clean_path.startswith("../") or clean_path.startswith("./"):
-                if clean_path.startswith("../"):
-                    clean_path = clean_path[3:]
-                elif clean_path.startswith("./"):
-                    clean_path = clean_path[2:]
-            tag[attr] = clean_path
+    _rewrite_local_asset_attributes(
+        soup,
+        current_file_path=output_path,
+        project_base_path=base_path,
+    )
 
     with open(output_path, "w", encoding="utf-8") as file:
         file.write(str(soup))
@@ -526,15 +1047,26 @@ def evaluate_and_apply_heuristics(html_content, output_path, base_path, session_
                 detalles_decoraciones.append("Eliminada decoración en style embebido")
                 continue
             new_lines.append(line)
-        style_tag.string = "\n".join(new_lines)
+        style_tag.string = _rewrite_css_asset_urls(
+            "\n".join(new_lines),
+            current_file_path=output_path,
+            project_base_path=base_path,
+        )
 
     # 5) Transformación de CSS externo referenciado por <link>
     for link in soup.find_all("link", href=True):
         href = link["href"]
-        if href.startswith(("http://", "https://", "//")):
+        href_path, _href_suffix = _split_reference_suffix(str(href or ""))
+        if _is_remote_reference(href_path):
             continue
-        if href.endswith(".css"):
-            ruta_css = os.path.join(base_path, href.lstrip("/"))
+        if href_path.lower().endswith(".css"):
+            ruta_css = _resolve_local_reference_path(
+                str(href),
+                current_file_path=output_path,
+                project_base_path=base_path,
+            )
+            if not ruta_css:
+                continue
             if os.path.exists(ruta_css):
                 with open(ruta_css, "r", encoding="utf-8") as file:
                     lines = file.readlines()
@@ -565,23 +1097,19 @@ def evaluate_and_apply_heuristics(html_content, output_path, base_path, session_
                         detalles_decoraciones.append("Eliminada decoración en CSS externo")
                         continue
                     new_lines.append(line)
+                updated_css = _rewrite_css_asset_urls(
+                    "".join(new_lines),
+                    current_file_path=ruta_css,
+                    project_base_path=base_path,
+                )
                 with open(ruta_css, "w", encoding="utf-8") as file:
-                    file.writelines(new_lines)
+                    file.write(updated_css)
 
-    # 6) Normalización de rutas relativas en href/src
-    for tag in soup.find_all(["link", "img"]):
-        attr = "href" if tag.name == "link" else "src"
-        if tag.has_attr(attr):
-            path = tag[attr]
-            if path.startswith(("http://", "https://", "//", "data:")):
-                continue
-            clean_path = os.path.normpath(path.lstrip("/")).replace("\\", "/")
-            while clean_path.startswith("../") or clean_path.startswith("./"):
-                if clean_path.startswith("../"):
-                    clean_path = clean_path[3:]
-                elif clean_path.startswith("./"):
-                    clean_path = clean_path[2:]
-            tag[attr] = clean_path
+    _rewrite_local_asset_attributes(
+        soup,
+        current_file_path=output_path,
+        project_base_path=base_path,
+    )
 
     with open(output_path, "w", encoding="utf-8") as file:
         file.write(str(soup))

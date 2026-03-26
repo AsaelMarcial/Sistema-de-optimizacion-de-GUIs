@@ -9,7 +9,6 @@ from engine.domain.models.contrast import (
 )
 from engine.domain.models.element import ElementColorPropertyModel, ElementInventoryEntry
 from engine.domain.models.inventory_graph import InventoryGraphModel
-from engine.domain.models.style import StyleInventoryModel
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
 
@@ -19,9 +18,7 @@ _BACKGROUND_PROPERTY_NAMES = ("background-color", "background")
 CONTRACT = StageContract(
     name="build_contrast_report",
     requires=(
-        context_value("elements.inventory"),
-        context_value("style.inventory", StyleInventoryModel),
-        context_value("color.inventory"),
+        context_value("inventory.graph", InventoryGraphModel),
         context_value("session.artifacts.original.css_overview", dict),
         context_value(
             "session.output.paths.original.contrast_report_json",
@@ -186,11 +183,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     if context.error or context.has("inventory.contrast_report"):
         return context
 
-    inventory_graph = InventoryGraphModel.build(
-        elements=context.get("elements.inventory"),
-        styles=context.get("style.inventory"),
-        colors=context.get("color.inventory"),
-    )
+    inventory_graph = context.get("inventory.graph")
     context.trace.add_stage_event(CONTRACT.name, "start")
     report = _build_report(
         context.get("session.artifacts.original.css_overview"),

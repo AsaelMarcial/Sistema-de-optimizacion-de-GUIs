@@ -11,6 +11,7 @@ from engine.domain.models.style import (
     StyleInventoryEntry,
     StyleInventoryModel,
 )
+from engine.domain.utils.coloraide import color_to_css
 
 _RGBA_ALPHA_RE = re.compile(r"^rgba\((.+)\)$", re.IGNORECASE)
 _HSLA_ALPHA_RE = re.compile(r"^hsla\((.+)\)$", re.IGNORECASE)
@@ -112,7 +113,20 @@ def _normalize_color_token(value: str) -> str:
     if _is_alpha_zero_color(lower):
         return "transparent"
 
-    return lower if lower.startswith("#") else normalized
+    if lower in {
+        "currentcolor",
+        "inherit",
+        "initial",
+        "unset",
+        "revert",
+        "revert-layer",
+    }:
+        return lower
+
+    try:
+        return color_to_css(normalized)
+    except Exception:
+        return lower if lower.startswith("#") else normalized
 
 
 def _is_alpha_zero_color(value: str) -> bool:

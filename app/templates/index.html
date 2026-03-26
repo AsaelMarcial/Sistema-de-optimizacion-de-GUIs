@@ -34,55 +34,73 @@
         <header class="section-header">
           <span class="eyebrow">
             <span class="eyebrow__dot"></span>
-            <span>Upload package</span>
+            <span>Sube tu archivo</span>
           </span>
         </header>
 
         <div class="section-body section-body--stack">
-          <div class="heading-group">
-            <h1 class="title title--display" id="upload-title">
-              Analiza tu interfaz HTML y obtén un reporte visual, energético y ambiental listo para decidir.
-            </h1>
-            <p class="text-secondary">
-              Sube una página o un proyecto estático y Glow identifica la carga visual, la huella de carbono,
-              las paletas tonales dominantes, las heurísticas comprometidas y una versión optimizada para comparar.
-            </p>
+          <div class="landing-hero-grid">
+            <div class="heading-group landing-hero-copy">
+              <h1 class="title title--display" id="upload-title">
+                Analiza tu interfaz HTML y obtén una
+                <span class="title__accent">lectura visual</span>,
+                energética y ambiental lista para decidir.
+              </h1>
+              <p class="text-secondary">
+                Sube una página o un proyecto estático y Glow te devuelve una lectura clara del peso visual de la interfaz,
+                sus tonos dominantes, los puntos de contraste más delicados y una versión ajustada para comparar.
+              </p>
+            </div>
+
+            <div class="landing-step-grid landing-step-grid--hero" aria-label="Cómo funciona">
+              <article class="card card--soft step-card step-card--hero">
+                <span class="text-caption step-card__index">01</span>
+                <h3>Sube tu proyecto</h3>
+                <p>Arrastra un archivo <code>.html</code> o un <code>.zip</code> con la interfaz y sus recursos.</p>
+              </article>
+
+              <article class="card card--soft step-card step-card--hero">
+                <span class="text-caption step-card__index">02</span>
+                <h3>Glow lo interpreta</h3>
+                <p>Leemos color, estructura, luminancia, peso visual y señales heurísticas para construir la lectura.</p>
+              </article>
+
+              <article class="card card--soft step-card step-card--hero">
+                <span class="text-caption step-card__index">03</span>
+                <h3>Revisa el reporte</h3>
+                <p>Recibe hallazgos visuales, métricas de impacto y una comparativa clara para decidir con contexto.</p>
+              </article>
+
+              <article class="card card--soft step-card step-card--hero">
+                <span class="text-caption step-card__index">04</span>
+                <h3>Descárgalo</h3>
+                <p>Conserva la versión ajustada, la paleta y el rastro de cambios para seguir afinando la interfaz.</p>
+              </article>
+            </div>
           </div>
 
-          <div class="pill-row" aria-label="Capacidades principales">
-            <span class="pill pill--accent">HTML y ZIP</span>
-            <span class="pill pill--neutral">Assets relativos</span>
-            <span class="pill pill--accent">Comparativa before/after</span>
-            <span class="pill pill--neutral">Paletas y heurísticas</span>
-            <span class="pill pill--accent">Métricas de impacto</span>
-          </div>
-
-          <div class="landing-top-grid">
-            <article>
-              <div class="card card--soft how-panel">
-                <div class="how-panel__header">
-                  <span class="eyebrow">
-                    <span class="eyebrow__dot"></span>
-                    <span>Cómo funciona</span>
-                  </span>
+          <div class="landing-upload-grid">
+            <div class="landing-guide-stack" id="guide">
+              <article class="card card--soft guide-card">
+                <h3>Estructura sugerida</h3>
+                <div class="structure-block" aria-label="Estructura sugerida">
+                  <span><code>/proyecto</code></span>
+                  <span><code>├── index.html</code></span>
+                  <span><code>├── styles/</code></span>
+                  <span><code>├── scripts/</code></span>
+                  <span><code>└── images/</code></span>
                 </div>
+              </article>
 
-                <ol class="step-list" aria-label="Flujo de análisis">
-                  <li class="step-item">
-                    <strong>1. Sube el proyecto</strong>
-                    <p>Arrastra un archivo <code>.html</code> o un <code>.zip</code> con tu interfaz y sus assets.</p>
-                  </li>
-                  <li class="step-item">
-                    <strong>2. Ejecuta el análisis</strong>
-                    <p>Glow procesa colores, estructura, luminancia, peso visual y reglas heurísticas.</p>
-                  </li>
-                  <li class="step-item">
-                    <strong>3. Revisa y descarga</strong>
-                    <p>Obtén hallazgos, comparación before/after y un paquete optimizado para seguir iterando.</p>
-                  </li>
-                </ol>
-              </div>
-            </article>
+              <article class="card card--soft guide-card">
+                <h3>Formatos compatibles</h3>
+                <ul class="guide-list">
+                  <li>Un archivo <code>.html</code> autónomo.</li>
+                  <li>Un <code>.zip</code> con HTML, CSS, JS e imágenes.</li>
+                  <li>Recursos referenciados con rutas relativas.</li>
+                </ul>
+              </article>
+            </div>
 
             <article>
               <div class="card card--glow upload-panel">
@@ -105,13 +123,13 @@
                         id="file-name"
                         data-empty-label="Arrastra aquí tu archivo HTML o ZIP, o haz clic para seleccionarlo."
                       >
-                        Arrastra aquí tu archivo HTML o ZIP, o haz clic para seleccionarlo.
+                        Arrastra aquí tu archivo HTML o ZIP, o haz clic para elegirlo.
                       </p>
                       <p class="upload-hint" id="upload-helper">
-                        Entrada recomendada: <code>index.html</code> o ZIP con raíz clara y assets relativos.
+                        Entrada recomendada: <code>index.html</code> o un ZIP con raíz clara y recursos relativos.
                       </p>
                       <span class="upload-meta" id="upload-hint">
-                        Formatos permitidos: <code>.html</code>, <code>.zip</code>
+                        Formatos compatibles: <code>.html</code>, <code>.zip</code>
                       </span>
                     </div>
 
@@ -126,44 +144,11 @@
                   </div>
 
                   <button id="analyze-button" class="analyze-button button button--primary" type="submit">
-                    Analizar archivo
+                    Generar reporte
                   </button>
                 </form>
               </div>
             </article>
-
-            <aside class="guide-panel" id="guide">
-              <div class="guide-stack">
-                <article class="card card--soft guide-card">
-                  <h3>Archivos permitidos</h3>
-                  <ul class="guide-list">
-                    <li>Un archivo <code>.html</code> autónomo.</li>
-                    <li>Un <code>.zip</code> con HTML, CSS, JS e imágenes.</li>
-                    <li>Assets referenciados con rutas relativas.</li>
-                  </ul>
-                </article>
-
-                <article class="card card--soft guide-card">
-                  <h3>Estructura recomendada</h3>
-                  <div class="structure-block" aria-label="Estructura recomendada">
-                    <span><code>/proyecto</code></span>
-                    <span><code>├── index.html</code></span>
-                    <span><code>├── styles/</code></span>
-                    <span><code>├── scripts/</code></span>
-                    <span><code>└── images/</code></span>
-                  </div>
-                </article>
-
-                <article class="card card--soft guide-card">
-                  <h3>Antes de subir</h3>
-                  <ul class="guide-list">
-                    <li>Evita ZIPs con contraseña o dependencias locales externas.</li>
-                    <li>Si usas build tools, exporta antes la versión HTML final.</li>
-                    <li>Entre más autocontenido esté el proyecto, mejor será la lectura del reporte.</li>
-                  </ul>
-                </article>
-              </div>
-            </aside>
           </div>
         </div>
       </section>
@@ -178,9 +163,9 @@
 
         <div class="section-body section-body--stack">
           <div class="heading-group heading-group--tight">
-            <h2 class="title title--compact" id="deliverables-title">Un reporte accionable, no sólo una captura de estado</h2>
+            <h2 class="title title--compact" id="deliverables-title">Una lectura accionable, no sólo una captura del estado actual</h2>
             <p class="text-secondary">
-              Glow te regresa evidencia visual, métricas y una propuesta de optimización para explicar el resultado.
+              Glow te devuelve evidencia visual, métricas y decisiones sugeridas para explicar el resultado sin perder contexto.
             </p>
           </div>
 
@@ -190,16 +175,16 @@
               <p>Estimación de energía y carbono por uso, con recálculo por usuarios y horas.</p>
             </article>
             <article class="card card--soft feature-card">
-              <h3>Carga visual</h3>
+              <h3>Lectura visual</h3>
               <p>Distribución de color, barras de dominancia y lectura del peso visual de la interfaz.</p>
             </article>
             <article class="card card--soft feature-card">
-              <h3>Paletas y trazabilidad</h3>
-              <p>Inventario tonal, historial de cambios y colores listos para copiar y reutilizar.</p>
+              <h3>Paletas y contraste</h3>
+              <p>Inventario tonal, señales de contraste y colores listos para copiar y reutilizar.</p>
             </article>
             <article class="card card--soft feature-card">
-              <h3>Comparativa final</h3>
-              <p>Vista before/after y paquete descargable para compartir el diseño optimizado.</p>
+              <h3>Comparativa y descarga</h3>
+              <p>Vista before/after y paquete descargable para compartir la versión ajustada.</p>
             </article>
           </div>
         </div>

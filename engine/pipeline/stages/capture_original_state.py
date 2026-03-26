@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from engine.adapters.browser.snapshot_analyzer import extract_prototype_css_overview
 from engine.adapters.browser.snapshot_analyzer import capture_prototype_state_artifacts
 from engine.adapters.utils.io import save_json
-from engine.domain.models.color import ColorInventoryModel
-from engine.domain.models.snapshot import RenderSnapshot, SnapshotOptions
-from engine.domain.models.style import StyleInventoryModel
+from engine.domain.models.snapshot import RenderArtifacts, SnapshotOptions
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
 
@@ -32,18 +29,15 @@ CONTRACT = StageContract(
         context_value("session.output.id", str, validator=lambda value: bool(value.strip())),
     ),
     produces=(
-        context_value("session.artifacts.original.snapshot", RenderSnapshot),
+        context_value("session.artifacts.original.capture", RenderArtifacts),
         context_value("session.artifacts.original.screenshot", str, validator=lambda value: bool(value.strip())),
         context_value("session.artifacts.original.pixel_frequencies_raw", list),
-        context_value("session.artifacts.original.styles_inventory_seed", StyleInventoryModel),
-        context_value("session.artifacts.original.colors_inventory_seed", ColorInventoryModel),
-        context_value("session.artifacts.original.css_overview", dict),
     ),
 )
 
 
 def run_stage(context: PipelineContext) -> PipelineContext:
-    if context.error or context.has("session.artifacts.original.snapshot"):
+    if context.error or context.has("session.artifacts.original.capture"):
         return context
 
     base_path = context.get("session.input.base_path", "")
@@ -60,28 +54,15 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         html_content=context.get("session.input.html.content", ""),
         base_path=base_path,
         options=SnapshotOptions(include_color_frequencies=True),
-        output_json_path=context.get("session.output.paths.original.snapshot_json"),
+        output_json_path=None,
         output_image_path=output_image_path,
         session_id=context.get("session.output.id"),
     )
     color_frequencies = list(artifacts.color_frequencies or [])
-    context.set("session.artifacts.original.snapshot", artifacts.snapshot)
+    context.set("session.artifacts.original.capture", artifacts)
     context.set("session.artifacts.original.screenshot", artifacts.screenshot_path or output_image_path)
     context.set("session.artifacts.original.pixel_frequencies_raw", color_frequencies)
-    context.set(
-        "session.artifacts.original.styles_inventory_seed",
-        artifacts.styles_inventory_seed,
-    )
-    context.set(
-        "session.artifacts.original.colors_inventory_seed",
-        artifacts.colors_inventory_seed,
-    )
-    css_overview = extract_prototype_css_overview(
-        html_content=context.get("session.input.html.content", ""),
-        base_path=base_path,
-        options=SnapshotOptions(capture_screenshot=False),
-    )
-    context.set("session.artifacts.original.css_overview", css_overview)
+    css_overview = artifacts.css_overview or {}
     if context.has("session.output.paths.original.pixel_frequencies_raw_json"):
         save_json(
             context.get("session.output.paths.original.pixel_frequencies_raw_json"),

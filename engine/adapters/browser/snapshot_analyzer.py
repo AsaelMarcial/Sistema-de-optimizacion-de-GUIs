@@ -64,6 +64,8 @@ def capture_prototype_state_artifacts(
             base_path=os.path.abspath(base_path),
             document_metrics=document_metrics,
         )
+        elements_inventory = snapshot.build_elements_inventory()
+        css_overview = capture_css_overview(page)
 
         screenshot_path = None
         if options.capture_screenshot and output_image_path:
@@ -81,8 +83,10 @@ def capture_prototype_state_artifacts(
             snapshot=snapshot,
             snapshot_json_path=output_json_path,
             color_frequencies=color_frequencies,
+            elements_inventory=elements_inventory,
             styles_inventory_seed=styles_inventory,
             colors_inventory_seed=colors_inventory,
+            css_overview=css_overview,
         )
     finally:
         close_render_page(playwright, browser, temp_html_path)

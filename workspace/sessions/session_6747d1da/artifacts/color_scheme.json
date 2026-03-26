@@ -1,0 +1,1470 @@
+{
+    "semantic_colors": [
+        {
+            "color_id": "color-1",
+            "rgb": [
+                12,
+                12,
+                12
+            ],
+            "alpha": 1.0,
+            "hct": [
+                209.5465,
+                0.5809,
+                3.321
+            ],
+            "family_type": "achromatic",
+            "usage_count": 1,
+            "foreground_count": 0,
+            "background_count": 2,
+            "other_count": 0,
+            "foreground_color_usages": [],
+            "background_color_usages": [
+                {
+                    "property": "background-color",
+                    "total_count": 1,
+                    "tags": [
+                        {
+                            "tag": "body",
+                            "count": 1
+                        }
+                    ]
+                }
+            ],
+            "other_usages": [],
+            "confirmed_pixel_count": 1134619,
+            "nearest_web_color": "black",
+            "nearest_web_color_distance": 1.9285,
+            "confirmation_status": "confirmed",
+            "mapped_palette_id": "palette-achromatic-1",
+            "mapped_tone": 0,
+            "mapped_tone_rgb": [
+                0,
+                0,
+                0
+            ],
+            "mapped_tone_distance": 1.9285
+        },
+        {
+            "color_id": "color-2",
+            "rgb": [
+                220,
+                220,
+                255
+            ],
+            "alpha": 1.0,
+            "hct": [
+                282.9479,
+                21.247,
+                88.7434
+            ],
+            "family_type": "chromatic",
+            "usage_count": 69,
+            "foreground_count": 70,
+            "background_count": 0,
+            "other_count": 244,
+            "foreground_color_usages": [
+                {
+                    "property": "color",
+                    "total_count": 1,
+                    "tags": [
+                        {
+                            "tag": "body",
+                            "count": 1
+                        }
+                    ]
+                }
+            ],
+            "background_color_usages": [],
+            "other_usages": [],
+            "confirmed_pixel_count": 2170,
+            "nearest_web_color": "lavender",
+            "nearest_web_color_distance": 5.3805,
+            "confirmation_status": "confirmed",
+            "mapped_palette_id": "palette-chromatic-2",
+            "mapped_tone": 89,
+            "mapped_tone_rgb": [
+                220,
+                220,
+                255
+            ],
+            "mapped_tone_distance": 0.0
+        },
+        {
+            "color_id": "color-3",
+            "rgb": [
+                255,
+                0,
+                0
+            ],
+            "alpha": 1.0,
+            "hct": [
+                27.4098,
+                113.3564,
+                53.2371
+            ],
+            "family_type": "chromatic",
+            "usage_count": 1,
+            "foreground_count": 0,
+            "background_count": 2,
+            "other_count": 0,
+            "foreground_color_usages": [],
+            "background_color_usages": [
+                {
+                    "property": "background-color",
+                    "total_count": 1,
+                    "tags": [
+                        {
+                            "tag": "h1",
+                            "count": 1
+                        }
+                    ]
+                }
+            ],
+            "other_usages": [],
+            "confirmed_pixel_count": 50507,
+            "nearest_web_color": "red",
+            "nearest_web_color_distance": 0.0,
+            "confirmation_status": "confirmed",
+            "mapped_palette_id": "palette-chromatic-1",
+            "mapped_tone": 53,
+            "mapped_tone_rgb": [
+                255,
+                0,
+                0
+            ],
+            "mapped_tone_distance": 0.0
+        },
+        {
+            "color_id": "color-4",
+            "rgb": [
+                255,
+                255,
+                255
+            ],
+            "alpha": 1.0,
+            "hct": [
+                209.5429,
+                2.8716,
+                100.0
+            ],
+            "family_type": "achromatic",
+            "usage_count": 5,
+            "foreground_count": 2,
+            "background_count": 3,
+            "other_count": 5,
+            "foreground_color_usages": [
+                {
+                    "property": "color",
+                    "total_count": 1,
+                    "tags": [
+                        {
+                            "tag": "h1",
+                            "count": 1
+                        }
+                    ]
+                }
+            ],
+            "background_color_usages": [],
+            "other_usages": [],
+            "confirmed_pixel_count": 14500,
+            "nearest_web_color": "white",
+            "nearest_web_color_distance": 0.0,
+            "confirmation_status": "confirmed",
+            "mapped_palette_id": "palette-achromatic-1",
+            "mapped_tone": 100,
+            "mapped_tone_rgb": [
+                255,
+                255,
+                255
+            ],
+            "mapped_tone_distance": 0.0
+        },
+        {
+            "color_id": "color-6",
+            "rgb": [
+                0,
+                0,
+                0
+            ],
+            "alpha": 1.0,
+            "hct": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "family_type": "achromatic",
+            "usage_count": 75,
+            "foreground_count": 6,
+            "background_count": 0,
+            "other_count": 87,
+            "foreground_color_usages": [],
+            "background_color_usages": [],
+            "other_usages": [],
+            "confirmed_pixel_count": 0,
+            "nearest_web_color": "black",
+            "nearest_web_color_distance": 0.0,
+            "confirmation_status": "semantic_only",
+            "mapped_palette_id": "palette-achromatic-1",
+            "mapped_tone": 0,
+            "mapped_tone_rgb": [
+                0,
+                0,
+                0
+            ],
+            "mapped_tone_distance": 0.0
+        },
+        {
+            "color_id": "color-10",
+            "rgb": [
+                240,
+                240,
+                240
+            ],
+            "alpha": 1.0,
+            "hct": [
+                209.5432,
+                2.7686,
+                94.7962
+            ],
+            "family_type": "achromatic",
+            "usage_count": 2,
+            "foreground_count": 0,
+            "background_count": 1,
+            "other_count": 4,
+            "foreground_color_usages": [],
+            "background_color_usages": [],
+            "other_usages": [],
+            "confirmed_pixel_count": 675,
+            "nearest_web_color": "whitesmoke",
+            "nearest_web_color_distance": 1.0354,
+            "confirmation_status": "confirmed",
+            "mapped_palette_id": "palette-achromatic-1",
+            "mapped_tone": 100,
+            "mapped_tone_rgb": [
+                255,
+                255,
+                255
+            ],
+            "mapped_tone_distance": 3.047
+        },
+        {
+            "color_id": "color-12",
+            "rgb": [
+                255,
+                255,
+                0
+            ],
+            "alpha": 1.0,
+            "hct": [
+                111.0456,
+                75.5044,
+                97.1386
+            ],
+            "family_type": "chromatic",
+            "usage_count": 1,
+            "foreground_count": 0,
+            "background_count": 1,
+            "other_count": 0,
+            "foreground_color_usages": [],
+            "background_color_usages": [],
+            "other_usages": [],
+            "confirmed_pixel_count": 568,
+            "nearest_web_color": "yellow",
+            "nearest_web_color_distance": 0.0,
+            "confirmation_status": "confirmed",
+            "mapped_palette_id": "palette-chromatic-4",
+            "mapped_tone": 97,
+            "mapped_tone_rgb": [
+                255,
+                255,
+                0
+            ],
+            "mapped_tone_distance": 0.0
+        },
+        {
+            "color_id": "color-14",
+            "rgb": [
+                128,
+                128,
+                128
+            ],
+            "alpha": 1.0,
+            "hct": [
+                209.5448,
+                1.8977,
+                53.585
+            ],
+            "family_type": "achromatic",
+            "usage_count": 7,
+            "foreground_count": 0,
+            "background_count": 0,
+            "other_count": 28,
+            "foreground_color_usages": [],
+            "background_color_usages": [],
+            "other_usages": [],
+            "confirmed_pixel_count": 1,
+            "nearest_web_color": "gray",
+            "nearest_web_color_distance": 0.0,
+            "confirmation_status": "confirmed",
+            "mapped_palette_id": "palette-achromatic-1",
+            "mapped_tone": 50,
+            "mapped_tone_rgb": [
+                128,
+                116,
+                118
+            ],
+            "mapped_tone_distance": 7.3713
+        },
+        {
+            "color_id": "color-16",
+            "rgb": [
+                118,
+                118,
+                118
+            ],
+            "alpha": 1.0,
+            "hct": [
+                209.545,
+                1.8081,
+                49.637
+            ],
+            "family_type": "achromatic",
+            "usage_count": 3,
+            "foreground_count": 0,
+            "background_count": 0,
+            "other_count": 12,
+            "foreground_color_usages": [],
+            "background_color_usages": [],
+            "other_usages": [],
+            "confirmed_pixel_count": 1036,
+            "nearest_web_color": "gray",
+            "nearest_web_color_distance": 3.9159,
+            "confirmation_status": "confirmed",
+            "mapped_palette_id": "palette-achromatic-1",
+            "mapped_tone": 50,
+            "mapped_tone_rgb": [
+                128,
+                116,
+                118
+            ],
+            "mapped_tone_distance": 6.4483
+        },
+        {
+            "color_id": "color-20",
+            "rgb": [
+                0,
+                128,
+                255
+            ],
+            "alpha": 1.0,
+            "hct": [
+                263.8744,
+                69.3664,
+                54.7172
+            ],
+            "family_type": "chromatic",
+            "usage_count": 1,
+            "foreground_count": 0,
+            "background_count": 0,
+            "other_count": 1,
+            "foreground_color_usages": [],
+            "background_color_usages": [],
+            "other_usages": [],
+            "confirmed_pixel_count": 612,
+            "nearest_web_color": "dodgerblue",
+            "nearest_web_color_distance": 5.4073,
+            "confirmation_status": "confirmed",
+            "mapped_palette_id": "palette-chromatic-3",
+            "mapped_tone": 55,
+            "mapped_tone_rgb": [
+                0,
+                128,
+                255
+            ],
+            "mapped_tone_distance": 0.0
+        }
+    ],
+    "named_color_breakdown": [
+        {
+            "name": "black",
+            "display_name": "Black",
+            "family": "Colores grises",
+            "hex_value": "#000000",
+            "count": 1134619,
+            "percentage": 94.1836
+        },
+        {
+            "name": "red",
+            "display_name": "Red",
+            "family": "Colores rojos",
+            "hex_value": "#ff0000",
+            "count": 50507,
+            "percentage": 4.1925
+        },
+        {
+            "name": "white",
+            "display_name": "White",
+            "family": "Colores blancos",
+            "hex_value": "#ffffff",
+            "count": 14500,
+            "percentage": 1.2036
+        },
+        {
+            "name": "lavender",
+            "display_name": "Lavender",
+            "family": "Colores azules",
+            "hex_value": "#e6e6fa",
+            "count": 2170,
+            "percentage": 0.1801
+        },
+        {
+            "name": "gray",
+            "display_name": "Gray",
+            "family": "Colores grises",
+            "hex_value": "#808080",
+            "count": 1037,
+            "percentage": 0.0861
+        },
+        {
+            "name": "whitesmoke",
+            "display_name": "WhiteSmoke",
+            "family": "Colores blancos",
+            "hex_value": "#f5f5f5",
+            "count": 675,
+            "percentage": 0.056
+        },
+        {
+            "name": "dodgerblue",
+            "display_name": "DodgerBlue",
+            "family": "Colores azules",
+            "hex_value": "#1e90ff",
+            "count": 612,
+            "percentage": 0.0508
+        },
+        {
+            "name": "yellow",
+            "display_name": "Yellow",
+            "family": "Colores amarillos",
+            "hex_value": "#ffff00",
+            "count": 568,
+            "percentage": 0.0471
+        }
+    ],
+    "core_palettes": {
+        "achromatic_palette": {
+            "palette_id": "palette-achromatic-1",
+            "palette_type": "achromatic",
+            "seed_name": "black",
+            "seed_color_id": "color-6",
+            "seed_hex": "#000000",
+            "seed_rgb": [
+                0,
+                0,
+                0
+            ],
+            "seed_hct": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "hue": 0.0,
+            "chroma": 6.0,
+            "semantic_weight": 76,
+            "confirmed_pixel_count": 1134619,
+            "display_name": "Neutral",
+            "seed_display_name": "Black",
+            "seed_family_name": "Neutral",
+            "source_color_ids": [
+                "color-6",
+                "color-1"
+            ],
+            "tones": [
+                {
+                    "tone": 0,
+                    "hex_value": "#000000",
+                    "rgb": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "hct": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                },
+                {
+                    "tone": 10,
+                    "hex_value": "#22191b",
+                    "rgb": [
+                        34,
+                        25,
+                        27
+                    ],
+                    "hct": [
+                        360.0,
+                        6.0,
+                        10.0
+                    ]
+                },
+                {
+                    "tone": 20,
+                    "hex_value": "#372e30",
+                    "rgb": [
+                        55,
+                        46,
+                        48
+                    ],
+                    "hct": [
+                        360.0,
+                        6.0,
+                        20.0
+                    ]
+                },
+                {
+                    "tone": 30,
+                    "hex_value": "#4f4446",
+                    "rgb": [
+                        79,
+                        68,
+                        70
+                    ],
+                    "hct": [
+                        0.0,
+                        6.0,
+                        30.0
+                    ]
+                },
+                {
+                    "tone": 40,
+                    "hex_value": "#675b5e",
+                    "rgb": [
+                        103,
+                        91,
+                        94
+                    ],
+                    "hct": [
+                        0.0,
+                        6.0,
+                        40.0
+                    ]
+                },
+                {
+                    "tone": 50,
+                    "hex_value": "#807476",
+                    "rgb": [
+                        128,
+                        116,
+                        118
+                    ],
+                    "hct": [
+                        360.0,
+                        6.0,
+                        50.0
+                    ]
+                },
+                {
+                    "tone": 60,
+                    "hex_value": "#9b8d90",
+                    "rgb": [
+                        155,
+                        141,
+                        144
+                    ],
+                    "hct": [
+                        360.0,
+                        6.0,
+                        60.0
+                    ]
+                },
+                {
+                    "tone": 70,
+                    "hex_value": "#b6a8aa",
+                    "rgb": [
+                        182,
+                        168,
+                        170
+                    ],
+                    "hct": [
+                        360.0,
+                        6.0,
+                        70.0
+                    ]
+                },
+                {
+                    "tone": 80,
+                    "hex_value": "#d2c3c5",
+                    "rgb": [
+                        210,
+                        195,
+                        197
+                    ],
+                    "hct": [
+                        0.0,
+                        6.0,
+                        80.0
+                    ]
+                },
+                {
+                    "tone": 90,
+                    "hex_value": "#efdfe1",
+                    "rgb": [
+                        239,
+                        223,
+                        225
+                    ],
+                    "hct": [
+                        360.0,
+                        6.0,
+                        90.0
+                    ]
+                },
+                {
+                    "tone": 95,
+                    "hex_value": "#fdedef",
+                    "rgb": [
+                        253,
+                        237,
+                        239
+                    ],
+                    "hct": [
+                        360.0,
+                        6.0,
+                        95.0
+                    ]
+                },
+                {
+                    "tone": 98,
+                    "hex_value": "#fff8f8",
+                    "rgb": [
+                        255,
+                        248,
+                        248
+                    ],
+                    "hct": [
+                        359.9223,
+                        1.6661,
+                        98.0002
+                    ]
+                },
+                {
+                    "tone": 99,
+                    "hex_value": "#fffbfb",
+                    "rgb": [
+                        255,
+                        251,
+                        251
+                    ],
+                    "hct": [
+                        235.2919,
+                        0.8097,
+                        99.0431
+                    ]
+                },
+                {
+                    "tone": 100,
+                    "hex_value": "#ffffff",
+                    "rgb": [
+                        255,
+                        255,
+                        255
+                    ],
+                    "hct": [
+                        209.5429,
+                        2.8716,
+                        100.0
+                    ]
+                }
+            ]
+        },
+        "chromatic_palettes": [
+            {
+                "palette_id": "palette-chromatic-1",
+                "palette_type": "chromatic",
+                "seed_name": "red",
+                "seed_color_id": "color-3",
+                "seed_hex": "#ff0000",
+                "seed_rgb": [
+                    255,
+                    0,
+                    0
+                ],
+                "seed_hct": [
+                    27.4098,
+                    113.3564,
+                    53.2371
+                ],
+                "hue": 27.4098,
+                "chroma": 113.3564,
+                "semantic_weight": 1,
+                "confirmed_pixel_count": 50507,
+                "display_name": "Red",
+                "seed_display_name": "Red",
+                "seed_family_name": "Red",
+                "source_color_ids": [
+                    "color-3"
+                ],
+                "tones": [
+                    {
+                        "tone": 10,
+                        "hex_value": "#410000",
+                        "rgb": [
+                            65,
+                            0,
+                            0
+                        ],
+                        "hct": [
+                            27.4113,
+                            48.3189,
+                            10.0
+                        ]
+                    },
+                    {
+                        "tone": 20,
+                        "hex_value": "#690100",
+                        "rgb": [
+                            105,
+                            1,
+                            0
+                        ],
+                        "hct": [
+                            27.4107,
+                            64.6552,
+                            20.0
+                        ]
+                    },
+                    {
+                        "tone": 30,
+                        "hex_value": "#930100",
+                        "rgb": [
+                            147,
+                            1,
+                            0
+                        ],
+                        "hct": [
+                            27.4102,
+                            80.056,
+                            30.0
+                        ]
+                    },
+                    {
+                        "tone": 40,
+                        "hex_value": "#c00100",
+                        "rgb": [
+                            192,
+                            1,
+                            0
+                        ],
+                        "hct": [
+                            27.4099,
+                            94.7534,
+                            40.0
+                        ]
+                    },
+                    {
+                        "tone": 50,
+                        "hex_value": "#ef0000",
+                        "rgb": [
+                            239,
+                            0,
+                            0
+                        ],
+                        "hct": [
+                            27.4098,
+                            108.8863,
+                            50.0
+                        ]
+                    },
+                    {
+                        "tone": 60,
+                        "hex_value": "#ff5540",
+                        "rgb": [
+                            255,
+                            85,
+                            64
+                        ],
+                        "hct": [
+                            27.4098,
+                            81.5186,
+                            60.0
+                        ]
+                    },
+                    {
+                        "tone": 70,
+                        "hex_value": "#ff8a78",
+                        "rgb": [
+                            255,
+                            138,
+                            120
+                        ],
+                        "hct": [
+                            27.4098,
+                            50.7092,
+                            70.0
+                        ]
+                    },
+                    {
+                        "tone": 80,
+                        "hex_value": "#ffb4a8",
+                        "rgb": [
+                            255,
+                            180,
+                            168
+                        ],
+                        "hct": [
+                            27.4098,
+                            29.4818,
+                            80.0
+                        ]
+                    },
+                    {
+                        "tone": 90,
+                        "hex_value": "#ffdad4",
+                        "rgb": [
+                            255,
+                            218,
+                            212
+                        ],
+                        "hct": [
+                            27.4098,
+                            13.1044,
+                            90.0
+                        ]
+                    },
+                    {
+                        "tone": 95,
+                        "hex_value": "#ffedea",
+                        "rgb": [
+                            255,
+                            237,
+                            234
+                        ],
+                        "hct": [
+                            27.4098,
+                            5.8262,
+                            95.0
+                        ]
+                    },
+                    {
+                        "tone": 98,
+                        "hex_value": "#fff8f6",
+                        "rgb": [
+                            255,
+                            248,
+                            246
+                        ],
+                        "hct": [
+                            27.4098,
+                            1.3961,
+                            98.0
+                        ]
+                    }
+                ]
+            },
+            {
+                "palette_id": "palette-chromatic-2",
+                "palette_type": "chromatic",
+                "seed_name": "lavender",
+                "seed_color_id": "color-2",
+                "seed_hex": "#dcdcff",
+                "seed_rgb": [
+                    220,
+                    220,
+                    255
+                ],
+                "seed_hct": [
+                    282.9479,
+                    21.247,
+                    88.7434
+                ],
+                "hue": 282.9479,
+                "chroma": 21.247,
+                "semantic_weight": 69,
+                "confirmed_pixel_count": 2170,
+                "display_name": "Lavender",
+                "seed_display_name": "Lavender",
+                "seed_family_name": "Blue",
+                "source_color_ids": [
+                    "color-2"
+                ],
+                "tones": [
+                    {
+                        "tone": 10,
+                        "hex_value": "#171933",
+                        "rgb": [
+                            23,
+                            25,
+                            51
+                        ],
+                        "hct": [
+                            282.9479,
+                            21.247,
+                            10.0
+                        ]
+                    },
+                    {
+                        "tone": 20,
+                        "hex_value": "#2c2e49",
+                        "rgb": [
+                            44,
+                            46,
+                            73
+                        ],
+                        "hct": [
+                            282.9479,
+                            21.247,
+                            20.0
+                        ]
+                    },
+                    {
+                        "tone": 30,
+                        "hex_value": "#434461",
+                        "rgb": [
+                            67,
+                            68,
+                            97
+                        ],
+                        "hct": [
+                            282.9479,
+                            21.247,
+                            30.0
+                        ]
+                    },
+                    {
+                        "tone": 40,
+                        "hex_value": "#5b5c79",
+                        "rgb": [
+                            91,
+                            92,
+                            121
+                        ],
+                        "hct": [
+                            282.9479,
+                            21.247,
+                            40.0
+                        ]
+                    },
+                    {
+                        "tone": 50,
+                        "hex_value": "#737593",
+                        "rgb": [
+                            115,
+                            117,
+                            147
+                        ],
+                        "hct": [
+                            282.9479,
+                            21.247,
+                            50.0
+                        ]
+                    },
+                    {
+                        "tone": 60,
+                        "hex_value": "#8d8eae",
+                        "rgb": [
+                            141,
+                            142,
+                            174
+                        ],
+                        "hct": [
+                            282.9479,
+                            21.247,
+                            60.0
+                        ]
+                    },
+                    {
+                        "tone": 70,
+                        "hex_value": "#a8a9c9",
+                        "rgb": [
+                            168,
+                            169,
+                            201
+                        ],
+                        "hct": [
+                            282.9479,
+                            21.247,
+                            70.0
+                        ]
+                    },
+                    {
+                        "tone": 80,
+                        "hex_value": "#c3c4e6",
+                        "rgb": [
+                            195,
+                            196,
+                            230
+                        ],
+                        "hct": [
+                            282.9479,
+                            21.247,
+                            80.0
+                        ]
+                    },
+                    {
+                        "tone": 90,
+                        "hex_value": "#e0e0ff",
+                        "rgb": [
+                            224,
+                            224,
+                            255
+                        ],
+                        "hct": [
+                            282.9479,
+                            19.2142,
+                            90.0
+                        ]
+                    },
+                    {
+                        "tone": 95,
+                        "hex_value": "#f1efff",
+                        "rgb": [
+                            241,
+                            239,
+                            255
+                        ],
+                        "hct": [
+                            282.9479,
+                            10.8192,
+                            95.0
+                        ]
+                    },
+                    {
+                        "tone": 98,
+                        "hex_value": "#fbf8ff",
+                        "rgb": [
+                            251,
+                            248,
+                            255
+                        ],
+                        "hct": [
+                            282.9479,
+                            5.4145,
+                            98.0
+                        ]
+                    }
+                ]
+            },
+            {
+                "palette_id": "palette-chromatic-3",
+                "palette_type": "chromatic",
+                "seed_name": "dodgerblue",
+                "seed_color_id": "color-20",
+                "seed_hex": "#0080ff",
+                "seed_rgb": [
+                    0,
+                    128,
+                    255
+                ],
+                "seed_hct": [
+                    263.8744,
+                    69.3664,
+                    54.7172
+                ],
+                "hue": 263.8744,
+                "chroma": 69.3664,
+                "semantic_weight": 1,
+                "confirmed_pixel_count": 612,
+                "display_name": "DodgerBlue",
+                "seed_display_name": "DodgerBlue",
+                "seed_family_name": "Blue",
+                "source_color_ids": [
+                    "color-20"
+                ],
+                "tones": [
+                    {
+                        "tone": 10,
+                        "hex_value": "#001b3f",
+                        "rgb": [
+                            0,
+                            27,
+                            63
+                        ],
+                        "hct": [
+                            264.1188,
+                            29.8004,
+                            10.0008
+                        ]
+                    },
+                    {
+                        "tone": 20,
+                        "hex_value": "#002f66",
+                        "rgb": [
+                            0,
+                            47,
+                            102
+                        ],
+                        "hct": [
+                            263.9944,
+                            39.4339,
+                            20.0005
+                        ]
+                    },
+                    {
+                        "tone": 30,
+                        "hex_value": "#00458f",
+                        "rgb": [
+                            0,
+                            69,
+                            143
+                        ],
+                        "hct": [
+                            263.9357,
+                            48.5251,
+                            30.0004
+                        ]
+                    },
+                    {
+                        "tone": 40,
+                        "hex_value": "#005cbb",
+                        "rgb": [
+                            0,
+                            92,
+                            187
+                        ],
+                        "hct": [
+                            263.9028,
+                            57.2008,
+                            40.0002
+                        ]
+                    },
+                    {
+                        "tone": 50,
+                        "hex_value": "#0074e9",
+                        "rgb": [
+                            0,
+                            116,
+                            233
+                        ],
+                        "hct": [
+                            263.8819,
+                            65.5368,
+                            50.0001
+                        ]
+                    },
+                    {
+                        "tone": 60,
+                        "hex_value": "#438fff",
+                        "rgb": [
+                            67,
+                            143,
+                            255
+                        ],
+                        "hct": [
+                            263.8744,
+                            63.1631,
+                            60.0
+                        ]
+                    },
+                    {
+                        "tone": 70,
+                        "hex_value": "#7cabff",
+                        "rgb": [
+                            124,
+                            171,
+                            255
+                        ],
+                        "hct": [
+                            263.8744,
+                            50.0742,
+                            70.0
+                        ]
+                    },
+                    {
+                        "tone": 80,
+                        "hex_value": "#abc7ff",
+                        "rgb": [
+                            171,
+                            199,
+                            255
+                        ],
+                        "hct": [
+                            263.8744,
+                            35.5397,
+                            80.0
+                        ]
+                    },
+                    {
+                        "tone": 90,
+                        "hex_value": "#d7e3ff",
+                        "rgb": [
+                            215,
+                            227,
+                            255
+                        ],
+                        "hct": [
+                            263.8744,
+                            19.6678,
+                            90.0
+                        ]
+                    },
+                    {
+                        "tone": 95,
+                        "hex_value": "#ecf0ff",
+                        "rgb": [
+                            236,
+                            240,
+                            255
+                        ],
+                        "hct": [
+                            263.8744,
+                            11.0828,
+                            95.0
+                        ]
+                    },
+                    {
+                        "tone": 98,
+                        "hex_value": "#f9f9ff",
+                        "rgb": [
+                            249,
+                            249,
+                            255
+                        ],
+                        "hct": [
+                            263.8682,
+                            5.5488,
+                            98.0
+                        ]
+                    }
+                ]
+            },
+            {
+                "palette_id": "palette-chromatic-4",
+                "palette_type": "chromatic",
+                "seed_name": "yellow",
+                "seed_color_id": "color-12",
+                "seed_hex": "#ffff00",
+                "seed_rgb": [
+                    255,
+                    255,
+                    0
+                ],
+                "seed_hct": [
+                    111.0456,
+                    75.5044,
+                    97.1386
+                ],
+                "hue": 111.0456,
+                "chroma": 75.5044,
+                "semantic_weight": 1,
+                "confirmed_pixel_count": 568,
+                "display_name": "Yellow",
+                "seed_display_name": "Yellow",
+                "seed_family_name": "Yellow",
+                "source_color_ids": [
+                    "color-12"
+                ],
+                "tones": [
+                    {
+                        "tone": 10,
+                        "hex_value": "#1d1d00",
+                        "rgb": [
+                            29,
+                            29,
+                            0
+                        ],
+                        "hct": [
+                            111.0456,
+                            21.5149,
+                            10.0
+                        ]
+                    },
+                    {
+                        "tone": 20,
+                        "hex_value": "#323200",
+                        "rgb": [
+                            50,
+                            50,
+                            0
+                        ],
+                        "hct": [
+                            111.0456,
+                            28.7758,
+                            20.0
+                        ]
+                    },
+                    {
+                        "tone": 30,
+                        "hex_value": "#494900",
+                        "rgb": [
+                            73,
+                            73,
+                            0
+                        ],
+                        "hct": [
+                            111.0456,
+                            35.6171,
+                            30.0
+                        ]
+                    },
+                    {
+                        "tone": 40,
+                        "hex_value": "#626200",
+                        "rgb": [
+                            98,
+                            98,
+                            0
+                        ],
+                        "hct": [
+                            111.0456,
+                            42.1426,
+                            40.0
+                        ]
+                    },
+                    {
+                        "tone": 50,
+                        "hex_value": "#7b7b00",
+                        "rgb": [
+                            123,
+                            123,
+                            0
+                        ],
+                        "hct": [
+                            111.0456,
+                            48.414,
+                            50.0
+                        ]
+                    },
+                    {
+                        "tone": 60,
+                        "hex_value": "#969600",
+                        "rgb": [
+                            150,
+                            150,
+                            0
+                        ],
+                        "hct": [
+                            111.0456,
+                            54.4721,
+                            60.0
+                        ]
+                    },
+                    {
+                        "tone": 70,
+                        "hex_value": "#b1b100",
+                        "rgb": [
+                            177,
+                            177,
+                            0
+                        ],
+                        "hct": [
+                            111.0456,
+                            60.3454,
+                            70.0
+                        ]
+                    },
+                    {
+                        "tone": 80,
+                        "hex_value": "#cdcd00",
+                        "rgb": [
+                            205,
+                            205,
+                            0
+                        ],
+                        "hct": [
+                            111.0456,
+                            66.055,
+                            80.0
+                        ]
+                    },
+                    {
+                        "tone": 90,
+                        "hex_value": "#eaea00",
+                        "rgb": [
+                            234,
+                            234,
+                            0
+                        ],
+                        "hct": [
+                            111.0456,
+                            71.617,
+                            90.0
+                        ]
+                    },
+                    {
+                        "tone": 95,
+                        "hex_value": "#f9f900",
+                        "rgb": [
+                            249,
+                            249,
+                            0
+                        ],
+                        "hct": [
+                            111.0456,
+                            74.3468,
+                            95.0
+                        ]
+                    },
+                    {
+                        "tone": 98,
+                        "hex_value": "#fffeaa",
+                        "rgb": [
+                            255,
+                            254,
+                            170
+                        ],
+                        "hct": [
+                            111.0945,
+                            33.4576,
+                            98.0022
+                        ]
+                    }
+                ]
+            }
+        ],
+        "max_chromatic_palettes": 12,
+        "selected_chromatic_palettes": 4
+    },
+    "dynamic_scheme": {
+        "scheme_id": "project-color-analysis",
+        "source_color_ids": [
+            "color-1",
+            "color-2",
+            "color-3",
+            "color-4",
+            "color-6",
+            "color-10",
+            "color-12",
+            "color-14",
+            "color-16",
+            "color-20"
+        ],
+        "primary_palette_id": "palette-chromatic-1",
+        "achromatic_palette_id": "palette-achromatic-1",
+        "chromatic_palette_ids": [
+            "palette-chromatic-1",
+            "palette-chromatic-2",
+            "palette-chromatic-3",
+            "palette-chromatic-4"
+        ],
+        "is_dark": false,
+        "contrast_level": 0.0,
+        "contrast_curve": {
+            "low": 3.0,
+            "normal": 4.5,
+            "medium": 7.0,
+            "high": 11.0
+        },
+        "tone_delta_pairs": []
+    },
+    "material_quantization_assessment": {
+        "recommended": true,
+        "summary": "La cuantización tipo Material Color Utilities sí aplica, pero no debe ejecutarse sobre la captura completa sin filtrado previo.",
+        "resize_before_quantization": true,
+        "recommended_size": [
+            128,
+            128
+        ],
+        "recommended_quantizer": "QuantizerCelebi (Wu + Wsmeans)",
+        "recommended_max_colors": 128,
+        "notes": [
+            "La guía de MCU reduce la imagen a 128x128 antes de cuantizar para acelerar el proceso.",
+            "QuantizerCelebi usa Wu para semillas iniciales y Wsmeans para refinar clusters estables.",
+            "Para reconstruir la paleta del diseño conviene excluir ruido visual: fotos, video, gifs y sombras decorativas.",
+            "La estimación energética puede seguir usando la captura completa; la reconstrucción de paleta debe usar una entrada filtrada o una segunda captura especializada."
+        ]
+    },
+    "confirmed_pixel_count": 1204688,
+    "residual_pixel_count": 36556,
+    "residual_distinct_colors": 133
+}

@@ -10,6 +10,7 @@ from engine.domain.models.snapshot import (
     SnapshotOptions,
 )
 from engine.domain.models.style import ComputedStyleValueModel
+from engine.domain.utils.coloraide import color_to_css
 
 _RGBA_ALPHA_RE = re.compile(r"^rgba\((.+)\)$", re.IGNORECASE)
 _HSLA_ALPHA_RE = re.compile(r"^hsla\((.+)\)$", re.IGNORECASE)
@@ -208,7 +209,10 @@ def _normalize_color_value(property_name: str, value: Any) -> str | None:
     lower = normalized.lower()
     if lower == "transparent" or _is_alpha_zero_color(lower):
         return "transparent"
-    return normalized
+    try:
+        return color_to_css(normalized)
+    except Exception:
+        return normalized
 
 
 def _is_alpha_zero_color(value: str) -> bool:

@@ -24,6 +24,12 @@ from engine.pipeline.stages.build_color_scheme import CONTRACT as BUILD_COLOR_SC
 from engine.pipeline.stages.build_color_scheme import run_stage as run_build_color_scheme_stage
 from engine.pipeline.stages.build_inventories import CONTRACT as BUILD_INVENTORIES_CONTRACT
 from engine.pipeline.stages.build_inventories import run_stage as run_build_inventories_stage
+from engine.pipeline.stages.build_inventory_graph_base import (
+    CONTRACT as BUILD_INVENTORY_GRAPH_BASE_CONTRACT,
+)
+from engine.pipeline.stages.build_inventory_graph_base import (
+    run_stage as run_build_inventory_graph_base_stage,
+)
 from engine.pipeline.stages.build_contrast_report import (
     CONTRACT as BUILD_CONTRAST_REPORT_CONTRACT,
 )
@@ -65,12 +71,13 @@ _STAGES: tuple[tuple[StageContract, Any], ...] = (
         run_assess_original_environmental_impact_stage,
     ),
     (BUILD_INVENTORIES_CONTRACT, run_build_inventories_stage),
-    (BUILD_CONTRAST_REPORT_CONTRACT, run_build_contrast_report_stage),
-    (BUILD_EFFECT_COLOR_REPORT_CONTRACT, run_build_effect_color_report_stage),
     (ENRICH_COLOR_INVENTORY_CONTRACT, run_enrich_color_inventory_stage),
     (ANALYZE_COLOR_INVENTORY_CONTRACT, run_analyze_color_inventory_stage),
     (BUILD_COLOR_SCHEME_CONTRACT, run_build_color_scheme_stage),
     (MAP_COLOR_INVENTORY_TO_SCHEME_CONTRACT, run_map_color_inventory_to_scheme_stage),
+    (BUILD_INVENTORY_GRAPH_BASE_CONTRACT, run_build_inventory_graph_base_stage),
+    (BUILD_CONTRAST_REPORT_CONTRACT, run_build_contrast_report_stage),
+    (BUILD_EFFECT_COLOR_REPORT_CONTRACT, run_build_effect_color_report_stage),
     (SET_TOKENS_CONTRACT, run_set_tokens_stage),
     (CHECK_TOKENS_CONTRACT, run_check_tokens_stage),
     (TRANSFORM_SOURCE_PROJECT_CONTRACT, run_transform_source_project_stage),

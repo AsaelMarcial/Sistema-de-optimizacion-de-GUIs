@@ -495,8 +495,9 @@ class ColorInventoryEntry:
             "color_id": self.color_id,
             "value": self.value,
             "usage_count": self.usage_count,
-            "usage": [item.to_dict() for item in self.usage],
         }
+        if self.usage:
+            payload["usage"] = [item.to_dict() for item in self.usage]
         if self.node_ids:
             payload["node_ids"] = list(self.node_ids)
         return payload
@@ -511,15 +512,20 @@ class ColorInventoryEntry:
             payload["nearest_web_color"] = self.nearest_web_color
         if self.nearest_web_color_distance is not None:
             payload["nearest_web_color_distance"] = self.nearest_web_color_distance
-        payload["declared_in_snapshot"] = self.declared_in_snapshot
-        payload["added_from_pixel_evidence"] = self.added_from_pixel_evidence
-        payload["observed_usage_count"] = self.observed_usage_count
+        if not self.declared_in_snapshot:
+            payload["declared_in_snapshot"] = False
+        if self.added_from_pixel_evidence:
+            payload["added_from_pixel_evidence"] = True
+        if self.observed_usage_count:
+            payload["observed_usage_count"] = self.observed_usage_count
         if self.observed_roles:
             payload["observed_roles"] = [item.to_dict() for item in self.observed_roles]
-        payload["display_pixel_count"] = self.display_pixel_count
-        if self.display_pixel_percentage is not None:
+        if self.display_pixel_count:
+            payload["display_pixel_count"] = self.display_pixel_count
+        if self.display_pixel_percentage is not None and self.display_pixel_percentage > 0:
             payload["display_pixel_percentage"] = self.display_pixel_percentage
-        payload["clustered_from_display_pixels"] = self.clustered_from_display_pixels
+        if self.clustered_from_display_pixels:
+            payload["clustered_from_display_pixels"] = True
         if self.mapped_palette_id is not None:
             payload["mapped_palette_id"] = self.mapped_palette_id
         if self.mapped_tone is not None:

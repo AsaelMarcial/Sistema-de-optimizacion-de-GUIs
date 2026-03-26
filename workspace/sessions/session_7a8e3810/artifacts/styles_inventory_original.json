@@ -1,0 +1,586 @@
+{
+    "inline": [
+        {
+            "style_id": "style-1",
+            "kind": "inline",
+            "declarations": [
+                {
+                    "name": "background-color",
+                    "value": "rgb(12, 12, 12)",
+                    "declaration_id": "style-1-decl-1",
+                    "element_usage_count": 3,
+                    "used_by_element_ids": [
+                        "node-3",
+                        "node-82",
+                        "node-83"
+                    ]
+                },
+                {
+                    "name": "color",
+                    "value": "rgb(220, 220, 255)",
+                    "declaration_id": "style-1-decl-2",
+                    "element_usage_count": 3,
+                    "used_by_element_ids": [
+                        "node-3",
+                        "node-82",
+                        "node-83"
+                    ]
+                }
+            ],
+            "node_ids": [
+                "node-3",
+                "node-82",
+                "node-83"
+            ],
+            "usage_count": 3,
+            "origin": "author",
+            "style_sheet_id": "22472.1",
+            "source_range": {
+                "start_line": 0,
+                "start_column": 0,
+                "end_line": 0,
+                "end_column": 72
+            }
+        },
+        {
+            "style_id": "style-3",
+            "kind": "inline",
+            "declarations": [
+                {
+                    "name": "color",
+                    "value": "rgb(255, 255, 255)",
+                    "declaration_id": "style-3-decl-1",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-5"
+                    ]
+                },
+                {
+                    "name": "background-color",
+                    "value": "rgb(255, 0, 0)",
+                    "declaration_id": "style-3-decl-2",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-5"
+                    ]
+                },
+                {
+                    "name": "box-shadow",
+                    "value": "0 6px 12px rgba(0, 0, 0, 0.35)",
+                    "declaration_id": "style-3-decl-3",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-5"
+                    ]
+                },
+                {
+                    "name": "text-shadow",
+                    "value": "1px 1px rgba(0, 0, 0, 0.5)",
+                    "declaration_id": "style-3-decl-4",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-5"
+                    ]
+                },
+                {
+                    "name": "filter",
+                    "value": "drop-shadow(0 0 2px rgba(0, 255, 0, 0.6))",
+                    "declaration_id": "style-3-decl-5",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-5"
+                    ]
+                }
+            ],
+            "node_ids": [
+                "node-5"
+            ],
+            "usage_count": 1,
+            "origin": "author",
+            "style_sheet_id": "22472.3",
+            "source_range": {
+                "start_line": 0,
+                "start_column": 0,
+                "end_line": 0,
+                "end_column": 196
+            }
+        },
+        {
+            "style_id": "style-4",
+            "kind": "inline",
+            "declarations": [
+                {
+                    "name": "width",
+                    "value": "80px",
+                    "declaration_id": "style-4-decl-1",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-48"
+                    ]
+                },
+                {
+                    "name": "height",
+                    "value": "80px",
+                    "declaration_id": "style-4-decl-2",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-48"
+                    ]
+                }
+            ],
+            "node_ids": [
+                "node-48"
+            ],
+            "usage_count": 1,
+            "origin": "author"
+        },
+        {
+            "style_id": "style-5",
+            "kind": "inline",
+            "declarations": [
+                {
+                    "name": "width",
+                    "value": "160px",
+                    "declaration_id": "style-5-decl-1",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-49"
+                    ]
+                },
+                {
+                    "name": "height",
+                    "value": "60px",
+                    "declaration_id": "style-5-decl-2",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-49"
+                    ]
+                }
+            ],
+            "node_ids": [
+                "node-49"
+            ],
+            "usage_count": 1,
+            "origin": "author",
+            "style_sheet_id": "22472.46",
+            "source_range": {
+                "start_line": 0,
+                "start_column": 0,
+                "end_line": 0,
+                "end_column": 27
+            }
+        },
+        {
+            "style_id": "style-6",
+            "kind": "inline",
+            "declarations": [
+                {
+                    "name": "width",
+                    "value": "120px",
+                    "declaration_id": "style-6-decl-1",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-50"
+                    ]
+                },
+                {
+                    "name": "height",
+                    "value": "40px",
+                    "declaration_id": "style-6-decl-2",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-50"
+                    ]
+                }
+            ],
+            "node_ids": [
+                "node-50"
+            ],
+            "usage_count": 1,
+            "origin": "author",
+            "style_sheet_id": "22472.47",
+            "source_range": {
+                "start_line": 0,
+                "start_column": 0,
+                "end_line": 0,
+                "end_column": 27
+            }
+        },
+        {
+            "style_id": "style-7",
+            "kind": "inline",
+            "declarations": [
+                {
+                    "name": "width",
+                    "value": "120px",
+                    "declaration_id": "style-7-decl-1",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-51"
+                    ]
+                },
+                {
+                    "name": "height",
+                    "value": "40px",
+                    "declaration_id": "style-7-decl-2",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-51"
+                    ]
+                }
+            ],
+            "node_ids": [
+                "node-51"
+            ],
+            "usage_count": 1,
+            "origin": "author",
+            "style_sheet_id": "22472.48",
+            "source_range": {
+                "start_line": 0,
+                "start_column": 0,
+                "end_line": 0,
+                "end_column": 27
+            }
+        },
+        {
+            "style_id": "style-8",
+            "kind": "inline",
+            "declarations": [
+                {
+                    "name": "width",
+                    "value": "160px",
+                    "declaration_id": "style-8-decl-1",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-52"
+                    ]
+                },
+                {
+                    "name": "height",
+                    "value": "90px",
+                    "declaration_id": "style-8-decl-2",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-52"
+                    ]
+                }
+            ],
+            "node_ids": [
+                "node-52"
+            ],
+            "usage_count": 1,
+            "origin": "author",
+            "style_sheet_id": "22472.49",
+            "source_range": {
+                "start_line": 0,
+                "start_column": 0,
+                "end_line": 0,
+                "end_column": 27
+            }
+        },
+        {
+            "style_id": "style-9",
+            "kind": "inline",
+            "declarations": [
+                {
+                    "name": "width",
+                    "value": "80",
+                    "declaration_id": "style-9-decl-1",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-54"
+                    ]
+                },
+                {
+                    "name": "height",
+                    "value": "40",
+                    "declaration_id": "style-9-decl-2",
+                    "element_usage_count": 1,
+                    "used_by_element_ids": [
+                        "node-54"
+                    ]
+                }
+            ],
+            "node_ids": [
+                "node-54"
+            ],
+            "usage_count": 1,
+            "origin": "author"
+        }
+    ],
+    "inherited": [
+        {
+            "style_id": "style-2",
+            "kind": "inherited",
+            "declarations": [
+                {
+                    "name": "background-color",
+                    "value": "rgb(12, 12, 12)",
+                    "declaration_id": "style-2-decl-1",
+                    "element_usage_count": 80,
+                    "used_by_element_ids": [
+                        "node-10",
+                        "node-11",
+                        "node-12",
+                        "node-13",
+                        "node-14",
+                        "node-15",
+                        "node-16",
+                        "node-17",
+                        "node-18",
+                        "node-19",
+                        "node-20",
+                        "node-21",
+                        "node-22",
+                        "node-23",
+                        "node-24",
+                        "node-25",
+                        "node-26",
+                        "node-27",
+                        "node-28",
+                        "node-29",
+                        "node-30",
+                        "node-31",
+                        "node-32",
+                        "node-33",
+                        "node-34",
+                        "node-35",
+                        "node-36",
+                        "node-37",
+                        "node-38",
+                        "node-39",
+                        "node-4",
+                        "node-40",
+                        "node-41",
+                        "node-42",
+                        "node-43",
+                        "node-44",
+                        "node-45",
+                        "node-46",
+                        "node-48",
+                        "node-49",
+                        "node-5",
+                        "node-50",
+                        "node-51",
+                        "node-52",
+                        "node-53",
+                        "node-54",
+                        "node-56",
+                        "node-57",
+                        "node-58",
+                        "node-59",
+                        "node-6",
+                        "node-60",
+                        "node-61",
+                        "node-62",
+                        "node-63",
+                        "node-64",
+                        "node-65",
+                        "node-66",
+                        "node-67",
+                        "node-68",
+                        "node-69",
+                        "node-7",
+                        "node-70",
+                        "node-71",
+                        "node-72",
+                        "node-73",
+                        "node-74",
+                        "node-75",
+                        "node-76",
+                        "node-77",
+                        "node-78",
+                        "node-79",
+                        "node-8",
+                        "node-80",
+                        "node-81",
+                        "node-84",
+                        "node-85",
+                        "node-86",
+                        "node-87",
+                        "node-9"
+                    ]
+                },
+                {
+                    "name": "color",
+                    "value": "rgb(220, 220, 255)",
+                    "declaration_id": "style-2-decl-2",
+                    "element_usage_count": 80,
+                    "used_by_element_ids": [
+                        "node-10",
+                        "node-11",
+                        "node-12",
+                        "node-13",
+                        "node-14",
+                        "node-15",
+                        "node-16",
+                        "node-17",
+                        "node-18",
+                        "node-19",
+                        "node-20",
+                        "node-21",
+                        "node-22",
+                        "node-23",
+                        "node-24",
+                        "node-25",
+                        "node-26",
+                        "node-27",
+                        "node-28",
+                        "node-29",
+                        "node-30",
+                        "node-31",
+                        "node-32",
+                        "node-33",
+                        "node-34",
+                        "node-35",
+                        "node-36",
+                        "node-37",
+                        "node-38",
+                        "node-39",
+                        "node-4",
+                        "node-40",
+                        "node-41",
+                        "node-42",
+                        "node-43",
+                        "node-44",
+                        "node-45",
+                        "node-46",
+                        "node-48",
+                        "node-49",
+                        "node-5",
+                        "node-50",
+                        "node-51",
+                        "node-52",
+                        "node-53",
+                        "node-54",
+                        "node-56",
+                        "node-57",
+                        "node-58",
+                        "node-59",
+                        "node-6",
+                        "node-60",
+                        "node-61",
+                        "node-62",
+                        "node-63",
+                        "node-64",
+                        "node-65",
+                        "node-66",
+                        "node-67",
+                        "node-68",
+                        "node-69",
+                        "node-7",
+                        "node-70",
+                        "node-71",
+                        "node-72",
+                        "node-73",
+                        "node-74",
+                        "node-75",
+                        "node-76",
+                        "node-77",
+                        "node-78",
+                        "node-79",
+                        "node-8",
+                        "node-80",
+                        "node-81",
+                        "node-84",
+                        "node-85",
+                        "node-86",
+                        "node-87",
+                        "node-9"
+                    ]
+                }
+            ],
+            "node_ids": [
+                "node-10",
+                "node-11",
+                "node-12",
+                "node-13",
+                "node-14",
+                "node-15",
+                "node-16",
+                "node-17",
+                "node-18",
+                "node-19",
+                "node-20",
+                "node-21",
+                "node-22",
+                "node-23",
+                "node-24",
+                "node-25",
+                "node-26",
+                "node-27",
+                "node-28",
+                "node-29",
+                "node-30",
+                "node-31",
+                "node-32",
+                "node-33",
+                "node-34",
+                "node-35",
+                "node-36",
+                "node-37",
+                "node-38",
+                "node-39",
+                "node-4",
+                "node-40",
+                "node-41",
+                "node-42",
+                "node-43",
+                "node-44",
+                "node-45",
+                "node-46",
+                "node-48",
+                "node-49",
+                "node-5",
+                "node-50",
+                "node-51",
+                "node-52",
+                "node-53",
+                "node-54",
+                "node-56",
+                "node-57",
+                "node-58",
+                "node-59",
+                "node-6",
+                "node-60",
+                "node-61",
+                "node-62",
+                "node-63",
+                "node-64",
+                "node-65",
+                "node-66",
+                "node-67",
+                "node-68",
+                "node-69",
+                "node-7",
+                "node-70",
+                "node-71",
+                "node-72",
+                "node-73",
+                "node-74",
+                "node-75",
+                "node-76",
+                "node-77",
+                "node-78",
+                "node-79",
+                "node-8",
+                "node-80",
+                "node-81",
+                "node-84",
+                "node-85",
+                "node-86",
+                "node-87",
+                "node-9"
+            ],
+            "usage_count": 80,
+            "origin": "author",
+            "style_sheet_id": "22472.1",
+            "source_range": {
+                "start_line": 0,
+                "start_column": 0,
+                "end_line": 0,
+                "end_column": 72
+            }
+        }
+    ]
+}

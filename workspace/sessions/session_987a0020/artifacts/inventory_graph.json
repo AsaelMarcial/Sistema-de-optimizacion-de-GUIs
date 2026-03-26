@@ -1,0 +1,655 @@
+{
+    "root_ids": [
+        "node-1"
+    ],
+    "element_ids": [
+        "node-1",
+        "node-6",
+        "node-7",
+        "node-doc-4",
+        "node-8",
+        "node-9",
+        "node-doc-7",
+        "node-10",
+        "node-11",
+        "node-doc-10"
+    ],
+    "style_ids": [
+        "style-1",
+        "style-2",
+        "style-3",
+        "style-4",
+        "style-5",
+        "style-6",
+        "style-7",
+        "style-8"
+    ],
+    "color_ids": [
+        "color-1",
+        "color-2",
+        "color-3",
+        "color-4",
+        "color-5",
+        "color-6",
+        "color-7"
+    ],
+    "token_ids": [
+        "glow.color.blue.10",
+        "glow.color.blue.20",
+        "glow.color.blue.30",
+        "glow.color.blue.40",
+        "glow.color.blue.50",
+        "glow.color.blue.60",
+        "glow.color.blue.70",
+        "glow.color.blue.80",
+        "glow.color.blue.90",
+        "glow.color.blue.95",
+        "glow.color.blue.98",
+        "glow.color.custom.color_2",
+        "glow.color.custom.color_3",
+        "glow.color.custom.color_4",
+        "glow.color.custom.color_5",
+        "glow.color.custom.color_6",
+        "glow.color.green.10",
+        "glow.color.green.20",
+        "glow.color.green.30",
+        "glow.color.green.40",
+        "glow.color.green.50",
+        "glow.color.green.60",
+        "glow.color.green.70",
+        "glow.color.green.80",
+        "glow.color.green.90",
+        "glow.color.green.95",
+        "glow.color.green.98",
+        "glow.color.neutral.0",
+        "glow.color.neutral.10",
+        "glow.color.neutral.100",
+        "glow.color.neutral.20",
+        "glow.color.neutral.30",
+        "glow.color.neutral.40",
+        "glow.color.neutral.50",
+        "glow.color.neutral.60",
+        "glow.color.neutral.70",
+        "glow.color.neutral.80",
+        "glow.color.neutral.90",
+        "glow.color.neutral.95",
+        "glow.color.neutral.98",
+        "glow.color.neutral.99",
+        "glow.color.red.10",
+        "glow.color.red.20",
+        "glow.color.red.30",
+        "glow.color.red.40",
+        "glow.color.red.50",
+        "glow.color.red.60",
+        "glow.color.red.70",
+        "glow.color.red.80",
+        "glow.color.red.90",
+        "glow.color.red.95",
+        "glow.color.red.98",
+        "glow.color.turquoise.10",
+        "glow.color.turquoise.20",
+        "glow.color.turquoise.30",
+        "glow.color.turquoise.40",
+        "glow.color.turquoise.50",
+        "glow.color.turquoise.60",
+        "glow.color.turquoise.70",
+        "glow.color.turquoise.80",
+        "glow.color.turquoise.90",
+        "glow.color.turquoise.95",
+        "glow.color.turquoise.98",
+        "glow.color.yellow.10",
+        "glow.color.yellow.20",
+        "glow.color.yellow.30",
+        "glow.color.yellow.40",
+        "glow.color.yellow.50",
+        "glow.color.yellow.60",
+        "glow.color.yellow.70",
+        "glow.color.yellow.80",
+        "glow.color.yellow.90",
+        "glow.color.yellow.95",
+        "glow.color.yellow.98",
+        "glow.composed.background-color.subtle.1",
+        "glow.composed.background-image.gradient",
+        "glow.composed.border-bottom-color.emphasis.1",
+        "glow.composed.border-left-color.emphasis.1",
+        "glow.composed.border-right-color.emphasis.1",
+        "glow.composed.border-top-color.emphasis.1",
+        "glow.composed.box-shadow.elevated",
+        "glow.composed.color.emphasis.1",
+        "glow.main_surface.background-color.subtle.1",
+        "glow.surface.background-color.subtle.1",
+        "glow.surface.background-color.transparent",
+        "glow.text.background-color.subtle.1",
+        "glow.text.background-color.transparent",
+        "glow.text.color.emphasis.1",
+        "glow.text.color.emphasis.2"
+    ],
+    "relations": {
+        "element_to_parent_id": {
+            "node-6": "node-1",
+            "node-7": "node-6",
+            "node-doc-4": "node-7",
+            "node-8": "node-6",
+            "node-9": "node-8",
+            "node-doc-7": "node-9",
+            "node-10": "node-8",
+            "node-11": "node-6",
+            "node-doc-10": "node-11"
+        },
+        "element_to_children_ids": {
+            "node-1": [
+                "node-6"
+            ],
+            "node-6": [
+                "node-11",
+                "node-7",
+                "node-8"
+            ],
+            "node-7": [
+                "node-doc-4"
+            ],
+            "node-8": [
+                "node-10",
+                "node-9"
+            ],
+            "node-9": [
+                "node-doc-7"
+            ],
+            "node-11": [
+                "node-doc-10"
+            ]
+        },
+        "element_to_style_ids": {
+            "node-1": [],
+            "node-6": [
+                "style-6"
+            ],
+            "node-7": [
+                "style-1"
+            ],
+            "node-doc-4": [],
+            "node-8": [
+                "style-2"
+            ],
+            "node-9": [
+                "style-3"
+            ],
+            "node-doc-7": [],
+            "node-10": [
+                "style-5"
+            ],
+            "node-11": [
+                "style-8"
+            ],
+            "node-doc-10": []
+        },
+        "element_to_color_ids": {
+            "node-1": [],
+            "node-6": [
+                "color-1"
+            ],
+            "node-7": [
+                "color-1",
+                "color-2"
+            ],
+            "node-doc-4": [],
+            "node-8": [
+                "color-3"
+            ],
+            "node-9": [
+                "color-4"
+            ],
+            "node-doc-7": [],
+            "node-10": [],
+            "node-11": [
+                "color-2",
+                "color-5",
+                "color-6"
+            ],
+            "node-doc-10": []
+        },
+        "element_to_token_ids": {
+            "node-11": [
+                "glow.composed.background-color.subtle.1",
+                "glow.composed.background-image.gradient",
+                "glow.composed.border-bottom-color.emphasis.1",
+                "glow.composed.border-left-color.emphasis.1",
+                "glow.composed.border-right-color.emphasis.1",
+                "glow.composed.border-top-color.emphasis.1",
+                "glow.composed.box-shadow.elevated",
+                "glow.composed.color.emphasis.1"
+            ],
+            "node-6": [
+                "glow.main_surface.background-color.subtle.1"
+            ],
+            "node-8": [
+                "glow.surface.background-color.subtle.1"
+            ],
+            "node-10": [
+                "glow.surface.background-color.transparent"
+            ],
+            "node-7": [
+                "glow.text.background-color.subtle.1",
+                "glow.text.color.emphasis.1"
+            ],
+            "node-9": [
+                "glow.text.background-color.transparent",
+                "glow.text.color.emphasis.2"
+            ]
+        },
+        "style_ref_to_token_ids": {
+            "style-8:background-color": [
+                "glow.composed.background-color.subtle.1"
+            ],
+            "node-11:background-image": [
+                "glow.composed.background-image.gradient"
+            ],
+            "style-8:background-image": [
+                "glow.composed.background-image.gradient"
+            ],
+            "style-8:border-bottom-color": [
+                "glow.composed.border-bottom-color.emphasis.1"
+            ],
+            "style-8:border-left-color": [
+                "glow.composed.border-left-color.emphasis.1"
+            ],
+            "style-8:border-right-color": [
+                "glow.composed.border-right-color.emphasis.1"
+            ],
+            "style-8:border-top-color": [
+                "glow.composed.border-top-color.emphasis.1"
+            ],
+            "node-11:box-shadow": [
+                "glow.composed.box-shadow.elevated"
+            ],
+            "style-8:color": [
+                "glow.composed.color.emphasis.1"
+            ],
+            "style-6:background-color": [
+                "glow.main_surface.background-color.subtle.1"
+            ],
+            "style-2:background-color": [
+                "glow.surface.background-color.subtle.1"
+            ],
+            "node-10:background-color": [
+                "glow.surface.background-color.transparent"
+            ],
+            "style-1:background-color": [
+                "glow.text.background-color.subtle.1"
+            ],
+            "node-9:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "style-1:color": [
+                "glow.text.color.emphasis.1"
+            ],
+            "style-3:color": [
+                "glow.text.color.emphasis.2"
+            ]
+        },
+        "color_to_token_ids": {
+            "color-2": [
+                "glow.color.custom.color_2",
+                "glow.composed.background-color.subtle.1",
+                "glow.text.background-color.subtle.1"
+            ],
+            "color-3": [
+                "glow.color.custom.color_3",
+                "glow.surface.background-color.subtle.1"
+            ],
+            "color-4": [
+                "glow.color.custom.color_4",
+                "glow.text.color.emphasis.2"
+            ],
+            "color-5": [
+                "glow.color.custom.color_5",
+                "glow.composed.border-bottom-color.emphasis.1",
+                "glow.composed.border-left-color.emphasis.1",
+                "glow.composed.border-right-color.emphasis.1",
+                "glow.composed.border-top-color.emphasis.1"
+            ],
+            "color-6": [
+                "glow.color.custom.color_6",
+                "glow.composed.color.emphasis.1"
+            ],
+            "color-1": [
+                "glow.main_surface.background-color.subtle.1",
+                "glow.text.color.emphasis.1"
+            ]
+        },
+        "palette_tone_to_token_ids": {
+            "palette-chromatic-5:10": [
+                "glow.color.blue.10"
+            ],
+            "palette-chromatic-5:20": [
+                "glow.color.blue.20"
+            ],
+            "palette-chromatic-5:30": [
+                "glow.color.blue.30"
+            ],
+            "palette-chromatic-5:40": [
+                "glow.color.blue.40"
+            ],
+            "palette-chromatic-5:50": [
+                "glow.color.blue.50"
+            ],
+            "palette-chromatic-5:60": [
+                "glow.color.blue.60"
+            ],
+            "palette-chromatic-5:70": [
+                "glow.color.blue.70"
+            ],
+            "palette-chromatic-5:80": [
+                "glow.color.blue.80"
+            ],
+            "palette-chromatic-5:90": [
+                "glow.color.blue.90"
+            ],
+            "palette-chromatic-5:95": [
+                "glow.color.blue.95"
+            ],
+            "palette-chromatic-5:98": [
+                "glow.color.blue.98"
+            ],
+            "palette-chromatic-1:10": [
+                "glow.color.green.10"
+            ],
+            "palette-chromatic-1:20": [
+                "glow.color.green.20"
+            ],
+            "palette-chromatic-1:30": [
+                "glow.color.green.30"
+            ],
+            "palette-chromatic-1:40": [
+                "glow.color.green.40"
+            ],
+            "palette-chromatic-1:50": [
+                "glow.color.green.50"
+            ],
+            "palette-chromatic-1:60": [
+                "glow.color.green.60"
+            ],
+            "palette-chromatic-1:70": [
+                "glow.color.green.70"
+            ],
+            "palette-chromatic-1:80": [
+                "glow.color.green.80"
+            ],
+            "palette-chromatic-1:90": [
+                "glow.color.green.90"
+            ],
+            "palette-chromatic-1:95": [
+                "glow.color.green.95"
+            ],
+            "palette-chromatic-1:98": [
+                "glow.color.green.98"
+            ],
+            "palette-achromatic-1:0": [
+                "glow.color.neutral.0"
+            ],
+            "palette-achromatic-1:10": [
+                "glow.color.neutral.10"
+            ],
+            "palette-achromatic-1:100": [
+                "glow.color.neutral.100",
+                "glow.main_surface.background-color.subtle.1",
+                "glow.text.color.emphasis.1"
+            ],
+            "palette-achromatic-1:20": [
+                "glow.color.neutral.20"
+            ],
+            "palette-achromatic-1:30": [
+                "glow.color.neutral.30"
+            ],
+            "palette-achromatic-1:40": [
+                "glow.color.neutral.40"
+            ],
+            "palette-achromatic-1:50": [
+                "glow.color.neutral.50"
+            ],
+            "palette-achromatic-1:60": [
+                "glow.color.neutral.60"
+            ],
+            "palette-achromatic-1:70": [
+                "glow.color.neutral.70"
+            ],
+            "palette-achromatic-1:80": [
+                "glow.color.neutral.80"
+            ],
+            "palette-achromatic-1:90": [
+                "glow.color.neutral.90"
+            ],
+            "palette-achromatic-1:95": [
+                "glow.color.neutral.95"
+            ],
+            "palette-achromatic-1:98": [
+                "glow.color.neutral.98"
+            ],
+            "palette-achromatic-1:99": [
+                "glow.color.neutral.99"
+            ],
+            "palette-chromatic-2:10": [
+                "glow.color.red.10"
+            ],
+            "palette-chromatic-2:20": [
+                "glow.color.red.20"
+            ],
+            "palette-chromatic-2:30": [
+                "glow.color.red.30"
+            ],
+            "palette-chromatic-2:40": [
+                "glow.color.red.40"
+            ],
+            "palette-chromatic-2:50": [
+                "glow.color.red.50"
+            ],
+            "palette-chromatic-2:60": [
+                "glow.color.red.60"
+            ],
+            "palette-chromatic-2:70": [
+                "glow.color.red.70"
+            ],
+            "palette-chromatic-2:80": [
+                "glow.color.red.80"
+            ],
+            "palette-chromatic-2:90": [
+                "glow.color.red.90"
+            ],
+            "palette-chromatic-2:95": [
+                "glow.color.red.95"
+            ],
+            "palette-chromatic-2:98": [
+                "glow.color.red.98"
+            ],
+            "palette-chromatic-4:10": [
+                "glow.color.turquoise.10"
+            ],
+            "palette-chromatic-4:20": [
+                "glow.color.turquoise.20"
+            ],
+            "palette-chromatic-4:30": [
+                "glow.color.turquoise.30"
+            ],
+            "palette-chromatic-4:40": [
+                "glow.color.turquoise.40"
+            ],
+            "palette-chromatic-4:50": [
+                "glow.color.turquoise.50"
+            ],
+            "palette-chromatic-4:60": [
+                "glow.color.turquoise.60"
+            ],
+            "palette-chromatic-4:70": [
+                "glow.color.turquoise.70"
+            ],
+            "palette-chromatic-4:80": [
+                "glow.color.turquoise.80"
+            ],
+            "palette-chromatic-4:90": [
+                "glow.color.turquoise.90"
+            ],
+            "palette-chromatic-4:95": [
+                "glow.color.turquoise.95"
+            ],
+            "palette-chromatic-4:98": [
+                "glow.color.turquoise.98"
+            ],
+            "palette-chromatic-3:10": [
+                "glow.color.yellow.10"
+            ],
+            "palette-chromatic-3:20": [
+                "glow.color.yellow.20"
+            ],
+            "palette-chromatic-3:30": [
+                "glow.color.yellow.30"
+            ],
+            "palette-chromatic-3:40": [
+                "glow.color.yellow.40"
+            ],
+            "palette-chromatic-3:50": [
+                "glow.color.yellow.50"
+            ],
+            "palette-chromatic-3:60": [
+                "glow.color.yellow.60"
+            ],
+            "palette-chromatic-3:70": [
+                "glow.color.yellow.70"
+            ],
+            "palette-chromatic-3:80": [
+                "glow.color.yellow.80"
+            ],
+            "palette-chromatic-3:90": [
+                "glow.color.yellow.90"
+            ],
+            "palette-chromatic-3:95": [
+                "glow.color.yellow.95"
+            ],
+            "palette-chromatic-3:98": [
+                "glow.color.yellow.98"
+            ]
+        },
+        "element_adjacency": {
+            "node-1": [
+                "node-6",
+                "node-7",
+                "node-doc-4",
+                "node-8",
+                "node-9",
+                "node-doc-7",
+                "node-10",
+                "node-11",
+                "node-doc-10"
+            ],
+            "node-6": [
+                "node-1",
+                "node-7",
+                "node-doc-4",
+                "node-8",
+                "node-9",
+                "node-doc-7",
+                "node-10",
+                "node-11",
+                "node-doc-10"
+            ],
+            "node-7": [
+                "node-1",
+                "node-6",
+                "node-doc-4",
+                "node-8",
+                "node-11"
+            ],
+            "node-doc-4": [
+                "node-1",
+                "node-6",
+                "node-7"
+            ],
+            "node-8": [
+                "node-1",
+                "node-6",
+                "node-7",
+                "node-9",
+                "node-doc-7",
+                "node-10",
+                "node-11"
+            ],
+            "node-9": [
+                "node-1",
+                "node-6",
+                "node-8",
+                "node-doc-7",
+                "node-10"
+            ],
+            "node-doc-7": [
+                "node-1",
+                "node-6",
+                "node-8",
+                "node-9"
+            ],
+            "node-10": [
+                "node-1",
+                "node-6",
+                "node-8",
+                "node-9"
+            ],
+            "node-11": [
+                "node-1",
+                "node-6",
+                "node-7",
+                "node-8",
+                "node-doc-10"
+            ],
+            "node-doc-10": [
+                "node-1",
+                "node-6",
+                "node-11"
+            ]
+        }
+    },
+    "schema_version": "3.0",
+    "generated_from": "inventory.graph.tokens",
+    "summary": {
+        "element_count": 10,
+        "visible_element_count": 10,
+        "text_element_count": 6,
+        "root_count": 1,
+        "leaf_element_count": 4,
+        "out_of_scope_element_count": 1,
+        "stacking_context_count": 0,
+        "style_count": 8,
+        "declaration_count": 20,
+        "used_declaration_count": 20,
+        "computed_style_count": 25,
+        "exact_match_count": 19,
+        "ambiguous_match_count": 0,
+        "unresolved_match_count": 6,
+        "color_count": 7,
+        "mapped_color_count": 7,
+        "confirmed_color_count": 6,
+        "palette_count": 6,
+        "chromatic_palette_count": 5,
+        "token_count": 89,
+        "foundation_token_count": 74,
+        "semantic_token_count": 15,
+        "component_token_count": 0,
+        "validated_token_count": 0,
+        "failed_token_count": 0,
+        "tokenized_element_count": 6,
+        "tokenized_style_ref_count": 16,
+        "tokenized_color_count": 6,
+        "tokenized_palette_tone_count": 69,
+        "pixel_count": 1296000,
+        "raw_pixel_count": 1296000,
+        "raw_distinct_color_count": 43819,
+        "display_pixel_count": 1129000,
+        "matched_inventory_pixel_count": 1046273,
+        "unmatched_visual_pixel_count": 82727,
+        "unmatched_visual_cluster_count": 94,
+        "inline_style_count": 3,
+        "stylesheet_count": 1,
+        "external_stylesheet_count": 1,
+        "inline_stylesheet_count": 0,
+        "media_query_count": 0,
+        "contrast_issue_count": 0,
+        "unused_declaration_count": 0
+    }
+}
