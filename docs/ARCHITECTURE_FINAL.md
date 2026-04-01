@@ -45,6 +45,28 @@ engine/
 
 ---
 
+## Document precedence
+
+This document defines the target architecture and coding conventions for the project as a whole.
+
+For a specific implementation scope governed by an approved SRS, the SRS takes precedence for that scope only.
+
+Order of precedence:
+
+1. approved SRS for the active scope;
+2. this architecture document;
+3. current implementation.
+
+A scope-specific SRS must not be interpreted as authorization to:
+
+* redesign unrelated architectural areas,
+* remove context branches outside the scope,
+* collapse global structures into a local refactor model.
+
+Codex must not silently reconcile conflicts between documents.
+
+---
+
 # 1. Folder responsibilities
 
 ## `domain/`
@@ -962,6 +984,11 @@ Codex must NOT:
 - bypass the domain model with raw intermediate data everywhere,
 - remove `utils/` just because some helpers could be inlined,
 - over-normalize the repo into a different architecture without instruction.
+* treat a scope-specific refactor as authorization to remove unrelated architectural structures,
+* collapse the global architecture into the model of a single SRS,
+* remove or refactor context branches outside the active scope,
+* duplicate semantic ownership within the active scope,
+* use intermediate JSON as operational truth when it is forbidden by the active SRS.
 
 ---
 
@@ -998,6 +1025,11 @@ Before generating or changing code, Codex should answer internally:
 4. **What should this file explicitly avoid?**
 
 If the answer is unclear, Codex should ask.
+
+5. Is this change inside the active refactor scope or outside it?
+6. Am I applying a global architectural rule or a scope-specific SRS rule?
+7. Could this change break or remove structures that are still valid outside the current scope?
+8. Is semantic ownership explicit and non-duplicated within the active scope?
 
 ---
 
@@ -1051,37 +1083,56 @@ The system uses a structured **PipelineContext** instead of a flat context objec
 
 ## Principles
 
-- The context MUST be hierarchical (composite structure)
-- Data MUST be grouped by semantic domain:
-  - session.*
-  - inventory.*
-  - color.*
-  - environmental.*
-- No flat attribute explosion is allowed
+* The context MUST be hierarchical.
+* Data MUST be grouped by semantic domain or ownership.
+* No flat attribute explosion is allowed.
+* No business datum may exist as primary truth in two different branches.
+* Context structure may evolve depending on the pipeline scope, but ownership must always remain explicit and non-duplicated.
 
----
+## Typical context branches
+
+Depending on the active use case or pipeline, context may include domains such as:
+
+* `session.*`
+* `inventory.*`
+* `color.*`
+* `environmental.*`
+* other domain-specific branches when justified
+
+These examples are illustrative and must not be treated as a fixed or exhaustive list.
+
+## Scope-specific canonical ownership
+
+When an approved SRS defines canonical ownership for a specific refactor scope:
+
+* Codex MUST follow that ownership model within the active scope.
+* Codex MUST NOT apply that ownership model globally.
+
+This does NOT authorize:
+
+* removing unrelated context branches,
+* collapsing broader architecture into a narrower refactor model,
+* deleting or restructuring domains outside the declared scope.
 
 ## Context Access
 
 All stages MUST use:
 
-- context.get("path.to.value")
-- context.set("path.to.value", value)
+* `context.get("path.to.value")`
+* `context.set("path.to.value", value)`
 
 Direct attribute mutation should be avoided unless inside context models.
-
----
 
 ## Context Evolution
 
 The context is built progressively across pipeline stages.
 
 Each stage:
-- reads required data
-- produces new data
-- enriches the context
 
----
+* reads required data,
+* produces new data,
+* enriches the context,
+* MUST NOT duplicate semantic ownership already assigned to another branch.
 
 ## Stage Contract
 
@@ -1089,24 +1140,20 @@ Every stage MUST:
 
 1. Declare:
 
-   requires = [...]
-   produces = [...]
+   * `requires = [...]`
+   * `produces = [...]`
 
-2. Validate inputs before execution
+2. Validate inputs before execution.
 
-3. Use context.get/set for interaction
+3. Use `context.get/set` for interaction.
 
----
-
-## Example
-
-requires = ["inventory.elements"]
-produces = ["inventory.elements_with_color"]
-
----
+4. Avoid writing equivalent data into more than one context branch.
 
 ## Forbidden
 
-- Writing random attributes into context
-- Bypassing declared paths
-- Mutating unrelated context branches
+* Writing random attributes into context.
+* Bypassing declared paths.
+* Mutating unrelated context branches.
+* Reintroducing duplicate semantic truth across branches.
+* Treating intermediate representations as primary truth when a canonical representation exists.
+* Removing or restructuring context branches that are outside the current refactor scope.

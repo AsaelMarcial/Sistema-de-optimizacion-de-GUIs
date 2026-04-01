@@ -6,6 +6,20 @@
 **Autoría:** Ingeniería de software (definición arquitectónica y de requisitos).
 
 ---
+## 0. Gobierno y precedencia documental
+
+Esta SRS es la especificación prioritaria del tramo en alcance.
+
+Orden de precedencia:
+
+1. esta SRS;
+2. `docs/ARCHITECTURE_FINAL.md` como marco arquitectónico general;
+3. implementación actual.
+
+### Regla de conflicto
+
+* Si existe conflicto entre esta SRS y `ARCHITECTURE_FINAL.md`, prevalece esta SRS para este tramo.
+* Si existe conflicto entre esta SRS y la implementación actual, no se podrá cambiar el criterio por inferencia: se deberá detener el punto conflictivo, mostrar evidencia y solicitar aprobación explícita del usuario para continuar.
 
 ## 1. Propósito
 
@@ -375,52 +389,139 @@ Regla: no crear inventarios redundantes separados si ya existe la información p
 
 ---
 
-## 15. Plan de migración incremental
+## 15. Plan de migración incremental (obligatorio y secuencial)
 
-> Todas las iteraciones son **obligatorias** y secuenciales. No se salta ninguna.
+Todas las iteraciones son obligatorias y deben ejecutarse en orden.
+No se permite saltar etapas ni ejecutar cambios fuera de este flujo.
 
-### Iteración 1 (obligatoria) — Canonicalización de estado
+---
 
-Objetivo: dejar una única verdad en `context` para el tramo en alcance.
+## 15.1 Estrategia de migración técnica obligatoria
 
-- remover JSON intermedio y serializers asociados en tramo en alcance,
-- establecer claves canónicas en context,
-- introducir/usar `PrototypeStructure` y `PageBuilder` único,
-- normalizar ownership de `session/scheme/prototype_structure`,
-- mantener contrato de salida final para integración.
+La migración hacia el estado final descrito en esta SRS debe seguir el siguiente orden estricto:
 
-**Entregables de salida I1**
-- stages del tramo sin dependencia a JSON intermedio,
-- invariantes mínimos activos,
-- compatibilidad funcional de salida final.
+1. introducir modelos y estructuras canónicas en paralelo, sin eliminar aún la implementación previa;
+2. comenzar a poblar `context` con la nueva representación canónica;
+3. migrar consumidores para leer desde `context`;
+4. validar invariantes, contratos y compatibilidad funcional del tramo;
+5. eliminar completamente JSON intermedio, serializers intermedios y dependencias legacy del tramo.
 
-### Iteración 2 (obligatoria) — Consolidación de dominio y derivaciones
+### Restricciones obligatorias
 
-Objetivo: eliminar duplicaciones semánticas y cerrar derivaciones sobre estructura canónica.
+* Prohibido eliminar JSON intermedio antes de que todos los consumidores del tramo hayan sido migrados.
+* Prohibido cambiar productores de datos si los consumidores downstream aún dependen del formato anterior, salvo que exista adaptador transicional explícito.
+* Prohibido introducir doble source of truth funcional.
+* Si existe coexistencia temporal entre representación legacy y canónica, la representación canónica en `context` será la fuente primaria y la representación legacy sólo podrá existir como compatibilidad transicional controlada.
 
-- consolidar derivaciones de contraste/efectos sobre estructura canónica,
-- reducir duplicidad entre `set_tokens` y `check_tokens`,
-- integrar correctamente `style`/`style_declaration` con `prototype_structure` vía referencias mínimas,
-- reforzar contratos e invariantes automatizados.
+### Criterio de seguridad de migración
 
-**Entregables de salida I2**
-- `effect` y `contrast` sin verdad primaria paralela,
-- reglas CSS/declaraciones trazables desde `style` a `Element/Property`,
-- cobertura de validaciones por etapa ampliada.
+Una iteración se considera segura únicamente si:
 
-### Iteración 3 (obligatoria) — Endurecimiento y cierre operativo
+* el pipeline del tramo sigue siendo ejecutable,
+* `context` aumenta su ownership real sobre el estado,
+* disminuye la dependencia efectiva de JSON intermedio,
+* no aumenta la duplicación semántica.
 
-Objetivo: cerrar deuda transicional y estabilizar operación.
+---
 
-- limpieza final de compatibilidad transicional,
-- endurecimiento de validaciones y cobertura de pruebas,
-- verificación de criterios de aceptación de extremo a extremo,
-- cierre de riesgos técnicos remanentes.
+## 15.2 Iteración 1 — Introducción del modelo canónico
 
-**Entregables de salida I3**
-- ruta principal estable sin JSON intermedio,
-- contratos de etapa y criterios de Done cumplidos,
-- documentación y taxonomía final consistentes con implementación.
+**Objetivo:** introducir la nueva representación sin romper el pipeline actual.
+
+### Acciones
+
+* introducir `PrototypeStructure` como estructura canónica;
+* introducir `PageBuilder` como adapter único por corrida;
+* poblar `context.session`, `context.scheme` y `context.prototype_structure`;
+* mantener JSON intermedio como compatibilidad temporal;
+* crear adaptadores transicionales si es necesario.
+
+### Resultado esperado
+
+* coexistencia controlada entre modelo legacy y modelo canónico;
+* pipeline sigue funcionando sin cambios visibles;
+* `context` comienza a ser fuente real de estado.
+
+---
+
+## 15.3 Iteración 2 — Migración de consumidores
+
+**Objetivo:** mover toda la lectura hacia `context`.
+
+### Acciones
+
+* migrar stages consumidores para leer desde:
+
+  * `context.prototype_structure`
+  * `context.scheme`
+  * `context.session`
+* eliminar dependencias directas a JSON en lectura;
+* validar contratos de stages;
+* reforzar invariantes.
+
+### Resultado esperado
+
+* JSON deja de ser fuente de lectura;
+* no hay consumidores dependiendo de formatos legacy;
+* el sistema funciona usando `context` como fuente principal.
+
+---
+
+## 15.4 Iteración 3 — Eliminación de JSON intermedio
+
+**Objetivo:** eliminar completamente la representación legacy.
+
+### Acciones
+
+* eliminar serializers JSON intermedios;
+* eliminar lectura de JSON en el tramo en alcance;
+* eliminar rutas `*_json` del `session`;
+* limpiar código muerto y adaptadores transicionales.
+
+### Resultado esperado
+
+* no existe JSON intermedio en la ruta principal;
+* no hay doble source of truth;
+* todo el pipeline usa exclusivamente `context`.
+
+---
+
+## 15.5 Iteración 4 — Consolidación de dominio y derivaciones
+
+**Objetivo:** cerrar duplicaciones semánticas y estabilizar el modelo.
+
+### Acciones
+
+* consolidar `effect` dentro de `Property`;
+* eliminar `effect_color` como entidad independiente;
+* convertir `contrast` en derivación (no modelo raíz);
+* unificar lógica de tokens (`set_tokens` / `check_tokens`);
+* integrar correctamente `style` con `prototype_structure`.
+
+### Resultado esperado
+
+* no existen modelos redundantes;
+* todas las derivaciones nacen de `prototype_structure`;
+* el dominio es coherente y consistente.
+
+---
+
+## 15.6 Iteración 5 — Endurecimiento y cierre
+
+**Objetivo:** asegurar estabilidad, calidad y consistencia total.
+
+### Acciones
+
+* reforzar invariantes por stage;
+* validar contratos de extremo a extremo;
+* limpiar deuda técnica restante;
+* validar criterios de aceptación completos.
+
+### Resultado esperado
+
+* pipeline estable y consistente;
+* arquitectura alineada completamente al SRS;
+* sin deuda técnica relevante en el tramo.
 
 ---
 
@@ -432,6 +533,7 @@ Objetivo: cerrar deuda transicional y estabilizar operación.
 4. `effect` y `contrast` se obtienen como derivaciones de la estructura canónica.
 5. El resto del pipeline consume el estado canónico sin depender de artefactos intermedios.
 6. No se observan duplicaciones semánticas en ramas de `context`.
+7. Ningún stage del tramo puede depender de JSON intermedio si ya existe el dato canónico equivalente en `context`.
 
 ---
 
@@ -486,7 +588,12 @@ Esta sección cierra ambigüedades y fija interpretación única.
 
 ### VC-05 Compatibilidad transicional
 
-- Se permite adaptación temporal en consumidores, pero sin reinstalar JSON intermedio ni doble truth.
+* Se permite compatibilidad transicional únicamente si:
+
+  * `context` ya es la representación canónica primaria;
+  * los consumidores legacy están claramente identificados;
+  * la adaptación no reintroduce JSON intermedio como dependencia principal;
+  * no existe escritura de nueva verdad fuera de `session`, `scheme` y `prototype_structure`.
 
 ---
 
@@ -520,6 +627,7 @@ Un cambio se considera terminado únicamente si cumple todo:
 5. `effect` y `contrast` no existen como truth primaria separada.
 6. Stages downstream inmediatos leen de `context` canónico.
 7. Se mantienen resultados finales esperados por UI/bundle.
+8. No existen consumidores nuevos construidos sobre rutas legacy si ya existe la ruta canónica en `context`.
 
 
 ---
