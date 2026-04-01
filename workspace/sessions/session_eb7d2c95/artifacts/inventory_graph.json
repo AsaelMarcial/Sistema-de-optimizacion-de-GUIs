@@ -1,0 +1,2046 @@
+{
+    "root_ids": [
+        "node-1"
+    ],
+    "element_ids": [
+        "node-1",
+        "node-7",
+        "node-8",
+        "node-9",
+        "node-doc-5",
+        "node-10",
+        "node-doc-7",
+        "node-11",
+        "node-12",
+        "node-doc-10",
+        "node-13",
+        "node-doc-12",
+        "node-14",
+        "node-doc-14",
+        "node-15",
+        "node-doc-16",
+        "node-16",
+        "node-doc-18",
+        "node-17",
+        "node-18",
+        "node-doc-21",
+        "node-19",
+        "node-20",
+        "node-21",
+        "node-doc-25",
+        "node-22",
+        "node-doc-27",
+        "node-23",
+        "node-24",
+        "node-doc-30",
+        "node-25",
+        "node-doc-32",
+        "node-26",
+        "node-27",
+        "node-doc-35",
+        "node-28",
+        "node-doc-37",
+        "node-29",
+        "node-doc-39",
+        "node-30",
+        "node-31",
+        "node-doc-42",
+        "node-32",
+        "node-doc-44",
+        "node-33",
+        "node-doc-46",
+        "node-34",
+        "node-35",
+        "node-36",
+        "node-37",
+        "node-38",
+        "node-doc-52",
+        "node-39",
+        "node-40",
+        "node-doc-55",
+        "node-41",
+        "node-doc-57",
+        "node-doc-58",
+        "node-42",
+        "node-doc-60",
+        "node-doc-61",
+        "node-43",
+        "node-doc-63"
+    ],
+    "style_ids": [
+        "style-1",
+        "style-10",
+        "style-11",
+        "style-12",
+        "style-13",
+        "style-14",
+        "style-15",
+        "style-16",
+        "style-17",
+        "style-18",
+        "style-19",
+        "style-2",
+        "style-20",
+        "style-21",
+        "style-3",
+        "style-4",
+        "style-5",
+        "style-6",
+        "style-7",
+        "style-8",
+        "style-9"
+    ],
+    "color_ids": [
+        "color-1",
+        "color-2",
+        "color-3",
+        "color-4",
+        "color-5",
+        "color-6",
+        "color-7",
+        "color-8",
+        "color-9",
+        "color-10",
+        "color-11",
+        "color-12",
+        "color-13"
+    ],
+    "token_ids": [
+        "glow.color.blue.10",
+        "glow.color.blue.20",
+        "glow.color.blue.30",
+        "glow.color.blue.40",
+        "glow.color.blue.50",
+        "glow.color.blue.60",
+        "glow.color.blue.70",
+        "glow.color.blue.80",
+        "glow.color.blue.90",
+        "glow.color.blue.95",
+        "glow.color.blue.98",
+        "glow.color.custom.color_10",
+        "glow.color.custom.color_12",
+        "glow.color.custom.color_2",
+        "glow.color.custom.color_4",
+        "glow.color.custom.color_6",
+        "glow.color.custom.color_7",
+        "glow.color.custom.color_9",
+        "glow.color.fuchsia_magenta.10",
+        "glow.color.fuchsia_magenta.20",
+        "glow.color.fuchsia_magenta.30",
+        "glow.color.fuchsia_magenta.40",
+        "glow.color.fuchsia_magenta.50",
+        "glow.color.fuchsia_magenta.60",
+        "glow.color.fuchsia_magenta.70",
+        "glow.color.fuchsia_magenta.80",
+        "glow.color.fuchsia_magenta.90",
+        "glow.color.fuchsia_magenta.95",
+        "glow.color.fuchsia_magenta.98",
+        "glow.color.green.10",
+        "glow.color.green.20",
+        "glow.color.green.30",
+        "glow.color.green.40",
+        "glow.color.green.50",
+        "glow.color.green.60",
+        "glow.color.green.70",
+        "glow.color.green.80",
+        "glow.color.green.90",
+        "glow.color.green.95",
+        "glow.color.green.98",
+        "glow.color.neutral.0",
+        "glow.color.neutral.10",
+        "glow.color.neutral.100",
+        "glow.color.neutral.20",
+        "glow.color.neutral.30",
+        "glow.color.neutral.40",
+        "glow.color.neutral.50",
+        "glow.color.neutral.60",
+        "glow.color.neutral.70",
+        "glow.color.neutral.80",
+        "glow.color.neutral.90",
+        "glow.color.neutral.95",
+        "glow.color.neutral.98",
+        "glow.color.neutral.99",
+        "glow.color.orange.10",
+        "glow.color.orange.20",
+        "glow.color.orange.30",
+        "glow.color.orange.40",
+        "glow.color.orange.50",
+        "glow.color.orange.60",
+        "glow.color.orange.70",
+        "glow.color.orange.80",
+        "glow.color.orange.90",
+        "glow.color.orange.95",
+        "glow.color.orange.98",
+        "glow.color.red.10",
+        "glow.color.red.20",
+        "glow.color.red.30",
+        "glow.color.red.40",
+        "glow.color.red.50",
+        "glow.color.red.60",
+        "glow.color.red.70",
+        "glow.color.red.80",
+        "glow.color.red.90",
+        "glow.color.red.95",
+        "glow.color.red.98",
+        "glow.color.turquoise.10",
+        "glow.color.turquoise.20",
+        "glow.color.turquoise.30",
+        "glow.color.turquoise.40",
+        "glow.color.turquoise.50",
+        "glow.color.turquoise.60",
+        "glow.color.turquoise.70",
+        "glow.color.turquoise.80",
+        "glow.color.turquoise.90",
+        "glow.color.turquoise.95",
+        "glow.color.turquoise.98",
+        "glow.color.violet.10",
+        "glow.color.violet.20",
+        "glow.color.violet.30",
+        "glow.color.violet.40",
+        "glow.color.violet.50",
+        "glow.color.violet.60",
+        "glow.color.violet.70",
+        "glow.color.violet.80",
+        "glow.color.violet.90",
+        "glow.color.violet.95",
+        "glow.color.violet.98",
+        "glow.color.yellow.10",
+        "glow.color.yellow.20",
+        "glow.color.yellow.30",
+        "glow.color.yellow.40",
+        "glow.color.yellow.50",
+        "glow.color.yellow.60",
+        "glow.color.yellow.70",
+        "glow.color.yellow.80",
+        "glow.color.yellow.90",
+        "glow.color.yellow.95",
+        "glow.color.yellow.98",
+        "glow.composed.border-bottom-color.subtle.1",
+        "glow.composed.border-left-color.subtle.1",
+        "glow.composed.border-right-color.subtle.1",
+        "glow.composed.border-top-color.subtle.1",
+        "glow.item.background-color.subtle.1",
+        "glow.main_surface.background-color.subtle.1",
+        "glow.surface.background-color.transparent",
+        "glow.surface.box-shadow.elevated",
+        "glow.text.background-color.transparent",
+        "glow.text.color.emphasis.1",
+        "glow.text.color.subtle.1",
+        "glow.text.color.subtle.5"
+    ],
+    "relations": {
+        "element_to_parent_id": {
+            "node-7": "node-1",
+            "node-8": "node-7",
+            "node-9": "node-8",
+            "node-doc-5": "node-9",
+            "node-10": "node-8",
+            "node-doc-7": "node-10",
+            "node-11": "node-7",
+            "node-12": "node-11",
+            "node-doc-10": "node-12",
+            "node-13": "node-11",
+            "node-doc-12": "node-13",
+            "node-14": "node-11",
+            "node-doc-14": "node-14",
+            "node-15": "node-11",
+            "node-doc-16": "node-15",
+            "node-16": "node-7",
+            "node-doc-18": "node-16",
+            "node-17": "node-7",
+            "node-18": "node-17",
+            "node-doc-21": "node-18",
+            "node-19": "node-17",
+            "node-20": "node-19",
+            "node-21": "node-20",
+            "node-doc-25": "node-21",
+            "node-22": "node-20",
+            "node-doc-27": "node-22",
+            "node-23": "node-19",
+            "node-24": "node-23",
+            "node-doc-30": "node-24",
+            "node-25": "node-23",
+            "node-doc-32": "node-25",
+            "node-26": "node-19",
+            "node-27": "node-26",
+            "node-doc-35": "node-27",
+            "node-28": "node-26",
+            "node-doc-37": "node-28",
+            "node-29": "node-17",
+            "node-doc-39": "node-29",
+            "node-30": "node-17",
+            "node-31": "node-30",
+            "node-doc-42": "node-31",
+            "node-32": "node-30",
+            "node-doc-44": "node-32",
+            "node-33": "node-17",
+            "node-doc-46": "node-33",
+            "node-34": "node-17",
+            "node-35": "node-34",
+            "node-36": "node-34",
+            "node-37": "node-34",
+            "node-38": "node-34",
+            "node-doc-52": "node-38",
+            "node-39": "node-7",
+            "node-40": "node-39",
+            "node-doc-55": "node-40",
+            "node-41": "node-39",
+            "node-doc-57": "node-41",
+            "node-doc-58": "node-39",
+            "node-42": "node-39",
+            "node-doc-60": "node-42",
+            "node-doc-61": "node-39",
+            "node-43": "node-39",
+            "node-doc-63": "node-43"
+        },
+        "element_to_children_ids": {
+            "node-1": [
+                "node-7"
+            ],
+            "node-7": [
+                "node-11",
+                "node-16",
+                "node-17",
+                "node-39",
+                "node-8"
+            ],
+            "node-8": [
+                "node-10",
+                "node-9"
+            ],
+            "node-9": [
+                "node-doc-5"
+            ],
+            "node-10": [
+                "node-doc-7"
+            ],
+            "node-11": [
+                "node-12",
+                "node-13",
+                "node-14",
+                "node-15"
+            ],
+            "node-12": [
+                "node-doc-10"
+            ],
+            "node-13": [
+                "node-doc-12"
+            ],
+            "node-14": [
+                "node-doc-14"
+            ],
+            "node-15": [
+                "node-doc-16"
+            ],
+            "node-16": [
+                "node-doc-18"
+            ],
+            "node-17": [
+                "node-18",
+                "node-19",
+                "node-29",
+                "node-30",
+                "node-33",
+                "node-34"
+            ],
+            "node-18": [
+                "node-doc-21"
+            ],
+            "node-19": [
+                "node-20",
+                "node-23",
+                "node-26"
+            ],
+            "node-20": [
+                "node-21",
+                "node-22"
+            ],
+            "node-21": [
+                "node-doc-25"
+            ],
+            "node-22": [
+                "node-doc-27"
+            ],
+            "node-23": [
+                "node-24",
+                "node-25"
+            ],
+            "node-24": [
+                "node-doc-30"
+            ],
+            "node-25": [
+                "node-doc-32"
+            ],
+            "node-26": [
+                "node-27",
+                "node-28"
+            ],
+            "node-27": [
+                "node-doc-35"
+            ],
+            "node-28": [
+                "node-doc-37"
+            ],
+            "node-29": [
+                "node-doc-39"
+            ],
+            "node-30": [
+                "node-31",
+                "node-32"
+            ],
+            "node-31": [
+                "node-doc-42"
+            ],
+            "node-32": [
+                "node-doc-44"
+            ],
+            "node-33": [
+                "node-doc-46"
+            ],
+            "node-34": [
+                "node-35",
+                "node-36",
+                "node-37",
+                "node-38"
+            ],
+            "node-38": [
+                "node-doc-52"
+            ],
+            "node-39": [
+                "node-40",
+                "node-41",
+                "node-42",
+                "node-43",
+                "node-doc-58",
+                "node-doc-61"
+            ],
+            "node-40": [
+                "node-doc-55"
+            ],
+            "node-41": [
+                "node-doc-57"
+            ],
+            "node-42": [
+                "node-doc-60"
+            ],
+            "node-43": [
+                "node-doc-63"
+            ]
+        },
+        "element_to_style_ids": {
+            "node-1": [],
+            "node-7": [
+                "style-1"
+            ],
+            "node-8": [
+                "style-3"
+            ],
+            "node-9": [
+                "style-4"
+            ],
+            "node-doc-5": [],
+            "node-10": [
+                "style-4"
+            ],
+            "node-doc-7": [],
+            "node-11": [
+                "style-5"
+            ],
+            "node-12": [
+                "style-7"
+            ],
+            "node-doc-10": [],
+            "node-13": [
+                "style-7"
+            ],
+            "node-doc-12": [],
+            "node-14": [
+                "style-7"
+            ],
+            "node-doc-14": [],
+            "node-15": [
+                "style-7"
+            ],
+            "node-doc-16": [],
+            "node-16": [
+                "style-8"
+            ],
+            "node-doc-18": [],
+            "node-17": [],
+            "node-18": [],
+            "node-doc-21": [],
+            "node-19": [
+                "style-9"
+            ],
+            "node-20": [
+                "style-11"
+            ],
+            "node-21": [],
+            "node-doc-25": [],
+            "node-22": [],
+            "node-doc-27": [],
+            "node-23": [
+                "style-11"
+            ],
+            "node-24": [],
+            "node-doc-30": [],
+            "node-25": [],
+            "node-doc-32": [],
+            "node-26": [
+                "style-11"
+            ],
+            "node-27": [],
+            "node-doc-35": [],
+            "node-28": [],
+            "node-doc-37": [],
+            "node-29": [],
+            "node-doc-39": [],
+            "node-30": [
+                "style-13"
+            ],
+            "node-31": [],
+            "node-doc-42": [],
+            "node-32": [],
+            "node-doc-44": [],
+            "node-33": [],
+            "node-doc-46": [],
+            "node-34": [
+                "style-15"
+            ],
+            "node-35": [
+                "style-17"
+            ],
+            "node-36": [
+                "style-17"
+            ],
+            "node-37": [
+                "style-17"
+            ],
+            "node-38": [
+                "style-21"
+            ],
+            "node-doc-52": [],
+            "node-39": [
+                "style-18"
+            ],
+            "node-40": [
+                "style-19"
+            ],
+            "node-doc-55": [],
+            "node-41": [
+                "style-20"
+            ],
+            "node-doc-57": [],
+            "node-doc-58": [],
+            "node-42": [
+                "style-20"
+            ],
+            "node-doc-60": [],
+            "node-doc-61": [],
+            "node-43": [
+                "style-20"
+            ],
+            "node-doc-63": []
+        },
+        "element_to_color_ids": {
+            "node-1": [],
+            "node-7": [
+                "color-1"
+            ],
+            "node-8": [
+                "color-2",
+                "color-3"
+            ],
+            "node-9": [
+                "color-3"
+            ],
+            "node-doc-5": [],
+            "node-10": [
+                "color-3"
+            ],
+            "node-doc-7": [],
+            "node-11": [
+                "color-4"
+            ],
+            "node-12": [
+                "color-5"
+            ],
+            "node-doc-10": [],
+            "node-13": [
+                "color-5"
+            ],
+            "node-doc-12": [],
+            "node-14": [
+                "color-5"
+            ],
+            "node-doc-14": [],
+            "node-15": [
+                "color-5"
+            ],
+            "node-doc-16": [],
+            "node-16": [
+                "color-5",
+                "color-6"
+            ],
+            "node-doc-18": [],
+            "node-17": [],
+            "node-18": [],
+            "node-doc-21": [],
+            "node-19": [],
+            "node-20": [
+                "color-7"
+            ],
+            "node-21": [],
+            "node-doc-25": [],
+            "node-22": [],
+            "node-doc-27": [],
+            "node-23": [
+                "color-7"
+            ],
+            "node-24": [],
+            "node-doc-30": [],
+            "node-25": [],
+            "node-doc-32": [],
+            "node-26": [
+                "color-7"
+            ],
+            "node-27": [],
+            "node-doc-35": [],
+            "node-28": [],
+            "node-doc-37": [],
+            "node-29": [],
+            "node-doc-39": [],
+            "node-30": [
+                "color-8"
+            ],
+            "node-31": [],
+            "node-doc-42": [],
+            "node-32": [],
+            "node-doc-44": [],
+            "node-33": [],
+            "node-doc-46": [],
+            "node-34": [
+                "color-9"
+            ],
+            "node-35": [
+                "color-10",
+                "color-11"
+            ],
+            "node-36": [
+                "color-10",
+                "color-11"
+            ],
+            "node-37": [
+                "color-10",
+                "color-11"
+            ],
+            "node-38": [
+                "color-8"
+            ],
+            "node-doc-52": [],
+            "node-39": [
+                "color-5",
+                "color-6"
+            ],
+            "node-40": [
+                "color-5"
+            ],
+            "node-doc-55": [],
+            "node-41": [
+                "color-12"
+            ],
+            "node-doc-57": [],
+            "node-doc-58": [],
+            "node-42": [
+                "color-12"
+            ],
+            "node-doc-60": [],
+            "node-doc-61": [],
+            "node-43": [
+                "color-12"
+            ],
+            "node-doc-63": []
+        },
+        "element_to_token_ids": {
+            "node-35": [
+                "glow.composed.border-bottom-color.subtle.1",
+                "glow.composed.border-left-color.subtle.1",
+                "glow.composed.border-right-color.subtle.1",
+                "glow.composed.border-top-color.subtle.1",
+                "glow.item.background-color.subtle.1"
+            ],
+            "node-36": [
+                "glow.composed.border-bottom-color.subtle.1",
+                "glow.composed.border-left-color.subtle.1",
+                "glow.composed.border-right-color.subtle.1",
+                "glow.composed.border-top-color.subtle.1",
+                "glow.item.background-color.subtle.1"
+            ],
+            "node-37": [
+                "glow.composed.border-bottom-color.subtle.1",
+                "glow.composed.border-left-color.subtle.1",
+                "glow.composed.border-right-color.subtle.1",
+                "glow.composed.border-top-color.subtle.1",
+                "glow.item.background-color.subtle.1"
+            ],
+            "node-38": [
+                "glow.item.background-color.subtle.1"
+            ],
+            "node-7": [
+                "glow.main_surface.background-color.subtle.1"
+            ],
+            "node-17": [
+                "glow.surface.background-color.transparent"
+            ],
+            "node-19": [
+                "glow.surface.background-color.transparent"
+            ],
+            "node-31": [
+                "glow.surface.background-color.transparent"
+            ],
+            "node-32": [
+                "glow.surface.background-color.transparent"
+            ],
+            "node-20": [
+                "glow.surface.box-shadow.elevated"
+            ],
+            "node-23": [
+                "glow.surface.box-shadow.elevated"
+            ],
+            "node-26": [
+                "glow.surface.box-shadow.elevated"
+            ],
+            "node-34": [
+                "glow.surface.box-shadow.elevated"
+            ],
+            "node-9": [
+                "glow.text.background-color.transparent",
+                "glow.text.color.subtle.1"
+            ],
+            "node-10": [
+                "glow.text.background-color.transparent",
+                "glow.text.color.subtle.1"
+            ],
+            "node-12": [
+                "glow.text.background-color.transparent",
+                "glow.text.color.emphasis.1"
+            ],
+            "node-13": [
+                "glow.text.background-color.transparent",
+                "glow.text.color.emphasis.1"
+            ],
+            "node-14": [
+                "glow.text.background-color.transparent",
+                "glow.text.color.emphasis.1"
+            ],
+            "node-15": [
+                "glow.text.background-color.transparent",
+                "glow.text.color.emphasis.1"
+            ],
+            "node-18": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-21": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-22": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-24": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-25": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-27": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-28": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-29": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-33": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-40": [
+                "glow.text.background-color.transparent",
+                "glow.text.color.emphasis.1"
+            ],
+            "node-41": [
+                "glow.text.background-color.transparent",
+                "glow.text.color.subtle.5"
+            ],
+            "node-42": [
+                "glow.text.background-color.transparent",
+                "glow.text.color.subtle.5"
+            ],
+            "node-43": [
+                "glow.text.background-color.transparent",
+                "glow.text.color.subtle.5"
+            ],
+            "node-16": [
+                "glow.text.color.emphasis.1"
+            ],
+            "node-39": [
+                "glow.text.color.emphasis.1"
+            ],
+            "node-8": [
+                "glow.text.color.subtle.1"
+            ]
+        },
+        "style_ref_to_token_ids": {
+            "style-17:border-bottom-color": [
+                "glow.composed.border-bottom-color.subtle.1"
+            ],
+            "style-17:border-left-color": [
+                "glow.composed.border-left-color.subtle.1"
+            ],
+            "style-17:border-right-color": [
+                "glow.composed.border-right-color.subtle.1"
+            ],
+            "style-17:border-top-color": [
+                "glow.composed.border-top-color.subtle.1"
+            ],
+            "style-17:background-color": [
+                "glow.item.background-color.subtle.1"
+            ],
+            "style-21:background-color": [
+                "glow.item.background-color.subtle.1"
+            ],
+            "style-1:background-color": [
+                "glow.main_surface.background-color.subtle.1"
+            ],
+            "node-17:background-color": [
+                "glow.surface.background-color.transparent"
+            ],
+            "node-19:background-color": [
+                "glow.surface.background-color.transparent"
+            ],
+            "node-31:background-color": [
+                "glow.surface.background-color.transparent"
+            ],
+            "node-32:background-color": [
+                "glow.surface.background-color.transparent"
+            ],
+            "node-20:box-shadow": [
+                "glow.surface.box-shadow.elevated"
+            ],
+            "node-23:box-shadow": [
+                "glow.surface.box-shadow.elevated"
+            ],
+            "node-26:box-shadow": [
+                "glow.surface.box-shadow.elevated"
+            ],
+            "node-34:box-shadow": [
+                "glow.surface.box-shadow.elevated"
+            ],
+            "node-9:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-10:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-12:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-13:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-14:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-15:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-18:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-21:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-22:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-24:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-25:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-27:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-28:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-29:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-33:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-40:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-41:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-42:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "node-43:background-color": [
+                "glow.text.background-color.transparent"
+            ],
+            "style-7:color": [
+                "glow.text.color.emphasis.1"
+            ],
+            "style-8:color": [
+                "glow.text.color.emphasis.1"
+            ],
+            "style-18:color": [
+                "glow.text.color.emphasis.1"
+            ],
+            "style-19:color": [
+                "glow.text.color.emphasis.1"
+            ],
+            "style-3:color": [
+                "glow.text.color.subtle.1"
+            ],
+            "style-4:color": [
+                "glow.text.color.subtle.1"
+            ],
+            "style-20:color": [
+                "glow.text.color.subtle.5"
+            ]
+        },
+        "color_to_token_ids": {
+            "color-10": [
+                "glow.color.custom.color_10",
+                "glow.item.background-color.subtle.1"
+            ],
+            "color-12": [
+                "glow.color.custom.color_12",
+                "glow.text.color.subtle.5"
+            ],
+            "color-2": [
+                "glow.color.custom.color_2"
+            ],
+            "color-4": [
+                "glow.color.custom.color_4"
+            ],
+            "color-6": [
+                "glow.color.custom.color_6"
+            ],
+            "color-7": [
+                "glow.color.custom.color_7"
+            ],
+            "color-9": [
+                "glow.color.custom.color_9"
+            ],
+            "color-11": [
+                "glow.composed.border-bottom-color.subtle.1",
+                "glow.composed.border-left-color.subtle.1",
+                "glow.composed.border-right-color.subtle.1",
+                "glow.composed.border-top-color.subtle.1"
+            ],
+            "color-8": [
+                "glow.item.background-color.subtle.1"
+            ],
+            "color-1": [
+                "glow.main_surface.background-color.subtle.1"
+            ],
+            "color-5": [
+                "glow.text.color.emphasis.1"
+            ],
+            "color-3": [
+                "glow.text.color.subtle.1"
+            ]
+        },
+        "palette_tone_to_token_ids": {
+            "palette-chromatic-4:10": [
+                "glow.color.blue.10"
+            ],
+            "palette-chromatic-4:20": [
+                "glow.color.blue.20"
+            ],
+            "palette-chromatic-4:30": [
+                "glow.color.blue.30"
+            ],
+            "palette-chromatic-4:40": [
+                "glow.color.blue.40"
+            ],
+            "palette-chromatic-4:50": [
+                "glow.color.blue.50"
+            ],
+            "palette-chromatic-4:60": [
+                "glow.color.blue.60"
+            ],
+            "palette-chromatic-4:70": [
+                "glow.color.blue.70"
+            ],
+            "palette-chromatic-4:80": [
+                "glow.color.blue.80"
+            ],
+            "palette-chromatic-4:90": [
+                "glow.color.blue.90"
+            ],
+            "palette-chromatic-4:95": [
+                "glow.color.blue.95"
+            ],
+            "palette-chromatic-4:98": [
+                "glow.color.blue.98"
+            ],
+            "palette-chromatic-6:10": [
+                "glow.color.fuchsia_magenta.10"
+            ],
+            "palette-chromatic-6:20": [
+                "glow.color.fuchsia_magenta.20"
+            ],
+            "palette-chromatic-6:30": [
+                "glow.color.fuchsia_magenta.30"
+            ],
+            "palette-chromatic-6:40": [
+                "glow.color.fuchsia_magenta.40"
+            ],
+            "palette-chromatic-6:50": [
+                "glow.color.fuchsia_magenta.50"
+            ],
+            "palette-chromatic-6:60": [
+                "glow.color.fuchsia_magenta.60"
+            ],
+            "palette-chromatic-6:70": [
+                "glow.color.fuchsia_magenta.70"
+            ],
+            "palette-chromatic-6:80": [
+                "glow.color.fuchsia_magenta.80"
+            ],
+            "palette-chromatic-6:90": [
+                "glow.color.fuchsia_magenta.90"
+            ],
+            "palette-chromatic-6:95": [
+                "glow.color.fuchsia_magenta.95"
+            ],
+            "palette-chromatic-6:98": [
+                "glow.color.fuchsia_magenta.98"
+            ],
+            "palette-chromatic-3:10": [
+                "glow.color.green.10"
+            ],
+            "palette-chromatic-3:20": [
+                "glow.color.green.20"
+            ],
+            "palette-chromatic-3:30": [
+                "glow.color.green.30"
+            ],
+            "palette-chromatic-3:40": [
+                "glow.color.green.40"
+            ],
+            "palette-chromatic-3:50": [
+                "glow.color.green.50"
+            ],
+            "palette-chromatic-3:60": [
+                "glow.color.green.60"
+            ],
+            "palette-chromatic-3:70": [
+                "glow.color.green.70"
+            ],
+            "palette-chromatic-3:80": [
+                "glow.color.green.80"
+            ],
+            "palette-chromatic-3:90": [
+                "glow.color.green.90"
+            ],
+            "palette-chromatic-3:95": [
+                "glow.color.green.95"
+            ],
+            "palette-chromatic-3:98": [
+                "glow.color.green.98"
+            ],
+            "palette-achromatic-1:0": [
+                "glow.color.neutral.0"
+            ],
+            "palette-achromatic-1:10": [
+                "glow.color.neutral.10"
+            ],
+            "palette-achromatic-1:100": [
+                "glow.color.neutral.100",
+                "glow.main_surface.background-color.subtle.1",
+                "glow.text.color.emphasis.1"
+            ],
+            "palette-achromatic-1:20": [
+                "glow.color.neutral.20"
+            ],
+            "palette-achromatic-1:30": [
+                "glow.color.neutral.30"
+            ],
+            "palette-achromatic-1:40": [
+                "glow.color.neutral.40"
+            ],
+            "palette-achromatic-1:50": [
+                "glow.color.neutral.50"
+            ],
+            "palette-achromatic-1:60": [
+                "glow.color.neutral.60"
+            ],
+            "palette-achromatic-1:70": [
+                "glow.color.neutral.70"
+            ],
+            "palette-achromatic-1:80": [
+                "glow.color.neutral.80",
+                "glow.composed.border-bottom-color.subtle.1",
+                "glow.composed.border-left-color.subtle.1",
+                "glow.composed.border-right-color.subtle.1",
+                "glow.composed.border-top-color.subtle.1"
+            ],
+            "palette-achromatic-1:90": [
+                "glow.color.neutral.90"
+            ],
+            "palette-achromatic-1:95": [
+                "glow.color.neutral.95"
+            ],
+            "palette-achromatic-1:98": [
+                "glow.color.neutral.98"
+            ],
+            "palette-achromatic-1:99": [
+                "glow.color.neutral.99"
+            ],
+            "palette-chromatic-5:10": [
+                "glow.color.orange.10"
+            ],
+            "palette-chromatic-5:20": [
+                "glow.color.orange.20"
+            ],
+            "palette-chromatic-5:30": [
+                "glow.color.orange.30"
+            ],
+            "palette-chromatic-5:40": [
+                "glow.color.orange.40"
+            ],
+            "palette-chromatic-5:50": [
+                "glow.color.orange.50"
+            ],
+            "palette-chromatic-5:60": [
+                "glow.color.orange.60"
+            ],
+            "palette-chromatic-5:70": [
+                "glow.color.orange.70"
+            ],
+            "palette-chromatic-5:80": [
+                "glow.color.orange.80"
+            ],
+            "palette-chromatic-5:90": [
+                "glow.color.orange.90"
+            ],
+            "palette-chromatic-5:95": [
+                "glow.color.orange.95"
+            ],
+            "palette-chromatic-5:98": [
+                "glow.color.orange.98"
+            ],
+            "palette-chromatic-1:10": [
+                "glow.color.red.10"
+            ],
+            "palette-chromatic-1:20": [
+                "glow.color.red.20"
+            ],
+            "palette-chromatic-1:30": [
+                "glow.color.red.30"
+            ],
+            "palette-chromatic-1:40": [
+                "glow.color.red.40"
+            ],
+            "palette-chromatic-1:50": [
+                "glow.color.red.50"
+            ],
+            "palette-chromatic-1:60": [
+                "glow.color.red.60"
+            ],
+            "palette-chromatic-1:70": [
+                "glow.color.red.70"
+            ],
+            "palette-chromatic-1:80": [
+                "glow.color.red.80"
+            ],
+            "palette-chromatic-1:90": [
+                "glow.color.red.90"
+            ],
+            "palette-chromatic-1:95": [
+                "glow.color.red.95"
+            ],
+            "palette-chromatic-1:98": [
+                "glow.color.red.98"
+            ],
+            "palette-chromatic-7:10": [
+                "glow.color.turquoise.10"
+            ],
+            "palette-chromatic-7:20": [
+                "glow.color.turquoise.20"
+            ],
+            "palette-chromatic-7:30": [
+                "glow.color.turquoise.30"
+            ],
+            "palette-chromatic-7:40": [
+                "glow.color.turquoise.40"
+            ],
+            "palette-chromatic-7:50": [
+                "glow.color.turquoise.50"
+            ],
+            "palette-chromatic-7:60": [
+                "glow.color.turquoise.60"
+            ],
+            "palette-chromatic-7:70": [
+                "glow.color.turquoise.70"
+            ],
+            "palette-chromatic-7:80": [
+                "glow.color.turquoise.80"
+            ],
+            "palette-chromatic-7:90": [
+                "glow.color.turquoise.90",
+                "glow.text.color.subtle.1"
+            ],
+            "palette-chromatic-7:95": [
+                "glow.color.turquoise.95"
+            ],
+            "palette-chromatic-7:98": [
+                "glow.color.turquoise.98"
+            ],
+            "palette-chromatic-2:10": [
+                "glow.color.violet.10"
+            ],
+            "palette-chromatic-2:20": [
+                "glow.color.violet.20"
+            ],
+            "palette-chromatic-2:30": [
+                "glow.color.violet.30"
+            ],
+            "palette-chromatic-2:40": [
+                "glow.color.violet.40"
+            ],
+            "palette-chromatic-2:50": [
+                "glow.color.violet.50"
+            ],
+            "palette-chromatic-2:60": [
+                "glow.color.violet.60"
+            ],
+            "palette-chromatic-2:70": [
+                "glow.color.violet.70"
+            ],
+            "palette-chromatic-2:80": [
+                "glow.color.violet.80"
+            ],
+            "palette-chromatic-2:90": [
+                "glow.color.violet.90"
+            ],
+            "palette-chromatic-2:95": [
+                "glow.color.violet.95"
+            ],
+            "palette-chromatic-2:98": [
+                "glow.color.violet.98"
+            ],
+            "palette-chromatic-8:10": [
+                "glow.color.yellow.10"
+            ],
+            "palette-chromatic-8:20": [
+                "glow.color.yellow.20"
+            ],
+            "palette-chromatic-8:30": [
+                "glow.color.yellow.30"
+            ],
+            "palette-chromatic-8:40": [
+                "glow.color.yellow.40"
+            ],
+            "palette-chromatic-8:50": [
+                "glow.color.yellow.50"
+            ],
+            "palette-chromatic-8:60": [
+                "glow.color.yellow.60"
+            ],
+            "palette-chromatic-8:70": [
+                "glow.color.yellow.70"
+            ],
+            "palette-chromatic-8:80": [
+                "glow.color.yellow.80"
+            ],
+            "palette-chromatic-8:90": [
+                "glow.color.yellow.90"
+            ],
+            "palette-chromatic-8:95": [
+                "glow.color.yellow.95"
+            ],
+            "palette-chromatic-8:98": [
+                "glow.color.yellow.98"
+            ]
+        },
+        "element_adjacency": {
+            "node-1": [
+                "node-7",
+                "node-8",
+                "node-9",
+                "node-doc-5",
+                "node-10",
+                "node-doc-7",
+                "node-11",
+                "node-12",
+                "node-doc-10",
+                "node-13",
+                "node-doc-12",
+                "node-14",
+                "node-doc-14",
+                "node-15",
+                "node-doc-16",
+                "node-16",
+                "node-doc-18",
+                "node-17",
+                "node-18",
+                "node-doc-21",
+                "node-19",
+                "node-20",
+                "node-21",
+                "node-doc-25",
+                "node-22",
+                "node-doc-27",
+                "node-23",
+                "node-24",
+                "node-doc-30",
+                "node-25",
+                "node-doc-32",
+                "node-26",
+                "node-27",
+                "node-doc-35",
+                "node-28",
+                "node-doc-37",
+                "node-29",
+                "node-doc-39",
+                "node-30",
+                "node-31",
+                "node-doc-42",
+                "node-32",
+                "node-doc-44",
+                "node-33",
+                "node-doc-46",
+                "node-34",
+                "node-35",
+                "node-36",
+                "node-37",
+                "node-38",
+                "node-doc-52",
+                "node-39",
+                "node-40",
+                "node-doc-55",
+                "node-41",
+                "node-doc-57",
+                "node-doc-58",
+                "node-42",
+                "node-doc-60",
+                "node-doc-61",
+                "node-43",
+                "node-doc-63"
+            ],
+            "node-7": [
+                "node-1",
+                "node-8",
+                "node-9",
+                "node-doc-5",
+                "node-10",
+                "node-doc-7",
+                "node-11",
+                "node-12",
+                "node-doc-10",
+                "node-13",
+                "node-doc-12",
+                "node-14",
+                "node-doc-14",
+                "node-15",
+                "node-doc-16",
+                "node-16",
+                "node-doc-18",
+                "node-17",
+                "node-18",
+                "node-doc-21",
+                "node-19",
+                "node-20",
+                "node-21",
+                "node-doc-25",
+                "node-22",
+                "node-doc-27",
+                "node-23",
+                "node-24",
+                "node-doc-30",
+                "node-25",
+                "node-doc-32",
+                "node-26",
+                "node-27",
+                "node-doc-35",
+                "node-28",
+                "node-doc-37",
+                "node-29",
+                "node-doc-39",
+                "node-30",
+                "node-31",
+                "node-doc-42",
+                "node-32",
+                "node-doc-44",
+                "node-33",
+                "node-doc-46",
+                "node-34",
+                "node-35",
+                "node-36",
+                "node-37",
+                "node-38",
+                "node-doc-52",
+                "node-39",
+                "node-40",
+                "node-doc-55",
+                "node-41",
+                "node-doc-57",
+                "node-doc-58",
+                "node-42",
+                "node-doc-60",
+                "node-doc-61",
+                "node-43",
+                "node-doc-63"
+            ],
+            "node-8": [
+                "node-1",
+                "node-7",
+                "node-9",
+                "node-doc-5",
+                "node-10",
+                "node-doc-7",
+                "node-11",
+                "node-16",
+                "node-17",
+                "node-39"
+            ],
+            "node-9": [
+                "node-1",
+                "node-7",
+                "node-8",
+                "node-doc-5",
+                "node-10"
+            ],
+            "node-doc-5": [
+                "node-1",
+                "node-7",
+                "node-8",
+                "node-9"
+            ],
+            "node-10": [
+                "node-1",
+                "node-7",
+                "node-8",
+                "node-9",
+                "node-doc-7"
+            ],
+            "node-doc-7": [
+                "node-1",
+                "node-7",
+                "node-8",
+                "node-10"
+            ],
+            "node-11": [
+                "node-1",
+                "node-7",
+                "node-8",
+                "node-12",
+                "node-doc-10",
+                "node-13",
+                "node-doc-12",
+                "node-14",
+                "node-doc-14",
+                "node-15",
+                "node-doc-16",
+                "node-16",
+                "node-17",
+                "node-39"
+            ],
+            "node-12": [
+                "node-1",
+                "node-7",
+                "node-11",
+                "node-doc-10",
+                "node-13",
+                "node-14",
+                "node-15"
+            ],
+            "node-doc-10": [
+                "node-1",
+                "node-7",
+                "node-11",
+                "node-12"
+            ],
+            "node-13": [
+                "node-1",
+                "node-7",
+                "node-11",
+                "node-12",
+                "node-doc-12",
+                "node-14",
+                "node-15"
+            ],
+            "node-doc-12": [
+                "node-1",
+                "node-7",
+                "node-11",
+                "node-13"
+            ],
+            "node-14": [
+                "node-1",
+                "node-7",
+                "node-11",
+                "node-12",
+                "node-13",
+                "node-doc-14",
+                "node-15"
+            ],
+            "node-doc-14": [
+                "node-1",
+                "node-7",
+                "node-11",
+                "node-14"
+            ],
+            "node-15": [
+                "node-1",
+                "node-7",
+                "node-11",
+                "node-12",
+                "node-13",
+                "node-14",
+                "node-doc-16"
+            ],
+            "node-doc-16": [
+                "node-1",
+                "node-7",
+                "node-11",
+                "node-15"
+            ],
+            "node-16": [
+                "node-1",
+                "node-7",
+                "node-8",
+                "node-11",
+                "node-doc-18",
+                "node-17",
+                "node-39"
+            ],
+            "node-doc-18": [
+                "node-1",
+                "node-7",
+                "node-16"
+            ],
+            "node-17": [
+                "node-1",
+                "node-7",
+                "node-8",
+                "node-11",
+                "node-16",
+                "node-18",
+                "node-doc-21",
+                "node-19",
+                "node-20",
+                "node-21",
+                "node-doc-25",
+                "node-22",
+                "node-doc-27",
+                "node-23",
+                "node-24",
+                "node-doc-30",
+                "node-25",
+                "node-doc-32",
+                "node-26",
+                "node-27",
+                "node-doc-35",
+                "node-28",
+                "node-doc-37",
+                "node-29",
+                "node-doc-39",
+                "node-30",
+                "node-31",
+                "node-doc-42",
+                "node-32",
+                "node-doc-44",
+                "node-33",
+                "node-doc-46",
+                "node-34",
+                "node-35",
+                "node-36",
+                "node-37",
+                "node-38",
+                "node-doc-52",
+                "node-39"
+            ],
+            "node-18": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-doc-21",
+                "node-19",
+                "node-29",
+                "node-30",
+                "node-33",
+                "node-34"
+            ],
+            "node-doc-21": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-18"
+            ],
+            "node-19": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-18",
+                "node-20",
+                "node-21",
+                "node-doc-25",
+                "node-22",
+                "node-doc-27",
+                "node-23",
+                "node-24",
+                "node-doc-30",
+                "node-25",
+                "node-doc-32",
+                "node-26",
+                "node-27",
+                "node-doc-35",
+                "node-28",
+                "node-doc-37",
+                "node-29",
+                "node-30",
+                "node-33",
+                "node-34"
+            ],
+            "node-20": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-19",
+                "node-21",
+                "node-doc-25",
+                "node-22",
+                "node-doc-27",
+                "node-23",
+                "node-26"
+            ],
+            "node-21": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-19",
+                "node-20",
+                "node-doc-25",
+                "node-22"
+            ],
+            "node-doc-25": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-19",
+                "node-20",
+                "node-21"
+            ],
+            "node-22": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-19",
+                "node-20",
+                "node-21",
+                "node-doc-27"
+            ],
+            "node-doc-27": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-19",
+                "node-20",
+                "node-22"
+            ],
+            "node-23": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-19",
+                "node-20",
+                "node-24",
+                "node-doc-30",
+                "node-25",
+                "node-doc-32",
+                "node-26"
+            ],
+            "node-24": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-19",
+                "node-23",
+                "node-doc-30",
+                "node-25"
+            ],
+            "node-doc-30": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-19",
+                "node-23",
+                "node-24"
+            ],
+            "node-25": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-19",
+                "node-23",
+                "node-24",
+                "node-doc-32"
+            ],
+            "node-doc-32": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-19",
+                "node-23",
+                "node-25"
+            ],
+            "node-26": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-19",
+                "node-20",
+                "node-23",
+                "node-27",
+                "node-doc-35",
+                "node-28",
+                "node-doc-37"
+            ],
+            "node-27": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-19",
+                "node-26",
+                "node-doc-35",
+                "node-28"
+            ],
+            "node-doc-35": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-19",
+                "node-26",
+                "node-27"
+            ],
+            "node-28": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-19",
+                "node-26",
+                "node-27",
+                "node-doc-37"
+            ],
+            "node-doc-37": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-19",
+                "node-26",
+                "node-28"
+            ],
+            "node-29": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-18",
+                "node-19",
+                "node-doc-39",
+                "node-30",
+                "node-33",
+                "node-34"
+            ],
+            "node-doc-39": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-29"
+            ],
+            "node-30": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-18",
+                "node-19",
+                "node-29",
+                "node-31",
+                "node-doc-42",
+                "node-32",
+                "node-doc-44",
+                "node-33",
+                "node-34"
+            ],
+            "node-31": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-30",
+                "node-doc-42",
+                "node-32"
+            ],
+            "node-doc-42": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-30",
+                "node-31"
+            ],
+            "node-32": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-30",
+                "node-31",
+                "node-doc-44"
+            ],
+            "node-doc-44": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-30",
+                "node-32"
+            ],
+            "node-33": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-18",
+                "node-19",
+                "node-29",
+                "node-30",
+                "node-doc-46",
+                "node-34"
+            ],
+            "node-doc-46": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-33"
+            ],
+            "node-34": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-18",
+                "node-19",
+                "node-29",
+                "node-30",
+                "node-33",
+                "node-35",
+                "node-36",
+                "node-37",
+                "node-38",
+                "node-doc-52"
+            ],
+            "node-35": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-34",
+                "node-36",
+                "node-37",
+                "node-38"
+            ],
+            "node-36": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-34",
+                "node-35",
+                "node-37",
+                "node-38"
+            ],
+            "node-37": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-34",
+                "node-35",
+                "node-36",
+                "node-38"
+            ],
+            "node-38": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-34",
+                "node-35",
+                "node-36",
+                "node-37",
+                "node-doc-52"
+            ],
+            "node-doc-52": [
+                "node-1",
+                "node-7",
+                "node-17",
+                "node-34",
+                "node-38"
+            ],
+            "node-39": [
+                "node-1",
+                "node-7",
+                "node-8",
+                "node-11",
+                "node-16",
+                "node-17",
+                "node-40",
+                "node-doc-55",
+                "node-41",
+                "node-doc-57",
+                "node-doc-58",
+                "node-42",
+                "node-doc-60",
+                "node-doc-61",
+                "node-43",
+                "node-doc-63"
+            ],
+            "node-40": [
+                "node-1",
+                "node-7",
+                "node-39",
+                "node-doc-55",
+                "node-41",
+                "node-doc-58",
+                "node-42",
+                "node-doc-61",
+                "node-43"
+            ],
+            "node-doc-55": [
+                "node-1",
+                "node-7",
+                "node-39",
+                "node-40"
+            ],
+            "node-41": [
+                "node-1",
+                "node-7",
+                "node-39",
+                "node-40",
+                "node-doc-57",
+                "node-doc-58",
+                "node-42",
+                "node-doc-61",
+                "node-43"
+            ],
+            "node-doc-57": [
+                "node-1",
+                "node-7",
+                "node-39",
+                "node-41"
+            ],
+            "node-doc-58": [
+                "node-1",
+                "node-7",
+                "node-39",
+                "node-40",
+                "node-41",
+                "node-42",
+                "node-doc-61",
+                "node-43"
+            ],
+            "node-42": [
+                "node-1",
+                "node-7",
+                "node-39",
+                "node-40",
+                "node-41",
+                "node-doc-58",
+                "node-doc-60",
+                "node-doc-61",
+                "node-43"
+            ],
+            "node-doc-60": [
+                "node-1",
+                "node-7",
+                "node-39",
+                "node-42"
+            ],
+            "node-doc-61": [
+                "node-1",
+                "node-7",
+                "node-39",
+                "node-40",
+                "node-41",
+                "node-doc-58",
+                "node-42",
+                "node-43"
+            ],
+            "node-43": [
+                "node-1",
+                "node-7",
+                "node-39",
+                "node-40",
+                "node-41",
+                "node-doc-58",
+                "node-42",
+                "node-doc-61",
+                "node-doc-63"
+            ],
+            "node-doc-63": [
+                "node-1",
+                "node-7",
+                "node-39",
+                "node-43"
+            ]
+        }
+    },
+    "schema_version": "3.0",
+    "generated_from": "inventory.graph.tokens",
+    "summary": {
+        "element_count": 63,
+        "visible_element_count": 63,
+        "text_element_count": 49,
+        "root_count": 1,
+        "leaf_element_count": 28,
+        "out_of_scope_element_count": 0,
+        "stacking_context_count": 0,
+        "style_count": 21,
+        "declaration_count": 42,
+        "used_declaration_count": 42,
+        "computed_style_count": 96,
+        "exact_match_count": 52,
+        "ambiguous_match_count": 0,
+        "unresolved_match_count": 44,
+        "color_count": 13,
+        "mapped_color_count": 13,
+        "confirmed_color_count": 11,
+        "palette_count": 9,
+        "chromatic_palette_count": 8,
+        "token_count": 121,
+        "foundation_token_count": 109,
+        "semantic_token_count": 11,
+        "component_token_count": 1,
+        "validated_token_count": 121,
+        "failed_token_count": 0,
+        "tokenized_element_count": 35,
+        "tokenized_style_ref_count": 41,
+        "tokenized_color_count": 12,
+        "tokenized_palette_tone_count": 102,
+        "pixel_count": 2092320,
+        "raw_pixel_count": 2092320,
+        "raw_distinct_color_count": 1128,
+        "display_pixel_count": 2092320,
+        "matched_inventory_pixel_count": 2073512,
+        "unmatched_visual_pixel_count": 18808,
+        "unmatched_visual_cluster_count": 189,
+        "inline_style_count": 0,
+        "stylesheet_count": 1,
+        "external_stylesheet_count": 0,
+        "inline_stylesheet_count": 1,
+        "media_query_count": 0,
+        "contrast_issue_count": 11,
+        "unused_declaration_count": 0
+    }
+}
