@@ -5,19 +5,12 @@ from dataclasses import asdict, dataclass, field, replace
 import re
 from typing import Any, Iterable, Iterator, Mapping, Self
 
-from engine.domain.data.css_properties import CSS_PROPERTIES_BY_ID, CssColorRole
+from engine.domain.data.css_properties import CssColorRole, get_css_property
 from engine.domain.data.web_colors import nearest_web_color
+from engine.adapters.color_service import color_registry
 from engine.domain.enums.types.color import (
     ColorConfirmationStatus,
     ColorFamilyType,
-)
-from engine.domain.utils.coloraide import (
-    alpha_value,
-    color_to_hex,
-    color_to_rgb_tuple,
-    delta_e_distance,
-    hct_coords,
-    parse_color,
 )
 
 _ACHROMATIC_CHROMA_THRESHOLD = 8.0
@@ -316,7 +309,7 @@ class ColorInventoryEntry:
     @classmethod
     def build(cls, payload: Mapping[str, Any]) -> Self:
         value = str(payload.get("value") or "").strip()
-        rgb = color_to_rgb_tuple(value)
+        rgb = color_registry.format_color(value, "rgb")
         nearest_match = nearest_web_color(rgb)
         node_ids = tuple(
             str(item).strip()
@@ -336,10 +329,10 @@ class ColorInventoryEntry:
         return cls(
             color_id=str(payload.get("color_id") or ""),
             value=value,
-            hex_value=color_to_hex(value),
+            hex_value=color_registry.format_color(value, "hex"),
             rgb=rgb,
-            alpha=alpha_value(value),
-            hct=hct_coords(value),
+            alpha=color_registry.alpha_of(value),
+            hct=color_registry.hct_of(value),
             usage_count=int(payload.get("usage_count") or len(node_ids) or 0),
             node_ids=node_ids,
             usage=tuple(
@@ -619,8 +612,8 @@ class ColorInventoryModel:
 
     def entry_by_value(self, value: str) -> ColorInventoryEntry | None:
         try:
-            hex_value = color_to_hex(value)
-            alpha = alpha_value(value)
+            hex_value = color_registry.format_color(value, "hex")
+            alpha = color_registry.alpha_of(value)
         except Exception:
             return None
         return next(
@@ -724,8 +717,8 @@ class SnapshotColorEvidence:
         if not value:
             return None
 
-        hct = hct_coords(value)
-        rgb = color_to_rgb_tuple(value)
+        hct = color_registry.hct_of(value)
+        rgb = color_registry.format_color(value, "rgb")
         match = nearest_web_color(rgb)
 
         foreground_count = 0
@@ -746,7 +739,7 @@ class SnapshotColorEvidence:
             property_name = str(usage.get("property") or "")
             tag_name = str(usage.get("tag") or "")
             count = int(usage.get("count") or 0)
-            property_spec = CSS_PROPERTIES_BY_ID.get(property_name)
+            property_spec = get_css_property(property_name)
             if property_spec and property_spec.color_role == CssColorRole.BACKGROUND:
                 background_count += count
                 background_usages[property_name][tag_name] += count
@@ -772,7 +765,7 @@ class SnapshotColorEvidence:
         return cls(
             color_id=str(color_payload.get("color_id") or ""),
             rgb=rgb,
-            alpha=alpha_value(value),
+            alpha=color_registry.alpha_of(value),
             hct=hct,  # type: ignore[arg-type]
             family_type=_family_type_for_hct(hct[1]),
             usage_count=int(color_payload.get("usage_count") or 0),
@@ -818,22 +811,29 @@ class SnapshotColorEvidence:
             residual_pixels = sum(item.count for item in pixel_records)
             return (), 0, residual_pixels
 
-        evidence_colors = {evidence.color_id: parse_color(evidence.rgb) for evidence in evidences}
+        evidence_colors = {
+            evidence.color_id: color_registry.parse_color(evidence.rgb)
+            for evidence in evidences
+        }
         confirmed_counts = {evidence.color_id: 0 for evidence in evidences}
         residual_pixel_count = 0
         residual_distinct_colors = 0
 
         for pixel_record in pixel_records:
-            pixel_color = parse_color(pixel_record.color)
+            pixel_color = color_registry.parse_color(pixel_record.color)
             best_match = min(
                 evidences,
-                key=lambda evidence: delta_e_distance(
+                key=lambda evidence: color_registry.delta_e_distance(
                     pixel_color,
                     evidence_colors[evidence.color_id],
                     method="2000",
                 ),
             )
-            distance = delta_e_distance(pixel_color, evidence_colors[best_match.color_id], method="2000")
+            distance = color_registry.delta_e_distance(
+                pixel_color,
+                evidence_colors[best_match.color_id],
+                method="2000",
+            )
             if distance <= delta_e_threshold:
                 confirmed_counts[best_match.color_id] += pixel_record.count
             else:
@@ -894,6 +894,49 @@ class SnapshotColorEvidence:
         if self.mapped_tone_rgb is not None:
             payload["mapped_tone_rgb"] = list(self.mapped_tone_rgb)
         return payload
+
+
+def build_inventory_from_scheme_colors(
+    evidences: Iterable[SnapshotColorEvidence | Mapping[str, Any]],
+) -> ColorInventoryModel:
+    payloads: list[dict[str, Any]] = []
+    for raw_evidence in evidences:
+        evidence = (
+            raw_evidence
+            if isinstance(raw_evidence, SnapshotColorEvidence)
+            else SnapshotColorEvidence.build(raw_evidence)
+        )
+        if evidence is None:
+            continue
+
+        usage_rows: list[dict[str, Any]] = []
+        for property_usage in evidence:
+            for tag_usage in property_usage.tags:
+                usage_rows.append(
+                    {
+                        "tag": tag_usage.tag,
+                        "property": property_usage.property_name,
+                        "count": tag_usage.count,
+                    }
+                )
+
+        payloads.append(
+            {
+                "color_id": evidence.color_id,
+                "value": color_registry.format_color((*evidence.rgb, evidence.alpha), "css"),
+                "usage_count": evidence.usage_count,
+                "usage": usage_rows,
+                "display_pixel_count": evidence.confirmed_pixel_count,
+                "mapped_palette_id": evidence.mapped_palette_id,
+                "mapped_tone": evidence.mapped_tone,
+                "mapped_tone_rgb": list(evidence.mapped_tone_rgb)
+                if evidence.mapped_tone_rgb is not None
+                else None,
+                "mapped_tone_distance": evidence.mapped_tone_distance,
+            }
+        )
+
+    return ColorInventoryModel.build(payloads)
 
 
 ColorModel = ColorInventoryEntry

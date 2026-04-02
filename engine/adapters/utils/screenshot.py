@@ -4,8 +4,8 @@ from typing import Any, Iterable, Mapping, Sequence
 import numpy as np
 from PIL import Image
 
+from engine.adapters.color_service import color_registry
 from engine.domain.models.color import PixelColorRecord
-from engine.domain.utils.coloraide import delta_e_distance
 
 
 def load_image_array(image_source: Any) -> np.ndarray:
@@ -91,7 +91,7 @@ def cluster_color_records(
         matched_index: int | None = None
         matched_distance: float | None = None
         for index, candidate in enumerate(clustered):
-            distance = delta_e_distance(record.color, candidate.color, method="2000")
+            distance = color_registry.delta_e_distance(record.color, candidate.color, method="2000")
             if distance <= distance_threshold and (
                 matched_distance is None or distance < matched_distance
             ):

@@ -4,8 +4,11 @@ import re
 from functools import lru_cache
 from typing import Any
 
-from engine.domain.data.html_elements import HTML_ELEMENTS_BY_ID
-from engine.domain.data.html_elements import IGNORED_HTML_TAGS, MEDIA_METADATA_ONLY_TAGS
+from engine.domain.data.html_elements import (
+    IGNORED_HTML_TAGS,
+    MEDIA_METADATA_ONLY_TAGS,
+    get_html_element,
+)
 
 _WHITESPACE_RE = re.compile(r"\s+")
 
@@ -199,7 +202,8 @@ def build_layout_nodes(snapshot_payload: dict[str, Any]) -> tuple[list[dict[str,
         if tag_name in IGNORED_HTML_TAGS:
             continue
 
-        if tag_name not in HTML_ELEMENTS_BY_ID:
+        element_spec = get_html_element(tag_name)
+        if element_spec is None:
             continue
 
         retained_indexes.append(index)
@@ -350,6 +354,10 @@ def build_layout_nodes(snapshot_payload: dict[str, Any]) -> tuple[list[dict[str,
 
         direct_text = _direct_text(source_index)
 
+        element_spec = get_html_element(tag_name)
+        if element_spec is None:
+            continue
+
         raw_nodes.append(
             {
                 "source_index": source_index,
@@ -357,7 +365,7 @@ def build_layout_nodes(snapshot_payload: dict[str, Any]) -> tuple[list[dict[str,
                 "parent_source_index": _nearest_retained_parent(source_index),
                 "document_order": document_order,
                 "paint_order": layout_entry.get("paint_order"),
-                "is_out_of_scope": HTML_ELEMENTS_BY_ID[tag_name].scope_group.value == "out_of_scope_visible",
+                "is_out_of_scope": element_spec.scope_group.value == "out_of_scope_visible",
                 "identity": {
                     "tag": tag_name,
                     "node_name": tag_name.upper(),
@@ -391,7 +399,7 @@ def build_layout_nodes(snapshot_payload: dict[str, Any]) -> tuple[list[dict[str,
                 },
                 "text": direct_text or None,
                 "flags": {
-                    "is_out_of_scope": HTML_ELEMENTS_BY_ID[tag_name].scope_group.value == "out_of_scope_visible",
+                    "is_out_of_scope": element_spec.scope_group.value == "out_of_scope_visible",
                     "is_visible": _is_layout_visible(bounds),
                     "is_stacking_context": bool(layout_entry.get("is_stacking_context", False)),
                     "is_text_node": False,

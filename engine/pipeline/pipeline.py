@@ -22,14 +22,6 @@ from engine.pipeline.stages.assess_transformed_environmental_impact import (
 )
 from engine.pipeline.stages.build_color_scheme import CONTRACT as BUILD_COLOR_SCHEME_CONTRACT
 from engine.pipeline.stages.build_color_scheme import run_stage as run_build_color_scheme_stage
-from engine.pipeline.stages.build_inventories import CONTRACT as BUILD_INVENTORIES_CONTRACT
-from engine.pipeline.stages.build_inventories import run_stage as run_build_inventories_stage
-from engine.pipeline.stages.build_inventory_graph_base import (
-    CONTRACT as BUILD_INVENTORY_GRAPH_BASE_CONTRACT,
-)
-from engine.pipeline.stages.build_inventory_graph_base import (
-    run_stage as run_build_inventory_graph_base_stage,
-)
 from engine.pipeline.stages.build_contrast_report import (
     CONTRACT as BUILD_CONTRAST_REPORT_CONTRACT,
 )
@@ -42,20 +34,18 @@ from engine.pipeline.stages.build_effect_color_report import (
 from engine.pipeline.stages.build_effect_color_report import (
     run_stage as run_build_effect_color_report_stage,
 )
-from engine.pipeline.stages.analyze_color_inventory import CONTRACT as ANALYZE_COLOR_INVENTORY_CONTRACT
-from engine.pipeline.stages.analyze_color_inventory import run_stage as run_analyze_color_inventory_stage
+from engine.pipeline.stages.capture_display_pixels import CONTRACT as CAPTURE_DISPLAY_PIXELS_CONTRACT
+from engine.pipeline.stages.capture_display_pixels import run_stage as run_capture_display_pixels_stage
 from engine.pipeline.stages.capture_original_state import CONTRACT as CAPTURE_ORIGINAL_STATE_CONTRACT
 from engine.pipeline.stages.capture_original_state import run_stage as run_capture_original_state_stage
-from engine.pipeline.stages.enrich_color_inventory import CONTRACT as ENRICH_COLOR_INVENTORY_CONTRACT
-from engine.pipeline.stages.enrich_color_inventory import run_stage as run_enrich_color_inventory_stage
-from engine.pipeline.stages.map_color_inventory_to_scheme import (
-    CONTRACT as MAP_COLOR_INVENTORY_TO_SCHEME_CONTRACT,
-)
-from engine.pipeline.stages.map_color_inventory_to_scheme import (
-    run_stage as run_map_color_inventory_to_scheme_stage,
-)
+from engine.pipeline.stages.capture_prototype_structure import CONTRACT as CAPTURE_PROTOTYPE_STRUCTURE_CONTRACT
+from engine.pipeline.stages.capture_prototype_structure import run_stage as run_capture_prototype_structure_stage
+from engine.pipeline.stages.close_page_builder import CONTRACT as CLOSE_PAGE_BUILDER_CONTRACT
+from engine.pipeline.stages.close_page_builder import run_stage as run_close_page_builder_stage
 from engine.pipeline.stages.prepare_project_session import CONTRACT as PREPARE_PROJECT_SESSION_CONTRACT
 from engine.pipeline.stages.prepare_project_session import run_stage as run_prepare_project_session_stage
+from engine.pipeline.stages.start_page_builder import CONTRACT as START_PAGE_BUILDER_CONTRACT
+from engine.pipeline.stages.start_page_builder import run_stage as run_start_page_builder_stage
 from engine.pipeline.stages.set_tokens import CONTRACT as SET_TOKENS_CONTRACT
 from engine.pipeline.stages.set_tokens import run_stage as run_set_tokens_stage
 from engine.pipeline.stages.check_tokens import CONTRACT as CHECK_TOKENS_CONTRACT
@@ -65,19 +55,18 @@ from engine.pipeline.stages.transform_source_project import run_stage as run_tra
 
 _STAGES: tuple[tuple[StageContract, Any], ...] = (
     (PREPARE_PROJECT_SESSION_CONTRACT, run_prepare_project_session_stage),
+    (START_PAGE_BUILDER_CONTRACT, run_start_page_builder_stage),
     (CAPTURE_ORIGINAL_STATE_CONTRACT, run_capture_original_state_stage),
+    (CAPTURE_PROTOTYPE_STRUCTURE_CONTRACT, run_capture_prototype_structure_stage),
+    (CAPTURE_DISPLAY_PIXELS_CONTRACT, run_capture_display_pixels_stage),
+    (BUILD_COLOR_SCHEME_CONTRACT, run_build_color_scheme_stage),
+    (BUILD_CONTRAST_REPORT_CONTRACT, run_build_contrast_report_stage),
+    (BUILD_EFFECT_COLOR_REPORT_CONTRACT, run_build_effect_color_report_stage),
+    (CLOSE_PAGE_BUILDER_CONTRACT, run_close_page_builder_stage),
     (
         ASSESS_ORIGINAL_ENVIRONMENTAL_IMPACT_CONTRACT,
         run_assess_original_environmental_impact_stage,
     ),
-    (BUILD_INVENTORIES_CONTRACT, run_build_inventories_stage),
-    (ENRICH_COLOR_INVENTORY_CONTRACT, run_enrich_color_inventory_stage),
-    (ANALYZE_COLOR_INVENTORY_CONTRACT, run_analyze_color_inventory_stage),
-    (BUILD_COLOR_SCHEME_CONTRACT, run_build_color_scheme_stage),
-    (MAP_COLOR_INVENTORY_TO_SCHEME_CONTRACT, run_map_color_inventory_to_scheme_stage),
-    (BUILD_INVENTORY_GRAPH_BASE_CONTRACT, run_build_inventory_graph_base_stage),
-    (BUILD_CONTRAST_REPORT_CONTRACT, run_build_contrast_report_stage),
-    (BUILD_EFFECT_COLOR_REPORT_CONTRACT, run_build_effect_color_report_stage),
     (SET_TOKENS_CONTRACT, run_set_tokens_stage),
     (CHECK_TOKENS_CONTRACT, run_check_tokens_stage),
     (TRANSFORM_SOURCE_PROJECT_CONTRACT, run_transform_source_project_stage),
@@ -89,38 +78,53 @@ _STAGES: tuple[tuple[StageContract, Any], ...] = (
 )
 
 
+def _close_runtime_page_builder(context: PipelineContext) -> None:
+    page_builder = context.get("session.runtime.page_builder")
+    close = getattr(page_builder, "close", None)
+    if callable(close):
+        try:
+            close()
+        except Exception:
+            pass
+    context.delete("session.runtime.page_builder")
+
+
 def run_pipeline(file) -> tuple[dict[str, Any] | None, str | None]:
     context = PipelineContext(file=file, trace=DebugTrace(enabled=True))
-    for contract, stage_runner in _STAGES:
-        if context.error:
-            break
-        try:
-            context.trace.add_stage_event(contract.name, "validate_requires")
-            validate_requires(context, contract)
-            context = stage_runner(context)
+    try:
+        for contract, stage_runner in _STAGES:
             if context.error:
+                break
+            try:
+                context.trace.add_stage_event(contract.name, "validate_requires")
+                validate_requires(context, contract)
+                context = stage_runner(context)
+                if context.error:
+                    context.trace.add_stage_event(
+                        contract.name,
+                        "error",
+                        {"message": context.error},
+                    )
+                    break
+                context.trace.add_stage_event(contract.name, "validate_produces")
+                validate_produces(context, contract)
+            except PipelineContractError as exc:
+                context.set_error(str(exc))
                 context.trace.add_stage_event(
                     contract.name,
                     "error",
                     {"message": context.error},
                 )
                 break
-            context.trace.add_stage_event(contract.name, "validate_produces")
-            validate_produces(context, contract)
-        except PipelineContractError as exc:
-            context.set_error(str(exc))
-            context.trace.add_stage_event(
-                contract.name,
-                "error",
-                {"message": context.error},
-            )
-            break
-        except Exception as exc:  # pragma: no cover - defensive runtime guard
-            context.set_error(str(exc))
-            context.trace.add_stage_event(
-                contract.name,
-                "error",
-                {"message": context.error},
-            )
-            break
+            except Exception as exc:  # pragma: no cover - defensive runtime guard
+                context.set_error(str(exc))
+                context.trace.add_stage_event(
+                    contract.name,
+                    "error",
+                    {"message": context.error},
+                )
+                break
+    finally:
+        if context.has("session.runtime.page_builder"):
+            _close_runtime_page_builder(context)
     return PipelineResult(payload=context.get("results"), error=context.error).to_tuple()

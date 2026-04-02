@@ -5,7 +5,6 @@ import re
 
 from engine.domain.data.tokens import TRANSFORMATION_ORDER, TRANSFORMATION_RULES
 from engine.domain.models.color import ColorInventoryEntry
-from engine.domain.models.inventory_graph import InventoryGraphModel
 from engine.domain.models.token import (
     Token,
     TokenInventory,
@@ -14,6 +13,7 @@ from engine.domain.models.token import (
     TokenValidationStatus,
 )
 from engine.domain.utils.token import resolve_initial_contrast, select_same_palette_tone
+from engine.domain.utils.token_graph import TokenGraph
 
 _COLOR_FRAGMENT_RE = re.compile(
     r"(#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]+\)|\b[a-zA-Z][a-zA-Z-]*\b)",
@@ -43,7 +43,7 @@ def _append_validation(
     )
 
 
-def _achromatic_palette(graph: InventoryGraphModel):
+def _achromatic_palette(graph: TokenGraph):
     return next(
         (palette for palette in graph.palettes if palette.palette_type.value == "achromatic"),
         None,
@@ -51,7 +51,7 @@ def _achromatic_palette(graph: InventoryGraphModel):
 
 
 def _foundation_for_tone_targets(
-    graph: InventoryGraphModel,
+    graph: TokenGraph,
     tokens: TokenInventory,
     tone_targets: tuple[int, ...],
 ) -> Token | None:
@@ -76,7 +76,7 @@ def _foundation_for_tone_targets(
 
 def _same_palette_foundation_for_tone_targets(
     token: Token,
-    graph: InventoryGraphModel,
+    graph: TokenGraph,
     tokens: TokenInventory,
     tone_targets: tuple[int, ...],
 ) -> Token | None:
@@ -116,7 +116,7 @@ def _same_palette_foundation_for_tone_targets(
 
 def _foundation_for_color_entry_tone_targets(
     color_entry: ColorInventoryEntry,
-    graph: InventoryGraphModel,
+    graph: TokenGraph,
     tokens: TokenInventory,
     tone_targets: tuple[int, ...],
 ) -> Token | None:
@@ -155,7 +155,7 @@ def _foundation_for_color_entry_tone_targets(
 
 def _remap_effect_value(
     token: Token,
-    graph: InventoryGraphModel,
+    graph: TokenGraph,
     tokens: TokenInventory,
     tone_targets: tuple[int, ...],
 ) -> str | None:
@@ -186,7 +186,7 @@ def _remap_effect_value(
     return updated if changed else None
 
 
-def _primary_background(token: Token, graph: InventoryGraphModel) -> tuple[str | None, str | None]:
+def _primary_background(token: Token, graph: TokenGraph) -> tuple[str | None, str | None]:
     for element_id in token.assigned_element_ids or token.source_element_ids:
         background = graph.effective_background_of(element_id)
         if background is not None:
@@ -194,10 +194,10 @@ def _primary_background(token: Token, graph: InventoryGraphModel) -> tuple[str |
     return None, None
 
 
-def _min_text_contrast(token: Token, graph: InventoryGraphModel) -> float:
+def _min_text_contrast(token: Token, graph: TokenGraph) -> float:
     for element_id in token.assigned_element_ids or token.source_element_ids:
         entry = graph.element_by_id(element_id)
-        if entry is not None and entry.identity.tag.lower() in {"h1", "h2", "h3", "h4", "h5", "h6"}:
+        if entry is not None and entry.tag_name.lower() in {"h1", "h2", "h3", "h4", "h5", "h6"}:
             return float(
                 TRANSFORMATION_RULES["text"].get("large_text_minimum_contrast", 3.0)  # type: ignore[index]
             )
@@ -206,7 +206,7 @@ def _min_text_contrast(token: Token, graph: InventoryGraphModel) -> float:
 
 def _apply_surface_alias(
     token: Token,
-    graph: InventoryGraphModel,
+    graph: TokenGraph,
     tokens: TokenInventory,
     *,
     rule_id: str,
@@ -250,7 +250,7 @@ def _stage_applies(token: Token, stage_name: str) -> bool:
 
 def _apply_main_surface(
     token: Token,
-    graph: InventoryGraphModel,
+    graph: TokenGraph,
     tokens: TokenInventory,
 ) -> Token:
     if token.property_id == "background-color":
@@ -299,7 +299,7 @@ def _apply_main_surface(
 
 def _apply_shadow_elevation(
     token: Token,
-    graph: InventoryGraphModel,
+    graph: TokenGraph,
     tokens: TokenInventory,
 ) -> Token:
     if token.element_key in TRANSFORMATION_RULES["shadow_elevation"].get("prefer_none_for", ()):  # type: ignore[index]
@@ -337,7 +337,7 @@ def _apply_shadow_elevation(
 
 def _apply_surface(
     token: Token,
-    graph: InventoryGraphModel,
+    graph: TokenGraph,
     tokens: TokenInventory,
 ) -> Token:
     if token.property_id == "background-color":
@@ -386,7 +386,7 @@ def _apply_surface(
 
 def _apply_composed(
     token: Token,
-    graph: InventoryGraphModel,
+    graph: TokenGraph,
     tokens: TokenInventory,
 ) -> Token:
     if token.property_id == "background-color":
@@ -467,7 +467,7 @@ def _apply_composed(
 
 def _apply_foreground_non_text(
     token: Token,
-    graph: InventoryGraphModel,
+    graph: TokenGraph,
     tokens: TokenInventory,
 ) -> Token:
     background_value, background_color_id = _primary_background(token, graph)
@@ -509,7 +509,7 @@ def _apply_foreground_non_text(
 
 def _apply_text(
     token: Token,
-    graph: InventoryGraphModel,
+    graph: TokenGraph,
     tokens: TokenInventory,
 ) -> Token:
     background_value, background_color_id = _primary_background(token, graph)
@@ -606,10 +606,10 @@ _STAGE_HANDLERS = {
 }
 
 
-def apply_token_rules(tokens: TokenInventory, graph: InventoryGraphModel) -> TokenInventory:
+def apply_token_rules(tokens: TokenInventory, graph: TokenGraph) -> TokenInventory:
     current_tokens = tokens
     current_graph = graph.bind_inventories(
-        elements=graph.elements,
+        prototype_structure=graph.prototype_structure,
         styles=graph.styles,
         colors=graph.colors,
         palettes=graph.palettes,
@@ -620,7 +620,7 @@ def apply_token_rules(tokens: TokenInventory, graph: InventoryGraphModel) -> Tok
         if stage_name == "component_promotion":
             current_tokens = _promote_component_conflicts(current_tokens)
             current_graph = current_graph.bind_inventories(
-                elements=current_graph.elements,
+                prototype_structure=current_graph.prototype_structure,
                 styles=current_graph.styles,
                 colors=current_graph.colors,
                 palettes=current_graph.palettes,
@@ -637,7 +637,7 @@ def apply_token_rules(tokens: TokenInventory, graph: InventoryGraphModel) -> Tok
                 updated_entries.append(token)
         current_tokens = TokenInventory.build(updated_entries)
         current_graph = current_graph.bind_inventories(
-            elements=current_graph.elements,
+            prototype_structure=current_graph.prototype_structure,
             styles=current_graph.styles,
             colors=current_graph.colors,
             palettes=current_graph.palettes,

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any, Iterable, Mapping, Sequence
 
+from engine.adapters.color_service import color_registry
 from engine.domain.data.web_colors import get_web_color
 from engine.domain.models.color import ColorInventoryEntry, SnapshotColorEvidence
 from engine.domain.models.palette import (
@@ -14,7 +15,6 @@ from engine.domain.models.palette import (
     PaletteFamilyModel,
     TonalPaletteModel,
 )
-from engine.domain.utils.coloraide import color_to_hex, color_to_rgb_tuple, delta_e_distance, hct_coords, tonal_palette_color
 
 _MAX_CHROMATIC_PALETTES = 12
 _FAMILY_COMPARISON_TONE = 60.0
@@ -41,8 +41,11 @@ def _broad_color_family(color_name: str | None, *, palette_type: str) -> str | N
 
 
 def _comparison_signature(value: Any) -> tuple[tuple[int, int, int], tuple[float, float, float]]:
-    comparison_color = tonal_palette_color(value, _FAMILY_COMPARISON_TONE)
-    return color_to_rgb_tuple(comparison_color), hct_coords(comparison_color)  # type: ignore[arg-type]
+    comparison_color = color_registry.tonal_color(value, _FAMILY_COMPARISON_TONE)
+    return (
+        color_registry.format_color(comparison_color, "rgb"),
+        color_registry.hct_of(comparison_color),
+    )  # type: ignore[arg-type]
 
 
 def _family_from_evidence(evidence: SnapshotColorEvidence) -> PaletteFamilyModel:
@@ -50,7 +53,7 @@ def _family_from_evidence(evidence: SnapshotColorEvidence) -> PaletteFamilyModel
     return PaletteFamilyModel(
         palette_type=evidence.family_type,
         seed_color_id=evidence.color_id,
-        seed_hex=color_to_hex(evidence.rgb),
+        seed_hex=color_registry.format_color(evidence.rgb, "hex"),
         seed_name=evidence.nearest_web_color,
         seed_family_name=_broad_color_family(
             evidence.nearest_web_color,
@@ -84,7 +87,11 @@ def _family_matches(family: PaletteFamilyModel, evidence: SnapshotColorEvidence)
             return False
 
         comparison_rgb, comparison_hct = _comparison_signature(evidence.rgb)
-        normalized_distance = delta_e_distance(family.comparison_rgb, comparison_rgb, method="2000")
+        normalized_distance = color_registry.delta_e_distance(
+            family.comparison_rgb,
+            comparison_rgb,
+            method="2000",
+        )
         hue_delta = _hue_distance(family.comparison_hct[0], comparison_hct[0])
         chroma_delta = abs(float(family.comparison_hct[1]) - float(comparison_hct[1]))
 
@@ -95,7 +102,7 @@ def _family_matches(family: PaletteFamilyModel, evidence: SnapshotColorEvidence)
         ):
             return True
 
-    distance = delta_e_distance(family.seed_hex, evidence.rgb, method="2000")
+    distance = color_registry.delta_e_distance(family.seed_hex, evidence.rgb, method="2000")
     return distance <= _PIXEL_CONFIRMATION_DELTA_E_THRESHOLD or (
         family.seed_name is not None
         and family.seed_name == evidence.nearest_web_color

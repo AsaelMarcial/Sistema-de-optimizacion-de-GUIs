@@ -5,7 +5,7 @@ from typing import Any, Mapping
 
 from PIL import Image, ImageDraw, ImageFont
 
-from engine.domain.utils.coloraide import contrast_ratio
+from engine.adapters.color_service import color_registry
 
 _CANVAS_BACKGROUND = "#050608"
 _ROW_BACKGROUND = "#101318"
@@ -55,8 +55,8 @@ def _palette_rows(palette_analysis: Mapping[str, Any]) -> list[Mapping[str, Any]
 
 
 def _text_color(background_hex: str) -> str:
-    white_contrast = contrast_ratio("#ffffff", background_hex)
-    dark_contrast = contrast_ratio("#08090b", background_hex)
+    white_contrast = color_registry.contrast_ratio("#ffffff", background_hex)
+    dark_contrast = color_registry.contrast_ratio("#08090b", background_hex)
     return "#ffffff" if white_contrast >= dark_contrast else "#08090b"
 
 

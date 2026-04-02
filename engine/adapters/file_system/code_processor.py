@@ -8,26 +8,16 @@ from collections import defaultdict
 from bs4 import BeautifulSoup
 
 from app.config import get_output_dir
-from engine.domain.data.css_properties import CSS_PROPERTIES_BY_ID
+from engine.adapters.color_service import color_registry
+from engine.domain.data.css_properties import get_css_property
 from engine.domain.data.tokens import PROPERTY_TOKEN_RULES
 from engine.domain.utils.color_utils import (
     extract_hex_colors,
     parse_inline_styles,
     reconstruct_inline_style,
 )
-from engine.domain.models.inventory_graph import InventoryGraphModel
+from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.token import TokenInventoryModel
-from engine.domain.utils.coloraide import (
-    brighten_color,
-    color_to_hex,
-    color_to_rgb_tuple,
-    contrast_ratio,
-    hex_to_rgb,
-    is_light_color,
-    luminance,
-    rgb_string_to_tuple,
-    rgb_to_css,
-)
 from engine.pipeline.debug_trace import DebugTrace
 
 DEFAULT_ASSET_EXTENSIONS = (
@@ -112,6 +102,32 @@ trace = DebugTrace(enabled=True)
 _DECLARATION_PATTERN_TEMPLATE = r"({property}\s*:\s*){value}(\s*[;}}])"
 
 
+class _TokenRewriteLookup:
+    def __init__(
+        self,
+        *,
+        prototype_structure: PrototypeStructure,
+    ) -> None:
+        self.prototype_structure = prototype_structure
+
+    def element_by_id(self, node_id: str):
+        return self.prototype_structure.node_by_id(str(node_id or "").strip())
+
+    def property_by_name(self, node_id: str, property_name: str):
+        normalized_node_id = str(node_id or "").strip()
+        normalized_property_name = str(property_name or "").strip().lower()
+        if not normalized_node_id or not normalized_property_name:
+            return None
+        return next(
+            (
+                property_model
+                for property_model in self.prototype_structure.properties_for(normalized_node_id)
+                if property_model.name == normalized_property_name
+            ),
+            None,
+        )
+
+
 def reduce_energy_intensity(rgb, factor: float = 0.5):
     r, g, b = rgb
     return (
@@ -122,12 +138,12 @@ def reduce_energy_intensity(rgb, factor: float = 0.5):
 
 
 def is_energy_intensive(rgb) -> bool:
-    return max(rgb) > 200 or is_light_color(rgb)
+    return max(rgb) > 200 or color_registry.is_light_color(rgb)
 
 
 def calculate_reduction(before_rgb, after_rgb) -> float:
-    initial_luminance = luminance(before_rgb)
-    transformed_luminance = luminance(after_rgb)
+    initial_luminance = color_registry.luminance(before_rgb)
+    transformed_luminance = color_registry.luminance(after_rgb)
     if initial_luminance == 0:
         return 0.0
     reduction = ((initial_luminance - transformed_luminance) / initial_luminance) * 100
@@ -153,7 +169,9 @@ def adjust_gradient_rgb_line(line: str, context: str, details: list[str] | None 
             adjusted = reduce_energy_intensity(rgb, factor=factor)
             rebuilt.append(f"{adjusted[0]},{adjusted[1]},{adjusted[2]})".join(parts[index].split(")", 1)))
             if details is not None:
-                details.append(f"{context}: rgb({rgb_value}) -> {rgb_to_css(adjusted)} (gradiente)")
+                details.append(
+                    f"{context}: rgb({rgb_value}) -> {color_registry.format_color(adjusted, 'css')} (gradiente)"
+                )
         else:
             rebuilt.append("rgb(" + parts[index])
 
@@ -170,7 +188,7 @@ def detect_body_background_rgb(soup) -> tuple[int, int, int]:
     if not background_value:
         return (255, 255, 255)
 
-    parsed_rgb = rgb_string_to_tuple(background_value)
+    parsed_rgb = color_registry.rgb_string_to_tuple(background_value)
     return parsed_rgb if parsed_rgb else (255, 255, 255)
 
 
@@ -215,34 +233,11 @@ def build_heuristics_results(environmental_components):
 
 
 def _color_value_variants(value: str) -> tuple[str, ...]:
-    normalized = str(value or "").strip()
-    if not normalized:
-        return ()
-    variants = {normalized.lower()}
-    try:
-        variants.add(color_to_hex(normalized).lower())
-        variants.add(rgb_to_css(color_to_rgb_tuple(normalized)).lower())
-    except Exception:
-        pass
-    return tuple(sorted(variants))
+    return color_registry.variants(value)
 
 
 def _parseable_color_variants(value: str) -> tuple[str, ...]:
-    normalized = str(value or "").strip()
-    if not normalized:
-        return ()
-    try:
-        return tuple(
-            sorted(
-                {
-                    normalized.lower(),
-                    color_to_hex(normalized).lower(),
-                    rgb_to_css(color_to_rgb_tuple(normalized)).lower(),
-                }
-            )
-        )
-    except Exception:
-        return ()
+    return color_registry.parseable_variants(value)
 
 
 def _property_chain(property_name: str) -> tuple[str, ...]:
@@ -256,7 +251,7 @@ def _property_chain(property_name: str) -> tuple[str, ...]:
     while current and current not in seen:
         seen.add(current)
         chain.append(current)
-        spec = CSS_PROPERTIES_BY_ID.get(current)
+        spec = get_css_property(current)
         if spec is None or spec.longhand_of is None:
             break
         current = spec.longhand_of.value
@@ -317,19 +312,9 @@ def _matching_color_fragments(
         matches.append(normalized_candidate)
     return tuple(matches)
 
-
-def _style_declaration_by_id(style_entry, declaration_id: str):
-    if style_entry is None or not declaration_id:
-        return None
-    for declaration in getattr(style_entry, "declarations", ()):
-        if getattr(declaration, "declaration_id", None) == declaration_id:
-            return declaration
-    return None
-
-
 def _token_source_spec(
     token,
-    inventory_graph: InventoryGraphModel,
+    lookup: _TokenRewriteLookup,
 ) -> tuple[set[str], set[str], set[str], set[str]]:
     exact_properties = {property_name.lower() for property_name in token.assigned_property_names}
     fragment_properties: set[str] = set()
@@ -361,23 +346,6 @@ def _token_source_spec(
             for fragment in _COLOR_FRAGMENT_RE.findall(str(source_value or "")):
                 fragment_values.update(_parseable_color_variants(fragment))
 
-    for color_id in token.source_color_ids:
-        color_entry = inventory_graph.color_by_id(color_id)
-        if color_entry is None:
-            continue
-        variants = _color_value_variants(color_entry.value)
-        fragment_values.update(variants)
-        exact_values.update(variants)
-        variants = _color_value_variants(color_entry.hex_value)
-        fragment_values.update(variants)
-        exact_values.update(variants)
-        variants = _color_value_variants(rgb_to_css(color_entry.rgb))
-        fragment_values.update(variants)
-        exact_values.update(variants)
-        source_color_variants.update(_parseable_color_variants(color_entry.value))
-        source_color_variants.update(_parseable_color_variants(color_entry.hex_value))
-        source_color_variants.update(_parseable_color_variants(rgb_to_css(color_entry.rgb)))
-
     candidate_element_ids = {
         str(item).strip()
         for item in (*token.source_element_ids, *token.assigned_element_ids)
@@ -386,87 +354,47 @@ def _token_source_spec(
     candidate_element_ids.update(element_id for element_id, _property_name in property_ref_pairs)
     allowed_style_ids = {str(item).strip() for item in token.source_style_ids if str(item).strip()}
     for element_id in candidate_element_ids:
-        element_entry = inventory_graph.element_by_id(element_id)
+        element_entry = lookup.element_by_id(element_id)
         if element_entry is None:
             continue
         referenced_properties = property_refs_by_element.get(element_id) or exact_properties
-
-        for color_property in element_entry.iter_color_properties():
-            normalized_property = str(color_property.property_name or "").strip().lower()
+        properties_by_name = {
+            property_model.name: property_model
+            for property_model in lookup.prototype_structure.properties_for(element_entry)
+        }
+        for property_model in element_entry.properties:
+            normalized_property = str(property_model.name or "").strip().lower()
             if normalized_property not in referenced_properties:
                 continue
-            if (
-                allowed_style_ids
-                and color_property.winning_style_ref.style_id
-                and color_property.winning_style_ref.style_id not in allowed_style_ids
-            ):
+            if allowed_style_ids and property_model.style_id and property_model.style_id not in allowed_style_ids:
                 continue
-
-            source_color_variants.update(_parseable_color_variants(color_property.resolved_value))
+            if property_model.value:
+                exact_values.add(str(property_model.value).strip().lower())
+                source_color_variants.update(_parseable_color_variants(property_model.value))
             declared_candidates = _candidate_declared_properties(
                 normalized_property,
-                color_property.winning_style_ref.declared_property,
+                property_model.declared_property,
             )
             for candidate in declared_candidates:
                 if candidate == normalized_property:
                     exact_properties.add(candidate)
                 else:
                     fragment_properties.add(candidate)
-
-            if (
-                not color_property.winning_style_ref.style_id
-                or not color_property.winning_style_ref.declaration_id
-            ):
-                continue
-            style_entry = inventory_graph.style_by_id(color_property.winning_style_ref.style_id)
-            declaration = _style_declaration_by_id(
-                style_entry,
-                color_property.winning_style_ref.declaration_id,
+            resolved_property = properties_by_name.get(normalized_property)
+            authored_value = (
+                str(resolved_property.authored_value).strip()
+                if resolved_property is not None and str(resolved_property.authored_value or "").strip()
+                else ""
             )
-            if declaration is None or not str(declaration.value or "").strip():
+            if not authored_value:
                 continue
-            authored_value = str(declaration.value).strip()
             authored_color_fragments = _matching_color_fragments(authored_value, source_color_variants)
             if any(candidate != normalized_property for candidate in declared_candidates):
                 fragment_values.update(fragment.lower() for fragment in authored_color_fragments)
             else:
                 exact_values.add(authored_value.lower())
+                fragment_values.add(authored_value.lower())
                 exact_values.update(_color_value_variants(authored_value))
-
-        for property_name, computed_style in element_entry.iter_computed_styles():
-            normalized_property = str(property_name or "").strip().lower()
-            if normalized_property not in referenced_properties:
-                continue
-            if allowed_style_ids and computed_style.style_id and computed_style.style_id not in allowed_style_ids:
-                continue
-            if computed_style.computed_value:
-                exact_values.add(str(computed_style.computed_value).strip().lower())
-                source_color_variants.update(_parseable_color_variants(computed_style.computed_value))
-            declared_candidates = _candidate_declared_properties(
-                normalized_property,
-                computed_style.declared_property,
-            )
-            for candidate in declared_candidates:
-                if candidate == normalized_property:
-                    exact_properties.add(candidate)
-                else:
-                    fragment_properties.add(candidate)
-            if computed_style.style_id and computed_style.declaration_id:
-                style_entry = inventory_graph.style_by_id(computed_style.style_id)
-                declaration = _style_declaration_by_id(
-                    style_entry,
-                    computed_style.declaration_id,
-                )
-                if declaration is None or not str(declaration.value or "").strip():
-                    continue
-                authored_value = str(declaration.value).strip()
-                authored_color_fragments = _matching_color_fragments(authored_value, source_color_variants)
-                if any(candidate != normalized_property for candidate in declared_candidates):
-                    fragment_values.update(fragment.lower() for fragment in authored_color_fragments)
-                else:
-                    exact_values.add(authored_value.lower())
-                    fragment_values.add(authored_value.lower())
-                    exact_values.update(_color_value_variants(authored_value))
 
     return exact_properties, fragment_properties, exact_values, fragment_values
 
@@ -625,8 +553,11 @@ def _rewrite_css_asset_urls(
 
 def _build_token_replacement_specs(
     token_inventory: TokenInventoryModel,
-    inventory_graph: InventoryGraphModel,
+    prototype_structure: PrototypeStructure,
 ) -> list[dict[str, object]]:
+    lookup = _TokenRewriteLookup(
+        prototype_structure=prototype_structure,
+    )
     specs: list[dict[str, object]] = []
     for token in token_inventory:
         if not (token.is_semantic or token.is_component):
@@ -638,7 +569,7 @@ def _build_token_replacement_specs(
             continue
         exact_properties, fragment_properties, source_values, fragment_values = _token_source_spec(
             token,
-            inventory_graph,
+            lookup,
         )
         if not source_values and not fragment_values:
             continue
@@ -838,9 +769,12 @@ def apply_tokens_to_project(
     output_path: str,
     base_path: str,
     token_inventory: TokenInventoryModel,
-    inventory_graph: InventoryGraphModel,
+    prototype_structure: PrototypeStructure,
 ) -> list[dict[str, object]]:
-    replacement_specs = _build_token_replacement_specs(token_inventory, inventory_graph)
+    replacement_specs = _build_token_replacement_specs(
+        token_inventory,
+        prototype_structure,
+    )
     soup = BeautifulSoup(html_content, "html.parser")
     _inject_glow_variables(
         soup,
@@ -948,7 +882,7 @@ def evaluate_and_apply_heuristics(html_content, output_path, base_path, session_
     estilos_eliminados = 0
 
     body_bg = detect_body_background_rgb(soup)
-    aplicar_dark_mode = is_light_color(body_bg)
+    aplicar_dark_mode = color_registry.is_light_color(body_bg)
 
     if aplicar_dark_mode:
         body = soup.find("body")
@@ -961,7 +895,9 @@ def evaluate_and_apply_heuristics(html_content, output_path, base_path, session_
             colores_bril += 1
             rgb_mod = reduce_energy_intensity(rgb, factor=0.5)
             if tipo and original_valor:
-                detalles_colores.append(f"{contexto}: {original_valor} → {rgb_to_css(rgb_mod)} ({tipo})")
+                detalles_colores.append(
+                    f"{contexto}: {original_valor} → {color_registry.format_color(rgb_mod, 'css')} ({tipo})"
+                )
             else:
                 detalles_colores.append(f"{contexto}: {rgb} → {rgb_mod}")
             return rgb_mod
@@ -975,16 +911,16 @@ def evaluate_and_apply_heuristics(html_content, output_path, base_path, session_
         for clave, valor in styles.items():
             rgb = None
             if "rgb(" in valor:
-                rgb = rgb_string_to_tuple(valor)
+                rgb = color_registry.rgb_string_to_tuple(valor)
             elif "#" in valor:
-                rgb = hex_to_rgb(valor)
+                rgb = color_registry.hex_to_rgb(valor)
 
             if rgb:
                 colores_tot += 1
                 if clave == "color" and aplicar_dark_mode:
-                    contraste = contrast_ratio(rgb, (0, 0, 0))
+                    contraste = color_registry.contrast_ratio(rgb, (0, 0, 0))
                     if contraste < 4.5:
-                        rgb = brighten_color(rgb, 4.5, (0, 0, 0))
+                        rgb = color_registry.brighten_color(rgb, 4.5, (0, 0, 0))
                 elif "background" in clave:
                     rgb = procesar_rgb(rgb, f"<{tag.name}>", tipo=clave, original_valor=valor)
 
@@ -1005,7 +941,7 @@ def evaluate_and_apply_heuristics(html_content, output_path, base_path, session_
                 continue
 
             if rgb:
-                valor = rgb_to_css(rgb)
+                valor = color_registry.format_color(rgb, "css")
 
             new_styles[clave] = valor
 
@@ -1031,16 +967,16 @@ def evaluate_and_apply_heuristics(html_content, output_path, base_path, session_
                         rgb = tuple(map(int, rgb_val.split(",")))
                         colores_tot += 1
                         rgb = procesar_rgb(rgb, "style embebido", original_valor=f"rgb({rgb_val})")
-                        line = line.replace(f"rgb({rgb_val})", rgb_to_css(rgb))
+                        line = line.replace(f"rgb({rgb_val})", color_registry.format_color(rgb, "css"))
                     except ValueError:
                         continue
 
                 for hex_color in extract_hex_colors(line):
-                    rgb = hex_to_rgb(hex_color)
+                    rgb = color_registry.hex_to_rgb(hex_color)
                     if rgb:
                         colores_tot += 1
                         rgb_mod = procesar_rgb(rgb, "style embebido", original_valor=hex_color)
-                        line = line.replace(hex_color, rgb_to_css(rgb_mod))
+                        line = line.replace(hex_color, color_registry.format_color(rgb_mod, "css"))
 
             if any(x in line for x in ["box-shadow", "border", "gradient"]):
                 estilos_eliminados += 1
@@ -1081,16 +1017,19 @@ def evaluate_and_apply_heuristics(html_content, output_path, base_path, session_
                                 rgb = tuple(map(int, rgb_val.split(",")))
                                 colores_tot += 1
                                 rgb = procesar_rgb(rgb, "CSS externo", original_valor=f"rgb({rgb_val})")
-                                line = line.replace(f"rgb({rgb_val})", rgb_to_css(rgb))
+                                line = line.replace(
+                                    f"rgb({rgb_val})",
+                                    color_registry.format_color(rgb, "css"),
+                                )
                             except ValueError:
                                 continue
 
                         for hex_color in extract_hex_colors(line):
-                            rgb = hex_to_rgb(hex_color)
+                            rgb = color_registry.hex_to_rgb(hex_color)
                             if rgb:
                                 colores_tot += 1
                                 rgb_mod = procesar_rgb(rgb, "CSS externo", original_valor=hex_color)
-                                line = line.replace(hex_color, rgb_to_css(rgb_mod))
+                                line = line.replace(hex_color, color_registry.format_color(rgb_mod, "css"))
 
                     if any(x in line for x in ["box-shadow", "border", "gradient"]):
                         estilos_eliminados += 1

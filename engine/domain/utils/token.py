@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from typing import Iterable
 
+from engine.adapters.color_service import color_registry
 from engine.domain.data.tokens import (
     ACTION_PROMOTION_TAGS,
     HTML_TOKEN_OVERRIDES,
@@ -10,19 +11,17 @@ from engine.domain.data.tokens import (
     PROPERTY_TOKEN_RULES,
     TOKEN_NAMESPACE,
     TOKENIZABLE_PROPERTY_IDS,
-    TRANSFORMATION_ORDER,
     VALUE_RULES,
 )
 from engine.domain.models.color import ColorInventoryEntry
-from engine.domain.models.element import ElementColorPropertyModel, ElementInventoryEntry
-from engine.domain.models.inventory_graph import InventoryGraphModel
-from engine.domain.models.palette import ColorSchemeArtifactModel, TonalPaletteModel
+from engine.domain.models.element import Element, Property
+from engine.domain.models.palette import CorePalettesModel, TonalPaletteModel
 from engine.domain.models.token import Token, TokenInventory
-from engine.domain.models.style import ComputedStyleValueModel
-from engine.domain.utils.coloraide import alpha_value, color_to_hex, color_to_rgb_tuple, contrast_ratio, rgb_to_css
+from engine.domain.utils.token_graph import TokenGraph
 
 _SEGMENT_RE = re.compile(r"[^a-z0-9]+")
 _ACTION_HINTS = ("btn", "button", "cta", "action", "chip", "pill", "tab")
+_EFFECT_PROPERTIES = {"background-image", "box-shadow", "text-shadow"}
 
 
 def _segment(value: str | None, *, default: str = "item") -> str:
@@ -34,42 +33,15 @@ def _value_segments(value_label: str) -> tuple[str, ...]:
     return tuple(segment for segment in str(value_label or "").split(".") if segment) or ("none",)
 
 
-def _style_ref_for(entry: ElementInventoryEntry, color_property: ElementColorPropertyModel) -> str:
-    style_id = color_property.winning_style_ref.style_id
-    property_name = color_property.property_name
-    if style_id:
-        return f"{style_id}:{property_name}"
+def _style_ref_for(entry: Element, property_model: Property) -> str:
+    property_name = str(property_model.declared_property or property_model.name or "").strip().lower()
+    if property_model.style_id:
+        return f"{property_model.style_id}:{property_name}"
     return f"{entry.node_id}:{property_name}"
 
 
-def _computed_style_ref_for(
-    entry: ElementInventoryEntry,
-    property_name: str,
-    computed_style: ComputedStyleValueModel,
-) -> str:
-    style_id = computed_style.style_id
-    declared_property = str(computed_style.declared_property or property_name or "").strip().lower()
-    property_value = declared_property or str(property_name or "").strip().lower()
-    if style_id:
-        return f"{style_id}:{property_value}"
-    return f"{entry.node_id}:{property_value}"
-
-
 def _color_value_variants(value: str) -> tuple[str, ...]:
-    normalized = str(value or "").strip()
-    if not normalized:
-        return ()
-    variants = {normalized.lower()}
-    try:
-        variants.add(color_to_hex(normalized).lower())
-        variants.add(rgb_to_css(color_to_rgb_tuple(normalized)).lower())
-    except Exception:
-        pass
-    return tuple(sorted(variants))
-
-
-def _token_path_to_id(path: Iterable[str]) -> str:
-    return ".".join(str(item) for item in path if str(item))
+    return color_registry.variants(value)
 
 
 def _palette_segment(palette: TonalPaletteModel) -> str:
@@ -100,19 +72,19 @@ def _foundation_token_for(
     )
 
 
-def _largest_heading_or_display(entry: ElementInventoryEntry) -> bool:
-    return entry.identity.tag.lower() in {"h1", "h2", "h3", "h4", "h5", "h6"}
+def _largest_heading_or_display(entry: Element) -> bool:
+    return entry.tag_name.lower() in {"h1", "h2", "h3", "h4", "h5", "h6"}
 
 
-def _is_action_like_link(entry: ElementInventoryEntry) -> bool:
-    if entry.identity.tag.lower() not in ACTION_PROMOTION_TAGS:
+def _is_action_like_link(entry: Element) -> bool:
+    if entry.tag_name.lower() not in ACTION_PROMOTION_TAGS:
         return False
-    if (entry.identity.role or "").lower() == "button":
+    if (entry.role or "").lower() == "button":
         return True
     candidates = (
-        entry.identity.id,
-        entry.identity.name,
-        *(entry.identity.class_list or ()),
+        entry.html_id,
+        entry.name,
+        *(entry.class_names or ()),
     )
     if any(_segment(candidate) for candidate in candidates if any(hint in str(candidate).lower() for hint in _ACTION_HINTS)):
         return True
@@ -130,18 +102,21 @@ def _is_action_like_link(entry: ElementInventoryEntry) -> bool:
         "outline-color",
         "box-shadow",
     }
-    return any(color_property.property_name in decorative_properties for color_property in entry.color_properties)
+    return any(
+        property_model.name in decorative_properties and property_model.color_id
+        for property_model in entry.properties
+    )
 
 
-def resolve_html_token_element(entry: ElementInventoryEntry, graph: InventoryGraphModel) -> str:
-    tag = (entry.identity.tag or "").lower()
+def resolve_html_token_element(entry: Element, graph: TokenGraph) -> str:
+    tag = (entry.tag_name or "").lower()
     if tag in ICON_TAGS:
         return "icon"
     if tag in ACTION_PROMOTION_TAGS and _is_action_like_link(entry):
         return "composed"
     if tag in HTML_TOKEN_OVERRIDES:
         return HTML_TOKEN_OVERRIDES[tag]
-    if entry.flags.is_text_node or bool(str(entry.text or "").strip()):
+    if entry.is_text_node or bool(str(entry.text or "").strip()):
         return "text"
     return "surface"
 
@@ -151,25 +126,33 @@ def resolve_property_rule(property_id: str) -> dict[str, object] | None:
 
 
 def resolve_effective_background(
-    entry: ElementInventoryEntry,
-    graph: InventoryGraphModel,
+    entry: Element,
+    graph: TokenGraph,
 ) -> ColorInventoryEntry | None:
     return graph.effective_background_of(entry.node_id)
 
 
 def resolve_effective_foreground(
-    entry: ElementInventoryEntry,
+    entry: Element,
     property_id: str,
-    graph: InventoryGraphModel,
+    graph: TokenGraph,
 ) -> ColorInventoryEntry | None:
     if property_id == "color":
         return graph.effective_color_of(entry.node_id)
-    return graph.color_by_id(next((item.color_id for item in entry.color_properties if item.property_name == property_id and item.color_id), ""))  # type: ignore[arg-type]
+    color_id = next(
+        (
+            property_model.color_id
+            for property_model in entry.properties
+            if property_model.name == property_id and property_model.color_id
+        ),
+        None,
+    )
+    return graph.color_by_id(color_id or "")
 
 
 def resolve_initial_contrast(value: str, background: str) -> float | None:
     try:
-        return float(contrast_ratio(value, background))
+        return float(color_registry.contrast_ratio(value, background))
     except Exception:
         return None
 
@@ -197,7 +180,7 @@ def resolve_value_label(
         if not normalized_effect or normalized_effect == "none":
             return "none"
         try:
-            if alpha_value(effect or normalized_effect) <= float(VALUE_RULES["overlay_alpha_threshold"]):
+            if color_registry.alpha_of(effect or normalized_effect) <= float(VALUE_RULES["overlay_alpha_threshold"]):
                 return "overlay"
         except Exception:
             pass
@@ -206,7 +189,7 @@ def resolve_value_label(
         return "elevated"
 
     try:
-        if alpha_value(color or effect or "") <= float(VALUE_RULES["transparent_alpha_threshold"]):
+        if color_registry.alpha_of(color or effect or "") <= float(VALUE_RULES["transparent_alpha_threshold"]):
             return "transparent"
     except Exception:
         pass
@@ -227,7 +210,7 @@ def resolve_value_label(
 
 def select_same_palette_tone(
     token: Token,
-    graph: InventoryGraphModel,
+    graph: TokenGraph,
     tokens: Iterable[Token],
     *,
     background_value: str,
@@ -294,7 +277,6 @@ def _fallback_foundation_token(color: ColorInventoryEntry) -> Token:
 
 def resolve_foundation_color(
     color_entry: ColorInventoryEntry,
-    color_scheme: ColorSchemeArtifactModel,
     base_token_map: dict[tuple[str, int], Token],
     fallback_tokens: dict[str, Token],
 ) -> Token:
@@ -306,11 +288,11 @@ def resolve_foundation_color(
 
 
 def _build_base_tokens(
-    color_scheme: ColorSchemeArtifactModel,
+    core_palettes: CorePalettesModel,
 ) -> tuple[tuple[Token, ...], dict[tuple[str, int], Token]]:
     tokens: list[Token] = []
     by_palette_tone: dict[tuple[str, int], Token] = {}
-    for palette in color_scheme.core_palettes:
+    for palette in core_palettes:
         for tone_stop in palette.tones:
             token = Token.foundation(
                 path=_foundation_path(palette, tone_stop.tone),
@@ -326,13 +308,13 @@ def _build_base_tokens(
     return tuple(tokens), by_palette_tone
 
 
-def _component_name(entry: ElementInventoryEntry, element_key: str) -> str:
+def _component_name(entry: Element, element_key: str) -> str:
     candidates = (
-        entry.identity.id,
-        *(entry.identity.class_list or ()),
-        entry.identity.name,
-        entry.identity.role,
-        entry.identity.tag,
+        entry.html_id,
+        *(entry.class_names or ()),
+        entry.name,
+        entry.role,
+        entry.tag_name,
     )
     for candidate in candidates:
         normalized = _segment(candidate)
@@ -358,16 +340,12 @@ def _merge_tokens(tokens: Iterable[Token]) -> Token:
 
 
 def promote_to_component_if_conflict(
-    tokens: Iterable[tuple[Token, ElementInventoryEntry]],
+    tokens: Iterable[tuple[Token, Element]],
 ) -> tuple[Token, ...]:
     ordered = tuple(tokens)
     if not ordered:
         return ()
-    first_token = ordered[0][0]
-    unique_values = {
-        (token.alias_to or "", token.resolved_value)
-        for token, _ in ordered
-    }
+    unique_values = {(token.alias_to or "", token.resolved_value) for token, _ in ordered}
     if len(unique_values) <= 1:
         return (_merge_tokens(token for token, _ in ordered),)
 
@@ -398,15 +376,14 @@ def promote_to_component_if_conflict(
 
 
 def _semantic_candidate(
-    entry: ElementInventoryEntry,
-    color_property: ElementColorPropertyModel,
+    entry: Element,
+    property_model: Property,
     color_entry: ColorInventoryEntry | None,
-    graph: InventoryGraphModel,
-    color_scheme: ColorSchemeArtifactModel,
+    graph: TokenGraph,
     base_token_map: dict[tuple[str, int], Token],
     fallback_tokens: dict[str, Token],
-    ) -> Token | None:
-    property_name = str(color_property.property_name or "").strip().lower()
+) -> Token | None:
+    property_name = str(property_model.name or "").strip().lower()
     if property_name not in TOKENIZABLE_PROPERTY_IDS:
         return None
     property_rule = resolve_property_rule(property_name)
@@ -426,7 +403,7 @@ def _semantic_candidate(
     background = resolve_effective_background(entry, graph)
     background_value = background.value if background is not None else None
     contrast = None
-    source_color_value = color_entry.value if color_entry is not None else color_property.resolved_value
+    source_color_value = color_entry.value if color_entry is not None else property_model.value
     if bool(property_rule.get("uses_contrast")) and background_value:
         contrast = resolve_initial_contrast(source_color_value, background_value)
 
@@ -435,16 +412,12 @@ def _semantic_candidate(
         contrast,
         source_color_value,
         background_value,
-        color_property.resolved_value,
+        property_model.value,
     )
-    foundation = (
-        resolve_foundation_color(color_entry, color_scheme, base_token_map, fallback_tokens)
-        if color_entry is not None
-        else None
-    )
+    foundation = resolve_foundation_color(color_entry, base_token_map, fallback_tokens) if color_entry is not None else None
     alias_to = (
         foundation.path_string
-        if foundation is not None and property_name not in {"background-image", "box-shadow", "text-shadow"}
+        if foundation is not None and property_name not in _EFFECT_PROPERTIES
         else None
     )
     return Token.semantic(
@@ -453,22 +426,26 @@ def _semantic_candidate(
         resolved_value=(
             foundation.resolved_value
             if alias_to and foundation is not None
-            else (color_property.resolved_value or (color_entry.value if color_entry is not None else ""))
+            else (property_model.value or (color_entry.value if color_entry is not None else ""))
         ),
         element_key=element_key,
         property_id=property_name,
         value_label=value_label,
         source_element_ids=(entry.node_id,),
         assigned_element_ids=(entry.node_id,),
-        source_property_refs=(_style_ref_for(entry, color_property),),
+        source_property_refs=(_style_ref_for(entry, property_model),),
         source_color_ids=((color_entry.color_id,) if color_entry is not None else ()),
-        source_style_ids=((color_property.winning_style_ref.style_id,) if color_property.winning_style_ref.style_id else ()),
+        source_style_ids=((property_model.style_id,) if property_model.style_id else ()),
         source_palette_ids=tuple(foundation.source_palette_ids if foundation is not None else ()),
         source_values=(
-            color_property.resolved_value,
+            property_model.value,
             *(_color_value_variants(color_entry.value if color_entry is not None else "")),
             *(_color_value_variants(color_entry.hex_value if color_entry is not None else "")),
-            *(_color_value_variants(rgb_to_css(color_entry.rgb) if color_entry is not None else "")),
+            *(
+                _color_value_variants(
+                    color_registry.format_color(color_entry.rgb, "css") if color_entry is not None else ""
+                )
+            ),
         ),
         palette_name=(foundation.palette_name if foundation is not None else None),
         tone=(foundation.tone if foundation is not None else None),
@@ -477,40 +454,12 @@ def _semantic_candidate(
     )
 
 
-def _tokenizable_computed_fallbacks(
-    entry: ElementInventoryEntry,
-) -> tuple[tuple[str, ComputedStyleValueModel], ...]:
-    effect_properties = {"background-image", "box-shadow", "text-shadow"}
-    color_property_names = {
-        str(item.property_name or "").strip().lower()
-        for item in entry.iter_color_properties()
-        if str(item.property_name or "").strip()
-    }
-    candidates: list[tuple[str, ComputedStyleValueModel]] = []
-    for property_name, computed_style in entry.iter_computed_styles():
-        normalized_property = str(property_name or "").strip().lower()
-        if normalized_property in color_property_names and normalized_property not in effect_properties:
-            continue
-        if normalized_property not in TOKENIZABLE_PROPERTY_IDS:
-            continue
-        if normalized_property == "background":
-            continue
-        property_rule = resolve_property_rule(normalized_property)
-        if property_rule is None:
-            continue
-        if not str(computed_style.computed_value or "").strip():
-            continue
-        candidates.append((normalized_property, computed_style))
-    return tuple(candidates)
-
-
 def _effect_candidate(
-    entry: ElementInventoryEntry,
-    property_name: str,
-    computed_style: ComputedStyleValueModel,
-    graph: InventoryGraphModel,
+    entry: Element,
+    property_model: Property,
+    graph: TokenGraph,
 ) -> Token | None:
-    property_rule = resolve_property_rule(property_name)
+    property_rule = resolve_property_rule(property_model.name)
     if property_rule is None:
         return None
 
@@ -519,36 +468,36 @@ def _effect_candidate(
     if allowed_elements and element_key not in allowed_elements:
         return None
 
-    resolved_value = str(computed_style.computed_value or "").strip()
+    resolved_value = str(property_model.value or "").strip()
     if not resolved_value:
         return None
 
     value_label = resolve_value_label(
-        property_name,
+        property_model.name,
         None,
         None,
         None,
         resolved_value,
     )
-    declared_property = str(computed_style.declared_property or property_name or "").strip().lower()
     property_refs = {
-        _computed_style_ref_for(entry, property_name, computed_style),
-        f"{entry.node_id}:{property_name}",
+        _style_ref_for(entry, property_model),
+        f"{entry.node_id}:{property_model.name}",
     }
+    declared_property = str(property_model.declared_property or "").strip().lower()
     if declared_property:
         property_refs.add(f"{entry.node_id}:{declared_property}")
 
     return Token.semantic(
-        path=(TOKEN_NAMESPACE, element_key, property_name, *_value_segments(value_label)),
+        path=(TOKEN_NAMESPACE, element_key, property_model.name, *_value_segments(value_label)),
         alias_to=None,
         resolved_value=resolved_value,
         element_key=element_key,
-        property_id=property_name,
+        property_id=property_model.name,
         value_label=value_label,
         source_element_ids=(entry.node_id,),
         assigned_element_ids=(entry.node_id,),
         source_property_refs=tuple(sorted(property_refs)),
-        source_style_ids=((computed_style.style_id,) if computed_style.style_id else ()),
+        source_style_ids=((property_model.style_id,) if property_model.style_id else ()),
         source_values=(resolved_value,),
         created_by_stage="set_tokens",
         annotations=("semantic_token", property_rule.get("bucket", "unknown"), "effect_property"),
@@ -556,65 +505,39 @@ def _effect_candidate(
 
 
 def build_token_inventory(
-    graph: InventoryGraphModel,
-    color_scheme: ColorSchemeArtifactModel,
+    graph: TokenGraph,
+    core_palettes: CorePalettesModel,
 ) -> TokenInventory:
-    base_tokens, base_token_map = _build_base_tokens(color_scheme)
+    base_tokens, base_token_map = _build_base_tokens(core_palettes)
     fallback_tokens: dict[str, Token] = {}
-    semantic_candidates: list[tuple[Token, ElementInventoryEntry]] = []
+    semantic_candidates: list[tuple[Token, Element]] = []
 
-    for entry in graph.elements.visible_entries():
-        for color_property in entry.iter_color_properties():
-            property_name = str(color_property.property_name or "").strip().lower()
+    for entry in graph.visible_elements():
+        for property_model in entry.properties:
+            property_name = str(property_model.name or "").strip().lower()
             if property_name not in TOKENIZABLE_PROPERTY_IDS:
                 continue
-            if property_name in {"background-image", "box-shadow", "text-shadow"}:
-                continue
-            color_entry = (
-                graph.color_by_id(color_property.color_id)
-                if color_property.color_id
-                else None
-            )
-            token = _semantic_candidate(
-                entry,
-                color_property,
-                color_entry,
-                graph,
-                color_scheme,
-                base_token_map,
-                fallback_tokens,
-            )
-            if token is not None:
-                semantic_candidates.append((token, entry))
 
-        for index, (property_name, computed_style) in enumerate(
-            _tokenizable_computed_fallbacks(entry),
-            start=1,
-        ):
-            if property_name in {"background-image", "box-shadow", "text-shadow"}:
-                token = _effect_candidate(entry, property_name, computed_style, graph)
+            if property_name in _EFFECT_PROPERTIES:
+                token = _effect_candidate(entry, property_model, graph)
             else:
-                color_entry = graph.colors.entry_by_value(computed_style.computed_value)
-                computed_color_property = ElementColorPropertyModel.from_computed_style(
-                    node_id=entry.node_id,
-                    index=index,
-                    property_name=property_name,
-                    computed_style=computed_style,
-                    color_id=(color_entry.color_id if color_entry is not None else None),
+                color_entry = (
+                    graph.color_by_id(property_model.color_id)
+                    if property_model.color_id
+                    else graph.colors.entry_by_value(property_model.value)
                 )
                 token = _semantic_candidate(
                     entry,
-                    computed_color_property,
+                    property_model,
                     color_entry,
                     graph,
-                    color_scheme,
                     base_token_map,
                     fallback_tokens,
                 )
             if token is not None:
                 semantic_candidates.append((token, entry))
 
-    grouped: dict[str, list[tuple[Token, ElementInventoryEntry]]] = {}
+    grouped: dict[str, list[tuple[Token, Element]]] = {}
     for token, entry in semantic_candidates:
         grouped.setdefault(token.path_string, []).append((token, entry))
 

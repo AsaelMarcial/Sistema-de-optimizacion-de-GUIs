@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import Enum, StrEnum
 from typing import Any, Iterable
 
-from engine.domain.utils.coloraide import color_to_rgb_tuple, delta_e_distance
+from engine.adapters.color_service import color_registry
 
 WEB_COLOR_SOURCE_TITLE = "Web colors - Wikipedia"
 WEB_COLOR_MATCH_METHOD = "2000"
@@ -1533,9 +1533,12 @@ def get_web_color(value: Any) -> WebColor:
 
 
 def nearest_web_color(value: Any, *, method: str = WEB_COLOR_MATCH_METHOD) -> WebColorMatch:
-    target_rgb = color_to_rgb_tuple(value)
-    best_member = min(WebColor, key=lambda member: delta_e_distance(target_rgb, member.rgb, method=method))
-    best_distance = delta_e_distance(target_rgb, best_member.rgb, method=method)
+    target_rgb = color_registry.format_color(value, "rgb")
+    best_member = min(
+        WebColor,
+        key=lambda member: color_registry.delta_e_distance(target_rgb, member.rgb, method=method),
+    )
+    best_distance = color_registry.delta_e_distance(target_rgb, best_member.rgb, method=method)
     return WebColorMatch(
         color_name=best_member.canonical_name,
         display_name=best_member.display_name,

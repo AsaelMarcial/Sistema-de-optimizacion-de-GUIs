@@ -14,9 +14,8 @@ def build_scope_properties_payload() -> dict[str, list[dict[str, object]]]:
     return {
         "onScope": [
             {
-                "propertyID": spec.property_id.value,
+                "propertyID": spec.value,
                 "categories": [category.value for category in spec.categories],
-                "computedAliases": list(spec.computed_aliases),
                 "shorthandFor": [item.value for item in spec.shorthand_for],
                 "longhandOf": spec.longhand_of.value if spec.longhand_of else None,
                 "colorRole": spec.color_role.value if spec.color_role else None,
@@ -32,8 +31,8 @@ def build_scope_elements_payload() -> dict[str, list[dict[str, object]]]:
     return {
         "onScope": [
             {
-                "elementID": spec.element_id.value,
-                "name": spec.element_id.value,
+                "elementID": spec.value,
+                "name": spec.value,
                 "description": spec.description,
                 "scopeGroup": spec.scope_group.value,
                 "categories": list(spec.categories),

@@ -14,13 +14,13 @@
     />
     <script defer src="{{ url_for('static', filename='js/scripts.js') }}"></script>
   </head>
-  <body class="report-body landing-body">
+  <body>
     {% include 'header.html' %}
 
-    <main class="main-container report-page landing-page">
+    <main class="landing-page">
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-          <section class="section landing-section landing-section--tight" aria-label="Mensajes del sistema">
+          <section class="landing-section landing-section--tight" aria-label="Mensajes del sistema">
             <div class="flash-stack">
               {% for category, message in messages %}
                 <div class="flash flash--{{ category }}">{{ message }}</div>
@@ -30,20 +30,18 @@
         {% endif %}
       {% endwith %}
 
-      <section class="section landing-section landing-section--hero" id="upload" aria-labelledby="upload-title">
-        <header class="section-header">
-          <span class="eyebrow">
-            <span class="eyebrow__dot"></span>
-            <span>Sube tu archivo</span>
-          </span>
-        </header>
+      <section class="landing-section landing-section--hero" id="upload" aria-labelledby="upload-title">
+        <span class="eyebrow">
+          <span class="eyebrow__dot"></span>
+          <span>Sube tu archivo</span>
+        </span>
 
-        <div class="section-body section-body--stack">
+        <div class="flex-column">
           <div class="landing-hero-grid">
             <div class="heading-group landing-hero-copy">
-              <h1 class="title title--display" id="upload-title">
+              <h1 id="upload-title">
                 Analiza tu interfaz HTML y obtén una
-                <span class="title__accent">lectura visual</span>,
+                <span>lectura visual</span>,
                 energética y ambiental lista para decidir.
               </h1>
               <p class="text-secondary">
@@ -102,91 +100,85 @@
               </article>
             </div>
 
-            <article>
-              <div class="card card--glow upload-panel">
-                <form
-                  action="{{ url_for('main.results') }}"
-                  method="POST"
-                  enctype="multipart/form-data"
-                  id="upload-form"
-                  class="upload-form"
+            <article class="card card--glow upload-panel">
+              <form
+                action="{{ url_for('main.results') }}"
+                method="POST"
+                enctype="multipart/form-data"
+                id="upload-form"
+                class="upload-form"
+              >
+                <div
+                  class="upload-box card card--soft"
+                  id="upload-box"
+                  role="button"
+                  tabindex="0"
+                  aria-describedby="upload-helper upload-hint"
                 >
-                  <div
-                    class="upload-box card card--soft"
-                    id="upload-box"
-                    role="button"
-                    tabindex="0"
-                    aria-describedby="upload-helper upload-hint"
-                  >
-                    <div class="upload-box__copy">
-                      <p
-                        id="file-name"
-                        data-empty-label="Arrastra aquí tu archivo HTML o ZIP, o haz clic para seleccionarlo."
-                      >
-                        Arrastra aquí tu archivo HTML o ZIP, o haz clic para elegirlo.
-                      </p>
-                      <p class="upload-hint" id="upload-helper">
-                        Entrada recomendada: <code>index.html</code> o un ZIP con raíz clara y recursos relativos.
-                      </p>
-                      <span class="upload-meta" id="upload-hint">
-                        Formatos compatibles: <code>.html</code>, <code>.zip</code>
-                      </span>
-                    </div>
-
-                    <input
-                      id="file-input"
-                      type="file"
-                      name="file"
-                      accept=".html,.zip"
-                      required
-                      onchange="showAnalyzeButton()"
-                    />
+                  <div class="upload-box__copy">
+                    <p
+                      id="file-name"
+                      data-empty-label="Arrastra aquí tu archivo HTML o ZIP, o haz clic para seleccionarlo."
+                    >
+                      Arrastra aquí tu archivo HTML o ZIP, o haz clic para elegirlo.
+                    </p>
+                    <p class="upload-hint" id="upload-helper">
+                      Entrada recomendada: <code>index.html</code> o un ZIP con raíz clara y recursos relativos.
+                    </p>
+                    <span class="upload-meta" id="upload-hint">
+                      Formatos compatibles: <code>.html</code>, <code>.zip</code>
+                    </span>
                   </div>
 
-                  <button id="analyze-button" class="analyze-button button button--primary" type="submit">
-                    Generar reporte
-                  </button>
-                </form>
-              </div>
+                  <input
+                    id="file-input"
+                    type="file"
+                    name="file"
+                    accept=".html,.zip"
+                    required
+                    onchange="showAnalyzeButton()"
+                  />
+                </div>
+
+                <button id="analyze-button" class="analyze-button button button--primary" type="submit">
+                  Generar reporte
+                </button>
+              </form>
             </article>
           </div>
         </div>
       </section>
 
-      <section class="section landing-section" aria-labelledby="deliverables-title">
-        <header class="section-header">
-          <span class="eyebrow">
-            <span class="eyebrow__dot"></span>
-            <span>Qué obtendrás</span>
-          </span>
-        </header>
+      <section class="landing-section" aria-labelledby="deliverables-title">
+        <span class="eyebrow">
+          <span class="eyebrow__dot"></span>
+          <span>Qué obtendrás</span>
+        </span>
 
-        <div class="section-body section-body--stack">
-          <div class="heading-group heading-group--tight">
-            <h2 class="title title--compact" id="deliverables-title">Una lectura accionable, no sólo una captura del estado actual</h2>
-            <p class="text-secondary">
-              Glow te devuelve evidencia visual, métricas y decisiones sugeridas para explicar el resultado sin perder contexto.
-            </p>
-          </div>
+        <div class="heading-group heading-group--tight">
+          <h2 id="deliverables-title">Una lectura accionable, no sólo una captura del estado actual</h2>
+          <p class="text-secondary">
+            Glow te devuelve evidencia visual, métricas y decisiones sugeridas para explicar el resultado sin perder contexto.
+          </p>
+        </div>
 
-          <div class="feature-grid">
-            <article class="card card--soft feature-card">
-              <h3>Impacto ambiental</h3>
-              <p>Estimación de energía y carbono por uso, con recálculo por usuarios y horas.</p>
-            </article>
-            <article class="card card--soft feature-card">
-              <h3>Lectura visual</h3>
-              <p>Distribución de color, barras de dominancia y lectura del peso visual de la interfaz.</p>
-            </article>
-            <article class="card card--soft feature-card">
-              <h3>Paletas y contraste</h3>
-              <p>Inventario tonal, señales de contraste y colores listos para copiar y reutilizar.</p>
-            </article>
-            <article class="card card--soft feature-card">
-              <h3>Comparativa y descarga</h3>
-              <p>Vista before/after y paquete descargable para compartir la versión ajustada.</p>
-            </article>
-          </div>
+        <div class="feature-grid">
+          <article class="card card--soft feature-card">
+            <h3>Impacto ambiental</h3>
+            <p>Estimación de energía y carbono por uso, con recálculo por usuarios y horas.</p>
+          </article>
+          <article class="card card--soft feature-card">
+            <h3>Lectura visual</h3>
+            <p>Distribución de color, barras de dominancia y lectura del peso visual de la interfaz.</p>
+          </article>
+          <article class="card card--soft feature-card">
+            <h3>Paletas y contraste</h3>
+            <p>Inventario tonal, señales de contraste y colores listos para copiar y reutilizar.</p>
+          </article>
+          <article class="card card--soft feature-card">
+            <h3>Comparativa y descarga</h3>
+            <p>Vista before/after y paquete descargable para compartir la versión ajustada.</p>
+          </article>
         </div>
       </section>
     </main>

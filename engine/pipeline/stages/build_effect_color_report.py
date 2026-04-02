@@ -2,15 +2,14 @@ from __future__ import annotations
 
 import re
 
-from engine.adapters.utils.io import save_json
-from engine.domain.models.color import ColorInventoryModel
-from engine.domain.models.effect_color import (
-    EffectColorEntryModel,
-    EffectColorReportModel,
-    EffectColorTokenModel,
+from engine.domain.models.color import build_inventory_from_scheme_colors
+from engine.domain.models.quality_reports import (
+    EffectColorEntry,
+    EffectColorReport,
+    EffectColorToken,
 )
-from engine.domain.models.element import ElementInventoryModel
-from engine.domain.utils.coloraide import alpha_value, color_to_hex
+from engine.domain.models.prototype_structure import PrototypeStructure
+from engine.adapters.color_service import color_registry
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
 
@@ -26,15 +25,10 @@ _FUNCTION_COLOR_RE = re.compile(r"(?:rgba?|hsla?)\([^)]+\)", re.IGNORECASE)
 CONTRACT = StageContract(
     name="build_effect_color_report",
     requires=(
-        context_value("elements.inventory", ElementInventoryModel),
-        context_value("color.inventory", ColorInventoryModel),
-        context_value(
-            "session.output.paths.original.effect_color_report_json",
-            str,
-            validator=lambda value: bool(value.strip()),
-        ),
+        context_value("prototype_structure", PrototypeStructure),
+        context_value("scheme.colors", tuple),
     ),
-    produces=(context_value("inventory.effect_color_report", EffectColorReportModel),),
+    produces=(context_value("derived.effect_color_report", EffectColorReport),),
 )
 
 
@@ -54,30 +48,31 @@ def _extract_effect_colors(value: str) -> tuple[str, ...]:
 
 
 def _build_report(
-    elements_inventory: ElementInventoryModel,
-    colors_inventory: ColorInventoryModel,
-) -> EffectColorReportModel:
-    entries: list[EffectColorEntryModel] = []
+    prototype_structure: PrototypeStructure,
+    scheme_colors: tuple,
+) -> EffectColorReport:
+    colors_inventory = build_inventory_from_scheme_colors(scheme_colors)
+    entries: list[EffectColorEntry] = []
     entry_index = 0
 
-    for element in elements_inventory:
-        for property_name, computed_style in sorted(
-            element.iter_computed_styles(),
-            key=lambda item: item[0],
-        ):
-            if property_name not in _EFFECT_COLOR_PROPERTIES:
+    for element in prototype_structure:
+        for property_model in prototype_structure.properties_for(element):
+            if (
+                property_model.classification != "effect"
+                and property_model.name not in _EFFECT_COLOR_PROPERTIES
+            ):
                 continue
 
-            effect_colors = _extract_effect_colors(computed_style.computed_value)
+            effect_colors = _extract_effect_colors(property_model.value)
             if not effect_colors:
                 continue
 
-            color_tokens: list[EffectColorTokenModel] = []
+            color_tokens: list[EffectColorToken] = []
             seen_signatures: set[tuple[str, float]] = set()
             for token in effect_colors:
                 try:
-                    hex_value = color_to_hex(token)
-                    alpha = alpha_value(token)
+                    hex_value = color_registry.format_color(token, "hex")
+                    alpha = color_registry.alpha_of(token)
                 except Exception:
                     continue
 
@@ -88,7 +83,7 @@ def _build_report(
 
                 color_entry = colors_inventory.entry_by_value(token)
                 color_tokens.append(
-                    EffectColorTokenModel(
+                    EffectColorToken(
                         value=token,
                         hex_value=hex_value,
                         alpha=alpha,
@@ -101,38 +96,33 @@ def _build_report(
 
             entry_index += 1
             entries.append(
-                EffectColorEntryModel(
+                EffectColorEntry(
                     effect_id=f"effect-{entry_index}",
                     element_id=element.node_id,
-                    tag_name=element.identity.tag,
-                    selector_hint=element.identity.selector_hint,
-                    property_name=property_name,
-                    resolved_value=computed_style.computed_value,
-                    style_id=computed_style.style_id,
-                    declaration_id=computed_style.declaration_id,
-                    declared_property=computed_style.declared_property,
+                    tag_name=element.tag_name,
+                    selector_hint=element.selector,
+                    property_name=property_model.name,
+                    resolved_value=property_model.value,
+                    style_id=property_model.style_id,
+                    declaration_id=property_model.declaration_id,
+                    declared_property=property_model.declared_property,
                     colors=tuple(color_tokens),
                 )
             )
 
-    return EffectColorReportModel(entries=tuple(entries))
+    return EffectColorReport(entries=tuple(entries))
 
 
 def run_stage(context: PipelineContext) -> PipelineContext:
-    if context.error or context.has("inventory.effect_color_report"):
+    if context.error or context.has("derived.effect_color_report"):
         return context
 
     context.trace.add_stage_event(CONTRACT.name, "start")
     report = _build_report(
-        context.get("elements.inventory"),
-        context.get("color.inventory"),
+        context.get("prototype_structure"),
+        tuple(context.get("scheme.colors")),
     )
-    context.set("inventory.effect_color_report", report)
-    save_json(
-        context.get("session.output.paths.original.effect_color_report_json"),
-        report.to_dict(),
-        indent=4,
-    )
+    context.set("derived.effect_color_report", report)
     context.trace.add_stage_event(
         CONTRACT.name,
         "complete",

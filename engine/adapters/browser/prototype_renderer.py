@@ -1,75 +1,10 @@
 from __future__ import annotations
 
 import os
-from typing import Any
-
-from playwright.sync_api import Browser, Page, sync_playwright
 
 from app.config import get_artifacts_dir
-from engine.adapters.browser.page_stability import wait_for_render_stability
-from engine.adapters.browser.render_io import remove_temp_render_html, write_temp_render_html
-from engine.adapters.utils.io import ensure_parent_dir
-from engine.domain.models.snapshot import SnapshotOptions
-
-CAPTURE_NODE_ID_ATTRIBUTE = "data-glow-capture-node-id"
-
-_STAMP_CAPTURE_NODE_IDS_SCRIPT = f"""
-() => {{
-  let index = 0;
-  for (const element of Array.from(document.querySelectorAll('*'))) {{
-    index += 1;
-    element.setAttribute('{CAPTURE_NODE_ID_ATTRIBUTE}', `node-${{index}}`);
-  }}
-  return index;
-}}
-"""
-
-
-def stamp_render_node_ids(page: Page) -> int:
-    return int(page.evaluate(_STAMP_CAPTURE_NODE_IDS_SCRIPT) or 0)
-
-
-def create_render_page(
-    html_content: str,
-    base_path: str,
-    *,
-    options: SnapshotOptions,
-) -> tuple[Any, Browser, Page, str, dict]:
-    temp_html_path = write_temp_render_html(html_content, base_path)
-    playwright = sync_playwright().start()
-    browser = playwright.chromium.launch(headless=True)
-    page = browser.new_page(
-        viewport={
-            "width": int(options.initial_viewport_width),
-            "height": int(options.initial_viewport_height),
-        }
-    )
-    page.goto(f"file://{temp_html_path}", wait_until="load")
-    stability = wait_for_render_stability(
-        page,
-        wait_after_load_ms=options.wait_after_load_ms,
-        stability_interval_ms=options.stability_interval_ms,
-        max_checks=options.max_stability_checks,
-        scroll_step_px=options.scroll_step_px,
-    )
-    stamp_render_node_ids(page)
-    return playwright, browser, page, temp_html_path, stability
-
-
-def close_render_page(playwright: Any, browser: Browser, temp_html_path: str) -> None:
-    try:
-        browser.close()
-    finally:
-        try:
-            playwright.stop()
-        finally:
-            remove_temp_render_html(temp_html_path)
-
-
-def capture_full_page_screenshot(page: Page, output_image: str) -> str:
-    ensure_parent_dir(output_image)
-    page.screenshot(path=output_image, full_page=True)
-    return output_image
+from engine.adapters.browser.page_builder import CAPTURE_NODE_ID_ATTRIBUTE, PageBuilder
+from engine.adapters.browser.render_models import SnapshotOptions
 
 
 def render_prototype(
@@ -85,17 +20,20 @@ def render_prototype(
         session_key = session_id or "default"
         output_image = os.path.join(get_artifacts_dir(session_key), "prototype_screenshot.png")
 
-    options = SnapshotOptions(
-        wait_after_load_ms=wait_ms,
-        initial_viewport_width=initial_viewport_width,
-        initial_viewport_height=initial_viewport_height,
-    )
-    playwright, browser, page, temp_html_path, _ = create_render_page(
+    builder = PageBuilder.start(
         html_content,
         base_path,
-        options=options,
+        options=SnapshotOptions(
+            wait_after_load_ms=wait_ms,
+            initial_viewport_width=initial_viewport_width,
+            initial_viewport_height=initial_viewport_height,
+        ),
     )
     try:
-        return capture_full_page_screenshot(page, output_image)
+        screenshot_path, _ = builder.capture_screenshot_and_color_frequencies(
+            output_image_path=output_image,
+            session_id=session_id,
+        )
+        return screenshot_path or output_image
     finally:
-        close_render_page(playwright, browser, temp_html_path)
+        builder.close()

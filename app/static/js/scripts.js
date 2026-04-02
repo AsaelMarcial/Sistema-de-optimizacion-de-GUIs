@@ -98,7 +98,7 @@ function setText(id, value) {
 }
 
 function updateImpact() {
-  const page = document.querySelector(".report-page");
+  const page = document.querySelector('main[data-page="results"]');
   const userInput = document.getElementById("user_count");
   const hoursInput = document.getElementById("usage_hours");
 
@@ -217,7 +217,7 @@ function initPaletteSwatches() {
 }
 
 function initReportPage() {
-  const page = document.querySelector(".report-page");
+  const page = document.querySelector('main[data-page="results"]');
   if (!page) {
     return;
   }

@@ -3,6 +3,7 @@ import shutil
 import time
 import uuid
 import zipfile
+from dataclasses import replace
 
 from werkzeug.utils import secure_filename
 
@@ -13,36 +14,24 @@ from app.config import (
     SESSION_EXPIRE_MINUTES,
     SESSIONS_BASE_DIR,
     SESSION_DIR_PATTERN,
-    get_artifacts_dir,
-    get_input_dir,
-    get_output_dir,
-    get_session_dir,
-    get_session_dirname,
 )
 from engine.adapters.utils.filesystem import is_dir_empty, remove_empty_dirs, safe_remove, safe_rmtree
 from engine.adapters.utils.io import read_text
-from engine.domain.models.session import ProjectInputModel, SessionModel
+from engine.domain.models.session import Session
 from engine.validators.file_handling.archive_validators import validate_zip_members
 from engine.validators.file_handling.upload_validators import validate_uploaded_file
 
 TEMP_RENDER_FILES = {"__glow_render__.html"}
-
-SessionWorkspace = SessionModel
-ProjectInput = ProjectInputModel
 
 
 def generate_session_id() -> str:
     return str(uuid.uuid4())[:8]
 
 
-def build_session_workspace(session_id: str) -> SessionWorkspace:
-    workspace = SessionWorkspace.build(
+def build_session_workspace(session_id: str) -> Session:
+    workspace = Session.build(
         session_id=session_id,
-        session_dirname=get_session_dirname(session_id),
         base_dir=SESSIONS_BASE_DIR,
-        input_dirname=INPUT_DIRNAME,
-        output_dirname=OUTPUT_DIRNAME,
-        artifacts_dirname=ARTIFACTS_DIRNAME,
     )
     workspace.ensure_exists()
     return workspace
@@ -196,7 +185,7 @@ def find_project_html_file(base_path: str) -> str:
     return html_files[0]
 
 
-def load_project_input(file, session_id: str) -> ProjectInput | str:
+def load_project_input(file, session_id: str) -> Session | str:
     ingestion_result = ingest_uploaded_file(file, session_id)
     if isinstance(ingestion_result, str):
         return ingestion_result
@@ -217,17 +206,20 @@ def load_project_input(file, session_id: str) -> ProjectInput | str:
     except Exception:
         return "No se pudo leer el archivo HTML."
 
-    project_input = ProjectInput(
-        session=workspace,
+    project_root_relative_path = os.path.relpath(normalized_base_path, workspace.input_dir)
+    if project_root_relative_path in {".", ""}:
+        project_root_relative_path = ""
+    html_relative_path = os.path.relpath(html_path, normalized_base_path)
+
+    session = replace(
+        workspace,
         upload_path=upload_path,
-        base_path=base_path,
-        normalized_base_path=normalized_base_path,
-        html_path=html_path,
-        html_filename=os.path.basename(html_path),
-        html_content=html_content,
+        project_root_relative_path=project_root_relative_path,
+        html_relative_path=html_relative_path,
+        input_html_content=html_content,
     )
-    project_input.validate()
-    return project_input
+    session.validate()
+    return session
 
 
 def create_output_bundle(

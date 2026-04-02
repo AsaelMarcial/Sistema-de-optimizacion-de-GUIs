@@ -1,74 +1,64 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
+from engine.adapters.browser.render_models import RenderArtifacts, SnapshotOptions
 from engine.adapters.browser.snapshot_analyzer import capture_prototype_state_artifacts
-from engine.adapters.utils.io import save_json
-from engine.domain.models.snapshot import RenderArtifacts, SnapshotOptions
+from engine.adapters.browser.page_builder import PageBuilder
+from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
+
+
+def _session_ready_for_capture(session: Session) -> bool:
+    return (
+        bool(session.input_html_content.strip())
+        and bool(session.input_base_path.strip())
+        and bool(session.original_screenshot_path.strip())
+    )
+
+
+def _captured_session(session: Session) -> bool:
+    return isinstance(session.original_capture, RenderArtifacts)
 
 CONTRACT = StageContract(
     name="capture_original_state",
     requires=(
-        context_value("session.input.html.content", str, validator=lambda value: bool(value.strip())),
-        context_value("session.input.base_path", str, validator=lambda value: bool(value.strip())),
-        context_value(
-            "session.output.paths.original.snapshot_json",
-            str,
-            validator=lambda value: bool(value.strip()),
-        ),
-        context_value(
-            "session.output.paths.original.screenshot_png",
-            str,
-            validator=lambda value: bool(value.strip()),
-        ),
-        context_value(
-            "session.output.paths.original.css_overview_json",
-            str,
-            validator=lambda value: bool(value.strip()),
-        ),
-        context_value("session.output.id", str, validator=lambda value: bool(value.strip())),
+        context_value("session.runtime.page_builder", PageBuilder),
+        context_value("session", Session, validator=_session_ready_for_capture),
     ),
     produces=(
-        context_value("session.artifacts.original.capture", RenderArtifacts),
-        context_value("session.artifacts.original.screenshot", str, validator=lambda value: bool(value.strip())),
-        context_value("session.artifacts.original.pixel_frequencies_raw", list),
+        context_value("session", Session, validator=_captured_session),
+        context_value("environmental.inputs.original.raw_pixel_frequencies", list),
     ),
 )
 
 
 def run_stage(context: PipelineContext) -> PipelineContext:
-    if context.error or context.has("session.artifacts.original.capture"):
+    session = context.get("session")
+    if context.error or session.original_capture is not None:
         return context
 
-    base_path = context.get("session.input.base_path", "")
-    output_image_path = context.get("session.output.paths.original.screenshot_png", "")
+    output_image_path = session.original_screenshot_path
     context.trace.add_stage_event(
         CONTRACT.name,
         "start",
         {
-            "base_path": base_path,
+            "base_path": session.input_base_path,
             "output_image": output_image_path,
         },
     )
     artifacts = capture_prototype_state_artifacts(
-        html_content=context.get("session.input.html.content", ""),
-        base_path=base_path,
+        html_content=session.input_html_content,
+        base_path=session.input_base_path,
         options=SnapshotOptions(include_color_frequencies=True),
-        output_json_path=None,
         output_image_path=output_image_path,
-        session_id=context.get("session.output.id"),
+        page_builder=context.get("session.runtime.page_builder"),
     )
     color_frequencies = list(artifacts.color_frequencies or [])
-    context.set("session.artifacts.original.capture", artifacts)
-    context.set("session.artifacts.original.screenshot", artifacts.screenshot_path or output_image_path)
-    context.set("session.artifacts.original.pixel_frequencies_raw", color_frequencies)
+    context.set("session", replace(session, original_capture=artifacts))
+    context.set("environmental.inputs.original.raw_pixel_frequencies", color_frequencies)
     css_overview = artifacts.css_overview or {}
-    if context.has("session.output.paths.original.pixel_frequencies_raw_json"):
-        save_json(
-            context.get("session.output.paths.original.pixel_frequencies_raw_json"),
-            color_frequencies,
-            indent=4,
-        )
 
     context.trace.add_step(
         "original_prototype.render_done",
@@ -84,7 +74,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     context.trace.add_step(
         "analysis.render_snapshot_generated",
         {
-            "snapshot_path": context.get("session.output.paths.original.snapshot_json"),
+            "snapshot_path": None,
             "node_count": artifacts.snapshot.metadata.get("nodeCount"),
         },
     )
@@ -101,7 +91,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         {
             "node_count": artifacts.snapshot.metadata.get("nodeCount"),
             "distinct_colors": len(color_frequencies),
-            "css_overview_path": context.get("session.output.paths.original.css_overview_json"),
+            "css_overview_path": None,
         },
     )
     return context

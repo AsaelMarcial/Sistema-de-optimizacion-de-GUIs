@@ -5,17 +5,10 @@ from dataclasses import asdict, dataclass, field, replace
 from enum import StrEnum
 from typing import Any, Iterator, Sequence, Self
 
+from engine.adapters.color_service import color_registry
 from engine.domain.data.web_colors import get_web_color
 from engine.domain.enums.types.color import ColorFamilyType, PaletteRoleBias
 from engine.domain.models.color import SnapshotColorEvidence
-from engine.domain.utils.coloraide import (
-    color_to_hex,
-    color_to_rgb_tuple,
-    delta_e_distance,
-    display_color,
-    hct_coords,
-    tonal_palette_color,
-)
 
 _DEFAULT_ACHROMATIC_TONAL_STOPS: tuple[int, ...] = (
     0,
@@ -121,12 +114,12 @@ class ToneStopModel:
 
     @classmethod
     def from_color(cls, tone: int, color_value: Any) -> Self:
-        normalized = display_color(color_value)
+        normalized = color_registry.display_color(color_value)
         return cls(
             tone=tone,
-            hex_value=color_to_hex(normalized),
-            rgb=color_to_rgb_tuple(normalized),
-            hct=hct_coords(normalized),  # type: ignore[arg-type]
+            hex_value=color_registry.format_color(normalized, "hex"),
+            rgb=color_registry.format_color(normalized, "rgb"),
+            hct=color_registry.hct_of(normalized),  # type: ignore[arg-type]
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -224,14 +217,18 @@ class TonalPaletteModel:
         tones: Sequence[int] | None = None,
         chroma_override: float | None = None,
     ) -> Self:
-        normalized_seed = display_color(seed_hex)
-        hue, seed_chroma, _ = hct_coords(normalized_seed)
+        normalized_seed = color_registry.display_color(seed_hex)
+        hue, seed_chroma, _ = color_registry.hct_of(normalized_seed)
         chroma = seed_chroma if chroma_override is None else chroma_override
         palette_tones = tuple(int(value) for value in (tones or _default_tonal_stops(palette_type)))
         tone_models = tuple(
             ToneStopModel.from_color(
                 int(tone_value),
-                tonal_palette_color(normalized_seed, float(tone_value), chroma_override=chroma_override),
+                color_registry.tonal_color(
+                    normalized_seed,
+                    float(tone_value),
+                    chroma_override=chroma_override,
+                ),
             )
             for tone_value in palette_tones
         )
@@ -241,9 +238,9 @@ class TonalPaletteModel:
             role_bias=role_bias,
             seed_name=seed_name,
             seed_color_id=seed_color_id,
-            seed_hex=color_to_hex(normalized_seed),
-            seed_rgb=color_to_rgb_tuple(normalized_seed),
-            seed_hct=hct_coords(normalized_seed),  # type: ignore[arg-type]
+            seed_hex=color_registry.format_color(normalized_seed, "hex"),
+            seed_rgb=color_registry.format_color(normalized_seed, "rgb"),
+            seed_hct=color_registry.hct_of(normalized_seed),  # type: ignore[arg-type]
             hue=round(float(hue), 4),
             chroma=round(float(chroma), 4),
             semantic_weight=semantic_weight,
@@ -276,7 +273,7 @@ class TonalPaletteModel:
         best_tone: ToneStopModel | None = None
         best_distance: float | None = None
         for tone_stop in self.tones:
-            distance = delta_e_distance(rgb, tone_stop.rgb, method="2000")
+            distance = color_registry.delta_e_distance(rgb, tone_stop.rgb, method="2000")
             if best_distance is None or distance < best_distance:
                 best_tone = tone_stop
                 best_distance = distance

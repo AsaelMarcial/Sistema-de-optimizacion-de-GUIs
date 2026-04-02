@@ -1,20 +1,16 @@
+from __future__ import annotations
+
 from dataclasses import asdict
 from datetime import datetime, timezone
-import re
 from typing import Any
 
-from engine.domain.data.css_properties import CSS_PROPERTIES_BY_ID
-from engine.domain.models.element import ElementInventoryEntry
-from engine.domain.models.snapshot import (
-    RenderSnapshot,
-    SnapshotOptions,
-)
+from engine.adapters.color_service import color_registry
+from engine.adapters.browser.render_models import RenderSnapshot, SnapshotOptions
+from engine.domain.data.css_properties import get_css_property
+from engine.domain.models.color import ColorInventoryModel
+from engine.domain.models.element import Element, Property
 from engine.domain.models.style import ComputedStyleValueModel
-from engine.domain.utils.coloraide import color_to_css
 
-_RGBA_ALPHA_RE = re.compile(r"^rgba\((.+)\)$", re.IGNORECASE)
-_HSLA_ALPHA_RE = re.compile(r"^hsla\((.+)\)$", re.IGNORECASE)
-_SPACE_ALPHA_COLOR_RE = re.compile(r"^(?:rgb|hsl)\((.+)/(.+)\)$", re.IGNORECASE)
 _PURE_COLOR_PROPERTIES = {
     "accent-color",
     "background-color",
@@ -44,6 +40,7 @@ def normalize_snapshot_nodes(
     raw_nodes: list[dict[str, Any]],
     style_traces: dict[int, dict[str, Any]],
     *,
+    colors_inventory: ColorInventoryModel,
     options: SnapshotOptions,
     base_path: str,
     document_metrics: dict[str, Any],
@@ -55,7 +52,7 @@ def normalize_snapshot_nodes(
     ]
     retained_source_indexes = {node["source_index"] for node in filtered_raw_nodes}
 
-    snapshot_nodes: list[ElementInventoryEntry] = []
+    snapshot_nodes: list[Element] = []
     source_index_to_snapshot_id = {
         node["source_index"]: node["node_id"]
         for node in filtered_raw_nodes
@@ -88,34 +85,65 @@ def normalize_snapshot_nodes(
         backend_node_id = raw_node["backend_node_id"]
         node_trace = style_traces.get(backend_node_id, {})
         computed_styles = _filter_computed_styles(node_trace.get("computed_styles", {}))
-
-        raw_node["styles"] = {
-            "effective_background": _normalize_color_value("background-color", node_trace.get("effective_background")),
-        }
-        raw_node["parent_id"] = retained_parent_map.get(raw_node["node_id"])
-        raw_node["children_ids"] = tuple(sorted(children_map.get(raw_node["node_id"], [])))
-        raw_node["flags"]["is_leaf"] = len(raw_node["children_ids"]) == 0
-        raw_node["flags"]["has_siblings"] = bool(
-            raw_node["parent_id"] and len(children_map.get(raw_node["parent_id"], [])) > 1
+        effective_background = _normalize_color_value(
+            "background-color",
+            node_trace.get("effective_background"),
         )
 
-        normalized = _prune_empty(
-            {
-                "node_id": raw_node["node_id"],
-                "backend_node_id": raw_node["backend_node_id"],
-                "parent_id": raw_node["parent_id"],
-                "document_order": raw_node["document_order"],
-                "identity": raw_node["identity"],
-                "layout": raw_node["layout"],
-                "styles": raw_node["styles"],
-                "computed_styles": computed_styles,
-                "text": raw_node["text"],
-                "flags": raw_node["flags"],
-                "children_ids": raw_node["children_ids"],
-                "paint_order": raw_node.get("paint_order"),
-            }
+        parent_id = retained_parent_map.get(raw_node["node_id"])
+        children_ids = tuple(sorted(children_map.get(raw_node["node_id"], [])))
+        flags = raw_node["flags"]
+        flags["is_leaf"] = len(children_ids) == 0
+        flags["has_siblings"] = bool(parent_id and len(children_map.get(parent_id, [])) > 1)
+
+        properties = tuple(
+            _build_property(property_name, payload, colors_inventory)
+            for property_name, payload in sorted(computed_styles.items())
         )
-        snapshot_nodes.append(ElementInventoryEntry.build(normalized))
+
+        identity = dict(raw_node.get("identity") or {})
+        layout = dict(raw_node.get("layout") or {})
+        absolute_bounds = dict(layout.get("absolute_bounds") or {})
+        snapshot_nodes.append(
+            Element.build(
+                {
+                    "node_id": raw_node["node_id"],
+                    "backend_node_id": backend_node_id,
+                    "parent_id": parent_id,
+                    "children_ids": children_ids,
+                    "document_order": raw_node["document_order"],
+                    "tag_name": identity.get("tag"),
+                    "node_name": identity.get("node_name"),
+                    "html_id": identity.get("id"),
+                    "name": identity.get("name"),
+                    "role": identity.get("role"),
+                    "class_names": tuple(identity.get("class_list") or ()),
+                    "data_attributes": dict(identity.get("data_attributes") or {}),
+                    "attributes": dict(identity.get("attributes") or {}),
+                    "selector": identity.get("selector_hint"),
+                    "xpath": identity.get("xpath"),
+                    "related_media": dict(identity.get("related_media") or {}),
+                    "text": raw_node.get("text"),
+                    "paint_order": raw_node.get("paint_order"),
+                    "x": layout.get("x"),
+                    "y": layout.get("y"),
+                    "width": layout.get("width"),
+                    "height": layout.get("height"),
+                    "left": absolute_bounds.get("left"),
+                    "top": absolute_bounds.get("top"),
+                    "right": absolute_bounds.get("right"),
+                    "bottom": absolute_bounds.get("bottom"),
+                    "is_visible": flags.get("is_visible"),
+                    "is_leaf": flags.get("is_leaf"),
+                    "has_siblings": flags.get("has_siblings"),
+                    "is_text_node": flags.get("is_text_node"),
+                    "is_out_of_scope": flags.get("is_out_of_scope"),
+                    "is_stacking_context": flags.get("is_stacking_context"),
+                    "effective_background": effective_background,
+                    "properties": [property_model.to_dict() for property_model in properties],
+                }
+            )
+        )
 
     metadata = {
         "module": "prototype_structural_extractor.prototype_state_pipeline",
@@ -132,11 +160,31 @@ def normalize_snapshot_nodes(
     )
 
 
+def _build_property(
+    property_name: str,
+    payload: Any,
+    colors_inventory: ColorInventoryModel,
+) -> Property:
+    computed_style = (
+        payload
+        if isinstance(payload, ComputedStyleValueModel)
+        else ComputedStyleValueModel.build(payload)
+    )
+    color_entry = colors_inventory.entry_by_value(str(computed_style.computed_value or ""))
+    return Property.from_computed_style(
+        name=property_name,
+        computed_style=computed_style,
+        color_id=color_entry.color_id if color_entry is not None else None,
+    )
+
+
 def _filter_computed_styles(computed_styles: dict[str, Any]) -> dict[str, Any]:
     filtered: dict[str, Any] = {}
     for property_name, payload in (computed_styles or {}).items():
-        if property_name not in CSS_PROPERTIES_BY_ID:
+        property_spec = get_css_property(property_name)
+        if property_spec is None:
             continue
+        canonical_name = property_spec.value
         if isinstance(payload, ComputedStyleValueModel):
             raw_payload: dict[str, Any] = payload.to_dict()
         elif isinstance(payload, dict):
@@ -145,7 +193,7 @@ def _filter_computed_styles(computed_styles: dict[str, Any]) -> dict[str, Any]:
             continue
 
         computed_value = _normalize_color_value(
-            property_name,
+            canonical_name,
             raw_payload.get("computed_value"),
         )
         if computed_value in ("", None):
@@ -155,16 +203,11 @@ def _filter_computed_styles(computed_styles: dict[str, Any]) -> dict[str, Any]:
             "computed_value": computed_value,
         }
         if raw_payload.get("style_id"):
-            normalized_payload = {
-                "style_id": raw_payload["style_id"],
-            }
-        if raw_payload.get("kind"):
-            normalized_payload["kind"] = raw_payload["kind"]
+            normalized_payload["style_id"] = raw_payload["style_id"]
         if raw_payload.get("declared_property"):
             normalized_payload["declared_property"] = raw_payload["declared_property"]
         if raw_payload.get("declaration_id"):
             normalized_payload["declaration_id"] = raw_payload["declaration_id"]
-        normalized_payload["computed_value"] = computed_value
         if raw_payload.get("inherited_from_element_id"):
             normalized_payload["inherited_from_element_id"] = raw_payload[
                 "inherited_from_element_id"
@@ -172,7 +215,7 @@ def _filter_computed_styles(computed_styles: dict[str, Any]) -> dict[str, Any]:
         if raw_payload.get("resolution_status"):
             normalized_payload["resolution_status"] = raw_payload["resolution_status"]
 
-        filtered[property_name] = normalized_payload
+        filtered[canonical_name] = normalized_payload
     return filtered
 
 
@@ -180,7 +223,7 @@ def _prune_empty(value: Any) -> Any:
     if isinstance(value, dict):
         cleaned: dict[str, Any] = {}
         for key, inner in value.items():
-            keep_empty = key in {"children_ids", "node_ids", "styles", "computed_styles", "usage"}
+            keep_empty = key in {"children_ids", "node_ids", "usage", "properties"}
             if inner in (None, "", (), [], {}) and not keep_empty:
                 continue
             normalized = _prune_empty(inner)
@@ -206,47 +249,4 @@ def _normalize_color_value(property_name: str, value: Any) -> str | None:
     if property_name not in _PURE_COLOR_PROPERTIES:
         return normalized
 
-    lower = normalized.lower()
-    if lower == "transparent" or _is_alpha_zero_color(lower):
-        return "transparent"
-    try:
-        return color_to_css(normalized)
-    except Exception:
-        return normalized
-
-
-def _is_alpha_zero_color(value: str) -> bool:
-    hex_value = value.lstrip("#")
-    if len(hex_value) in {4, 8}:
-        alpha = hex_value[-1] if len(hex_value) == 4 else hex_value[-2:]
-        return alpha in {"0", "00"}
-
-    rgba_match = _RGBA_ALPHA_RE.match(value)
-    if rgba_match:
-        parts = [part.strip() for part in rgba_match.group(1).split(",")]
-        return len(parts) >= 4 and _alpha_is_zero(parts[3])
-
-    hsla_match = _HSLA_ALPHA_RE.match(value)
-    if hsla_match:
-        parts = [part.strip() for part in hsla_match.group(1).split(",")]
-        return len(parts) >= 4 and _alpha_is_zero(parts[3])
-
-    slash_match = _SPACE_ALPHA_COLOR_RE.match(value)
-    if slash_match:
-        return _alpha_is_zero(slash_match.group(2))
-
-    return False
-
-
-def _alpha_is_zero(raw_alpha: str) -> bool:
-    alpha = raw_alpha.strip().rstrip(")")
-    if alpha.endswith("%"):
-        try:
-            return float(alpha[:-1].strip()) == 0
-        except ValueError:
-            return False
-
-    try:
-        return float(alpha) == 0
-    except ValueError:
-        return False
+    return color_registry.normalize_css_color_token(normalized)

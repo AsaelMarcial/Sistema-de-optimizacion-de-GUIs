@@ -18,358 +18,306 @@
     />
     <script defer src="{{ url_for('static', filename='js/scripts.js') }}"></script>
   </head>
-  <body class="report-body">
+  <body>
     {% include 'header.html' %}
 
     <main
-      class="main-container report-page"
+      data-page="results"
       data-energy-wh="{{ results.energy_wh | round(4) }}"
       data-carbon-footprint="{{ results.carbon_footprint | round(6) }}"
       data-environmental-carbon-footprint="{{ results.environmental_co2eq_per_use | round(6) }}"
     >
-      <section class="section" aria-labelledby="impact-title">
-        <header class="section-header">
-          <span class="eyebrow">
-            <span class="eyebrow__dot"></span>
-            <span>Lectura sostenible de la interfaz</span>
-          </span>
-        </header>
+      <section id="impact" aria-labelledby="impact-title">
+        <span class="eyebrow">
+          <span class="eyebrow__dot"></span>
+          <span>Lectura sostenible de la interfaz</span>
+        </span>
 
-        <div class="section-body">
-          <div class="split split--hero">
-            <article>
-              <div class="card card--glow">
-                <div class="stack stack--vertical stack--spread">
-                  <div class="heading-group heading-group--tight">
-                    <h1 class="title title--display title--card" id="impact-title">
-                      <span class="title__line">Tu interfaz</span>
-                      <span class="title__line" id="heroReductionLead">podría emitir</span>
-                      <span class="title__line title__line--inline">
-                        <strong class="title__accent" id="heroReductionValue">{{ results.view.initial_reduction | round(4) }}</strong>
-                        <em class="title__accent title__accent--tail" id="heroReductionTail">kg menos de CO₂eq</em>
-                      </span>
-                    </h1>
+        <div class="flex-row">
+          <article class="card card--glow hero-panel">
+            <div class="hero-copy">
+              <h1 id="impact-title">
+                Tu interfaz
+                <span id="heroReductionLead">podría emitir</span>
+                <span class="title__inline">
+                  <strong id="heroReductionValue">{{ results.view.initial_reduction | round(4) }}</strong>
+                  <em id="heroReductionTail">kg menos de CO₂eq</em>
+                </span>
+              </h1>
 
-                    <p class="text-secondary" id="heroSupportCopy">
-                      Una parte importante del impacto no viene del contenido, sino de las superficies luminosas y la jerarquía visual que sostiene la interfaz.
-                    </p>
-                  </div>
+              <p class="text-secondary" id="heroSupportCopy">
+                Una parte importante del impacto no viene del contenido, sino de las superficies luminosas y la jerarquía visual que sostiene la interfaz.
+              </p>
+            </div>
 
-                  <div class="stack stack--vertical stack--compact">
-                    <span class="pill pill--accent" id="heroImprovementPill">Potencial de mejora en lectura e impacto</span>
+            <div class="hero-note">
+              <span class="pill pill--accent" id="heroImprovementPill">Potencial de mejora en lectura e impacto</span>
 
-                    <p class="text-tertiary">
-                      La interfaz actual ya tiene intención y estructura, pero todavía depende demasiado de rellenos brillantes, énfasis decorativo y contenedores de alta luminancia.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <p class="text-tertiary">
+                La interfaz actual ya tiene intención y estructura, pero todavía depende demasiado de rellenos brillantes, énfasis decorativo y contenedores de alta luminancia.
+              </p>
+            </div>
+          </article>
+
+          <div class="impact-panel">
+            <article id="carbon_card" class="card card--soft metric">
+              <span class="metric__label">Huella de carbono</span>
+              <div class="metric__value" id="summaryCarbonValue">{{ results.carbon_footprint | round(4) }}</div>
+              <div class="metric__text" id="summaryCarbonUnit">kg CO₂eq emitidos</div>
             </article>
 
-            <article>
-              <div class="card card--container">
-                <div class="mosaic">
-                  <article id="carbon_card" class="card card--soft metric">
-                    <span class="metric__label">Huella de carbono</span>
-                    <div class="metric__value" id="summaryCarbonValue">{{ results.carbon_footprint | round(4) }}</div>
-                    <div class="metric__text" id="summaryCarbonUnit">kg CO₂eq emitidos</div>
-                  </article>
+            <article id="energy_card" class="card card--soft metric">
+              <span class="metric__label">Consumo energético</span>
+              <div class="metric__value" id="summaryEnergyValue">{{ results.energy_wh | round(2) }}</div>
+              <div class="metric__text" id="summaryEnergyUnit">Wh consumidos</div>
+            </article>
 
-                  <article id="energy_card" class="card card--soft metric">
-                    <span class="metric__label">Consumo energético</span>
-                    <div class="metric__value" id="summaryEnergyValue">{{ results.energy_wh | round(2) }}</div>
-                    <div class="metric__text" id="summaryEnergyUnit">Wh consumidos</div>
-                  </article>
+            <form class="card card--soft impact-controls" onsubmit="return false;">
+              <div class="field">
+                <label for="user_count">Usuarios</label>
+                <input type="number" id="user_count" value="100" min="1" />
+              </div>
 
-                  <section class="card card--soft metric metric--wide">
+              <div class="field">
+                <label for="usage_hours">Horas</label>
+                <input type="number" id="usage_hours" value="24" min="1" />
+              </div>
 
-                    <div class="impact-form">
-                      <div class="field">
-                        <label for="user_count">Usuarios</label>
-                        <input type="number" id="user_count" value="100" min="1" />
-                      </div>
+              <button class="button button--primary" id="update-impact-button" type="button">
+                Actualizar
+              </button>
 
-                      <div class="field">
-                        <label for="usage_hours">Horas</label>
-                        <input type="number" id="usage_hours" value="24" min="1" />
-                      </div>
+              <p class="metric__text">
+                <strong>Contexto de uso.</strong> Este cálculo considera
+                <span id="summaryUsers">100</span> usuarios y
+                <span id="summaryHours">24</span> horas de uso.
+              </p>
+            </form>
+          </div>
+        </div>
+      </section>
 
-                      <button class="button button--primary" id="update-impact-button" type="button">
-                        Actualizar
+      <section id="drivers" aria-labelledby="visual-load-title">
+        <span class="eyebrow">
+          <span class="eyebrow__dot"></span>
+          <span>Perfil de carga visual</span>
+        </span>
+
+        <div class="flex-row">
+          <article class="card card--soft visual-panel">
+            <div class="graph-list">
+              {% for item in results.view.dominant_rows[:6] %}
+              <div class="graph-row">
+                <div class="graph-label">
+                  <span class="graph-dot" style="background: {{ item.hex }};"></span>
+                  <span>{{ item.label }}</span>
+                </div>
+                <div class="graph-track">
+                  <span class="graph-fill" style="width: {{ item.percentage }}%; background: {{ item.hex }};"></span>
+                </div>
+                <strong class="graph-value">{{ item.percentage | round(2) }}%</strong>
+              </div>
+              {% endfor %}
+            </div>
+
+            <div class="visual-summary">
+              <span class="label-chip">
+                <span class="label-chip__dot"></span>
+                <span>Distribución tonal</span>
+              </span>
+
+              <div class="distribution-track">
+                {% for item in results.view.dominant_rows[:6] %}
+                <span class="distribution-track__segment" style="width: {{ item.percentage }}%; background: {{ item.hex }};"></span>
+                {% endfor %}
+              </div>
+
+              <p class="text-tertiary">
+                Los tres tonos principales concentran
+                <strong>{{ results.view.top_three_percentage | round(2) }}%</strong>
+                del peso cromático visible identificado en la interfaz analizada.
+              </p>
+            </div>
+          </article>
+
+          <article class="card card--glow visual-highlight">
+            <div class="visual-highlight__copy">
+              <h2 id="visual-load-title">
+                Gran parte del peso visual se concentra en
+                <span>{{ results.view.dominant_color_count }} tonos dominantes</span>
+              </h2>
+
+              <p class="text-secondary">
+                sobre todo en superficies estructurales de alta luminancia.
+              </p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="palette-contrast-title">
+        <span class="eyebrow">
+          <span class="eyebrow__dot"></span>
+          <span>Paletas y contraste</span>
+        </span>
+        <h2 id="palette-contrast-title">
+          Paletas tonales y
+          <span>contraste</span>
+        </h2>
+
+        <p class="text-secondary">
+          Aquí se ve qué familias sostienen la interfaz y dónde la legibilidad empieza a volverse frágil.
+        </p>
+
+        <div class="flex-row">
+          {% if results.view.palette_rows %}
+          <article class="card card--soft palette-card">
+            <h3>Paletas detectadas</h3>
+
+            <div class="palette">
+              {% for palette in results.view.palette_rows %}
+              {% set palette_label = 'Neutral' if (palette.label or '')|lower == 'base achromatica' else palette.label %}
+              <div class="palette-row">
+                <div class="palette-meta">
+                  <h4 class="palette-meta__title">{{ palette_label }}</h4>
+                  <span class="text-caption">{{ palette.tone_count }} tonos</span>
+                </div>
+
+                <div class="palette-swatches">
+                  <ul class="swatch-list" role="list" style="--swatch-count: {{ palette.tones | length }};">
+                    {% for tone in palette.tones %}
+                    {% set tone_is_light = tone.is_light if tone.is_light is defined else (tone.tone >= 80) %}
+                    <li class="swatch-list__item">
+                      <button
+                        type="button"
+                        class="swatch {% if tone_is_light %}swatch--light{% else %}swatch--dark{% endif %}"
+                        style="background: {{ tone.hex_value }};"
+                        data-copy-color="{{ tone.hex_value | upper }}"
+                        data-copy-label="{{ palette_label }} {{ tone.tone }}"
+                        data-copy-message="{{ tone.hex_value | upper }}"
+                        title="{{ palette_label }} tono {{ tone.tone }} · {{ tone.hex_value | upper }} · Click para copiar"
+                        aria-label="{{ palette_label }} tono {{ tone.tone }}, {{ tone.hex_value | upper }}, click para copiar"
+                      >
+                        <span class="material-icons swatch__icon" aria-hidden="true">eco</span>
                       </button>
-
-                      <div class="metric__text">
-                        <strong>Contexto de uso.</strong> Este cálculo considera
-                        <span id="summaryUsers">100</span> usuarios y
-                        <span id="summaryHours">24</span> horas de uso.
-                      </div>
-                    </div>
-                  </section>
-                </div>
-              </div>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" aria-labelledby="visual-load-title">
-        <header class="section-header">
-          <span class="eyebrow">
-            <span class="eyebrow__dot"></span>
-            <span>Perfil de carga visual</span>
-          </span>
-        </header>
-
-        <div class="section-body">
-          <div class="split split--visual">
-            <article>
-              <div class="card card--soft">
-                <div class="stack stack--vertical">
-                  <div class="graph-list">
-                    {% for item in results.view.dominant_rows[:6] %}
-                    <div class="graph-row">
-                      <div class="graph-label">
-                        <span class="graph-dot" style="background: {{ item.hex }};"></span>
-                        <span>{{ item.label }}</span>
-                      </div>
-                      <div class="graph-track">
-                        <span class="graph-fill" style="width: {{ item.percentage }}%; background: {{ item.hex }};"></span>
-                      </div>
-                      <strong class="graph-value">{{ item.percentage | round(2) }}%</strong>
-                    </div>
+                    </li>
                     {% endfor %}
-                  </div>
-
-                  <div class="stack stack--vertical stack--compact">
-                    <span class="label-chip">
-                      <span class="label-chip__dot"></span>
-                      <span>Distribución tonal</span>
-                    </span>
-
-                    <div class="distribution-track">
-                      {% for item in results.view.dominant_rows[:6] %}
-                      <span class="distribution-track__segment" style="width: {{ item.percentage }}%; background: {{ item.hex }};"></span>
-                      {% endfor %}
-                    </div>
-
-                    <p class="text-tertiary">
-                      Los tres tonos principales concentran
-                      <strong>{{ results.view.top_three_percentage | round(2) }}%</strong>
-                      del peso cromático visible identificado en la interfaz analizada.
-                    </p>
-                  </div>
+                  </ul>
                 </div>
               </div>
-            </article>
+              {% endfor %}
+            </div>
 
-            <article>
-              <div class="card card--glow">
-                <div class="stack stack--vertical stack--center">
-                  <div class="heading-group">
-                    <h2 class="title title--display title--card" id="visual-load-title">
-                      Gran parte del peso visual se concentra en
-                      <span class="title__accent">{{ results.view.dominant_color_count }}</span>
-                      tonos dominantes
-                    </h2>
+            <p id="paletteCopyStatus" class="sr-only" aria-live="polite"></p>
+          </article>
+          {% endif %}
 
-                    <p class="text-secondary">
-                      sobre todo en superficies estructurales de alta luminancia.
-                    </p>
-                  </div>
+          <article class="card card--soft contrast-card">
+            <div class="contrast-summary">
+              <h3>Contraste <span class="sr-only">Contrast report</span></h3>
+
+              <p class="text-tertiary">
+                {{ results.accessibility.contrast.issue_count }} señales de contraste delicadas
+              </p>
+            </div>
+
+            {% if results.view.contrast_rows %}
+            <div class="contrast-list">
+              {% for issue in results.view.contrast_rows[:8] %}
+              <article class="contrast-item">
+                <div class="contrast-item__meta">
+                  <span class="contrast-item__ratio">
+                    {{ issue.contrast_ratio | round(2) }} / {{ issue.required_ratio | round(1) }}
+                  </span>
                 </div>
-              </div>
-            </article>
-          </div>
-        </div>
-      </section>
 
-      <section class="section" aria-labelledby="palette-contrast-title">
-        <header class="section-header">
-          <span class="eyebrow">
-            <span class="eyebrow__dot"></span>
-            <span>Paletas y contraste</span>
-          </span>
-        </header>
-
-        <div class="section-body section-body--stack">
-          <div class="heading-group">
-            <h2 class="title title--display title--section" id="palette-contrast-title">
-              Paletas tonales y
-              <span class="title__accent">contraste</span>
-            </h2>
-
-            <p class="text-secondary">
-              Aquí se ve qué familias sostienen la interfaz y dónde la legibilidad empieza a volverse frágil.
-            </p>
-          </div>
-
-          <div class="split split--aside">
-            {% if results.view.palette_rows %}
-            <article>
-              <div class="card card--soft">
-                <div class="stack stack--vertical stack--compact">
-                  <h3 class="title title--compact title--card">Paletas detectadas</h3>
-
-                  <div class="palette">
-                    {% for palette in results.view.palette_rows %}
-                    {% set palette_label = 'Neutral' if (palette.label or '')|lower == 'base achromatica' else palette.label %}
-                    <div class="palette-row">
-                      <div class="palette-meta">
-                        <h4 class="palette-meta__title">{{ palette_label }}</h4>
-                        <span class="text-caption">{{ palette.tone_count }} tonos</span>
-                      </div>
-
-                      <div class="palette-swatches">
-                        <ul class="swatch-list" role="list" style="--swatch-count: {{ palette.tones | length }};">
-                          {% for tone in palette.tones %}
-                          {% set tone_is_light = tone.is_light if tone.is_light is defined else (tone.tone >= 80) %}
-                          <li class="swatch-list__item">
-                            <button
-                              type="button"
-                              class="swatch {% if tone_is_light %}swatch--light{% else %}swatch--dark{% endif %}"
-                              style="background: {{ tone.hex_value }};"
-                              data-copy-color="{{ tone.hex_value | upper }}"
-                              data-copy-label="{{ palette_label }} {{ tone.tone }}"
-                              data-copy-message="{{ tone.hex_value | upper }}"
-                              title="{{ palette_label }} tono {{ tone.tone }} · {{ tone.hex_value | upper }} · Click para copiar"
-                              aria-label="{{ palette_label }} tono {{ tone.tone }}, {{ tone.hex_value | upper }}, click para copiar"
-                            >
-                              <span class="material-icons swatch__icon" aria-hidden="true">eco</span>
-                            </button>
-                          </li>
-                          {% endfor %}
-                        </ul>
-                      </div>
-                    </div>
-                    {% endfor %}
-                  </div>
-
-                  <p id="paletteCopyStatus" class="sr-only" aria-live="polite"></p>
+                <div class="contrast-preview" style="background: {{ issue.background_hex }};">
+                  <span class="contrast-preview__text" style="color: {{ issue.foreground_hex }};">Texto</span>
                 </div>
-              </div>
+
+                <div class="contrast-tones">
+                  <span>Fondo {{ issue.background_tone_label }}</span>
+                  <span>Texto {{ issue.foreground_tone_label }}</span>
+                </div>
+
+                <span class="contrast-item__selector">{{ issue.selector }}</span>
+              </article>
+              {% endfor %}
+            </div>
+            {% else %}
+            <article class="contrast-empty">
+              <strong>No se detectaron problemas de contraste en la vista analizada.</strong>
+              <p class="text-tertiary">
+                El artefacto sigue generándose y se conserva para trazabilidad como {{ results.accessibility.contrast.artifact }}.
+              </p>
             </article>
             {% endif %}
-
-            <article>
-              <div class="card card--soft">
-                <div class="stack stack--vertical stack--compact">
-                  <div class="contrast-summary">
-                    <h3 class="title title--compact title--card">Contraste <span class="sr-only">Contrast report</span></h3>
-
-                    <p class="text-tertiary">
-                      {{ results.accessibility.contrast.issue_count }} señales de contraste delicadas
-                    </p>
-                  </div>
-
-                  {% if results.view.contrast_rows %}
-                  <div class="contrast-list">
-                    {% for issue in results.view.contrast_rows[:8] %}
-                    <article class="contrast-item">
-                      <div class="contrast-item__meta">
-                        <span class="contrast-item__ratio">
-                          {{ issue.contrast_ratio | round(2) }} / {{ issue.required_ratio | round(1) }}
-                        </span>
-                      </div>
-
-                      <div class="contrast-preview" style="background: {{ issue.background_hex }};">
-                        <span class="contrast-preview__text" style="color: {{ issue.foreground_hex }};">Texto</span>
-                      </div>
-
-                      <div class="contrast-tones">
-                        <span>Fondo {{ issue.background_tone_label }}</span>
-                        <span>Texto {{ issue.foreground_tone_label }}</span>
-                      </div>
-
-                      <span class="contrast-item__selector">{{ issue.selector }}</span>
-                    </article>
-                    {% endfor %}
-                  </div>
-                  {% else %}
-                  <article class="contrast-empty">
-                    <strong>No se detectaron problemas de contraste en la vista analizada.</strong>
-                    <p class="text-tertiary">
-                      El artefacto sigue generándose y se conserva para trazabilidad como {{ results.accessibility.contrast.artifact }}.
-                    </p>
-                  </article>
-                  {% endif %}
-                </div>
-              </div>
-            </article>
-          </div>
+          </article>
         </div>
       </section>
 
-      <section class="section" aria-labelledby="changes-title">
-        <header class="section-header">
-          <span class="eyebrow">
-            <span class="eyebrow__dot"></span>
-            <span>Qué cambia en la interfaz</span>
-          </span>
-        </header>
+      <section id="preview" aria-labelledby="changes-title">
+        <span class="eyebrow">
+          <span class="eyebrow__dot"></span>
+          <span>Qué cambia en la interfaz</span>
+        </span>
+        <h2 id="changes-title">
+          La interfaz conserva su carácter y
+          <span>redistribuye el énfasis</span>
+        </h2>
 
-        <div class="section-body section-body--stack">
-          <div class="heading-group">
-            <h2 class="title title--display title--section" id="changes-title">
-              La interfaz conserva su carácter y
-              <span class="title__accent">redistribuye el énfasis</span>
-            </h2>
+        <p class="text-secondary">
+          La comparación mantiene la intención general, pero afina jerarquías, brillo y contraste para comunicar mejor con menos carga visual.
+        </p>
 
-            <p class="text-secondary">
-              La comparación mantiene la intención general, pero afina jerarquías, brillo y contraste para comunicar mejor con menos carga visual.
-            </p>
-          </div>
-
-          <div class="split split--preview">
-            <article>
+        <div class="flex-column">
+          <div class="flex-row">
+            <article class="preview-window card card--soft" aria-labelledby="preview-original-title">
               <h3 class="sr-only" id="preview-original-title">Original HTML preview</h3>
 
-              <div class="preview-window card card--soft" aria-labelledby="preview-original-title">
-                <div class="preview-window__bar">
-                  <div class="preview-window__dots" aria-hidden="true">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
-                  <span class="pill pill--neutral">Original</span>
+              <div class="preview-window__bar">
+                <div class="preview-window__dots" aria-hidden="true">
+                  <span></span>
+                  <span></span>
+                  <span></span>
                 </div>
-
-                <img
-                  src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.original) }}"
-                  alt="Vista previa original"
-                  class="preview-window__image"
-                  loading="lazy"
-                  decoding="async"
-                />
+                <span class="pill pill--neutral">Original</span>
               </div>
+
+              <img
+                src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.original) }}"
+                alt="Vista previa original"
+                class="preview-window__image"
+                loading="lazy"
+                decoding="async"
+              />
             </article>
 
-            <article>
-              <h3 class="sr-only" id="preview-optimized-title">Optimized HTML preview</h3>
+            <article class="preview-window card card--glow" aria-labelledby="preview-adjusted-title">
+              <h3 class="sr-only" id="preview-adjusted-title">Adjusted HTML preview</h3>
 
-              <div class="preview-window card card--glow" aria-labelledby="preview-optimized-title">
-                <div class="preview-window__bar">
-                  <div class="preview-window__dots" aria-hidden="true">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
-                  <span class="pill pill--accent">Versión ajustada</span>
+              <div class="preview-window__bar">
+                <div class="preview-window__dots" aria-hidden="true">
+                  <span></span>
+                  <span></span>
+                  <span></span>
                 </div>
-
-                <img
-                  src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.environmental) }}"
-                  alt="Vista previa ajustada"
-                  class="preview-window__image"
-                  loading="lazy"
-                  decoding="async"
-                />
+                <span class="pill pill--accent">Versión ajustada</span>
               </div>
+
+              <img
+                src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.environmental) }}"
+                alt="Vista previa ajustada"
+                class="preview-window__image"
+                loading="lazy"
+                decoding="async"
+              />
             </article>
           </div>
 
           {% if results.view.change_history_groups %}
-          <div class="results-subheading heading-group heading-group--tight">
-            <h3 class="title title--compact title--section">Rastro de cambios</h3>
+          <div id="history" class="results-subheading">
+            <h3>Rastro de cambios</h3>
             <p class="text-secondary">
               Cada ajuste queda agrupado para que el resultado sea claro, explicable y fácil de revisar.
             </p>
@@ -379,13 +327,12 @@
             {% for group in results.view.change_history_groups %}
             <article class="card card--soft change-group">
               <div class="change-group__head">
-                <div class="stack stack--vertical stack--compact">
-                  <h3 class="title title--compact title--card">{{ group.title }}</h3>
+                <div class="change-group__copy">
+                  <h3>{{ group.title }}</h3>
                   {% if group.summary %}
                   <p class="text-tertiary">{{ group.summary }}</p>
                   {% endif %}
                 </div>
-
                 {% if group.change_count %}
                 <span class="pill pill--neutral">{{ group.change_count }} ajustes</span>
                 {% endif %}
@@ -428,88 +375,75 @@
 
       {# Effect color evidence intentionally removed from the visible UI. #}
       {% if results.heuristics %}
-      <section class="section" aria-labelledby="heuristics-title">
-        <header class="section-header">
-          <span class="eyebrow">
-            <span class="eyebrow__dot"></span>
-            <span>Heurísticas aplicadas</span>
-          </span>
-        </header>
+      <section aria-labelledby="heuristics-title">
+        <span class="eyebrow">
+          <span class="eyebrow__dot"></span>
+          <span>Heurísticas aplicadas</span>
+        </span>
+        <h2 id="heuristics-title">
+          Criterios que guiaron
+          <span>la lectura</span>
+        </h2>
 
-        <div class="section-body section-body--stack">
-          <div class="heading-group">
-            <h2 class="title title--display title--section" id="heuristics-title">
-              Criterios que guiaron
-              <span class="title__accent">la lectura</span>
-            </h2>
+        <p class="text-secondary">
+          Las reglas quedan separadas del rastro de cambios para entender qué motivó cada ajuste y cómo se sostiene.
+        </p>
 
-            <p class="text-secondary">
-              Las reglas quedan separadas del rastro de cambios para entender qué motivó cada ajuste y cómo se sostiene.
-            </p>
-          </div>
+        <div class="heuristics">
+          {% for heuristica in results.heuristics %}
+          <article class="card card--soft heuristic">
+            <div class="heuristic__head">
+              <h3 class="heuristic__title">{{ heuristica.nombre }}</h3>
+              <span class="badge {% if heuristica.cumple %}badge--success{% else %}badge--warning{% endif %}">
+                {{ 'Cumple' if heuristica.cumple else 'No cumple' }}
+              </span>
+            </div>
 
-          <div class="heuristics">
-            {% for heuristica in results.heuristics %}
-            <article class="card card--soft heuristic">
-              <div class="heuristic__head">
-                <h3 class="heuristic__title">{{ heuristica.nombre }}</h3>
-                <span class="badge {% if heuristica.cumple %}badge--success{% else %}badge--warning{% endif %}">
-                  {{ 'Cumple' if heuristica.cumple else 'No cumple' }}
-                </span>
-              </div>
+            <p class="text-tertiary">{{ heuristica.recomendacion }}</p>
 
-              <p class="text-tertiary">{{ heuristica.recomendacion }}</p>
-
-              {% if heuristica.detalles %}
-              <details class="details">
-                <summary>Ver detalles</summary>
-                <ul>
-                  {% for detalle in heuristica.detalles %}
-                  <li>{{ detalle }}</li>
-                  {% endfor %}
-                </ul>
-              </details>
-              {% endif %}
-            </article>
-            {% endfor %}
-          </div>
+            {% if heuristica.detalles %}
+            <details class="details">
+              <summary>Ver detalles</summary>
+              <ul>
+                {% for detalle in heuristica.detalles %}
+                <li>{{ detalle }}</li>
+                {% endfor %}
+              </ul>
+            </details>
+            {% endif %}
+          </article>
+          {% endfor %}
         </div>
       </section>
       {% endif %}
 
-      <section class="section" aria-labelledby="export-title">
-        <header class="section-header">
-          <span class="eyebrow">
-            <span class="eyebrow__dot"></span>
-            <span>Paquete de salida</span>
-          </span>
-        </header>
+      <section id="download" aria-labelledby="export-title">
+        <span class="eyebrow">
+          <span class="eyebrow__dot"></span>
+          <span>Paquete de salida</span>
+        </span>
 
-        <div class="section-body">
-          <article class="card card--glow">
-            <div class="split split--export">
-              <div class="heading-group">
-                <h2 class="title title--display title--card" id="export-title">
-                  Descarga la versión ajustada y conserva su trazabilidad
-                </h2>
+        <article class="card card--glow flex-row">
+          <div class="export-copy">
+            <h2 id="export-title">
+              Descarga la versión ajustada y conserva su trazabilidad
+            </h2>
 
-                <p class="text-secondary">
-                  Descarga el HTML resultante, la paleta tonal y el historial de cambios juntos para compartir una lectura clara con diseño o desarrollo.
-                </p>
-              </div>
+            <p class="text-secondary">
+              Descarga el HTML resultante, la paleta tonal y el historial de cambios juntos para compartir una lectura clara con diseño o desarrollo.
+            </p>
+          </div>
 
-              <div class="stack stack--center-end">
-                <a
-                  href="{{ results.download_url }}"
-                  download
-                  class="button button--primary"
-                >
-                  Descargar versión ajustada
-                </a>
-              </div>
-            </div>
-          </article>
-        </div>
+          <div class="export-actions">
+            <a
+              href="{{ results.download_url }}"
+              download
+              class="button button--primary"
+            >
+              Descargar versión ajustada
+            </a>
+          </div>
+        </article>
       </section>
     </main>
   </body>

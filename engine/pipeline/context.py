@@ -7,17 +7,16 @@ from engine.pipeline.debug_trace import DebugTrace
 
 _ALLOWED_ROOT_KEYS = {
     "session",
-    "elements",
-    "style",
-    "color",
+    "prototype_structure",
     "scheme",
     "token",
-    "inventory",
+    "derived",
     "environmental",
     "transformation",
     "recommendations",
     "results",
 }
+_VALUE_KEY = "__value__"
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +51,8 @@ class PipelineContext:
             if not isinstance(current, dict) or part not in current:
                 return default
             current = current[part]
+        if isinstance(current, dict) and _VALUE_KEY in current:
+            return current[_VALUE_KEY]
         return current
 
     def set(self, key: str, value: Any) -> "PipelineContext":
@@ -64,10 +65,14 @@ class PipelineContext:
         for part in parts[:-1]:
             next_value = current.get(part)
             if not isinstance(next_value, dict):
-                next_value = {}
+                next_value = {_VALUE_KEY: next_value} if next_value is not None else {}
                 current[part] = next_value
             current = next_value
-        current[parts[-1]] = value
+        existing_value = current.get(parts[-1])
+        if isinstance(existing_value, dict):
+            existing_value[_VALUE_KEY] = value
+        else:
+            current[parts[-1]] = value
         return self
 
     def has(self, key: str) -> bool:

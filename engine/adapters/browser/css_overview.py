@@ -5,8 +5,9 @@ from typing import Any
 
 from playwright.sync_api import Page
 
-from engine.adapters.browser.prototype_renderer import CAPTURE_NODE_ID_ATTRIBUTE
-from engine.domain.utils.coloraide import color_to_hex, color_to_rgba_tuple, composite_over, contrast_ratio
+from engine.adapters.color_service import color_registry
+
+_CAPTURE_NODE_ID_ATTRIBUTE = "data-glow-capture-node-id"
 
 _CSS_OVERVIEW_CAPTURE_SCRIPT = """
 () => {
@@ -350,7 +351,7 @@ _CSS_OVERVIEW_CAPTURE_SCRIPT = """
     elements,
   };
 }
-""".replace("__CAPTURE_NODE_ID_ATTRIBUTE__", CAPTURE_NODE_ID_ATTRIBUTE)
+""".replace("__CAPTURE_NODE_ID_ATTRIBUTE__", _CAPTURE_NODE_ID_ATTRIBUTE)
 
 
 def capture_css_overview(page: Page) -> dict[str, Any]:
@@ -560,8 +561,11 @@ def _build_contrast_issues(elements: tuple[dict[str, Any], ...]) -> list[dict[st
         try:
             effective_foreground: Any = foreground["color"]
             if foreground["alpha"] < 1.0:
-                effective_foreground = composite_over(effective_foreground, background["color"])
-            ratio = round(float(contrast_ratio(effective_foreground, background["color"])), 4)
+                effective_foreground = color_registry.composite_over(
+                    effective_foreground,
+                    background["color"],
+                )
+            ratio = round(float(color_registry.contrast_ratio(effective_foreground, background["color"])), 4)
         except Exception:
             continue
 
@@ -610,7 +614,7 @@ def _resolve_background_color(stack: list[Any]) -> dict[str, Any] | None:
         if normalized is None:
             continue
         found_visible_layer = True
-        composite = composite_over(normalized["color"], composite)
+        composite = color_registry.composite_over(normalized["color"], composite)
 
     if not found_visible_layer:
         composite = "#ffffff"
@@ -632,7 +636,7 @@ def _normalize_color(value: Any) -> dict[str, Any] | None:
         color_value = value
 
     try:
-        red, green, blue, alpha = color_to_rgba_tuple(color_value)
+        red, green, blue, alpha = color_registry.format_color(color_value, "rgba")
         if alpha <= 0:
             return None
         css_value = (
@@ -642,7 +646,7 @@ def _normalize_color(value: Any) -> dict[str, Any] | None:
         )
         return {
             "css": css_value,
-            "hex": color_to_hex(color_value),
+            "hex": color_registry.format_color(color_value, "hex"),
             "alpha": round(alpha, 4),
             "rgba": [red, green, blue, round(alpha, 4)],
             "color": color_value,

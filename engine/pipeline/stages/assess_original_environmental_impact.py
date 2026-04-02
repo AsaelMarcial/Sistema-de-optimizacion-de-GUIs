@@ -17,7 +17,7 @@ CONTRACT = StageContract(
     name="assess_original_environmental_impact",
     requires=(
         context_value(
-            "session.artifacts.original.pixel_frequencies_raw",
+            "environmental.inputs.original.raw_pixel_frequencies",
             list,
             validator=has_color_frequency_rows,
         ),
@@ -35,10 +35,10 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     context.trace.add_stage_event(CONTRACT.name, "start")
     assessment = EnvironmentalAssessmentModel.build(
         assess_interface(
-        context.get("session.artifacts.original.pixel_frequencies_raw", []),
-        energy_model=_ENERGY_MODEL,
-        carbon_model=_CARBON_MODEL,
-        time_hours=1,
+            context.get("environmental.inputs.original.raw_pixel_frequencies", []),
+            energy_model=_ENERGY_MODEL,
+            carbon_model=_CARBON_MODEL,
+            time_hours=1,
         )
     )
     context.set("environmental.assessment.before", assessment)

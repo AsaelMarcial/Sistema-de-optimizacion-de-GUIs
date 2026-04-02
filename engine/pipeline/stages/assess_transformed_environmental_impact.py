@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from engine.adapters.browser.render_models import SnapshotOptions
 from engine.adapters.browser.snapshot_analyzer import capture_render_screenshot_and_color_frequencies
-from engine.adapters.utils.io import save_json
 from engine.domain.models.environmental_assessment.assessment import (
     EnvironmentalAssessmentModel,
     EnvironmentalSavingsModel,
@@ -11,13 +11,20 @@ from engine.domain.models.environmental_assessment.carbon_footprint import (
     assess_interface,
 )
 from engine.domain.models.environmental_assessment.energy_consumption import EnergyModel
-from engine.domain.models.session import ProjectStateModel
-from engine.domain.models.snapshot import SnapshotOptions
+from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
 
 _ENERGY_MODEL = EnergyModel.build_default()
 _CARBON_MODEL = CarbonFootprintModel.build_default()
+
+
+def _session_ready_for_environmental_assessment(session: Session) -> bool:
+    return (
+        bool(session.session_id.strip())
+        and bool(session.output_base_path.strip())
+        and bool(session.transformed_screenshot_path.strip())
+    )
 
 CONTRACT = StageContract(
     name="assess_transformed_environmental_impact",
@@ -27,18 +34,15 @@ CONTRACT = StageContract(
             str,
             validator=lambda value: bool(value.strip()),
         ),
-        context_value("session.output.project", ProjectStateModel),
         context_value(
-            "session.output.paths.transformed.screenshot_png",
-            str,
-            validator=lambda value: bool(value.strip()),
+            "session",
+            Session,
+            validator=_session_ready_for_environmental_assessment,
         ),
-        context_value("session.output.id", str, validator=lambda value: bool(value.strip())),
         context_value("environmental.assessment.before", EnvironmentalAssessmentModel),
     ),
     produces=(
-        context_value("session.artifacts.output.screenshot", str, validator=lambda value: bool(value.strip())),
-        context_value("session.artifacts.output.pixel_frequencies_raw", list),
+        context_value("environmental.inputs.output.raw_pixel_frequencies", list),
         context_value("environmental.assessment.after", EnvironmentalAssessmentModel),
         context_value("environmental.assessment.savings", EnvironmentalSavingsModel),
     ),
@@ -63,9 +67,9 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     if context.error:
         return context
 
-    output_project = context.get("session.output.project")
-    output_base_path = output_project.normalized_base_path
-    screenshot_path = context.get("session.output.paths.transformed.screenshot_png")
+    session = context.get("session")
+    output_base_path = session.output_base_path
+    screenshot_path = session.transformed_screenshot_path
     context.trace.add_stage_event(
         CONTRACT.name,
         "start",
@@ -79,21 +83,14 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         base_path=output_base_path,
         options=SnapshotOptions(include_color_frequencies=True),
         output_image_path=screenshot_path,
-        session_id=context.get("session.output.id"),
+        session_id=session.session_id,
     )
     transformed_frequencies = list(transformed_frequencies_raw or [])
-    context.set("session.artifacts.output.screenshot", screenshot_output_path or screenshot_path)
-    context.set("session.artifacts.output.pixel_frequencies_raw", transformed_frequencies)
-    if context.has("session.output.paths.output.pixel_frequencies_raw_json"):
-        save_json(
-            context.get("session.output.paths.output.pixel_frequencies_raw_json"),
-            transformed_frequencies,
-            indent=4,
-        )
+    context.set("environmental.inputs.output.raw_pixel_frequencies", transformed_frequencies)
     context.trace.add_step(
         "environmental_prototype.render_done",
         {
-            "screenshot_path": screenshot_output_path,
+            "screenshot_path": screenshot_output_path or screenshot_path,
         },
     )
     context.trace.add_step(

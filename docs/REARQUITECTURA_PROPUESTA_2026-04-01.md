@@ -96,21 +96,25 @@ session.artifacts_path
 
 scheme.colors
 scheme.tonal_palettes
+scheme.display_pixels
 
-prototype_structure.elements_by_tree_order
+prototype_structure.nodes
 prototype_structure.indexes.by_tag
 prototype_structure.indexes.by_classification
 prototype_structure.indexes.by_depth
-prototype_structure.pixels
-prototype_structure.styles_min
+
+environmental.inputs.original.raw_pixel_frequencies
+environmental.inputs.output.raw_pixel_frequencies
 ```
 
 ## 5.2 Restricciones
 
 - `session.id`: string no vacío, único por corrida.
-- `elements_by_tree_order`: colección ordenada y estable por recorrido.
-- `indexes.*`: siempre derivados de `elements_by_tree_order` (no dueños primarios de estado).
-- `pixels` y `styles_min`: sólo información mínima necesaria para decisiones actuales.
+- `nodes`: colección ordenada y estable por recorrido.
+- `indexes.*`: siempre derivados de `nodes` (no dueños primarios de estado).
+- `prototype_structure` sólo contiene estructura, relaciones y propiedades resueltas mínimas por nodo.
+- `scheme.display_pixels` es evidencia visual complementaria para construir el scheme.
+- `environmental.inputs.*.raw_pixel_frequencies` es input de assessment ambiental, no parte de `prototype_structure`.
 
 ---
 
@@ -124,10 +128,8 @@ prototype_structure.styles_min
 
 ```text
 Session (1) ------------------------------> PrototypeStructure (1)
-  id, base/input/output/artifacts paths        elements_by_tree_order
+  id, base/input/output/artifacts paths        nodes
                                                 indexes(by_tag, by_classification, by_depth)
-                                                pixels
-                                                styles_min
                                                 |
                                                 | contiene (1..N)
                                                 v
@@ -143,7 +145,7 @@ Session (1) ------------------------------> PrototypeStructure (1)
                                              classification(background|foreground|effect|other)
 
 ColorScheme (1)
-  colors, tonal_palettes
+  colors, tonal_palettes, display_pixels
       |
       | contiene (1..N)
       v
@@ -166,13 +168,11 @@ Style/StyleDeclaration <------------------> Element/Property (referencias mínim
   - `colors`, `tonal_palettes`
 
 - `Color`
-  - `color_id`, `value`, `normalized_value`, `source_role`
+  - `color_id`, `value`
 
 - `PrototypeStructure`
-  - `elements_by_tree_order`
+  - `nodes`
   - `indexes` (`by_tag`, `by_classification`, `by_depth`)
-  - `pixels`
-  - `styles_min`
 
 - `Element`
   - `node_id`, `tag`, `xpath`, `parent_id`, `children_ids`, `classification`, `properties`
@@ -183,7 +183,7 @@ Style/StyleDeclaration <------------------> Element/Property (referencias mínim
 - `Style` (modelo existente de reglas CSS)
   - reglas, origen, selector, source range, etc.
 
-- `StyleDeclaration` (modelo existente de declaraciones CSS)
+- `Declaration` (**siempre dentro de `Style`**)
   - `name`, `value`, `important`, `declaration_id`, uso/resolución.
 
 ### 6.2 Regla de simplificación clave
@@ -281,27 +281,33 @@ Si un invariante falla: la etapa debe abortar con error explícito de contrato.
 
 ## 11. Ubicación de datos de píxeles y estilos (mínimo viable)
 
-### 11.1 `prototype_structure.pixels`
+### 11.1 `environmental.inputs.*.raw_pixel_frequencies`
 
 ```text
-{
-  "raw_frequencies": [...],
-  "display_frequencies": [...],
-  "sampling": {
-    "viewport": ...,
-    "method": ...,
-    "timestamp": ...
-  }
-}
+environmental.inputs.original.raw_pixel_frequencies
+environmental.inputs.output.raw_pixel_frequencies
 ```
 
-### 11.2 `prototype_structure.styles_min`
+Regla: son inputs operativos del assessment ambiental y no forman parte de `prototype_structure`.
+
+### 11.2 `scheme.display_pixels`
+
+Debe incluir únicamente evidencia visual agregada del render visible:
+- `matched_inventory_colors`
+- `unmatched_visual_pixels`
+- `total_pixels_considered`
+- `excluded_regions_summary`
+
+Regla: `scheme.display_pixels` es evidencia visual complementaria para cuantización/pesos visuales; no reemplaza `scheme.colors` ni forma parte de `prototype_structure`.
+
+### 11.3 `prototype_structure.nodes[].properties`
 
 Debe incluir únicamente:
 - propiedades computadas necesarias para color/contraste/efectos,
-- trazabilidad mínima (`node_id`, `property`, `value`, `source_hint` opcional).
+- clasificación mínima (`background|foreground|effect|other`),
+- trazabilidad mínima (`style_id`, `declaration_id`, `declared_property`, `inherited_from_element_id`, `resolution_status`).
 
-Regla: no crear inventarios redundantes separados si ya existe la información por `Element/Property`.
+Regla: no crear inventarios redundantes separados si ya existe la información resuelta por `Element/Property`.
 
 ---
 
@@ -344,26 +350,30 @@ Regla: no crear inventarios redundantes separados si ya existe la información p
    - **Reemplazo:** claves `session.*` canónicas.
 
 2. `engine/pipeline/stages/capture_original_state.py`
-   - **Razón:** poblar `prototype_structure` directo en context.
-   - **Reemplazo:** `elements_by_tree_order`, `indexes`, `pixels`, `styles_min`.
+   - **Razón:** poblar captura base y enrutar `raw_pixel_frequencies` al branch canónico correspondiente.
+   - **Reemplazo:** `session.artifacts.original.capture` + `environmental.inputs.original.raw_pixel_frequencies`.
 
 3. `engine/pipeline/stages/build_inventories.py`
-   - **Razón:** evitar duplicar estructura primaria.
-   - **Reemplazo:** derivaciones mínimas desde `prototype_structure`.
+   - **Razón:** construir `prototype_structure` como verdad primaria y proyectar legacy.
+   - **Reemplazo:** `prototype_structure.nodes`, `prototype_structure.indexes` y derivaciones transicionales.
 
-4. `engine/pipeline/stages/build_effect_color_report.py`
+4. `engine/pipeline/stages/analyze_color_inventory.py`
+   - **Razón:** construir `scheme.input` desde el canon nuevo.
+   - **Reemplazo:** lectura primaria desde `prototype_structure` + `scheme.display_pixels`.
+
+5. `engine/pipeline/stages/build_effect_color_report.py`
    - **Razón:** `effect` vive en `Property`.
    - **Reemplazo:** derivación puntual sin truth paralela.
 
-5. `engine/pipeline/stages/build_contrast_report.py`
+6. `engine/pipeline/stages/build_contrast_report.py`
    - **Razón:** contraste es derivado.
    - **Reemplazo:** cálculo desde `prototype_structure` y salida final.
 
-6. `engine/pipeline/stages/set_tokens.py` y `engine/pipeline/stages/check_tokens.py`
+7. `engine/pipeline/stages/set_tokens.py` y `engine/pipeline/stages/check_tokens.py`
    - **Razón:** reducir doble procesamiento.
    - **Reemplazo:** unificación lógica efectiva (aunque transicionalmente permanezcan dos archivos).
 
-7. `engine/pipeline/artifact_serializers.py`
+8. `engine/pipeline/artifact_serializers.py`
    - **Razón:** serializers intermedios quedan obsoletos.
    - **Reemplazo:** mapeo directo a output final permitido.
 
@@ -577,8 +587,10 @@ Esta sección cierra ambigüedades y fija interpretación única.
 
 - Relaciones de nodos y propiedades: `prototype_structure`.
 - Esquema de color y paletas: `scheme`.
+- Evidencia visual display: `scheme.display_pixels`.
+- Inputs raw para assessment ambiental: `environmental.inputs.*.raw_pixel_frequencies`.
 - Rutas y metadatos operativos: `session`.
-- Píxeles/estilos mínimos: `prototype_structure.pixels` y `prototype_structure.styles_min`.
+- Reglas CSS/declaraciones ricas: `style` como subdominio especializado o compatibilidad transicional.
 
 ### VC-04 Terminología normalizada
 
@@ -599,7 +611,7 @@ Esta sección cierra ambigüedades y fija interpretación única.
 
 ## 20. Puntos que podían dejar dudas (ahora cerrados)
 
-1. **¿`elements_by_tree_order` reemplaza por completo a `elements_by_id`?**  
+1. **¿`nodes` reemplaza por completo a `elements_by_id`?**  
    Sí para la representación canónica del tramo. Si se requiere acceso O(1), se usa índice derivado en `prototype_structure.indexes`, no una segunda verdad primaria.
 
 2. **¿Se pueden mantener serializers para debug?**  
@@ -622,7 +634,7 @@ Un cambio se considera terminado únicamente si cumple todo:
 
 1. No hay `save_json(...)` ni lectura de JSON intermedio en stages del tramo en alcance.
 2. `prepare_project_session` no registra rutas `*_json` intermedias como dependencia operativa.
-3. `prototype_structure` contiene elementos, índices, píxeles y estilos mínimos consistentes.
+3. `prototype_structure` contiene nodos, índices y propiedades mínimas consistentes.
 4. `page_builder` se instancia una vez y se libera siempre.
 5. `effect` y `contrast` no existen como truth primaria separada.
 6. Stages downstream inmediatos leen de `context` canónico.
@@ -661,7 +673,7 @@ Resultado de revisión: los nombres usados en esta SRS quedan consistentes con l
 
 1. `PrototypeStructure` (nuevo archivo sugerido: `engine/domain/models/prototype_structure.py`)
    - Responsabilidad: estructura canónica del prototipo para análisis.
-   - Contiene: `elements_by_tree_order`, `indexes`, `pixels`, `styles_min`.
+   - Contiene: `nodes`, `indexes`.
 
 2. `PageBuilder` (adapter; archivo sugerido: `engine/adapters/browser/page_builder.py`)
    - Responsabilidad: encapsular sesión CDP/página única por corrida.
@@ -672,7 +684,7 @@ Resultado de revisión: los nombres usados en esta SRS quedan consistentes con l
    - Ajuste: asegurar campos canónicos (`id`, `base_path`, `input_path`, `output_path`, `artifacts_path`) y constructor único por corrida.
 
 2. `ColorScheme` / modelo de esquema (actualmente en `engine/domain/models/palette.py` y flujo asociado)
-   - Ajuste: normalizar lectura/escritura en `scheme.colors` y `scheme.tonal_palettes`.
+   - Ajuste: normalizar lectura/escritura en `scheme.colors`, `scheme.tonal_palettes` y `scheme.display_pixels`.
 
 3. `Element` (actualmente en `engine/domain/models/element.py`)
    - Ajuste: consolidar `classification` y `properties` para que soporte explícitamente `effect`.
@@ -698,19 +710,18 @@ Actualmente ya existe un modelo de estilos en `engine/domain/models/style.py` qu
 
 - `style` **no** se elimina ni se duplica.
 - `style` se mantiene como subdominio especializado para reglas CSS/declaraciones.
-- `prototype_structure.styles_min` almacena sólo un **resumen mínimo operativo** para el tramo en alcance.
 
 ### 24.2 Relación correcta entre `style` y `prototype_structure`
 
-1. `style` (inventario rico) conserva semántica de reglas/declaraciones/origen.
-2. `prototype_structure.styles_min` referencia lo necesario por nodo/propiedad para análisis rápido.
-3. Si un dato de `style` ya está en `prototype_structure.styles_min`, este último no debe convertirse en inventario completo paralelo.
+1. `prototype_structure` no contiene inventario rico de reglas CSS.
+2. `prototype_structure.nodes[].properties` conserva sólo estado resuelto mínimo y referencias de trazabilidad.
+3. No tener instancias repetidas de un mismo `style` dentro de `prototype_structure`.
 
 ### 24.3 Regla de no-duplicación aplicada a style
 
-- Fuente primaria de reglas CSS/declaraciones: modelo `style` existente.
-- Fuente primaria del estado estructural por nodo: `prototype_structure`.
-- Puente permitido: referencias mínimas (`style_id`, `declaration_id`, `node_id`) para trazabilidad.
+- Fuente primaria de reglas CSS/declaraciones: `style` como subdominio especializado mientras exista compatibilidad transicional.
+- Fuente primaria del estado estructural por nodo: `prototype_structure.nodes`.
+- Puente permitido: referencias mínimas en cada property (`style_id`) para trazabilidad.
 
 Con esta decisión, se evita conflicto entre “inventario CSS completo” y “estructura operativa del prototipo”.
 

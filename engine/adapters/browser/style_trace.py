@@ -4,21 +4,20 @@ from collections import defaultdict
 import re
 from typing import Any
 
-from engine.domain.data.css_properties import CSS_PROPERTIES_BY_ID, CSS_PROPERTY_SHORTHANDS
+from engine.adapters.color_service import color_registry
+from engine.domain.data.css_properties import (
+    CSS_PROPERTY_SHORTHANDS,
+    get_css_property,
+)
 from engine.domain.models.color import ColorInventoryModel
 from engine.domain.models.style import (
     ComputedStyleValueModel,
     StyleInventoryEntry,
     StyleInventoryModel,
 )
-from engine.domain.utils.coloraide import color_to_css
 
-_RGBA_ALPHA_RE = re.compile(r"^rgba\((.+)\)$", re.IGNORECASE)
-_HSLA_ALPHA_RE = re.compile(r"^hsla\((.+)\)$", re.IGNORECASE)
-_SPACE_ALPHA_COLOR_RE = re.compile(r"^(?:rgb|hsl)\((.+)/(.+)\)$", re.IGNORECASE)
 _HEX_COLOR_RE = re.compile(r"#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b")
 _FUNCTION_COLOR_RE = re.compile(r"(?:rgba?|hsla?)\([^)]+\)", re.IGNORECASE)
-_MULTISPACE_RE = re.compile(r"\s+")
 _IMPORTANT_SUFFIX_RE = re.compile(r"\s*!important\s*$", re.IGNORECASE)
 _RESOLVE_VALUE_RE = re.compile(
     r"\b(?:var|calc|min|max|clamp|attr|color-mix)\(|currentColor\b",
@@ -102,71 +101,7 @@ def _normalize_css_value(property_name: str, value: str) -> str:
 
 
 def _normalize_color_token(value: str) -> str:
-    normalized = _MULTISPACE_RE.sub(" ", str(value).strip()).strip()
-    if not normalized:
-        return normalized
-
-    lower = normalized.lower()
-    if lower == "transparent":
-        return "transparent"
-
-    if _is_alpha_zero_color(lower):
-        return "transparent"
-
-    if lower in {
-        "currentcolor",
-        "inherit",
-        "initial",
-        "unset",
-        "revert",
-        "revert-layer",
-    }:
-        return lower
-
-    try:
-        return color_to_css(normalized)
-    except Exception:
-        return lower if lower.startswith("#") else normalized
-
-
-def _is_alpha_zero_color(value: str) -> bool:
-    if value == "transparent":
-        return True
-
-    hex_value = value.lstrip("#")
-    if len(hex_value) in {4, 8}:
-        alpha = hex_value[-1] if len(hex_value) == 4 else hex_value[-2:]
-        return alpha in {"0", "00"}
-
-    rgba_match = _RGBA_ALPHA_RE.match(value)
-    if rgba_match:
-        parts = [part.strip() for part in rgba_match.group(1).split(",")]
-        return len(parts) >= 4 and _alpha_is_zero(parts[3])
-
-    hsla_match = _HSLA_ALPHA_RE.match(value)
-    if hsla_match:
-        parts = [part.strip() for part in hsla_match.group(1).split(",")]
-        return len(parts) >= 4 and _alpha_is_zero(parts[3])
-
-    slash_match = _SPACE_ALPHA_COLOR_RE.match(value)
-    if slash_match:
-        return _alpha_is_zero(slash_match.group(2))
-
-    return False
-
-
-def _alpha_is_zero(raw_alpha: str) -> bool:
-    alpha = raw_alpha.strip().rstrip(")")
-    if alpha.endswith("%"):
-        try:
-            return float(alpha[:-1].strip()) == 0
-        except ValueError:
-            return False
-
-    try:
-        return float(alpha) == 0
-    except ValueError:
-        return False
+    return color_registry.normalize_css_color_token(value)
 
 
 def _extract_declarations(style_obj: dict[str, Any]) -> list[dict[str, Any]]:
@@ -183,13 +118,15 @@ def _extract_declarations(style_obj: dict[str, Any]) -> list[dict[str, Any]]:
     for index, prop in enumerate(properties):
         name = prop.get("name")
         value = prop.get("value")
-        if not name or value in (None, "") or name not in CSS_PROPERTIES_BY_ID:
+        property_spec = get_css_property(name)
+        if not name or value in (None, "") or property_spec is None:
             continue
 
+        canonical_name = property_spec.value
         raw_value = _strip_important_annotation(str(value))
-        normalized_value = _normalize_css_value(name, raw_value)
+        normalized_value = _normalize_css_value(canonical_name, raw_value)
         signature = (
-            name,
+            canonical_name,
             normalized_value,
             bool(prop.get("important", False)),
             bool(prop.get("implicit", False)),
@@ -200,7 +137,7 @@ def _extract_declarations(style_obj: dict[str, Any]) -> list[dict[str, Any]]:
         seen.add(signature)
         declarations.append(
             {
-                "name": name,
+                "name": canonical_name,
                 "value": normalized_value,
                 "important": signature[2],
                 "implicit": signature[3],
@@ -806,14 +743,16 @@ def _expand_declaration_targets(
         for property_payload in longhand_properties:
             longhand_name = property_payload.get("name")
             longhand_value = property_payload.get("value")
-            if not longhand_name or longhand_value in (None, ""):
+            longhand_spec = get_css_property(longhand_name)
+            if not longhand_name or longhand_value in (None, "") or longhand_spec is None:
                 continue
             if _is_implicit_longhand_value(str(longhand_value)):
                 continue
+            canonical_longhand_name = longhand_spec.value
             expanded.append(
                 (
-                    longhand_name,
-                    _normalize_css_value(longhand_name, str(longhand_value)),
+                    canonical_longhand_name,
+                    _normalize_css_value(canonical_longhand_name, str(longhand_value)),
                 )
             )
 

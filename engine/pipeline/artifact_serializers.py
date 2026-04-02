@@ -1,49 +1,11 @@
 from __future__ import annotations
 
-from collections import defaultdict
 from typing import Any, Mapping, Sequence
 
-from engine.domain.models.color import ColorInventoryModel, DisplayPixelFrequenciesModel
-from engine.domain.models.contrast import ContrastReportModel
-from engine.domain.models.effect_color import EffectColorReportModel
-from engine.domain.models.element import ElementInventoryModel
-from engine.domain.models.inventory_graph import InventoryGraphModel
-from engine.domain.models.palette import ColorSchemeArtifactModel
-from engine.domain.models.style import StyleInventoryModel
+from engine.domain.models.color import DisplayPixelFrequenciesModel
 from engine.domain.models.token import TokenInventoryModel
-
-
-def build_elements_inventory_artifact(
-    elements_inventory: ElementInventoryModel,
-) -> dict[str, Any]:
-    return {
-        "tree": list(elements_inventory.to_tree()),
-    }
-
-
-def build_styles_inventory_artifact(
-    styles_inventory: StyleInventoryModel,
-) -> dict[str, Any]:
-    entries_by_kind: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for entry in styles_inventory.to_dict():
-        kind = str(entry.get("kind") or "embedded")
-        entries_by_kind[kind].append(entry)
-    ordered_kinds = ("inline", "embedded", "external", "inherited", "user-agent")
-    payload: dict[str, list[dict[str, Any]]] = {}
-    for kind in ordered_kinds:
-        if entries_by_kind.get(kind):
-            payload[kind] = entries_by_kind[kind]
-    for kind in sorted(entries_by_kind):
-        if kind not in payload:
-            payload[kind] = entries_by_kind[kind]
-    return payload
-
-
-def build_colors_inventory_artifact(
-    colors_inventory: ColorInventoryModel,
-) -> dict[str, Any]:
-    return {"entries": colors_inventory.to_dict()}
-
+from engine.domain.models.quality_reports import ContrastReport
+from engine.domain.utils.token_graph import TokenGraph
 
 def build_token_inventory_artifact(
     token_inventory: TokenInventoryModel,
@@ -52,14 +14,12 @@ def build_token_inventory_artifact(
 
 
 def build_inventory_graph_artifact(
-    inventory_graph: InventoryGraphModel,
+    inventory_graph: TokenGraph,
     *,
     css_overview: Mapping[str, Any] | None = None,
-    contrast_report: ContrastReportModel | None = None,
-    effect_color_report: EffectColorReportModel | None = None,
+    contrast_report: ContrastReport | None = None,
     display_frequencies: DisplayPixelFrequenciesModel | None = None,
     raw_pixel_frequencies: Sequence[Mapping[str, Any]] | None = None,
-    color_scheme: ColorSchemeArtifactModel | None = None,
 ) -> dict[str, Any]:
     summary = _build_inventory_graph_summary(
         inventory_graph,
@@ -83,12 +43,6 @@ def build_inventory_graph_artifact(
     return payload
 
 
-def build_display_pixel_artifact(
-    display_frequencies: DisplayPixelFrequenciesModel,
-) -> dict[str, Any]:
-    return display_frequencies.to_dict()
-
-
 def _build_raw_pixel_summary(
     raw_pixel_frequencies: Sequence[Mapping[str, Any]],
 ) -> dict[str, int]:
@@ -99,19 +53,19 @@ def _build_raw_pixel_summary(
 
 
 def _build_inventory_graph_summary(
-    inventory_graph: InventoryGraphModel,
+    inventory_graph: TokenGraph,
     *,
     css_overview: Mapping[str, Any] | None = None,
-    contrast_report: ContrastReportModel | None = None,
+    contrast_report: ContrastReport | None = None,
     display_frequencies: DisplayPixelFrequenciesModel | None = None,
     raw_pixel_frequencies: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     css_summary = dict((css_overview or {}).get("summary") or {})
-    visible_entries = inventory_graph.elements.visible_entries()
+    visible_entries = inventory_graph.visible_elements()
     text_entries = tuple(
         entry
         for entry in inventory_graph.elements
-        if entry.flags.is_text_node or bool(str(entry.text or "").strip())
+        if entry.is_text_node or bool(str(entry.text or "").strip())
     )
     declaration_entries = tuple(
         declaration
@@ -119,27 +73,24 @@ def _build_inventory_graph_summary(
         for declaration in style_entry.declarations
     )
     computed_styles = tuple(
-        style_payload
+        property_model
         for element_entry in inventory_graph.elements
-        for _, style_payload in element_entry.iter_computed_styles()
+        for property_model in element_entry.properties
     )
     exact_match_count = sum(
         1
-        for style_payload in computed_styles
-        if getattr(style_payload.resolution_status, "value", style_payload.resolution_status)
-        == "exact_match"
+        for property_model in computed_styles
+        if str(property_model.resolution_status or "") == "exact_match"
     )
     ambiguous_match_count = sum(
         1
-        for style_payload in computed_styles
-        if getattr(style_payload.resolution_status, "value", style_payload.resolution_status)
-        == "ambiguous_match"
+        for property_model in computed_styles
+        if str(property_model.resolution_status or "") == "ambiguous_match"
     )
     unresolved_match_count = sum(
         1
-        for style_payload in computed_styles
-        if getattr(style_payload.resolution_status, "value", style_payload.resolution_status)
-        == "unresolved"
+        for property_model in computed_styles
+        if str(property_model.resolution_status or "") == "unresolved"
     )
     display_total = display_frequencies.total_pixels_considered if display_frequencies is not None else 0
     matched_pixels = (
@@ -170,12 +121,12 @@ def _build_inventory_graph_summary(
         "visible_element_count": len(visible_entries),
         "text_element_count": len(text_entries),
         "root_count": len(inventory_graph.root_ids),
-        "leaf_element_count": sum(1 for entry in inventory_graph.elements if entry.flags.is_leaf),
+        "leaf_element_count": sum(1 for entry in inventory_graph.elements if entry.is_leaf),
         "out_of_scope_element_count": sum(
-            1 for entry in inventory_graph.elements if entry.flags.is_out_of_scope
+            1 for entry in inventory_graph.elements if entry.is_out_of_scope
         ),
         "stacking_context_count": sum(
-            1 for entry in inventory_graph.elements if entry.flags.is_stacking_context
+            1 for entry in inventory_graph.elements if entry.is_stacking_context
         ),
         "style_count": len(inventory_graph.style_ids),
         "declaration_count": len(declaration_entries),
@@ -234,9 +185,3 @@ def _build_inventory_graph_summary(
         ),
         "unused_declaration_count": int(css_summary.get("unused_declaration_count") or 0),
     }
-
-
-def _build_inventory_graph_relations(
-    inventory_graph: InventoryGraphModel,
-) -> dict[str, Any]:
-    return dict(inventory_graph.to_artifact_dict().get("relations") or {})

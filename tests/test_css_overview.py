@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 
 from engine.adapters.browser.snapshot_analyzer import extract_prototype_css_overview
-from engine.domain.models.snapshot import SnapshotOptions
+from engine.adapters.browser.render_models import SnapshotOptions
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
