@@ -28,18 +28,8 @@ from engine.pipeline.stages.build_contrast_report import (
 from engine.pipeline.stages.build_contrast_report import (
     run_stage as run_build_contrast_report_stage,
 )
-from engine.pipeline.stages.build_effect_color_report import (
-    CONTRACT as BUILD_EFFECT_COLOR_REPORT_CONTRACT,
-)
-from engine.pipeline.stages.build_effect_color_report import (
-    run_stage as run_build_effect_color_report_stage,
-)
-from engine.pipeline.stages.capture_display_pixels import CONTRACT as CAPTURE_DISPLAY_PIXELS_CONTRACT
-from engine.pipeline.stages.capture_display_pixels import run_stage as run_capture_display_pixels_stage
 from engine.pipeline.stages.capture_original_state import CONTRACT as CAPTURE_ORIGINAL_STATE_CONTRACT
 from engine.pipeline.stages.capture_original_state import run_stage as run_capture_original_state_stage
-from engine.pipeline.stages.capture_prototype_structure import CONTRACT as CAPTURE_PROTOTYPE_STRUCTURE_CONTRACT
-from engine.pipeline.stages.capture_prototype_structure import run_stage as run_capture_prototype_structure_stage
 from engine.pipeline.stages.close_page_builder import CONTRACT as CLOSE_PAGE_BUILDER_CONTRACT
 from engine.pipeline.stages.close_page_builder import run_stage as run_close_page_builder_stage
 from engine.pipeline.stages.prepare_project_session import CONTRACT as PREPARE_PROJECT_SESSION_CONTRACT
@@ -57,12 +47,8 @@ _STAGES: tuple[tuple[StageContract, Any], ...] = (
     (PREPARE_PROJECT_SESSION_CONTRACT, run_prepare_project_session_stage),
     (START_PAGE_BUILDER_CONTRACT, run_start_page_builder_stage),
     (CAPTURE_ORIGINAL_STATE_CONTRACT, run_capture_original_state_stage),
-    (CAPTURE_PROTOTYPE_STRUCTURE_CONTRACT, run_capture_prototype_structure_stage),
-    (CAPTURE_DISPLAY_PIXELS_CONTRACT, run_capture_display_pixels_stage),
     (BUILD_COLOR_SCHEME_CONTRACT, run_build_color_scheme_stage),
     (BUILD_CONTRAST_REPORT_CONTRACT, run_build_contrast_report_stage),
-    (BUILD_EFFECT_COLOR_REPORT_CONTRACT, run_build_effect_color_report_stage),
-    (CLOSE_PAGE_BUILDER_CONTRACT, run_close_page_builder_stage),
     (
         ASSESS_ORIGINAL_ENVIRONMENTAL_IMPACT_CONTRACT,
         run_assess_original_environmental_impact_stage,
@@ -74,19 +60,20 @@ _STAGES: tuple[tuple[StageContract, Any], ...] = (
         ASSESS_TRANSFORMED_ENVIRONMENTAL_IMPACT_CONTRACT,
         run_assess_transformed_environmental_impact_stage,
     ),
+    (CLOSE_PAGE_BUILDER_CONTRACT, run_close_page_builder_stage),
     (ASSEMBLE_RESULTS_CONTRACT, run_assemble_results_stage),
 )
 
 
-def _close_runtime_page_builder(context: PipelineContext) -> None:
-    page_builder = context.get("session.runtime.page_builder")
+def _close_page_builder(context: PipelineContext) -> None:
+    page_builder = context.get("session.page_builder")
     close = getattr(page_builder, "close", None)
     if callable(close):
         try:
             close()
         except Exception:
             pass
-    context.delete("session.runtime.page_builder")
+    context.delete("session.page_builder")
 
 
 def run_pipeline(file) -> tuple[dict[str, Any] | None, str | None]:
@@ -125,6 +112,6 @@ def run_pipeline(file) -> tuple[dict[str, Any] | None, str | None]:
                 )
                 break
     finally:
-        if context.has("session.runtime.page_builder"):
-            _close_runtime_page_builder(context)
+        if context.has("session.page_builder"):
+            _close_page_builder(context)
     return PipelineResult(payload=context.get("results"), error=context.error).to_tuple()

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from engine.adapters.browser.render_models import SnapshotOptions
-from engine.adapters.browser.snapshot_analyzer import capture_render_screenshot_and_color_frequencies
+from engine.adapters.browser.page_builder import PageBuilder
+from engine.adapters.utils.pixel import build_color_histograms
 from engine.domain.models.environmental_assessment.assessment import (
     EnvironmentalAssessmentModel,
     EnvironmentalSavingsModel,
@@ -29,6 +29,7 @@ def _session_ready_for_environmental_assessment(session: Session) -> bool:
 CONTRACT = StageContract(
     name="assess_transformed_environmental_impact",
     requires=(
+        context_value("session.page_builder", PageBuilder),
         context_value(
             "transformation.output.html.content",
             str,
@@ -39,12 +40,12 @@ CONTRACT = StageContract(
             Session,
             validator=_session_ready_for_environmental_assessment,
         ),
-        context_value("environmental.assessment.before", EnvironmentalAssessmentModel),
+        context_value("environmental.before.assessment", EnvironmentalAssessmentModel),
     ),
     produces=(
-        context_value("environmental.inputs.output.raw_pixel_frequencies", list),
-        context_value("environmental.assessment.after", EnvironmentalAssessmentModel),
-        context_value("environmental.assessment.savings", EnvironmentalSavingsModel),
+        context_value("environmental.after.color_histogram", list),
+        context_value("environmental.after.assessment", EnvironmentalAssessmentModel),
+        context_value("environmental.savings", EnvironmentalSavingsModel),
     ),
 )
 
@@ -78,15 +79,18 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             "output_image": screenshot_path,
         },
     )
-    screenshot_output_path, transformed_frequencies_raw = capture_render_screenshot_and_color_frequencies(
-        html_content=context.get("transformation.output.html.content", ""),
-        base_path=output_base_path,
-        options=SnapshotOptions(include_color_frequencies=True),
-        output_image_path=screenshot_path,
-        session_id=session.session_id,
+    page_builder = context.get("session.page_builder")
+    page_builder.load(
+        context.get("transformation.output.html.content", ""),
+        output_base_path,
     )
-    transformed_frequencies = list(transformed_frequencies_raw or [])
-    context.set("environmental.inputs.output.raw_pixel_frequencies", transformed_frequencies)
+    screenshot_output_path = page_builder.capture_full_page_screenshot(
+        artifacts_dir=session.artifacts_dir,
+        filename=session.TRANSFORMED_SCREENSHOT_NAME,
+    )
+    color_histograms = build_color_histograms(screenshot_output_path or screenshot_path)
+    color_histogram = color_histograms["environmental"]
+    context.set("environmental.after.color_histogram", color_histogram)
     context.trace.add_step(
         "environmental_prototype.render_done",
         {
@@ -95,21 +99,21 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     )
     context.trace.add_step(
         "environmental_prototype.colors_classified",
-        {"distinct_colors": len(transformed_frequencies)},
+        {"distinct_colors": len(color_histogram)},
     )
 
     after_assessment = EnvironmentalAssessmentModel.build(
         assess_interface(
-            transformed_frequencies,
+            color_histogram,
             energy_model=_ENERGY_MODEL,
             carbon_model=_CARBON_MODEL,
             time_hours=1,
         )
     )
-    before_assessment = context.get("environmental.assessment.before")
+    before_assessment = context.get("environmental.before.assessment")
     savings = _build_savings(before_assessment, after_assessment)
-    context.set("environmental.assessment.after", after_assessment)
-    context.set("environmental.assessment.savings", savings)
+    context.set("environmental.after.assessment", after_assessment)
+    context.set("environmental.savings", savings)
     context.trace.add_step(
         "assessment.environmental",
         {
@@ -122,7 +126,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         CONTRACT.name,
         "complete",
         {
-            "distinct_colors": len(transformed_frequencies),
+            "distinct_colors": len(color_histogram),
             "co2eq_per_use_savings": savings.co2eq_per_use,
         },
     )

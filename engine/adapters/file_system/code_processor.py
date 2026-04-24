@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 
 from app.config import get_output_dir
 from engine.adapters.color_service import color_registry
-from engine.domain.data.css_properties import get_css_property
+from engine.domain.enums.scope.css_properties import get_css_property
 from engine.domain.data.tokens import PROPERTY_TOKEN_RULES
 from engine.domain.utils.color_utils import (
     extract_hex_colors,
@@ -312,6 +312,7 @@ def _matching_color_fragments(
         matches.append(normalized_candidate)
     return tuple(matches)
 
+
 def _token_source_spec(
     token,
     lookup: _TokenRewriteLookup,
@@ -397,6 +398,14 @@ def _token_source_spec(
                 exact_values.update(_color_value_variants(authored_value))
 
     return exact_properties, fragment_properties, exact_values, fragment_values
+
+
+def _parseable_color_fragments(values: set[str]) -> set[str]:
+    fragments: set[str] = set()
+    for value in values:
+        for fragment in _COLOR_FRAGMENT_RE.findall(str(value or "")):
+            fragments.update(_parseable_color_variants(fragment))
+    return fragments
 
 
 def _replace_value_fragments(
@@ -555,10 +564,73 @@ def _build_token_replacement_specs(
     token_inventory: TokenInventoryModel,
     prototype_structure: PrototypeStructure,
 ) -> list[dict[str, object]]:
+    tokens_by_id = {token.token_id: token for token in token_inventory}
+    specs: list[dict[str, object]] = []
+    for element in prototype_structure:
+        for property_model in element.properties:
+            assigned_token_ids = tuple(
+                dict.fromkeys(
+                    str(item).strip()
+                    for item in (*property_model.token_ids, property_model.applied_token_id)
+                    if str(item or "").strip()
+                ).keys()
+            )
+            if not assigned_token_ids:
+                continue
+            property_names = set(
+                _candidate_declared_properties(
+                    property_model.name,
+                    property_model.declared_property,
+                )
+            )
+            source_values = {
+                str(item).strip().lower()
+                for item in (
+                    property_model.value,
+                    property_model.authored_value,
+                )
+                if str(item or "").strip()
+            }
+            for token_id in assigned_token_ids:
+                token = tokens_by_id.get(token_id)
+                if token is None or not (token.is_semantic or token.is_component):
+                    continue
+                property_rule = PROPERTY_TOKEN_RULES.get((token.property_id or "").lower())
+                if property_rule is not None and not bool(property_rule.get("relevant_for_rewrite", True)):
+                    continue
+                token_values = {
+                    str(item).strip().lower()
+                    for item in token.source_values
+                    if str(item).strip()
+                }
+                replacement_values = source_values | token_values
+                if not replacement_values:
+                    continue
+                fragment_mode = (
+                    "whole_declaration"
+                    if (token.property_id or "").strip().lower()
+                    in {"background-image", "box-shadow", "text-shadow"}
+                    else "fragment"
+                )
+                specs.append(
+                    {
+                        "token_id": token.token_id,
+                        "properties": property_names,
+                        "fragment_properties": property_names,
+                        "tags": {element.tag_name},
+                        "source_values": replacement_values,
+                        "fragment_values": replacement_values,
+                        "replacement": f"var({token.css_variable_name})",
+                        "path": token.path_string,
+                        "fragment_mode": fragment_mode,
+                    }
+                )
+    if specs:
+        return specs
+
     lookup = _TokenRewriteLookup(
         prototype_structure=prototype_structure,
     )
-    specs: list[dict[str, object]] = []
     for token in token_inventory:
         if not (token.is_semantic or token.is_component):
             continue

@@ -29,34 +29,6 @@ def raw_snapshot(value: Any) -> bool:
     return hasattr(value, "metadata") and hasattr(value, "nodes")
 
 
-def pixel_rows_raw(value: Any) -> bool:
-    if not isinstance(value, (list, tuple)):
-        return False
-    for item in value:
-        if not hasattr(item, "get"):
-            return False
-        if item.get("color") is None or item.get("count") is None:
-            return False
-    return True
-
-
-def pixel_rows_display(value: Any) -> bool:
-    if hasattr(value, "to_dict") and hasattr(value, "matched_inventory_colors"):
-        return True
-    if not isinstance(value, dict):
-        return False
-    matched_rows = value.get("matched_inventory_colors")
-    unmatched = value.get("unmatched_visual_pixels")
-    total_pixels = value.get("total_pixels_considered")
-    if not isinstance(matched_rows, (list, tuple)):
-        return False
-    if not isinstance(unmatched, dict):
-        return False
-    if total_pixels is None:
-        return False
-    return pixel_rows_raw(matched_rows)
-
-
 @dataclass(frozen=True, slots=True)
 class ContextValueSpec:
     key: str

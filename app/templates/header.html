@@ -1,16 +1,20 @@
+<a class="skip-link" href="#main-content">Saltar al contenido principal</a>
+
 <header class="topbar">
   <div class="brand">
-    <a class="brand-logo" href="{{ url_for('main.index') }}" aria-label="GLOW home">
-      <img src="{{ url_for('static', filename='images/logo-placeholder.svg') }}" alt="GLOW" />
+    <a class="brand-logo" href="{{ url_for('main.index') }}" aria-label="Inicio de GLOW">
+      <img src="{{ url_for('static', filename='images/logo-placeholder.svg') }}" alt="GLOW" width="296" height="68" />
     </a>
   </div>
 
   {% if request.endpoint != 'main.index' %}
-  <nav class="nav" aria-label="Primary">
+  <nav class="nav" aria-label="Navegación principal">
     <a href="#impact">Impacto</a>
     <a href="#drivers">Hallazgos</a>
     <a href="#preview">Comparativa</a>
+    {% if results is defined and results.view.change_history_groups %}
     <a href="#history">Historial</a>
+    {% endif %}
     <a class="button button--primary" href="#download">Descargar diseño</a>
   </nav>
   {% endif %}

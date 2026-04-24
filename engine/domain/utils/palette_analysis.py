@@ -5,7 +5,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from engine.adapters.color_service import color_registry
 from engine.domain.data.web_colors import get_web_color
-from engine.domain.models.color import ColorInventoryEntry, SnapshotColorEvidence
+from engine.domain.models.color import Color
 from engine.domain.models.palette import (
     ContrastCurveModel,
     CorePalettesModel,
@@ -48,7 +48,7 @@ def _comparison_signature(value: Any) -> tuple[tuple[int, int, int], tuple[float
     )  # type: ignore[arg-type]
 
 
-def _family_from_evidence(evidence: SnapshotColorEvidence) -> PaletteFamilyModel:
+def _family_from_evidence(evidence: Color) -> PaletteFamilyModel:
     comparison_rgb, comparison_hct = _comparison_signature(evidence.rgb)
     return PaletteFamilyModel(
         palette_type=evidence.family_type,
@@ -62,7 +62,7 @@ def _family_from_evidence(evidence: SnapshotColorEvidence) -> PaletteFamilyModel
         comparison_rgb=comparison_rgb,
         comparison_hct=comparison_hct,
         semantic_weight=evidence.usage_count,
-        confirmed_pixel_count=evidence.confirmed_pixel_count,
+        pixel_count=evidence.pixel_count,
         foreground_count=evidence.foreground_count,
         background_count=evidence.background_count,
         other_count=evidence.other_count,
@@ -70,7 +70,7 @@ def _family_from_evidence(evidence: SnapshotColorEvidence) -> PaletteFamilyModel
     )
 
 
-def _family_matches(family: PaletteFamilyModel, evidence: SnapshotColorEvidence) -> bool:
+def _family_matches(family: PaletteFamilyModel, evidence: Color) -> bool:
     if family.palette_type != evidence.family_type:
         return False
 
@@ -110,14 +110,14 @@ def _family_matches(family: PaletteFamilyModel, evidence: SnapshotColorEvidence)
     )
 
 
-def _absorb_family(family: PaletteFamilyModel, evidence: SnapshotColorEvidence) -> PaletteFamilyModel:
+def _absorb_family(family: PaletteFamilyModel, evidence: Color) -> PaletteFamilyModel:
     source_color_ids = tuple(
         dict.fromkeys((*family.source_color_ids, evidence.color_id)).keys()
     )
     return replace(
         family,
         semantic_weight=family.semantic_weight + evidence.usage_count,
-        confirmed_pixel_count=family.confirmed_pixel_count + evidence.confirmed_pixel_count,
+        pixel_count=family.pixel_count + evidence.pixel_count,
         foreground_count=family.foreground_count + evidence.foreground_count,
         background_count=family.background_count + evidence.background_count,
         other_count=family.other_count + evidence.other_count,
@@ -126,7 +126,7 @@ def _absorb_family(family: PaletteFamilyModel, evidence: SnapshotColorEvidence) 
 
 
 def _build_families(
-    evidences: Sequence[SnapshotColorEvidence],
+    evidences: Sequence[Color],
 ) -> tuple[PaletteFamilyModel | None, tuple[PaletteFamilyModel, ...]]:
     sorted_evidences = sorted(
         evidences,
@@ -134,7 +134,7 @@ def _build_families(
             evidence.usage_count,
             evidence.background_count,
             evidence.foreground_count,
-            evidence.confirmed_pixel_count,
+            evidence.pixel_count,
         ),
         reverse=True,
     )
@@ -153,19 +153,19 @@ def _build_families(
         target[match_index] = _absorb_family(target[match_index], evidence)
 
     achromatic_families.sort(
-        key=lambda family: (family.confirmed_pixel_count, family.semantic_weight),
+        key=lambda family: (family.pixel_count, family.semantic_weight),
         reverse=True,
     )
     chromatic_families.sort(
-        key=lambda family: (family.confirmed_pixel_count, family.semantic_weight),
+        key=lambda family: (family.pixel_count, family.semantic_weight),
         reverse=True,
     )
     return (achromatic_families[0] if achromatic_families else None), tuple(chromatic_families)
 
 
 def _filter_supported_evidences(
-    evidences: Sequence[SnapshotColorEvidence],
-) -> tuple[SnapshotColorEvidence, ...]:
+    evidences: Sequence[Color],
+) -> tuple[Color, ...]:
     return tuple(
         evidence
         for evidence in evidences
@@ -175,7 +175,7 @@ def _filter_supported_evidences(
 
 def _candidate_palettes_for(
     core_palettes: CorePalettesModel,
-    evidence: SnapshotColorEvidence,
+    evidence: Color,
 ) -> tuple[TonalPaletteModel, ...]:
     if evidence.family_type == "achromatic":
         return (core_palettes.achromatic_palette,) if core_palettes.achromatic_palette else ()
@@ -186,9 +186,9 @@ def _candidate_palettes_for(
 
 def _map_evidences(
     core_palettes: CorePalettesModel,
-    evidences: Sequence[SnapshotColorEvidence],
-) -> tuple[SnapshotColorEvidence, ...]:
-    mapped_evidences: list[SnapshotColorEvidence] = []
+    evidences: Sequence[Color],
+) -> tuple[Color, ...]:
+    mapped_evidences: list[Color] = []
     for evidence in evidences:
         seed_palette = next(
             (
@@ -238,16 +238,16 @@ def _map_evidences(
 
 
 def _build_named_color_breakdown(
-    evidences: Sequence[SnapshotColorEvidence],
+    evidences: Sequence[Color],
     *,
-    total_confirmed_pixels: int,
+    total_pixels: int,
 ) -> tuple[dict[str, Any], ...]:
-    use_confirmed_pixels = total_confirmed_pixels > 0
+    use_pixel_weight = total_pixels > 0
     breakdown: dict[str, dict[str, Any]] = {}
     total_weight = 0
 
     for evidence in evidences:
-        weight = evidence.confirmed_pixel_count if use_confirmed_pixels else evidence.usage_count
+        weight = evidence.pixel_count if use_pixel_weight else evidence.usage_count
         if weight <= 0 or not evidence.nearest_web_color:
             continue
         total_weight += weight
@@ -281,7 +281,7 @@ def _build_named_color_breakdown(
 
 def _build_dynamic_scheme(
     core_palettes: CorePalettesModel,
-    evidences: Sequence[SnapshotColorEvidence],
+    evidences: Sequence[Color],
 ) -> DynamicSchemeSpecModel:
     achromatic_palette = core_palettes.achromatic_palette
     primary_palette = (
@@ -302,14 +302,13 @@ def _build_dynamic_scheme(
 
 
 def build_palette_analysis(
-    snapshot_palette: Iterable[Mapping[str, Any] | ColorInventoryEntry],
-    pixel_color_frequencies: Sequence[Mapping[str, Any]] | None,
+    snapshot_palette: Iterable[Mapping[str, Any] | Color],
     *,
     material_quantization_assessment: MaterialQuantizationAssessment,
     max_chromatic_palettes: int = _MAX_CHROMATIC_PALETTES,
 ) -> PaletteAnalysisModel:
     semantic_colors = _filter_supported_evidences(
-        SnapshotColorEvidence.build_many(snapshot_palette)
+        Color.build_many(snapshot_palette)
     )
     achromatic_family, chromatic_families = _build_families(semantic_colors)
     core_palettes = CorePalettesModel.build(
@@ -318,23 +317,14 @@ def build_palette_analysis(
         max_chromatic_palettes=max_chromatic_palettes,
     )
     mapped_evidences = _map_evidences(core_palettes, semantic_colors)
-    confirmed_pixel_count = sum(evidence.confirmed_pixel_count for evidence in mapped_evidences)
-    total_pixel_count = sum(int(item.get("count") or 0) for item in (pixel_color_frequencies or ()))
-    residual_pixel_count = max(total_pixel_count - confirmed_pixel_count, 0)
-    residual_distinct_colors = max(
-        len(pixel_color_frequencies or ()) - len([item for item in mapped_evidences if item.confirmed_pixel_count > 0]),
-        0,
-    )
+    pixel_count = sum(evidence.pixel_count for evidence in mapped_evidences)
     return PaletteAnalysisModel.build_from_components(
         semantic_colors=mapped_evidences,
         named_color_breakdown=_build_named_color_breakdown(
             mapped_evidences,
-            total_confirmed_pixels=confirmed_pixel_count,
+            total_pixels=pixel_count,
         ),
         core_palettes=core_palettes,
         dynamic_scheme=_build_dynamic_scheme(core_palettes, mapped_evidences),
         material_quantization_assessment=material_quantization_assessment,
-        confirmed_pixel_count=confirmed_pixel_count,
-        residual_pixel_count=residual_pixel_count,
-        residual_distinct_colors=residual_distinct_colors,
     )

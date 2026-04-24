@@ -6,10 +6,10 @@ from typing import Any
 
 from engine.adapters.color_service import color_registry
 from engine.adapters.browser.render_models import RenderSnapshot, SnapshotOptions
-from engine.domain.data.css_properties import get_css_property
-from engine.domain.models.color import ColorInventoryModel
+from engine.domain.enums.scope.css_properties import get_css_property
+from engine.domain.models.color import ColorCatalog
 from engine.domain.models.element import Element, Property
-from engine.domain.models.style import ComputedStyleValueModel
+from engine.domain.models.style import ResolvedStyleValue
 
 _PURE_COLOR_PROPERTIES = {
     "accent-color",
@@ -40,7 +40,7 @@ def normalize_snapshot_nodes(
     raw_nodes: list[dict[str, Any]],
     style_traces: dict[int, dict[str, Any]],
     *,
-    colors_inventory: ColorInventoryModel,
+    colors_inventory: ColorCatalog,
     options: SnapshotOptions,
     base_path: str,
     document_metrics: dict[str, Any],
@@ -163,12 +163,12 @@ def normalize_snapshot_nodes(
 def _build_property(
     property_name: str,
     payload: Any,
-    colors_inventory: ColorInventoryModel,
+    colors_inventory: ColorCatalog,
 ) -> Property:
     computed_style = (
         payload
-        if isinstance(payload, ComputedStyleValueModel)
-        else ComputedStyleValueModel.build(payload)
+        if isinstance(payload, ResolvedStyleValue)
+        else ResolvedStyleValue.build(payload)
     )
     color_entry = colors_inventory.entry_by_value(str(computed_style.computed_value or ""))
     return Property.from_computed_style(
@@ -185,7 +185,7 @@ def _filter_computed_styles(computed_styles: dict[str, Any]) -> dict[str, Any]:
         if property_spec is None:
             continue
         canonical_name = property_spec.value
-        if isinstance(payload, ComputedStyleValueModel):
+        if isinstance(payload, ResolvedStyleValue):
             raw_payload: dict[str, Any] = payload.to_dict()
         elif isinstance(payload, dict):
             raw_payload = payload

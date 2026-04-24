@@ -2,46 +2,39 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
+import re
 
 from engine.adapters.file_system.file_handler import create_output_bundle
-from engine.adapters.utils.io import save_json
+from engine.adapters.utils.pixel import dominant_color_percentages
 from engine.domain.data.web_colors import nearest_web_color
-from engine.domain.models.color import build_inventory_from_scheme_colors
+from engine.domain.models.color import ColorCatalog, build_color_catalog_from_scheme
 from engine.domain.models.environmental_assessment.assessment import (
     EnvironmentalAssessmentModel,
     EnvironmentalSavingsModel,
 )
-from engine.domain.models.color import DisplayPixelFrequenciesModel
 from engine.domain.models.palette import CorePalettesModel
+from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.session import Session
 from engine.domain.models.token import TokenInventoryModel
 from engine.adapters.color_service import color_registry
-from engine.domain.utils.formatters import color_frequency_to_statistics
 from engine.pipeline.context import PipelineContext, RecommendationsPayload
 from engine.pipeline.stage_contract import StageContract, context_value
 
 _TONE_STOPS = (0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 98, 99, 100)
-_WEB_FAMILY_DISPLAY_NAMES = {
-    "Colores rojos": "Red",
-    "Colores naranjas": "Orange",
-    "Colores marrones": "Brown",
-    "Colores amarillos": "Yellow",
-    "Colores verdes amarillos": "Lime",
-    "Colores verdes": "Green",
-    "Colores acianos (azul verdes)": "Turquoise",
-    "Colores azules": "Blue",
-    "Colores violetas y púrpuras": "Violet",
-    "Colores rosas": "Fuchsia / Magenta",
-    "Colores blancos": "White",
-    "Colores grises": "Neutral",
-}
+_EFFECT_COLOR_PROPERTIES = (
+    "background-image",
+    "text-shadow",
+    "box-shadow",
+    "filter",
+)
+_HEX_COLOR_RE = re.compile(r"#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b")
+_FUNCTION_COLOR_RE = re.compile(r"(?:rgba?|hsla?)\([^)]+\)", re.IGNORECASE)
 
 
 def _session_ready_for_results(session: Session) -> bool:
     return (
         bool(session.output_dir.strip())
         and bool(session.artifacts_dir.strip())
-        and bool(session.results_json_path.strip())
         and bool(session.bundle_name.strip())
         and bool(session.download_path.strip())
     )
@@ -49,17 +42,15 @@ def _session_ready_for_results(session: Session) -> bool:
 CONTRACT = StageContract(
     name="assemble_results",
     requires=(
-        context_value("environmental.assessment.before", EnvironmentalAssessmentModel),
-        context_value("environmental.assessment.after", EnvironmentalAssessmentModel),
-        context_value("environmental.assessment.savings", EnvironmentalSavingsModel),
+        context_value("environmental.before.assessment", EnvironmentalAssessmentModel),
+        context_value("environmental.after.assessment", EnvironmentalAssessmentModel),
+        context_value("environmental.savings", EnvironmentalSavingsModel),
         context_value("scheme.colors", tuple),
         context_value("scheme.named_color_breakdown", tuple),
-        context_value("scheme.confirmed_pixel_count", int),
-        context_value("scheme.residual_pixel_count", int),
-        context_value("scheme.residual_distinct_colors", int),
         context_value("scheme.tonal_palettes", CorePalettesModel),
-        context_value("scheme.display_pixels", DisplayPixelFrequenciesModel),
-        context_value("environmental.inputs.original.raw_pixel_frequencies", list),
+        context_value("environmental.before.color_histogram", list),
+        context_value("prototype_structure", PrototypeStructure),
+        context_value("derived.raw_snapshot_metadata", dict),
         context_value("token.inventory", TokenInventoryModel),
         context_value("transformation.heuristics", list),
         context_value("session", Session, validator=_session_ready_for_results),
@@ -75,37 +66,161 @@ def _as_mapping(value: object) -> Mapping[str, object]:
     return value if isinstance(value, Mapping) else {}
 
 
-def _token_runtime_summary(token_inventory: TokenInventoryModel) -> dict[str, int]:
+def _token_runtime_summary(
+    prototype_structure: PrototypeStructure,
+    scheme_colors: tuple[object, ...],
+) -> dict[str, int]:
     assigned_element_ids = {
-        str(element_id).strip()
-        for token in token_inventory
-        for element_id in token.assigned_element_ids
-        if str(element_id).strip()
+        element.node_id
+        for element in prototype_structure
+        if element.token_ids
     }
     style_refs = {
-        str(property_ref).strip()
-        for token in token_inventory
-        for property_ref in token.source_property_refs
-        if str(property_ref).strip()
+        (
+            f"{property_model.style_id}:{property_model.declared_property or property_model.name}"
+            if property_model.style_id
+            else f"{element.node_id}:{property_model.name}"
+        )
+        for element in prototype_structure
+        for property_model in element.properties
+        if property_model.token_ids or property_model.applied_token_id
     }
     color_ids = {
-        str(color_id).strip()
-        for token in token_inventory
-        for color_id in token.source_color_ids
-        if str(color_id).strip()
+        str(getattr(color, "color_id", "")).strip()
+        for color in scheme_colors
+        if getattr(color, "token_ids", ()) or getattr(color, "foundation_token_id", None)
+        if str(getattr(color, "color_id", "")).strip()
     }
     palette_tones = {
-        f"{str(palette_id).strip()}:{int(token.tone)}"
-        for token in token_inventory
-        if token.tone is not None
-        for palette_id in token.source_palette_ids
-        if str(palette_id).strip()
+        f"{str(getattr(color, 'mapped_palette_id')).strip()}:{int(getattr(color, 'mapped_tone'))}"
+        for color in scheme_colors
+        if (getattr(color, "token_ids", ()) or getattr(color, "foundation_token_id", None))
+        and getattr(color, "mapped_palette_id", None) is not None
+        and getattr(color, "mapped_tone", None) is not None
     }
     return {
         "tokenized_element_count": len(assigned_element_ids),
         "tokenized_style_ref_count": len(style_refs),
         "tokenized_color_count": len(color_ids),
         "tokenized_palette_tone_count": len(palette_tones),
+    }
+
+
+def _extract_effect_color_tokens(value: str) -> tuple[str, ...]:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return ()
+
+    tokens: list[str] = []
+    for token in _HEX_COLOR_RE.findall(normalized):
+        if token not in tokens:
+            tokens.append(token)
+    for token in _FUNCTION_COLOR_RE.findall(normalized):
+        if token not in tokens:
+            tokens.append(token)
+    return tuple(tokens)
+
+
+def _effect_colors_payload(
+    prototype_structure: PrototypeStructure,
+    colors_inventory: ColorCatalog,
+) -> dict[str, object]:
+    entries: list[dict[str, object]] = []
+    entry_index = 0
+
+    for element in prototype_structure:
+        for property_model in prototype_structure.properties_for(element):
+            if (
+                property_model.classification != "effect"
+                and property_model.name not in _EFFECT_COLOR_PROPERTIES
+            ):
+                continue
+
+            effect_colors = _extract_effect_color_tokens(property_model.value)
+            if not effect_colors:
+                continue
+
+            color_rows: list[dict[str, object]] = []
+            seen_signatures: set[tuple[str, float]] = set()
+            for token in effect_colors:
+                try:
+                    hex_value = color_registry.format_color(token, "hex")
+                    alpha = color_registry.alpha_of(token)
+                except Exception:
+                    continue
+
+                signature = (hex_value, round(alpha, 4))
+                if signature in seen_signatures:
+                    continue
+                seen_signatures.add(signature)
+
+                color_entry = colors_inventory.entry_by_value(token)
+                color_payload: dict[str, object] = {
+                    "value": token,
+                    "hex": hex_value,
+                    "alpha": round(alpha, 4),
+                }
+                if color_entry is not None:
+                    color_payload["color_id"] = color_entry.color_id
+                color_rows.append(color_payload)
+
+            if not color_rows:
+                continue
+
+            entry_index += 1
+            payload: dict[str, object] = {
+                "effect_id": f"effect-{entry_index}",
+                "element_id": element.node_id,
+                "tag_name": element.tag_name,
+                "property_name": property_model.name,
+                "resolved_value": property_model.value,
+                "colors": color_rows,
+            }
+            if element.selector is not None:
+                payload["selector_hint"] = element.selector
+            if property_model.style_id is not None:
+                payload["style_id"] = property_model.style_id
+            if property_model.declaration_id is not None:
+                payload["declaration_id"] = property_model.declaration_id
+            if property_model.declared_property is not None:
+                payload["declared_property"] = property_model.declared_property
+            entries.append(payload)
+
+    by_property: dict[str, dict[str, object]] = {}
+    for entry in entries:
+        property_name = str(entry.get("property_name") or "")
+        bucket = by_property.setdefault(
+            property_name,
+            {
+                "property_name": property_name,
+                "entry_count": 0,
+                "distinct_hex_values": set(),
+            },
+        )
+        bucket["entry_count"] = int(bucket["entry_count"]) + 1
+        distinct_values = bucket["distinct_hex_values"]
+        if isinstance(distinct_values, set):
+            for color in entry.get("colors") or ():
+                if isinstance(color, Mapping) and color.get("hex"):
+                    distinct_values.add(str(color["hex"]))
+
+    property_rows = [
+        {
+            "property_name": property_name,
+            "entry_count": int(bucket["entry_count"]),
+            "distinct_color_count": (
+                len(bucket["distinct_hex_values"])
+                if isinstance(bucket["distinct_hex_values"], set)
+                else 0
+            ),
+        }
+        for property_name, bucket in by_property.items()
+    ]
+    property_rows.sort(key=lambda item: (-int(item["entry_count"]), str(item["property_name"])))
+    return {
+        "count": len(entries),
+        "entries": entries,
+        "by_property": property_rows,
     }
 
 
@@ -127,6 +242,30 @@ def _prune_empty_artifact_fields(value: object) -> object:
 
 
 def _build_dominant_rows(color_processing: Mapping[str, object]) -> list[dict[str, object]]:
+    dominant_colors = color_processing.get("dominant_color_percentages") or []
+    if dominant_colors:
+        rows: list[dict[str, object]] = []
+        for item in dominant_colors:
+            entry = _as_mapping(item)
+            color = entry.get("color")
+            if color is None:
+                continue
+            try:
+                rgb = tuple(int(channel) for channel in color)  # type: ignore[union-attr]
+                match = nearest_web_color(rgb)
+                rows.append(
+                    {
+                        "label": match.family_display_name,
+                        "hex": color_registry.format_color(rgb, "hex"),
+                        "percentage": float(entry.get("percentage") or 0.0),
+                        "count": int(entry.get("count") or 0),
+                    }
+                )
+            except Exception:
+                continue
+        if rows:
+            return rows
+
     rows_by_family: dict[str, dict[str, object]] = {}
     named_color_breakdown = color_processing.get("named_color_breakdown") or []
 
@@ -322,8 +461,7 @@ def _fallback_tone_label(raw_value: str) -> str:
     try:
         match = nearest_web_color(raw_value)
         tone = _nearest_tone_stop(color_registry.hct_of(raw_value)[2])
-        family_label = _WEB_FAMILY_DISPLAY_NAMES.get(match.group_name, match.display_name)
-        return f"{family_label} {tone}"
+        return f"{match.family_display_name} {tone}"
     except Exception:
         return "Tone n/a"
 
@@ -553,37 +691,27 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     context.set("recommendations", RecommendationsPayload(items=(), summary=None))
     context.trace.add_step("transformed.zip_created", {"zip_output_path": zip_output_path})
 
-    before = context.get("environmental.assessment.before", {})
-    after = context.get("environmental.assessment.after", {})
-    savings = context.get("environmental.assessment.savings")
+    before = context.get("environmental.before.assessment", {})
+    after = context.get("environmental.after.assessment", {})
+    savings = context.get("environmental.savings")
     named_color_breakdown = [dict(item) for item in (context.get("scheme.named_color_breakdown") or ())]
     tonal_palettes = context.get("scheme.tonal_palettes")
     scheme_colors = tuple(context.get("scheme.colors"))
-    scheme_color_inventory = build_inventory_from_scheme_colors(scheme_colors)
-    display_frequencies = context.get("scheme.display_pixels")
-    raw_pixel_frequencies = context.get("environmental.inputs.original.raw_pixel_frequencies") or []
+    scheme_color_inventory = build_color_catalog_from_scheme(scheme_colors)
+    prototype_structure = context.get("prototype_structure")
+    environmental_before_color_histogram = context.get("environmental.before.color_histogram") or []
     token_inventory = context.get("token.inventory")
-    token_runtime = _token_runtime_summary(token_inventory)
-    original_snapshot_metadata = dict(session.original_snapshot_metadata or {})
+    token_runtime = _token_runtime_summary(prototype_structure, scheme_colors)
+    original_snapshot_metadata = dict(context.get("derived.raw_snapshot_metadata") or {})
     original_screenshot = Path(session.original_screenshot_path).name
     transformed_screenshot = Path(session.transformed_screenshot_path).name
-    pixel_frequency_rows = display_frequencies.to_rows()
     contrast_report = (
         context.get("derived.contrast_report")
         if context.has("derived.contrast_report")
         else None
     )
     contrast_payload = contrast_report.to_dict() if contrast_report is not None else {"count": 0, "issues": []}
-    effect_color_report = (
-        context.get("derived.effect_color_report")
-        if context.has("derived.effect_color_report")
-        else None
-    )
-    effect_color_payload = (
-        effect_color_report.to_dict()
-        if effect_color_report is not None
-        else {"count": 0, "entries": [], "by_property": []}
-    )
+    effect_color_payload = _effect_colors_payload(prototype_structure, scheme_color_inventory)
 
     results = {
         "total_current": before.current_a,
@@ -613,13 +741,11 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         },
         "color_processing": {
             "palette_preview_location": "artifacts",
-            "pixel_color_frequency_count": len(pixel_frequency_rows),
-            "pixel_color_statistics_count": len(color_frequency_to_statistics(pixel_frequency_rows)),
-            "pixel_color_frequency_raw_count": len(raw_pixel_frequencies),
+            "dominant_color_percentages": dominant_color_percentages(
+                environmental_before_color_histogram,
+                limit=10,
+            ),
             "named_color_breakdown": named_color_breakdown,
-            "confirmed_pixel_count": context.get("scheme.confirmed_pixel_count"),
-            "residual_pixel_count": context.get("scheme.residual_pixel_count"),
-            "residual_distinct_colors": context.get("scheme.residual_distinct_colors"),
             "core_palettes": tonal_palettes.to_dict(),
         },
         "token_processing": {
@@ -675,12 +801,10 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     results = _prune_empty_artifact_fields(results)
     context.set("results", results)
 
-    save_json(session.results_json_path, results, indent=4)
     context.trace.add_stage_event(
         CONTRACT.name,
         "complete",
         {
-            "results_path": session.results_json_path,
             "bundle_name": zip_filename,
         },
     )

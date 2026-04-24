@@ -2,105 +2,16 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
-import re
-from typing import Any, Iterator, Mapping, Self
+from typing import Any, Iterable, Iterator, Mapping, Self
 
-from engine.adapters.color_service import color_registry
-from engine.domain.data.css_properties import CSS_PROPERTIES_BY_ID
-from engine.domain.models.color import ColorInventoryEntry, ColorInventoryModel
+from engine.domain.enums.scope.html_elements import (
+    HtmlElementScopeGroup,
+    MEDIA_METADATA_ONLY_TAGS,
+    get_html_element,
+)
+from engine.domain.models.color import Color
 from engine.domain.models.element import Element, Property, classify_property
-from engine.domain.models.style import StyleInventoryModel
-
-_HEX_COLOR_RE = re.compile(r"#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b")
-_FUNCTION_COLOR_RE = re.compile(r"(?:rgba?|hsla?)\([^)]+\)", re.IGNORECASE)
-
-_COMPOSITE_COLOR_PROPERTIES = frozenset(
-    {
-        "background",
-        "border",
-        "caret",
-        "column-rule",
-        "outline",
-        "text-decoration",
-        "text-emphasis",
-    }
-)
-_PURE_COLOR_PROPERTIES = frozenset(
-    property_name
-    for property_name, spec in CSS_PROPERTIES_BY_ID.items()
-    if spec.color_role is not None and property_name not in _COMPOSITE_COLOR_PROPERTIES
-)
-_COLOR_VALUE_PROPERTIES = _PURE_COLOR_PROPERTIES | _COMPOSITE_COLOR_PROPERTIES
-_CSS_OVERVIEW_COLOR_ROLES = ("text", "background", "border", "fill", "stroke")
-
-
-def _normalize_color_token(value: str) -> str:
-    return color_registry.normalize_css_color_token(value)
-
-
-def _extract_palette_colors(property_name: str, value: str) -> tuple[str, ...]:
-    if property_name not in _COLOR_VALUE_PROPERTIES:
-        return ()
-
-    if property_name in _PURE_COLOR_PROPERTIES:
-        normalized = _normalize_color_token(value)
-        return () if not normalized or normalized == "transparent" else (normalized,)
-
-    colors: list[str] = []
-    for token in _HEX_COLOR_RE.findall(value):
-        normalized = _normalize_color_token(token)
-        if normalized and normalized != "transparent" and normalized not in colors:
-            colors.append(normalized)
-    for token in _FUNCTION_COLOR_RE.findall(value):
-        normalized = _normalize_color_token(token)
-        if normalized and normalized != "transparent" and normalized not in colors:
-            colors.append(normalized)
-    return tuple(colors)
-
-
-def build_observed_color_payloads(
-    css_overview: Mapping[str, Any] | None,
-    *,
-    existing_inventory: ColorInventoryModel | None = None,
-) -> list[dict[str, Any]]:
-    payloads: list[dict[str, Any]] = []
-    colors_by_role = dict((css_overview or {}).get("colors") or {})
-    for role in _CSS_OVERVIEW_COLOR_ROLES:
-        for entry in colors_by_role.get(role) or ():
-            value = str(entry.get("css") or entry.get("hex") or "").strip()
-            if not value:
-                continue
-            node_ids = tuple(
-                str(item).strip()
-                for item in (entry.get("node_ids") or ())
-                if str(item).strip()
-            )
-            count = int(entry.get("count") or len(node_ids) or 0)
-            payload: dict[str, Any] = {
-                "value": value,
-                "usage_count": len(node_ids) or count,
-                "node_ids": list(node_ids),
-                "observed_usage_count": len(node_ids) or count,
-                "observed_roles": [
-                    {
-                        "role": role,
-                        "count": count,
-                        "node_ids": list(node_ids),
-                        "sample_selectors": [
-                            str(item).strip()
-                            for item in (entry.get("sample_selectors") or ())
-                            if str(item).strip()
-                        ],
-                    }
-                ],
-                "declared_in_snapshot": False,
-            }
-            if existing_inventory is not None:
-                existing_entry = existing_inventory.entry_by_value(value)
-                if existing_entry is not None:
-                    payload["color_id"] = existing_entry.color_id
-            payloads.append(payload)
-    return payloads
+from engine.domain.models.style import StyleCatalog
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,7 +42,7 @@ class PrototypeStructure:
         cls,
         payload: Any,
         *,
-        styles_inventory: StyleInventoryModel | None = None,
+        styles_inventory: StyleCatalog | None = None,
         declaration_values: Mapping[str, str] | None = None,
     ) -> Self:
         if isinstance(payload, cls):
@@ -202,26 +113,56 @@ class PrototypeStructure:
     def visible_nodes(self) -> tuple[Element, ...]:
         return tuple(node for node in self.nodes if node.is_visible)
 
+    def excluded_pixel_boxes(self) -> tuple[tuple[int, int, int, int], ...]:
+        boxes: list[tuple[int, int, int, int]] = []
+        for element in self.nodes:
+            if not element.is_visible:
+                continue
+
+            html_element = get_html_element(element.tag_name)
+            should_exclude = (
+                element.is_out_of_scope
+                or bool(element.related_media)
+                or element.tag_name in MEDIA_METADATA_ONLY_TAGS
+                or (
+                    html_element is not None
+                    and html_element.scope_group == HtmlElementScopeGroup.OUT_OF_SCOPE_VISIBLE
+                )
+            )
+            if not should_exclude:
+                continue
+
+            box = (
+                int(element.left),
+                int(element.top),
+                int(element.right),
+                int(element.bottom),
+            )
+            if box[2] > box[0] and box[3] > box[1]:
+                boxes.append(box)
+        return tuple(boxes)
+
     def root_nodes(self) -> tuple[Element, ...]:
         return tuple(node for node in self.nodes if node.parent_id is None)
 
     def effective_background_of(
         self,
         node_id: str,
-        colors_inventory: ColorInventoryModel,
-    ) -> ColorInventoryEntry | None:
+        colors: Iterable[Color],
+    ) -> Color | None:
+        color_entries = tuple(colors)
         entry = self.node_by_id(node_id)
         if entry is None:
             return None
         if entry.effective_background:
-            background = colors_inventory.entry_by_value(entry.effective_background)
+            background = _color_by_value(color_entries, entry.effective_background)
             if background is not None:
                 return background
         for candidate in (entry, *self.ancestors_of(node_id)):
             for property_model in candidate.properties:
                 if property_model.classification != "background" or not property_model.color_id:
                     continue
-                color_entry = colors_inventory.entry_by_id(property_model.color_id)
+                color_entry = _color_by_id(color_entries, property_model.color_id)
                 if color_entry is not None:
                     return color_entry
         return None
@@ -229,8 +170,9 @@ class PrototypeStructure:
     def effective_color_of(
         self,
         node_id: str,
-        colors_inventory: ColorInventoryModel,
-    ) -> ColorInventoryEntry | None:
+        colors: Iterable[Color],
+    ) -> Color | None:
+        color_entries = tuple(colors)
         entry = self.node_by_id(node_id)
         if entry is None:
             return None
@@ -238,7 +180,7 @@ class PrototypeStructure:
             for property_model in candidate.properties:
                 if property_model.name != "color" or not property_model.color_id:
                     continue
-                color_entry = colors_inventory.entry_by_id(property_model.color_id)
+                color_entry = _color_by_id(color_entries, property_model.color_id)
                 if color_entry is not None:
                     return color_entry
         return None
@@ -255,82 +197,6 @@ class PrototypeStructure:
             if has_background:
                 return candidate
         return None
-
-    def build_color_inventory(
-        self,
-        *,
-        css_overview: Mapping[str, Any] | None = None,
-        existing_inventory: ColorInventoryModel | None = None,
-    ) -> ColorInventoryModel:
-        payloads: list[dict[str, Any]] = []
-        for entry in self.nodes:
-            seen_signatures: set[tuple[str, str]] = set()
-            for property_model in entry.properties:
-                for color_value in _extract_palette_colors(property_model.name, property_model.value):
-                    signature = (property_model.name, color_value)
-                    if signature in seen_signatures:
-                        continue
-                    seen_signatures.add(signature)
-                    existing_entry = (
-                        existing_inventory.entry_by_value(color_value)
-                        if existing_inventory is not None
-                        else None
-                    )
-                    payload: dict[str, Any] = {
-                        "value": color_value,
-                        "usage_count": 1,
-                        "node_ids": [entry.node_id],
-                        "usage": [
-                            {
-                                "tag": entry.tag_name,
-                                "property": property_model.name,
-                                "count": 1,
-                            }
-                        ],
-                    }
-                    preserved_entry = existing_entry
-                    if property_model.color_id is not None and existing_inventory is not None:
-                        preserved_entry = (
-                            existing_inventory.entry_by_id(property_model.color_id)
-                            or existing_entry
-                        )
-                    if property_model.color_id is not None:
-                        payload["color_id"] = property_model.color_id
-                    elif preserved_entry is not None:
-                        payload["color_id"] = preserved_entry.color_id
-                    payloads.append(payload)
-
-        payloads.extend(
-            build_observed_color_payloads(
-                css_overview,
-                existing_inventory=existing_inventory,
-            )
-        )
-        inventory = ColorInventoryModel.build(payloads)
-        if existing_inventory is None:
-            return inventory
-
-        merged_entries: list[ColorInventoryEntry] = []
-        for entry in inventory:
-            existing_entry = existing_inventory.entry_by_id(entry.color_id) or existing_inventory.entry_by_value(
-                entry.value
-            )
-            if existing_entry is None:
-                merged_entries.append(entry)
-                continue
-            merged_entries.append(
-                replace(
-                    entry,
-                    display_pixel_count=existing_entry.display_pixel_count,
-                    display_pixel_percentage=existing_entry.display_pixel_percentage,
-                    clustered_from_display_pixels=existing_entry.clustered_from_display_pixels,
-                    mapped_palette_id=existing_entry.mapped_palette_id,
-                    mapped_tone=existing_entry.mapped_tone,
-                    mapped_tone_rgb=existing_entry.mapped_tone_rgb,
-                    mapped_tone_distance=existing_entry.mapped_tone_distance,
-                )
-            )
-        return ColorInventoryModel.build(merged_entries)
 
     def to_tree(self) -> list[dict[str, Any]]:
         def _visit(node: Element) -> dict[str, Any]:
@@ -350,7 +216,7 @@ class PrototypeStructure:
 
 
 def _build_declaration_value_lookup(
-    styles_inventory: StyleInventoryModel,
+    styles_inventory: StyleCatalog,
 ) -> dict[str, str]:
     return {
         declaration.declaration_id: declaration.value
@@ -441,3 +307,13 @@ def _build_indexes(
         by_classification={key: tuple(value) for key, value in sorted(by_classification.items())},
         by_depth={key: tuple(value) for key, value in sorted(by_depth.items())},
     )
+
+
+def _color_by_id(colors: tuple[Color, ...], color_id: str) -> Color | None:
+    normalized = str(color_id or "").strip()
+    return next((entry for entry in colors if entry.color_id == normalized), None)
+
+
+def _color_by_value(colors: tuple[Color, ...], value: str) -> Color | None:
+    normalized = str(value or "").strip()
+    return next((entry for entry in colors if entry.value == normalized), None)

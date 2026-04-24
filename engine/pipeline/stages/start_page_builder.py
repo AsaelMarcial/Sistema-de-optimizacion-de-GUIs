@@ -15,22 +15,23 @@ CONTRACT = StageContract(
     requires=(
         context_value("session", Session, validator=_session_ready_for_page_builder),
     ),
-    produces=(context_value("session.runtime.page_builder", PageBuilder),),
+    produces=(context_value("session.page_builder", PageBuilder),),
 )
 
 
 def run_stage(context: PipelineContext) -> PipelineContext:
-    if context.error or context.has("session.runtime.page_builder"):
+    if context.error:
         return context
 
     session = context.get("session")
     context.trace.add_stage_event(CONTRACT.name, "start")
-    page_builder = PageBuilder.start(
+    page_builder = PageBuilder.new(
         session.input_html_content,
         session.input_base_path,
-        options=SnapshotOptions(include_color_frequencies=True),
+        options=SnapshotOptions(),
+        existing=context.get("session.page_builder"),
     )
-    context.set("session.runtime.page_builder", page_builder)
+    context.set("session.page_builder", page_builder)
     context.trace.add_stage_event(
         CONTRACT.name,
         "complete",

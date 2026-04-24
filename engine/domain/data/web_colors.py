@@ -20,18 +20,26 @@ class MultiValueEnum(Enum):
 
 
 class WebColorGroup(StrEnum):
-    COLORES_ROJOS = 'Colores rojos'
-    COLORES_NARANJAS = 'Colores naranjas'
-    COLORES_MARRONES = 'Colores marrones'
-    COLORES_AMARILLOS = 'Colores amarillos'
-    COLORES_VERDES_AMARILLOS = 'Colores verdes amarillos'
-    COLORES_VERDES = 'Colores verdes'
-    COLORES_ACIANOS_AZUL_VERDES = 'Colores acianos (azul verdes)'
-    COLORES_AZULES = 'Colores azules'
-    COLORES_VIOLETAS_Y_PURPURAS = 'Colores violetas y púrpuras'
-    COLORES_ROSAS = 'Colores rosas'
-    COLORES_BLANCOS = 'Colores blancos'
-    COLORES_GRISES = 'Colores grises'
+    display_name: str
+
+    def __new__(cls, value: str, display_name: str):
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+        obj.display_name = display_name
+        return obj
+
+    COLORES_ROJOS = ('Rojo', 'Red')
+    COLORES_NARANJAS = ('Naranja', 'Orange')
+    COLORES_MARRONES = ('Marrón', 'Brown')
+    COLORES_AMARILLOS = ('Amarillo', 'Yellow')
+    COLORES_VERDES_AMARILLOS = ('Verde amarillo', 'Lime')
+    COLORES_VERDES = ('Verde', 'Green')
+    COLORES_ACIANOS_AZUL_VERDES = ('Aciano azul verde', 'Turquoise')
+    COLORES_AZULES = ('Azul', 'Blue')
+    COLORES_VIOLETAS_Y_PURPURAS = ('Violeta', 'Violet')
+    COLORES_ROSAS = ('Rosa', 'Fuchsia / Magenta')
+    COLORES_BLANCOS = ('Blanco', 'White')
+    COLORES_GRISES = ('Grises', 'Gray')
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +51,21 @@ class WebColorMatch:
     rgb: tuple[int, int, int]
     distance: float
     method: str = WEB_COLOR_MATCH_METHOD
+
+    @property
+    def wikipedia_family(self) -> str:
+        return self.group_name
+
+    @property
+    def family_display_name(self) -> str:
+        try:
+            return WebColorGroup(self.group_name).display_name
+        except ValueError:
+            return self.display_name
+
+    @property
+    def hex_value(self) -> str:
+        return f"#{self.hex_code.lower().lstrip('#')}"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -89,6 +112,27 @@ class WebColor(MultiValueEnum):
     @property
     def hex_value(self) -> str:
         return f"#{self.hex_code.lower()}"
+
+    @property
+    def wikipedia_family(self) -> str:
+        return self.group.value
+
+    @property
+    def family_display_name(self) -> str:
+        return self.group.display_name
+
+    @property
+    def value_map(self) -> dict[str, object]:
+        return {
+            "canonical_name": self.canonical_name,
+            "display_name": self.display_name,
+            "html_names": tuple(self.html_names),
+            "group": self.wikipedia_family,
+            "hex": self.hex_value,
+            "rgb": tuple(self.rgb),
+            "hsl": tuple(self.hsl),
+            "hsv": tuple(self.hsv),
+        }
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1547,40 +1591,6 @@ def nearest_web_color(value: Any, *, method: str = WEB_COLOR_MATCH_METHOD) -> We
         rgb=best_member.rgb,
         distance=best_distance,
         method=method,
-    )
-
-
-def _wikipedia_family(self: WebColor) -> str:
-    return str(getattr(self.group, "value", self.group))
-
-
-def _value_map(self: WebColor) -> dict[str, object]:
-    return {
-        "canonical_name": self.canonical_name,
-        "display_name": self.display_name,
-        "html_names": tuple(self.html_names),
-        "group": self.wikipedia_family,
-        "hex": self.hex_value,
-        "rgb": tuple(self.rgb),
-        "hsl": tuple(self.hsl),
-        "hsv": tuple(self.hsv),
-    }
-
-
-if not hasattr(WebColor, "wikipedia_family"):
-    WebColor.wikipedia_family = property(_wikipedia_family)  # type: ignore[attr-defined]
-
-if not hasattr(WebColor, "value_map"):
-    WebColor.value_map = property(_value_map)  # type: ignore[attr-defined]
-
-if not hasattr(WebColorMatch, "wikipedia_family"):
-    WebColorMatch.wikipedia_family = property(  # type: ignore[attr-defined]
-        lambda self: str(getattr(self, "group_name"))
-    )
-
-if not hasattr(WebColorMatch, "hex_value"):
-    WebColorMatch.hex_value = property(  # type: ignore[attr-defined]
-        lambda self: f"#{str(getattr(self, 'hex_code')).lower().lstrip('#')}"
     )
 
 

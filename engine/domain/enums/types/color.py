@@ -13,6 +13,15 @@ class ColorConfirmationStatus(StrEnum):
     CONFIRMED = "confirmed"
 
 
+class ObservedColorRole(StrEnum):
+    TEXT = "text"
+    BACKGROUND = "background"
+    BORDER = "border"
+    FILL = "fill"
+    STROKE = "stroke"
+    OTHER = "other"
+
+
 class PaletteRoleBias(StrEnum):
     BACKGROUND = "background"
     FOREGROUND = "foreground"

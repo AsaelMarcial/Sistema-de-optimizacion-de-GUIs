@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from engine.domain.models.color import ColorInventoryEntry, build_inventory_from_scheme_colors
+from engine.domain.models.color import Color, build_color_catalog_from_scheme
 from engine.domain.models.element import Element, Property
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.quality_reports import (
@@ -8,7 +8,6 @@ from engine.domain.models.quality_reports import (
     ContrastIssue,
     ContrastReport,
 )
-from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
 
@@ -16,16 +15,12 @@ _FOREGROUND_PROPERTY_NAMES = ("color", "fill", "stroke", "text-decoration-color"
 _BACKGROUND_PROPERTY_NAMES = ("background-color", "background")
 
 
-def _session_ready_for_contrast(session: Session) -> bool:
-    return session.original_css_overview is not None
-
-
 CONTRACT = StageContract(
     name="build_contrast_report",
     requires=(
         context_value("prototype_structure", PrototypeStructure),
         context_value("scheme.colors", tuple),
-        context_value("session", Session, validator=_session_ready_for_contrast),
+        context_value("derived.raw_css_overview", dict),
     ),
     produces=(context_value("derived.contrast_report", ContrastReport),),
 )
@@ -35,7 +30,7 @@ def _resolve_color_source(
     prototype_structure: PrototypeStructure,
     *,
     element: Element,
-    color_entry: ColorInventoryEntry | None,
+    color_entry: Color | None,
     property_names: tuple[str, ...],
 ) -> tuple[Element | None, Property | None]:
     if color_entry is None:
@@ -59,7 +54,7 @@ def _resolve_color_source(
 def _build_color_reference(
     fallback_payload: dict,
     *,
-    color_entry: ColorInventoryEntry | None,
+    color_entry: Color | None,
     source_element: Element | None,
     source_property: Property | None,
 ) -> ContrastColorReference:
@@ -88,7 +83,7 @@ def _build_report(
     prototype_structure: PrototypeStructure,
     scheme_colors: tuple,
 ) -> ContrastReport:
-    colors_inventory = build_inventory_from_scheme_colors(scheme_colors)
+    colors_inventory = build_color_catalog_from_scheme(scheme_colors)
     issues: list[ContrastIssue] = []
     raw_issues = tuple(css_overview.get("contrast_issues") or ())
 
@@ -181,7 +176,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
 
     context.trace.add_stage_event(CONTRACT.name, "start")
     report = _build_report(
-        context.get("session").original_css_overview or {},
+        context.get("derived.raw_css_overview") or {},
         context.get("prototype_structure"),
         tuple(context.get("scheme.colors")),
     )

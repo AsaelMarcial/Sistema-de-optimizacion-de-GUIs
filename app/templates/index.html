@@ -3,7 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#050505" />
     <title>Glow | Analizador de sostenibilidad para interfaces HTML</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
       rel="stylesheet"
@@ -17,7 +21,7 @@
   <body>
     {% include 'header.html' %}
 
-    <main class="landing-page">
+    <main id="main-content" class="landing-page">
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
           <section class="landing-section landing-section--tight" aria-label="Mensajes del sistema">
@@ -50,7 +54,8 @@
               </p>
             </div>
 
-            <div class="landing-step-grid landing-step-grid--hero" aria-label="Cómo funciona">
+            <h2 id="how-it-works-title" class="sr-only">Cómo funciona</h2>
+            <div class="landing-step-grid landing-step-grid--hero" aria-labelledby="how-it-works-title">
               <article class="card card--soft step-card step-card--hero">
                 <span class="text-caption step-card__index">01</span>
                 <h3>Sube tu proyecto</h3>
@@ -108,12 +113,10 @@
                 id="upload-form"
                 class="upload-form"
               >
-                <div
+                <label
                   class="upload-box card card--soft"
                   id="upload-box"
-                  role="button"
-                  tabindex="0"
-                  aria-describedby="upload-helper upload-hint"
+                  for="file-input"
                 >
                   <div class="upload-box__copy">
                     <p
@@ -135,10 +138,10 @@
                     type="file"
                     name="file"
                     accept=".html,.zip"
+                    aria-describedby="upload-helper upload-hint"
                     required
-                    onchange="showAnalyzeButton()"
                   />
-                </div>
+                </label>
 
                 <button id="analyze-button" class="analyze-button button button--primary" type="submit">
                   Generar reporte

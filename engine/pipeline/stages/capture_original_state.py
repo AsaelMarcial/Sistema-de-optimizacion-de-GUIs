@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import replace
-
-from engine.adapters.browser.render_models import RenderArtifacts, SnapshotOptions
-from engine.adapters.browser.snapshot_analyzer import capture_prototype_state_artifacts
+from engine.adapters.browser.css_overview import build_css_overview_from_models
 from engine.adapters.browser.page_builder import PageBuilder
+from engine.domain.models.color import ColorCatalog
+from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.session import Session
+from engine.domain.models.style import StyleCatalog
+from engine.domain.utils.color_usage import build_color_usage_catalog
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
+from engine.validators.snapshot_validators import has_snapshot_structure
 
 
 def _session_ready_for_capture(session: Session) -> bool:
@@ -18,58 +20,72 @@ def _session_ready_for_capture(session: Session) -> bool:
     )
 
 
-def _captured_session(session: Session) -> bool:
-    return isinstance(session.original_capture, RenderArtifacts)
-
 CONTRACT = StageContract(
     name="capture_original_state",
     requires=(
-        context_value("session.runtime.page_builder", PageBuilder),
+        context_value("session.page_builder", PageBuilder),
         context_value("session", Session, validator=_session_ready_for_capture),
     ),
     produces=(
-        context_value("session", Session, validator=_captured_session),
-        context_value("environmental.inputs.original.raw_pixel_frequencies", list),
+        context_value("prototype_structure", PrototypeStructure),
+        context_value("style.catalog", StyleCatalog),
+        context_value("color.catalog", ColorCatalog),
+        context_value("derived.raw_css_overview", dict),
+        context_value("derived.raw_snapshot_metadata", dict),
     ),
 )
 
 
 def run_stage(context: PipelineContext) -> PipelineContext:
     session = context.get("session")
-    if context.error or session.original_capture is not None:
+    if context.error or context.has("prototype_structure"):
         return context
 
-    output_image_path = session.original_screenshot_path
+    screenshot_filename = session.ORIGINAL_SCREENSHOT_NAME
     context.trace.add_stage_event(
         CONTRACT.name,
         "start",
         {
             "base_path": session.input_base_path,
-            "output_image": output_image_path,
+            "output_image": session.original_screenshot_path,
         },
     )
-    artifacts = capture_prototype_state_artifacts(
-        html_content=session.input_html_content,
-        base_path=session.input_base_path,
-        options=SnapshotOptions(include_color_frequencies=True),
-        output_image_path=output_image_path,
-        page_builder=context.get("session.runtime.page_builder"),
+    artifacts = context.get("session.page_builder").capture_state_artifacts(
+        artifacts_dir=session.artifacts_dir,
+        screenshot_filename=screenshot_filename,
     )
-    color_frequencies = list(artifacts.color_frequencies or [])
-    context.set("session", replace(session, original_capture=artifacts))
-    context.set("environmental.inputs.original.raw_pixel_frequencies", color_frequencies)
-    css_overview = artifacts.css_overview or {}
+    snapshot = artifacts.snapshot
+    if not has_snapshot_structure(snapshot):
+        return context.set_error("Render capture bundle does not contain a valid snapshot structure.")
+
+    styles_inventory = StyleCatalog.build(artifacts.styles_inventory_seed or StyleCatalog())
+    seed_inventory = ColorCatalog.build(artifacts.colors_inventory_seed or ColorCatalog())
+    prototype_structure = PrototypeStructure.build(
+        snapshot.nodes,
+        styles_inventory=styles_inventory,
+    )
+    colors_inventory = build_color_usage_catalog(
+        prototype_structure,
+        existing_inventory=seed_inventory,
+    )
+    css_overview = build_css_overview_from_models(
+        prototype_structure,
+        styles_inventory,
+        colors_inventory,
+    )
+
+    context.set("prototype_structure", prototype_structure)
+    context.set("style.catalog", styles_inventory)
+    context.set("color.catalog", colors_inventory)
+    context.set("derived.raw_css_overview", css_overview)
+    context.set("derived.raw_snapshot_metadata", dict(snapshot.metadata))
 
     context.trace.add_step(
-        "original_prototype.render_done",
+        "before_prototype.render_done",
         {
             "screenshot_path": artifacts.screenshot_path,
             "snapshot_node_count": artifacts.snapshot.metadata.get("nodeCount"),
         },
-    )
-    context.trace.add_step(
-        "original_prototype.colors_classified",
-        {"distinct_colors": len(color_frequencies)},
     )
     context.trace.add_step(
         "analysis.render_snapshot_generated",
@@ -79,10 +95,11 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         },
     )
     context.trace.add_step(
-        "analysis.css_overview_captured",
+        "prototype_structure.captured",
         {
-            "unused_declaration_count": css_overview.get("unused_declarations", {}).get("count", 0),
-            "contrast_issue_count": len(css_overview.get("contrast_issues", [])),
+            "prototype_node_count": len(prototype_structure),
+            "style_rule_count": len(styles_inventory),
+            "observed_color_count": len(colors_inventory),
         },
     )
     context.trace.add_stage_event(
@@ -90,8 +107,9 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         "complete",
         {
             "node_count": artifacts.snapshot.metadata.get("nodeCount"),
-            "distinct_colors": len(color_frequencies),
-            "css_overview_path": None,
+            "prototype_node_count": len(prototype_structure),
+            "style_rule_count": len(styles_inventory),
+            "observed_color_count": len(colors_inventory),
         },
     )
     return context

@@ -4,7 +4,7 @@ import re
 from functools import lru_cache
 from typing import Any
 
-from engine.domain.data.html_elements import (
+from engine.domain.enums.scope.html_elements import (
     IGNORED_HTML_TAGS,
     MEDIA_METADATA_ONLY_TAGS,
     get_html_element,

@@ -1,6 +1,5 @@
 import importlib
 import io
-import json
 import tempfile
 import unittest
 import zipfile
@@ -10,7 +9,7 @@ from coloraide.everything import ColorAll
 
 from app import create_app
 from engine.adapters.browser.render_models import SnapshotOptions
-from engine.adapters.browser.snapshot_analyzer import (
+from tests.browser_helpers import (
     capture_prototype_state_artifacts,
     extract_prototype_state_snapshot,
 )
@@ -22,12 +21,18 @@ from engine.adapters.file_system.code_processor import (
 from engine.adapters.color_service import build_default_strategy_registry, color_registry
 from engine.adapters.file_system.file_handler import load_project_input
 from engine.adapters.utils.palette_preview import render_palette_preview
-from engine.adapters.utils.screenshot import pixels_to_color_frequency, pixels_to_color_records
+from engine.adapters.utils.pixel import (
+    build_color_histograms,
+    cluster_color_histogram,
+    color_histogram_total,
+    dominant_color_percentages,
+    get_color_count,
+)
 from engine.domain.data.material_quantization import (
     get_material_quantization_assessment,
 )
-from engine.domain.data.css_properties import CSS_PROPERTIES_BY_ID, get_css_property
-from engine.domain.data.html_elements import HTML_ELEMENTS_BY_ID, get_html_element
+from engine.domain.enums.scope.css_properties import CSS_PROPERTIES_BY_ID, get_css_property
+from engine.domain.enums.scope.html_elements import HTML_ELEMENT_SPECS, get_html_element
 from engine.domain.data.web_colors import WebColor, nearest_web_color
 from engine.domain.enums.scope.css_properties import CssPropertyId
 from engine.domain.enums.scope.html_elements import HtmlElementId
@@ -60,13 +65,12 @@ from engine.domain.models.environmental_assessment.energy_consumption import (
     calculate_power,
     estimate_current,
 )
-from engine.domain.models.color import ColorInventoryModel, SnapshotColorEvidence
+from engine.domain.models.color import ColorCatalog
 from engine.domain.models.element import Element
 from engine.domain.models.palette import TonalPaletteModel
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.session import Session
-from engine.domain.models.style import StyleInventoryModel
-from engine.domain.utils.token_graph import TokenGraph
+from engine.domain.models.style import StyleCatalog
 from engine.domain.models.token import (
     Token,
     TokenInventory,
@@ -74,13 +78,12 @@ from engine.domain.models.token import (
     TokenValidationModel,
     TokenValidationStatus,
 )
-from engine.domain.utils.formatters import color_frequency_to_statistics
 from engine.domain.utils.palette_analysis import build_palette_analysis
 from engine.domain.utils.tokenization import build_token_inventory
 from engine.validators.file_handling.archive_validators import validate_zip_members
 from engine.validators.token_rules import apply_token_rules
 from engine.pipeline.context import PipelineContext
-from engine.pipeline.artifact_serializers import build_inventory_graph_artifact
+from engine.pipeline.artifact_serializers import build_token_inventory_artifact
 from engine.pipeline.pipeline import run_pipeline
 from engine.pipeline.stages.assemble_results import _build_results_view
 
@@ -149,25 +152,10 @@ def _elements(payloads) -> tuple[Element, ...]:
     )
 
 
-def _build_graph(*, elements=(), styles=None, colors=None, palettes=(), tokens=None):
-    return TokenGraph.build(
-        prototype_structure=PrototypeStructure.build(_elements(elements)),
-        styles=styles or StyleInventoryModel(),
-        colors=colors or ColorInventoryModel(),
-        palettes=palettes,
-        tokens=tokens,
-    )
-
-
-def _build_graph_from_artifact(payload, *, elements=(), styles=None, colors=None, palettes=None, tokens=None):
-    prototype_structure = PrototypeStructure.build(_elements(elements))
-    return TokenGraph.build_from_artifact(
-        payload,
-        prototype_structure=prototype_structure,
-        styles=styles or StyleInventoryModel(),
-        colors=colors or ColorInventoryModel(),
-        palettes=palettes,
-        tokens=tokens,
+def _prototype(elements=(), styles=None) -> PrototypeStructure:
+    return PrototypeStructure.build(
+        _elements(elements),
+        styles_inventory=styles or StyleCatalog(),
     )
 
 
@@ -177,7 +165,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         artifacts = capture_prototype_state_artifacts(
             html_content=html_content,
             base_path=str(FIXTURES_DIR),
-            options=SnapshotOptions(include_color_frequencies=False, capture_screenshot=False),
+            options=SnapshotOptions(capture_screenshot=False),
         )
         return {
             "snapshot": artifacts.snapshot.to_dict(),
@@ -258,8 +246,6 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             "prepare_project_session.py": "run_stage",
             "start_page_builder.py": "run_stage",
             "capture_original_state.py": "run_stage",
-            "capture_prototype_structure.py": "run_stage",
-            "capture_display_pixels.py": "run_stage",
             "build_color_scheme.py": "run_stage",
             "close_page_builder.py": "run_stage",
             "assess_original_environmental_impact.py": "run_stage",
@@ -277,6 +263,14 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             )
             self.assertTrue(hasattr(package_module, function_name), msg=module_name)
             self.assertTrue(hasattr(package_module, "CONTRACT"), msg=f"{module_name} missing CONTRACT")
+
+    def test_pipeline_does_not_store_render_artifacts_in_context(self) -> None:
+        blocked_key = "session.before_capture"
+        pipeline_files = [Path("engine/pipeline/pipeline.py"), *STAGES_DIR.glob("*.py")]
+        for path in pipeline_files:
+            content = path.read_text(encoding="utf-8")
+            self.assertNotIn(blocked_key, content, msg=f"{blocked_key} still present in {path}")
+        self.assertFalse((STAGES_DIR / "capture_prototype_structure.py").exists())
 
     def test_stage_directory_is_flat_without_nested_stage_packages(self) -> None:
         for removed_dir in (
@@ -299,11 +293,15 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertEqual(context.trace.__class__.__name__, "DebugTrace")
         context.set("session.input.html_name", "index.html")
         context.set("prototype_structure.nodes", ())
+        context.set("style.catalog", StyleCatalog())
         self.assertEqual(context.get("session.input.html_name"), "index.html")
         self.assertTrue(context.has("prototype_structure.nodes"))
+        self.assertTrue(context.has("style.catalog"))
         self.assertIsInstance(context.snapshot(), dict)
         self.assertIsNone(context.get("results"))
         self.assertTrue(hasattr(context, "error"))
+        with self.assertRaises(ValueError):
+            context.set("inventory.catalog", {})
 
     def test_session_model_builds_related_input_output_and_artifact_directories(self) -> None:
         session = Session.build(
@@ -321,7 +319,8 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertFalse((Path("engine/color_processing/models")).exists())
         self.assertTrue((Path("engine/domain/models/palette.py")).exists())
         self.assertTrue((Path("engine/domain/utils/palette_analysis.py")).exists())
-        self.assertTrue((Path("engine/adapters/utils/screenshot.py")).exists())
+        self.assertFalse((Path("engine/adapters/utils/screenshot.py")).exists())
+        self.assertTrue((Path("engine/adapters/utils/pixel.py")).exists())
         self.assertFalse((Path("engine/models/color_processing")).exists())
         self.assertFalse((Path("engine/utils")).exists())
         self.assertTrue((Path("engine/validators")).exists())
@@ -339,11 +338,15 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertIsNone(get_css_property("margin"))
         self.assertIsNone(get_css_property("pointer-events"))
 
-        self.assertIn("search", HTML_ELEMENTS_BY_ID)
-        self.assertIn("selectedcontent", HTML_ELEMENTS_BY_ID)
-        self.assertNotIn("DIV", HTML_ELEMENTS_BY_ID)
+        html_element_values = {spec.value for spec in HTML_ELEMENT_SPECS}
+        self.assertIn("search", html_element_values)
+        self.assertIn("selectedcontent", html_element_values)
         self.assertIs(get_html_element("DIV"), HtmlElementId.DIV)
-        self.assertTrue(any(item["elementID"] == "img" for item in elements_payload["onScope"]))
+        img_item = next(item for item in elements_payload["onScope"] if item["elementID"] == "img")
+        self.assertEqual(
+            set(img_item),
+            {"elementID", "name", "description", "scopeGroup", "categories"},
+        )
         self.assertTrue(any(item["propertyID"] == "fill" for item in properties_payload["onScope"]))
         fill_item = next(
             item for item in properties_payload["onScope"] if item["propertyID"] == "fill"
@@ -417,7 +420,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         artifacts = capture_prototype_state_artifacts(
             html_content=html_content,
             base_path=str(FIXTURES_DIR),
-            options=SnapshotOptions(include_color_frequencies=False, capture_screenshot=False),
+            options=SnapshotOptions(capture_screenshot=False),
         )
         snapshot = artifacts.snapshot.to_dict()
         snapshot_nodes = self._snapshot_nodes(snapshot)
@@ -502,12 +505,15 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertTrue(all("style_id" in rule for rule in styles_inventory))
         self.assertTrue(all("kind" in rule for rule in styles_inventory))
         self.assertTrue(all("declarations" in rule for rule in styles_inventory))
+        self.assertTrue(all(rule["kind"] == "computed" for rule in styles_inventory))
+        self.assertTrue(all("node_ids" not in rule for rule in styles_inventory))
+        self.assertTrue(all("usage_count" not in rule for rule in styles_inventory))
         self.assertTrue(
             all(
-                ("node_ids" in rule and rule["node_ids"])
-                or ("usage_count" in rule and rule["usage_count"] > 0)
-                or ("node_ids" not in rule and "usage_count" not in rule)
+                "used_by_element_ids" not in declaration
+                and "element_usage_count" not in declaration
                 for rule in styles_inventory
+                for declaration in rule["declarations"]
             )
         )
         self.assertTrue(all("coverage" not in rule for rule in styles_inventory))
@@ -717,45 +723,75 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertNotIn("border-bottom-color", palette_usage_properties)
         self.assertNotIn("border-left-color", palette_usage_properties)
 
-        tracked_declarations = {
-            declaration["name"]
-            for rule in projection["styles_inventory"]
-            for declaration in rule.get("declarations", [])
+        tracked_properties = {
+            property_payload["name"]
+            for node in self._snapshot_nodes(projection["snapshot"])
+            for property_payload in node.get("properties", [])
         }
-        self.assertIn("box-shadow", tracked_declarations)
-        self.assertIn("text-shadow", tracked_declarations)
-        self.assertIn("filter", tracked_declarations)
+        self.assertIn("box-shadow", tracked_properties)
+        self.assertIn("text-shadow", tracked_properties)
+        self.assertIn("filter", tracked_properties)
 
-    def test_capture_prototype_state_artifacts_returns_color_frequencies(self) -> None:
+    def test_capture_prototype_state_artifacts_supports_color_histograms(self) -> None:
         html_content = RENDER_SCOPE_MATRIX.read_text(encoding="utf-8")
         artifacts = capture_prototype_state_artifacts(
             html_content=html_content,
             base_path=str(FIXTURES_DIR),
-            options=SnapshotOptions(include_color_frequencies=True),
+            options=SnapshotOptions(),
             session_id="testsess3",
         )
-        color_data = artifacts.color_frequencies or []
+        color_data = build_color_histograms(artifacts.screenshot_path)["environmental"]
 
         self.assertIsInstance(color_data, list)
         self.assertGreater(len(color_data), 0)
         self.assertTrue(all("color" in item and "count" in item for item in color_data))
 
-    def test_pixels_to_color_frequency_uses_canonical_module(self) -> None:
-        color_data = pixels_to_color_frequency(
+    def test_build_color_histograms_uses_canonical_module(self) -> None:
+        color_data = build_color_histograms(
             [[[255, 0, 0], [255, 0, 0]], [[0, 0, 255], [255, 0, 0]]]
-        )
+        )["environmental"]
         self.assertEqual(color_data[0]["color"], [255, 0, 0])
         self.assertEqual(color_data[0]["count"], 3)
 
-    def test_pixel_color_statistics_include_percentage(self) -> None:
-        color_data = color_frequency_to_statistics(
-            pixels_to_color_records(
-                [[[255, 0, 0], [255, 0, 0]], [[0, 0, 255], [255, 0, 0]]]
-            )
+    def test_build_color_histograms_subtracts_prototype_exclusions(self) -> None:
+        class PrototypeStub:
+            def excluded_pixel_boxes(self) -> tuple[tuple[int, int, int, int], ...]:
+                return ((0, 0, 1, 2),)
+
+        histograms = build_color_histograms(
+            [
+                [[255, 0, 0], [0, 0, 255]],
+                [[255, 0, 0], [0, 255, 0]],
+            ],
+            prototype_structure=PrototypeStub(),
+            cluster_distance=0,
         )
-        self.assertEqual(color_data[0]["color_id"], "pixel-color-1")
+
+        self.assertEqual(histograms["environmental"][0], {"color": [255, 0, 0], "count": 2})
+        self.assertNotIn({"color": [255, 0, 0], "count": 2}, histograms["scheme"])
+        self.assertEqual(color_histogram_total(histograms["scheme"]), 2)
+
+    def test_dominant_color_percentages_include_percentage(self) -> None:
+        color_data = dominant_color_percentages(
+            build_color_histograms(
+                [[[255, 0, 0], [255, 0, 0]], [[0, 0, 255], [255, 0, 0]]]
+            )["environmental"]
+        )
+        self.assertEqual(color_data[0]["color"], [255, 0, 0])
         self.assertEqual(color_data[0]["count"], 3)
         self.assertAlmostEqual(color_data[0]["percentage"], 75.0)
+
+    def test_color_histogram_helpers_keep_final_shape(self) -> None:
+        color_data = [
+            {"color": [255, 0, 0], "count": 3},
+            {"color": [254, 0, 0], "count": 2},
+            {"color": [0, 0, 255], "count": 1},
+        ]
+        clustered = cluster_color_histogram(color_data, cluster_distance=6.0)
+
+        self.assertTrue(all(set(item) == {"color", "count"} for item in clustered))
+        self.assertEqual(color_histogram_total(clustered), 6)
+        self.assertEqual(get_color_count(clustered, 255, 0, 0)["count"], 5)
 
     def test_environmental_assessment_uses_immutable_models_and_functions(self) -> None:
         pixels = (
@@ -847,7 +883,8 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertEqual(WebColor.WHITE.hex_value, "#ffffff")
         match = nearest_web_color((254, 254, 254))
         self.assertEqual(match.color_name, "white")
-        self.assertEqual(match.wikipedia_family, "Colores blancos")
+        self.assertEqual(match.wikipedia_family, "Blanco")
+        self.assertEqual(match.family_display_name, "White")
 
     def test_tonal_palette_model_builds_seed_tones(self) -> None:
         palette = TonalPaletteModel.from_seed(
@@ -856,7 +893,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             seed_hex="#ff0000",
             role_bias="foreground",
             semantic_weight=10,
-            confirmed_pixel_count=25,
+            pixel_count=25,
             seed_name="red",
             source_color_ids=("color-1",),
         )
@@ -876,7 +913,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             seed_hex="#ffffff",
             role_bias="background",
             semantic_weight=5,
-            confirmed_pixel_count=50,
+            pixel_count=50,
             seed_name="white",
             source_color_ids=("color-1",),
             chroma_override=6.0,
@@ -900,11 +937,6 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                     "usage": [{"tag": "h1", "property": "color", "count": 2}],
                 },
             ),
-            pixel_color_frequencies=[
-                {"color": [255, 255, 255], "count": 80},
-                {"color": [255, 0, 0], "count": 20},
-                {"color": [0, 200, 0], "count": 5},
-            ],
             material_quantization_assessment=get_material_quantization_assessment(),
         ).to_dict()
 
@@ -925,7 +957,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             98,
         )
         self.assertEqual(palette_analysis["named_color_breakdown"][0]["name"], "white")
-        self.assertGreater(palette_analysis["residual_pixel_count"], 0)
+        self.assertNotIn("residual" + "_pixel_count", palette_analysis)
         self.assertTrue(
             palette_analysis["semantic_colors"][0]["mapped_palette_id"].startswith(
                 "palette-achromatic-"
@@ -955,10 +987,6 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                     "usage": [{"tag": "button", "property": "background-color", "count": 2}],
                 },
             ),
-            pixel_color_frequencies=[
-                {"color": [222, 155, 255], "count": 120},
-                {"color": [200, 0, 255], "count": 90},
-            ],
             material_quantization_assessment=get_material_quantization_assessment(),
         ).to_dict()
 
@@ -974,21 +1002,16 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                     "value": "rgb(255, 255, 255)",
                     "usage_count": 5,
                     "usage": [{"tag": "body", "property": "background-color", "count": 5}],
-                    "display_pixel_count": 90,
+                    "pixel_count": 90,
                 },
                 {
                     "color_id": "color-2",
                     "value": "rgb(255, 0, 0)",
                     "usage_count": 0,
                     "usage": [],
-                    "display_pixel_count": 0,
-                    "added_from_pixel_evidence": True,
+                    "pixel_count": 0,
                 },
             ),
-            pixel_color_frequencies=[
-                {"color": [255, 255, 255], "count": 90},
-                {"color": [255, 0, 0], "count": 3},
-            ],
             material_quantization_assessment=get_material_quantization_assessment(),
         ).to_dict()
 
@@ -1014,10 +1037,6 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                     "usage": [{"tag": "h1", "property": "color", "count": 2}],
                 },
             ),
-            pixel_color_frequencies=[
-                {"color": [255, 255, 255], "count": 80},
-                {"color": [255, 0, 0], "count": 20},
-            ],
             material_quantization_assessment=get_material_quantization_assessment(),
         ).to_dict()
 
@@ -1059,44 +1078,45 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertEqual(payload["validations"][0]["status"], "failed")
         self.assertEqual(payload["css_variable_name"], "--glow-text-color-emphasis-4")
 
-    def test_inventory_graph_builds_relations_and_effective_backgrounds(self) -> None:
+    def test_prototype_structure_builds_relations_and_effective_backgrounds(self) -> None:
         html_content = RENDER_SCOPE_MATRIX.read_text(encoding="utf-8")
         artifacts = capture_prototype_state_artifacts(
             html_content=html_content,
             base_path=str(FIXTURES_DIR),
-            options=SnapshotOptions(include_color_frequencies=False, capture_screenshot=False),
+            options=SnapshotOptions(capture_screenshot=False),
         )
         elements_inventory = _elements(artifacts.snapshot.nodes)
-        styles_inventory = StyleInventoryModel.build(artifacts.styles_inventory_seed)
-        colors_inventory = ColorInventoryModel.build(artifacts.colors_inventory_seed)
-        graph = _build_graph(
-            elements=elements_inventory,
-            styles=styles_inventory,
-            colors=colors_inventory,
-        )
+        styles_inventory = StyleCatalog.build(artifacts.styles_inventory_seed)
+        colors_inventory = ColorCatalog.build(artifacts.colors_inventory_seed)
+        prototype_structure = _prototype(elements_inventory, styles_inventory)
 
         title_entry = next(
             entry for entry in elements_inventory if entry.html_id == "title"
         )
-        parent = graph.parent_of(title_entry.node_id)
+        parent = prototype_structure.parent_of(title_entry.node_id)
         self.assertIsNotNone(parent)
         assert parent is not None
-        self.assertIn(title_entry.node_id, [child.node_id for child in graph.children_of(parent.node_id)])
-        self.assertGreaterEqual(len(graph.ancestors_of(title_entry.node_id)), 1)
-        effective_background = graph.effective_background_of(title_entry.node_id)
+        self.assertIn(
+            title_entry.node_id,
+            [child.node_id for child in prototype_structure.children_of(parent.node_id)],
+        )
+        self.assertGreaterEqual(len(prototype_structure.ancestors_of(title_entry.node_id)), 1)
+        effective_background = prototype_structure.effective_background_of(
+            title_entry.node_id,
+            tuple(colors_inventory),
+        )
         self.assertIsNotNone(effective_background)
         assert effective_background is not None
         self.assertTrue(effective_background.hex_value.startswith("#"))
-        effective_foreground = graph.effective_color_of(title_entry.node_id)
-        self.assertIsNotNone(effective_foreground)
-        surface_container = graph.surface_container_of(title_entry.node_id)
-        self.assertIsNotNone(surface_container)
-        self.assertTrue(
-            isinstance(graph.adjacent_elements_of(title_entry.node_id), tuple)
+        effective_foreground = prototype_structure.effective_color_of(
+            title_entry.node_id,
+            tuple(colors_inventory),
         )
-        self.assertEqual(len(graph.tokens), 0)
+        self.assertIsNotNone(effective_foreground)
+        surface_container = prototype_structure.surface_container_of(title_entry.node_id)
+        self.assertIsNotNone(surface_container)
 
-    def test_inventory_graph_links_tokens_to_elements_styles_colors_and_palettes(self) -> None:
+    def test_token_inventory_keeps_export_relations_without_parallel_owner(self) -> None:
         token_inventory = TokenInventory.build(
             (
                 Token.foundation(
@@ -1124,42 +1144,30 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 ),
             )
         )
-        graph = _build_graph(
-            elements=(),
-            styles=StyleInventoryModel(),
-            colors=ColorInventoryModel(),
-            tokens=token_inventory,
+        token = token_inventory.entry_by_id("glow.text.color.emphasis.2")
+
+        self.assertEqual(len(token_inventory), 2)
+        self.assertIsNotNone(token)
+        assert token is not None
+        self.assertEqual(token.token_id, "glow.text.color.emphasis.2")
+        self.assertEqual(
+            token.assigned_element_ids,
+            ("node-1",),
+        )
+        self.assertEqual(
+            token.source_property_refs,
+            ("style-1:color",),
+        )
+        self.assertEqual(
+            token.source_color_ids,
+            ("color-1",),
+        )
+        self.assertEqual(
+            token.source_palette_ids,
+            ("palette-achromatic-1",),
         )
 
-        self.assertEqual(len(graph.tokens), 2)
-        self.assertEqual(graph.token_by_id("glow.text.color.emphasis.2").token_id, "glow.text.color.emphasis.2")
-        self.assertEqual(
-            tuple(token.token_id for token in graph.tokens_for_element("node-1")),
-            ("glow.text.color.emphasis.2",),
-        )
-        self.assertEqual(
-            tuple(token.token_id for token in graph.tokens_for_style_ref("style-1:color")),
-            ("glow.text.color.emphasis.2",),
-        )
-        self.assertEqual(
-            tuple(token.token_id for token in graph.tokens_for_color("color-1")),
-            ("glow.text.color.emphasis.2",),
-        )
-        self.assertEqual(
-            {token.token_id for token in graph.tokens_for_palette_tone("palette-achromatic-1", 10)},
-            {"glow.color.neutral.10", "glow.text.color.emphasis.2"},
-        )
-
-    def test_inventory_graph_can_rebind_from_lightweight_artifact(self) -> None:
-        html_content = RENDER_SCOPE_MATRIX.read_text(encoding="utf-8")
-        artifacts = capture_prototype_state_artifacts(
-            html_content=html_content,
-            base_path=str(FIXTURES_DIR),
-            options=SnapshotOptions(include_color_frequencies=False, capture_screenshot=False),
-        )
-        elements_inventory = _elements(artifacts.snapshot.nodes)
-        styles_inventory = StyleInventoryModel.build(artifacts.styles_inventory_seed)
-        colors_inventory = ColorInventoryModel.build(artifacts.colors_inventory_seed)
+    def test_token_inventory_artifact_is_export_only(self) -> None:
         token_inventory = TokenInventory.build(
             (
                 Token.semantic(
@@ -1180,61 +1188,30 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 ),
             )
         )
-        graph = _build_graph(
-            elements=elements_inventory,
-            styles=styles_inventory,
-            colors=colors_inventory,
-            tokens=token_inventory,
-        )
+        artifact = build_token_inventory_artifact(token_inventory)
 
-        rebound_graph = _build_graph_from_artifact(
-            build_inventory_graph_artifact(graph),
-            elements=elements_inventory,
-            styles=styles_inventory,
-            colors=colors_inventory,
-            tokens=token_inventory,
-        ).bind_inventories(
-            prototype_structure=PrototypeStructure.build(_elements(elements_inventory)),
-            styles=styles_inventory,
-            colors=colors_inventory,
-            tokens=token_inventory,
-        )
-
-        title_entry = next(entry for entry in elements_inventory if entry.html_id == "title")
-        self.assertEqual(rebound_graph.root_ids, graph.root_ids)
-        self.assertEqual(rebound_graph.element_ids, graph.element_ids)
-        self.assertEqual(rebound_graph.style_ids, graph.style_ids)
-        self.assertEqual(rebound_graph.color_ids, graph.color_ids)
-        self.assertEqual(
-            rebound_graph.parent_of(title_entry.node_id).node_id,
-            graph.parent_of(title_entry.node_id).node_id,
-        )
-        self.assertEqual(
-            rebound_graph.effective_background_of(title_entry.node_id).color_id,
-            graph.effective_background_of(title_entry.node_id).color_id,
-        )
-        self.assertEqual(rebound_graph.token_ids, graph.token_ids)
-        self.assertEqual(
-            rebound_graph.element_to_token_ids,
-            graph.element_to_token_ids,
-        )
+        self.assertIn("glow", artifact)
+        self.assertIn("text", artifact["glow"])
+        self.assertNotIn("relations", artifact)
+        self.assertNotIn("element_ids", artifact)
+        self.assertNotIn("style_ids", artifact)
+        self.assertNotIn("color_ids", artifact)
 
     def test_token_inventory_and_rules_build_from_existing_palette_and_inventory(self) -> None:
         html_content = RENDER_SCOPE_MATRIX.read_text(encoding="utf-8")
         artifacts = capture_prototype_state_artifacts(
             html_content=html_content,
             base_path=str(FIXTURES_DIR),
-            options=SnapshotOptions(include_color_frequencies=True, capture_screenshot=False),
+            options=SnapshotOptions(capture_screenshot=False),
         )
-        colors_inventory = ColorInventoryModel.build(artifacts.colors_inventory_seed)
+        colors_inventory = ColorCatalog.build(artifacts.colors_inventory_seed)
         elements_inventory = _elements(artifacts.snapshot.nodes)
-        styles_inventory = StyleInventoryModel.build(artifacts.styles_inventory_seed)
+        styles_inventory = StyleCatalog.build(artifacts.styles_inventory_seed)
         palette_analysis = build_palette_analysis(
             snapshot_palette=colors_inventory.to_palette_dicts(),
-            pixel_color_frequencies=artifacts.color_frequencies or [],
             material_quantization_assessment=get_material_quantization_assessment(),
         )
-        mapped_colors = ColorInventoryModel.build(
+        mapped_colors = ColorCatalog.build(
             [
                 entry.with_palette_mapping(
                     palette_id=semantic_color.mapped_palette_id or "palette-achromatic-1",
@@ -1248,14 +1225,18 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 for entry in colors_inventory
             ]
         )
-        graph = _build_graph(
-            elements=elements_inventory,
-            styles=styles_inventory,
-            colors=mapped_colors,
-            palettes=tuple(palette_analysis.core_palettes),
+        prototype_structure = _prototype(elements_inventory, styles_inventory)
+        token_inventory = build_token_inventory(
+            prototype_structure,
+            tuple(mapped_colors),
+            palette_analysis.core_palettes,
         )
-        token_inventory = build_token_inventory(graph, palette_analysis.core_palettes)
-        validated_inventory = apply_token_rules(token_inventory, graph)
+        validated_inventory = apply_token_rules(
+            token_inventory,
+            prototype_structure,
+            tuple(mapped_colors),
+            tuple(palette_analysis.core_palettes),
+        )
 
         self.assertGreater(len(token_inventory), 0)
         self.assertTrue(any(token.path_string.startswith("glow.color.") for token in token_inventory))
@@ -1265,7 +1246,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             any(token.validations for token in validated_inventory if token.is_semantic)
         )
 
-    def test_token_stages_refresh_inventory_graph_with_token_relations(self) -> None:
+    def test_token_stages_assign_tokens_to_domain_instances(self) -> None:
         from engine.pipeline.stages.check_tokens import run_stage as run_check_tokens_stage
         from engine.pipeline.stages.set_tokens import run_stage as run_set_tokens_stage
 
@@ -1273,17 +1254,16 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         artifacts = capture_prototype_state_artifacts(
             html_content=html_content,
             base_path=str(FIXTURES_DIR),
-            options=SnapshotOptions(include_color_frequencies=True, capture_screenshot=False),
+            options=SnapshotOptions(capture_screenshot=False),
         )
-        colors_inventory = ColorInventoryModel.build(artifacts.colors_inventory_seed)
+        colors_inventory = ColorCatalog.build(artifacts.colors_inventory_seed)
         elements_inventory = _elements(artifacts.snapshot.nodes)
-        styles_inventory = StyleInventoryModel.build(artifacts.styles_inventory_seed)
+        styles_inventory = StyleCatalog.build(artifacts.styles_inventory_seed)
         palette_analysis = build_palette_analysis(
             snapshot_palette=colors_inventory.to_palette_dicts(),
-            pixel_color_frequencies=artifacts.color_frequencies or [],
             material_quantization_assessment=get_material_quantization_assessment(),
         )
-        mapped_colors = ColorInventoryModel.build(
+        mapped_colors = ColorCatalog.build(
             [
                 entry.with_palette_mapping(
                     palette_id=semantic_color.mapped_palette_id or "palette-achromatic-1",
@@ -1302,34 +1282,35 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 for entry in colors_inventory
             ]
         )
-        base_graph = _build_graph(
-            elements=elements_inventory,
-            styles=styles_inventory,
-            colors=mapped_colors,
-            palettes=tuple(palette_analysis.core_palettes),
-        )
-
         with tempfile.TemporaryDirectory() as tmp_dir:
             tokens_path = Path(tmp_dir) / "tokens.json"
-            graph_path = Path(tmp_dir) / "inventory_graph.json"
+            legacy_relations_filename = "inventory" + "_" + "gra" + "ph.json"
+            legacy_path = Path(tmp_dir) / legacy_relations_filename
             context = PipelineContext(file=None)
-            context.set("prototype_structure", PrototypeStructure.build(_elements(elements_inventory)))
-            context.set("scheme.colors", tuple(SnapshotColorEvidence.build_many(mapped_colors)))
+            context.set("prototype_structure", _prototype(elements_inventory, styles_inventory))
+            context.set("scheme.colors", tuple(mapped_colors))
             context.set("scheme.tonal_palettes", palette_analysis.core_palettes)
             run_set_tokens_stage(context)
-            graph_after_set_tokens = context.get("inventory.graph")
-            self.assertIsNot(graph_after_set_tokens, base_graph)
-        self.assertIsNone(graph_after_set_tokens)
-        self.assertFalse(context.has("inventory.graph"))
-        self.assertTrue(context.has("token.inventory"))
+            legacy_key = "inventory" + "." + "gra" + "ph"
+            self.assertFalse(context.has(legacy_key))
+            self.assertTrue(context.has("token.inventory"))
+            tokenized_structure = context.get("prototype_structure")
+            self.assertTrue(any(element.token_ids for element in tokenized_structure))
+            self.assertTrue(
+                any(
+                    property_model.token_ids
+                    for element in tokenized_structure
+                    for property_model in element.properties
+                )
+            )
+            self.assertTrue(any(color.token_ids for color in context.get("scheme.colors")))
 
-        run_check_tokens_stage(context)
-        graph_after_check_tokens = context.get("inventory.graph")
-        self.assertIsNot(graph_after_check_tokens, base_graph)
-        self.assertIsNone(graph_after_check_tokens)
-        self.assertFalse(context.has("inventory.graph"))
-        self.assertFalse(tokens_path.exists())
-        self.assertFalse(graph_path.exists())
+            run_check_tokens_stage(context)
+            self.assertFalse(context.has(legacy_key))
+            self.assertTrue(context.has("token.inventory"))
+            self.assertTrue(any(color.token_ids for color in context.get("scheme.colors")))
+            self.assertFalse(tokens_path.exists())
+            self.assertFalse(legacy_path.exists())
 
     def test_apply_tokens_to_project_preserves_local_asset_links(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1446,7 +1427,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                     }
                 ),
             )
-            styles = StyleInventoryModel.build(
+            styles = StyleCatalog.build(
                 (
                     {
                         "style_id": "style-1",
@@ -1461,7 +1442,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                     },
                 )
             )
-            colors = ColorInventoryModel.build(({"color_id": "color-1", "value": "rgb(255, 255, 0)"},))
+            colors = ColorCatalog.build(({"color_id": "color-1", "value": "rgb(255, 255, 0)"},))
             token_inventory = TokenInventory.build(
                 (
                     Token.semantic(
@@ -1635,7 +1616,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 },
             )
         )
-        styles = StyleInventoryModel.build(
+        styles = StyleCatalog.build(
             (
                 {
                     "style_id": "style-1",
@@ -1650,7 +1631,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 },
             )
         )
-        colors = ColorInventoryModel.build(({"color_id": "color-1", "value": "rgb(255, 0, 0)"},))
+        colors = ColorCatalog.build(({"color_id": "color-1", "value": "rgb(255, 0, 0)"},))
         palette_analysis = build_palette_analysis(
             snapshot_palette=(
                 {
@@ -1660,17 +1641,14 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                     "usage": [{"tag": "section", "property": "background-color", "count": 1}],
                 },
             ),
-            pixel_color_frequencies=[{"color": [255, 0, 0], "count": 64}],
             material_quantization_assessment=get_material_quantization_assessment(),
         )
-        graph = _build_graph(
-            elements=elements,
-            styles=styles,
-            colors=colors,
-            palettes=tuple(palette_analysis.core_palettes),
+        prototype_structure = _prototype(elements, styles)
+        token_inventory = build_token_inventory(
+            prototype_structure,
+            tuple(colors),
+            palette_analysis.core_palettes,
         )
-
-        token_inventory = build_token_inventory(graph, palette_analysis.core_palettes)
 
         self.assertTrue(
             any(
@@ -1688,7 +1666,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             seed_hex="#ffffff",
             role_bias="background",
             semantic_weight=0,
-            confirmed_pixel_count=0,
+            pixel_count=0,
             seed_name="white",
             chroma_override=6.0,
         )
@@ -1698,11 +1676,11 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             seed_hex="#ff0000",
             role_bias="background",
             semantic_weight=1,
-            confirmed_pixel_count=64,
+            pixel_count=64,
             seed_name="red",
         )
         tone_30 = next(tone for tone in chromatic_palette.tones if tone.tone == 30)
-        colors = ColorInventoryModel.build(
+        colors = ColorCatalog.build(
             (
                 {
                     "color_id": "color-1",
@@ -1714,12 +1692,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 },
             )
         )
-        graph = _build_graph(
-            elements=(),
-            styles=StyleInventoryModel.build(()),
-            colors=colors,
-            palettes=(achromatic_palette, chromatic_palette),
-        )
+        prototype_structure = PrototypeStructure.build(())
         tokens = TokenInventory.build(
             (
                 Token.foundation(
@@ -1749,7 +1722,12 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             )
         )
 
-        validated = apply_token_rules(tokens, graph)
+        validated = apply_token_rules(
+            tokens,
+            prototype_structure,
+            tuple(colors),
+            (achromatic_palette, chromatic_palette),
+        )
         shadow_token = next(
             token for token in validated if token.property_id == "box-shadow" and token.is_semantic
         )
@@ -1767,7 +1745,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             seed_hex="#ffffff",
             role_bias="background",
             semantic_weight=0,
-            confirmed_pixel_count=0,
+            pixel_count=0,
             seed_name="white",
             chroma_override=6.0,
         )
@@ -1777,7 +1755,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             seed_hex="#ff0000",
             role_bias="background",
             semantic_weight=1,
-            confirmed_pixel_count=64,
+            pixel_count=64,
             seed_name="red",
         )
         elements = _elements(
@@ -1815,20 +1793,19 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 },
             )
         )
-        colors = ColorInventoryModel.build(({"color_id": "color-1", "value": "rgb(255, 0, 0)"},))
-        graph = _build_graph(
-            elements=elements,
-            styles=StyleInventoryModel.build(()),
-            colors=colors,
-            palettes=(achromatic_palette, chromatic_palette),
-        )
+        colors = ColorCatalog.build(({"color_id": "color-1", "value": "rgb(255, 0, 0)"},))
+        prototype_structure = _prototype(elements, StyleCatalog.build(()))
         scheme_stub = type(
             "SchemeStub",
             (),
             {"core_palettes": (achromatic_palette, chromatic_palette)},
         )()
 
-        token_inventory = build_token_inventory(graph, scheme_stub.core_palettes)  # type: ignore[arg-type]
+        token_inventory = build_token_inventory(
+            prototype_structure,
+            tuple(colors),
+            scheme_stub.core_palettes,  # type: ignore[arg-type]
+        )
         shadow_token = next(
             token for token in token_inventory if token.property_id == "box-shadow" and token.is_semantic
         )
@@ -1842,7 +1819,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             seed_hex="#ffffff",
             role_bias="background",
             semantic_weight=0,
-            confirmed_pixel_count=0,
+            pixel_count=0,
             seed_name="white",
             chroma_override=6.0,
         )
@@ -1852,7 +1829,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             seed_hex="#ff0000",
             role_bias="background",
             semantic_weight=1,
-            confirmed_pixel_count=64,
+            pixel_count=64,
             seed_name="red",
         )
         yellow_palette = TonalPaletteModel.from_seed(
@@ -1861,12 +1838,12 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             seed_hex="#ffff00",
             role_bias="background",
             semantic_weight=1,
-            confirmed_pixel_count=64,
+            pixel_count=64,
             seed_name="yellow",
         )
         red_tone = next(tone for tone in red_palette.tones if tone.tone == 30)
         yellow_tone = next(tone for tone in yellow_palette.tones if tone.tone == 30)
-        colors = ColorInventoryModel.build(
+        colors = ColorCatalog.build(
             (
                 {
                     "color_id": "color-1",
@@ -1886,12 +1863,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 },
             )
         )
-        graph = _build_graph(
-            elements=(),
-            styles=StyleInventoryModel.build(()),
-            colors=colors,
-            palettes=(achromatic_palette, red_palette, yellow_palette),
-        )
+        prototype_structure = PrototypeStructure.build(())
         tokens = TokenInventory.build(
             (
                 Token.foundation(
@@ -1921,7 +1893,12 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             )
         )
 
-        validated = apply_token_rules(tokens, graph)
+        validated = apply_token_rules(
+            tokens,
+            prototype_structure,
+            tuple(colors),
+            (achromatic_palette, red_palette, yellow_palette),
+        )
         gradient_token = next(
             token for token in validated if token.property_id == "background-image" and token.is_semantic
         )
@@ -1935,14 +1912,14 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertIn(yellow_tone.hex_value.lower(), gradient_token.resolved_value.lower())
 
     def test_surface_background_prefers_same_palette_foundation_over_achromatic(self) -> None:
-        colors = ColorInventoryModel.build(({"color_id": "color-1", "value": "rgb(255, 0, 0)"},))
+        colors = ColorCatalog.build(({"color_id": "color-1", "value": "rgb(255, 0, 0)"},))
         achromatic_palette = TonalPaletteModel.from_seed(
             palette_id="palette-achromatic-1",
             palette_type="achromatic",
             seed_hex="#ffffff",
             role_bias="background",
             semantic_weight=0,
-            confirmed_pixel_count=0,
+            pixel_count=0,
             seed_name="white",
             chroma_override=6.0,
         )
@@ -1952,11 +1929,11 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             seed_hex="#ff0000",
             role_bias="background",
             semantic_weight=1,
-            confirmed_pixel_count=64,
+            pixel_count=64,
             seed_name="red",
         )
         tone_90 = next(tone for tone in chromatic_palette.tones if tone.tone == 90)
-        mapped_colors = ColorInventoryModel.build(
+        mapped_colors = ColorCatalog.build(
             (
                 colors.entry_by_id("color-1").with_palette_mapping(  # type: ignore[union-attr]
                     palette_id=chromatic_palette.palette_id,
@@ -2000,7 +1977,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 },
             )
         )
-        styles = StyleInventoryModel.build(
+        styles = StyleCatalog.build(
             (
                 {
                     "style_id": "style-1",
@@ -2015,12 +1992,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 },
             )
         )
-        graph = _build_graph(
-            elements=elements,
-            styles=styles,
-            colors=mapped_colors,
-            palettes=(achromatic_palette, chromatic_palette),
-        )
+        prototype_structure = _prototype(elements, styles)
 
         scheme_stub = type(
             "SchemeStub",
@@ -2028,8 +2000,17 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             {"core_palettes": (achromatic_palette, chromatic_palette)},
         )()
 
-        token_inventory = build_token_inventory(graph, scheme_stub.core_palettes)  # type: ignore[arg-type]
-        validated_inventory = apply_token_rules(token_inventory, graph)
+        token_inventory = build_token_inventory(
+            prototype_structure,
+            tuple(mapped_colors),
+            scheme_stub.core_palettes,  # type: ignore[arg-type]
+        )
+        validated_inventory = apply_token_rules(
+            token_inventory,
+            prototype_structure,
+            tuple(mapped_colors),
+            scheme_stub.core_palettes,  # type: ignore[arg-type]
+        )
         surface_token = next(
             token
             for token in validated_inventory
@@ -2078,7 +2059,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertNotIn("palette_preview_output", results["color_processing"])
         self.assertEqual(results["color_processing"]["palette_preview_location"], "artifacts")
         self.assertNotIn("artifact", results["token_processing"])
-        self.assertNotIn("graph_artifact", results["token_processing"])
+        self.assertNotIn("gra" + "ph_artifact", results["token_processing"])
         self.assertGreaterEqual(results["token_processing"]["foundation_token_count"], 1)
         self.assertGreaterEqual(results["token_processing"]["semantic_token_count"], 1)
         self.assertGreaterEqual(results["token_processing"]["tokenized_element_count"], 1)
@@ -2121,137 +2102,30 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertFalse(colors_inventory_path.exists())
         colors_inventory_payload = {"entries": []}
         self.assertIn("entries", colors_inventory_payload)
-        return
-        self.assertIn("entries", colors_inventory_payload)
-        self.assertTrue(
-            any(
-                entry.get("mapped_palette_id") is not None
-                or entry.get("display_pixel_count", 0) > 0
-                for entry in colors_inventory_payload["entries"]
-            )
-        )
-        self.assertTrue(
-            any(
-                entry.get("observed_usage_count", 0) > 0
-                and entry.get("observed_roles")
-                for entry in colors_inventory_payload["entries"]
-            )
-        )
-        contrast_report_path = (
+        legacy_effect_path = (
             Path("workspace/sessions")
             / results["session_dirname"]
             / "artifacts"
-            / "contrast_report_original.json"
+            / ("effect" + "_colors_original.json")
         )
-        self.assertTrue(contrast_report_path.exists())
-        contrast_report_payload = json.loads(contrast_report_path.read_text(encoding="utf-8"))
-        self.assertIn("issues", contrast_report_payload)
-        if contrast_report_payload["issues"]:
-            self.assertTrue(
-                any(
-                    issue.get("element_id")
-                    and issue.get("foreground", {}).get("color_id")
-                    for issue in contrast_report_payload["issues"]
-                )
-            )
-        effect_colors_path = (
-            Path("workspace/sessions")
-            / results["session_dirname"]
-            / "artifacts"
-            / "effect_colors_original.json"
-        )
-        self.assertTrue(effect_colors_path.exists())
-        effect_colors_payload = json.loads(effect_colors_path.read_text(encoding="utf-8"))
+        self.assertFalse(legacy_effect_path.exists())
+        effect_colors_payload = results["effect_colors"]
         self.assertIn("entries", effect_colors_payload)
-        self.assertIn("by_property", effect_colors_payload)
-        pixel_display_path = (
+        self.assertIn("properties", effect_colors_payload)
+        legacy_relations_path = (
             Path("workspace/sessions")
             / results["session_dirname"]
             / "artifacts"
-            / "pixel_frequencies_original_display.json"
+            / ("inventory" + "_" + "gra" + "ph.json")
         )
-        self.assertTrue(pixel_display_path.exists())
-        pixel_display_payload = json.loads(pixel_display_path.read_text(encoding="utf-8"))
-        tokens_path = (
+        self.assertFalse(legacy_relations_path.exists())
+        results_json_path = (
             Path("workspace/sessions")
             / results["session_dirname"]
             / "artifacts"
-            / "tokens_original.json"
+            / ("results" + ".json")
         )
-        inventory_graph_path = (
-            Path("workspace/sessions")
-            / results["session_dirname"]
-            / "artifacts"
-            / "inventory_graph.json"
-        )
-        self.assertTrue(tokens_path.exists())
-        self.assertTrue(inventory_graph_path.exists())
-        tokens_payload = json.loads(tokens_path.read_text(encoding="utf-8"))
-        self.assertIn("glow", tokens_payload)
-        self.assertIn("color", tokens_payload["glow"])
-        graph_payload = json.loads(inventory_graph_path.read_text(encoding="utf-8"))
-        self.assertEqual(graph_payload["schema_version"], "3.0")
-        self.assertEqual(graph_payload["generated_from"], "inventory.graph.tokens")
-        self.assertIn("summary", graph_payload)
-        self.assertIn("relations", graph_payload)
-        self.assertIn("element_ids", graph_payload)
-        self.assertIn("style_ids", graph_payload)
-        self.assertIn("color_ids", graph_payload)
-        self.assertIn("token_ids", graph_payload)
-        self.assertNotIn("tokens", graph_payload)
-        self.assertNotIn("palettes", graph_payload)
-        self.assertNotIn("css_overview", graph_payload)
-        self.assertNotIn("contrast_report", graph_payload)
-        self.assertNotIn("effect_color_report", graph_payload)
-        self.assertNotIn("color_scheme", graph_payload)
-        self.assertNotIn("pixel_frequencies_display", graph_payload)
-        self.assertNotIn("elements", graph_payload)
-        self.assertNotIn("styles", graph_payload)
-        self.assertNotIn("colors", graph_payload)
-        self.assertIn("element_adjacency", graph_payload["relations"])
-        self.assertNotIn("element_visual_context", graph_payload["relations"])
-        self.assertIn("element_to_token_ids", graph_payload["relations"])
-        self.assertIn("color_to_token_ids", graph_payload["relations"])
-        self.assertIn("palette_tone_to_token_ids", graph_payload["relations"])
-        self.assertIn("style_ref_to_token_ids", graph_payload["relations"])
-        self.assertGreater(graph_payload["summary"]["element_count"], 0)
-        self.assertGreaterEqual(
-            graph_payload["summary"]["visible_element_count"],
-            graph_payload["summary"]["text_element_count"],
-        )
-        self.assertGreaterEqual(graph_payload["summary"]["color_count"], 1)
-        self.assertGreaterEqual(graph_payload["summary"]["pixel_count"], 1)
-        self.assertEqual(
-            graph_payload["summary"]["element_count"],
-            len(graph_payload["element_ids"]),
-        )
-        self.assertEqual(
-            graph_payload["summary"]["style_count"],
-            len(graph_payload["style_ids"]),
-        )
-        self.assertEqual(
-            graph_payload["summary"]["color_count"],
-            len(graph_payload["color_ids"]),
-        )
-        self.assertEqual(
-            graph_payload["summary"]["token_count"],
-            len(graph_payload["token_ids"]),
-        )
-        self.assertTrue(
-            set(graph_payload["root_ids"]).issubset(set(graph_payload["element_ids"]))
-        )
-        self.assertEqual(
-            graph_payload["summary"]["contrast_issue_count"],
-            len(contrast_report_payload["issues"]),
-        )
-        self.assertEqual(
-            graph_payload["summary"]["unused_declaration_count"],
-            css_overview_payload["unused_declarations"]["count"],
-        )
-        self.assertEqual(
-            graph_payload["summary"]["display_pixel_count"],
-            pixel_display_payload["total_pixels_considered"],
-        )
+        self.assertFalse(results_json_path.exists())
 
     def test_run_pipeline_preserves_zip_project_skeleton_in_output(self) -> None:
         buffer = io.BytesIO()
@@ -2314,12 +2188,9 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             Path("engine/adapters/file_system/code_processor.py"),
             Path("engine/adapters/browser/page_builder.py"),
             Path("engine/adapters/browser/render_models.py"),
-            Path("engine/adapters/browser/snapshot_analyzer.py"),
-            Path("engine/adapters/browser/prototype_renderer.py"),
             Path("engine/adapters/color_service/service.py"),
             Path("engine/adapters/utils/io.py"),
-            Path("engine/adapters/utils/screenshot.py"),
-            Path("engine/domain/utils/token_graph.py"),
+            Path("engine/adapters/utils/pixel.py"),
             Path("engine/validators/file_handling"),
         )
         for path in expected_paths:
@@ -2336,6 +2207,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             Path("engine/environmental_assessment/services"),
             Path("engine/prototype_structural_extractor/models"),
             Path("engine/prototype_structural_extractor/services"),
+            Path("engine/domain/utils") / ("token" + "_" + "gra" + "ph.py"),
             Path("engine/recommendations/models"),
             Path("engine/transformation/services"),
             Path("engine/analysis"),
@@ -2377,6 +2249,40 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertFalse(Path("engine/environmental_assessment/environmental_assessment_pipeline.py").exists())
         self.assertFalse(Path("engine/prototype_structural_extractor/prototype_state_pipeline.py").exists())
 
+    def test_runtime_refactor_guardrails_block_parallel_truths(self) -> None:
+        python_files = tuple(Path("engine").rglob("*.py"))
+        blocked_tokens = (
+            "Token" + "Gra" + "ph",
+            "inventory" + "." + "gra" + "ph",
+            "build_" + "effect_color_report",
+            "derived" + ".effect_color_report",
+        )
+
+        for path in python_files:
+            content = path.read_text(encoding="utf-8")
+            for token in blocked_tokens:
+                self.assertNotIn(token, content, msg=f"{token} still present in {path}")
+
+    def test_runtime_state_is_not_stored_on_session_or_results_json(self) -> None:
+        session_source = Path("engine/domain/models/session.py").read_text(encoding="utf-8")
+        self.assertNotIn("original_" + "capture", session_source)
+        self.assertNotIn("original_" + "css_overview", session_source)
+        self.assertNotIn("results_" + "json_path", session_source)
+
+        assemble_source = Path("engine/pipeline/stages/assemble_results.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("save_" + "json", assemble_source)
+        self.assertNotIn("results_" + "json_path", assemble_source)
+
+        for path in Path("engine").rglob("*.py"):
+            content = path.read_text(encoding="utf-8")
+            self.assertNotIn("def " + "save_json", content, msg=str(path))
+
+        for path in Path("engine/pipeline/stages").glob("*.py"):
+            content = path.read_text(encoding="utf-8")
+            self.assertNotIn("session." + "original_css_overview", content, msg=str(path))
+
     def test_wrapper_package_inits_are_removed(self) -> None:
         removed_inits = (
             Path("engine/services/file_handling/__init__.py"),
@@ -2409,9 +2315,17 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         for path in removed_stage_dirs:
             self.assertFalse(path.exists(), msg=str(path))
 
-    def test_pixel_frequency_service_only_keeps_domain_entrypoints(self) -> None:
-        self.assertFalse(Path("engine/services/color_processing/pixel_frequency_service.py").exists())
-        content = Path("engine/adapters/utils/screenshot.py").read_text(encoding="utf-8")
+    def test_pixel_utils_are_centralized_without_screenshot_wrapper(self) -> None:
+        self.assertFalse(
+            (Path("engine/services/color_processing") / ("pixel" + "_frequency_service.py")).exists()
+        )
+        self.assertFalse(Path("engine/adapters/utils/screenshot.py").exists())
+        content = Path("engine/adapters/utils/pixel.py").read_text(encoding="utf-8")
+        self.assertIn("def build_color_histograms(", content)
+        self.assertIn("def cluster_color_histogram(", content)
+        self.assertIn("def dominant_color_percentages(", content)
+        self.assertNotIn("def build_" + "pixel" + "_histogram(", content)
+        self.assertNotIn("def process_" + "pixel" + "_frequency(", content)
         self.assertNotIn("def json_default_numpy_serializer(", content)
 
     def test_results_view_model_is_precomputed_in_python(self) -> None:

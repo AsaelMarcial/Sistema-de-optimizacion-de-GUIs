@@ -1,20 +1,20 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import dataclass, field, replace
 import re
 from typing import Any, Iterable, Iterator, Mapping, Self
 
-from engine.domain.data.css_properties import CssColorRole, get_css_property
 from engine.domain.data.web_colors import nearest_web_color
 from engine.adapters.color_service import color_registry
+from engine.domain.enums.scope.css_properties import CssColorRole, CssPropertyId, get_css_property
 from engine.domain.enums.types.color import (
     ColorConfirmationStatus,
     ColorFamilyType,
+    ObservedColorRole,
 )
 
 _ACHROMATIC_CHROMA_THRESHOLD = 8.0
-_PIXEL_CONFIRMATION_DELTA_E_THRESHOLD = 6.0
 _COLOR_ID_RE = re.compile(r"^color-(\d+)$")
 
 
@@ -36,8 +36,28 @@ def _coerce_confirmation_status(
     return ColorConfirmationStatus(normalized)
 
 
+def _coerce_css_property_id(
+    value: CssPropertyId | str | None,
+) -> CssPropertyId:
+    if isinstance(value, CssPropertyId):
+        return value
+    property_id = get_css_property(value)
+    if property_id is None:
+        raise ValueError(f"Propiedad CSS fuera de scope o invalida: {value!r}")
+    return property_id
+
+
+def _coerce_observed_color_role(
+    value: ObservedColorRole | str | None,
+) -> ObservedColorRole:
+    if isinstance(value, ObservedColorRole):
+        return value
+    normalized = str(value or ObservedColorRole.OTHER.value).strip().lower()
+    return ObservedColorRole(normalized or ObservedColorRole.OTHER.value)
+
+
 @dataclass(frozen=True, slots=True)
-class TagUsageModel:
+class TagUsage:
     tag: str
     count: int
 
@@ -53,59 +73,63 @@ class TagUsageModel:
 
 
 @dataclass(frozen=True, slots=True)
-class PropertyUsageModel:
-    property_name: str
+class PropertyUsage:
+    property_name: CssPropertyId
     total_count: int
-    tags: tuple[TagUsageModel, ...] = field(default_factory=tuple)
+    tags: tuple[TagUsage, ...] = field(default_factory=tuple)
 
     @classmethod
     def build(cls, payload: Mapping[str, Any]) -> Self:
         return cls(
-            property_name=str(payload.get("property") or payload.get("property_name") or ""),
+            property_name=_coerce_css_property_id(
+                payload.get("property") or payload.get("property_name")
+            ),
             total_count=int(payload.get("total_count") or 0),
             tags=tuple(
-                TagUsageModel.build(item)
+                TagUsage.build(item)
                 for item in (payload.get("tags") or ())
                 if isinstance(item, Mapping)
             ),
         )
 
-    def __iter__(self) -> Iterator[TagUsageModel]:
+    def __iter__(self) -> Iterator[TagUsage]:
         return iter(self.tags)
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "property": self.property_name,
+            "property": self.property_name.value,
             "total_count": self.total_count,
             "tags": [item.to_dict() for item in self.tags],
         }
 
 
 @dataclass(frozen=True, slots=True)
-class ColorUsageModel:
+class ColorUsage:
     tag: str
-    property_name: str
+    property_name: CssPropertyId
     count: int
 
     @classmethod
     def build(cls, payload: Mapping[str, Any]) -> Self:
         return cls(
             tag=str(payload.get("tag") or ""),
-            property_name=str(payload.get("property") or payload.get("property_name") or ""),
+            property_name=_coerce_css_property_id(
+                payload.get("property") or payload.get("property_name")
+            ),
             count=int(payload.get("count") or 0),
         )
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "tag": self.tag,
-            "property": self.property_name,
+            "property": self.property_name.value,
             "count": self.count,
         }
 
 
 @dataclass(frozen=True, slots=True)
-class ObservedColorRoleModel:
-    role: str
+class ObservedRole:
+    role: ObservedColorRole
     count: int
     node_ids: tuple[str, ...] = field(default_factory=tuple)
     sample_selectors: tuple[str, ...] = field(default_factory=tuple)
@@ -113,7 +137,7 @@ class ObservedColorRoleModel:
     @classmethod
     def build(cls, payload: Mapping[str, Any]) -> Self:
         return cls(
-            role=str(payload.get("role") or "").strip(),
+            role=_coerce_observed_color_role(payload.get("role")),
             count=int(payload.get("count") or 0),
             node_ids=tuple(
                 str(item).strip()
@@ -144,7 +168,7 @@ class ObservedColorRoleModel:
 
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
-            "role": self.role,
+            "role": self.role.value,
             "count": self.count,
         }
         if self.node_ids:
@@ -155,161 +179,51 @@ class ObservedColorRoleModel:
 
 
 @dataclass(frozen=True, slots=True)
-class PixelColorRecord:
-    color: tuple[int, int, int]
-    count: int
-    color_id: str | None = None
-    percentage: float | None = None
-    alpha: float | None = None
-    source: str | None = None
-    metadata: Mapping[str, Any] = field(default_factory=dict)
-
-    @classmethod
-    def from_mapping(cls, payload: Mapping[str, object]) -> Self:
-        color = tuple(int(channel) for channel in payload.get("color", ()))  # type: ignore[arg-type]
-        if len(color) != 3:
-            raise ValueError(f"Pixel color invalido: {payload!r}")
-        return cls(
-            color=color,  # type: ignore[arg-type]
-            count=int(payload.get("count", 0)),
-            color_id=str(payload["color_id"]) if payload.get("color_id") is not None else None,
-            percentage=(
-                round(float(payload["percentage"]), 4)
-                if payload.get("percentage") is not None
-                else None
-            ),
-            alpha=float(payload["alpha"]) if payload.get("alpha") is not None else None,
-            source=str(payload["source"]) if payload.get("source") is not None else None,
-            metadata=dict(payload.get("metadata") or {}),
-        )
-
-    @classmethod
-    def build_many(
-        cls,
-        payloads: Mapping[str, object]
-        | list[Mapping[str, object]]
-        | tuple[Mapping[str, object], ...]
-        | None,
-    ) -> tuple[Self, ...]:
-        if not payloads:
-            return ()
-        return tuple(cls.from_mapping(item) for item in payloads)
-
-    def to_dict(self) -> dict[str, Any]:
-        payload: dict[str, Any] = {
-            "color": [int(channel) for channel in self.color],
-            "count": int(self.count),
-        }
-        if self.color_id is not None:
-            payload["color_id"] = self.color_id
-        if self.percentage is not None:
-            payload["percentage"] = self.percentage
-        if self.alpha is not None:
-            payload["alpha"] = round(self.alpha, 4)
-        if self.source is not None:
-            payload["source"] = self.source
-        if self.metadata:
-            payload["metadata"] = dict(self.metadata)
-        return payload
-
-
-@dataclass(frozen=True, slots=True)
-class UnmatchedVisualPixelsModel:
-    count: int = 0
-    percentage: float = 0.0
-    distinct_clusters: int = 0
-
-    @classmethod
-    def build(cls, payload: Mapping[str, Any] | None = None) -> Self:
-        payload = payload or {}
-        return cls(
-            count=int(payload.get("count") or 0),
-            percentage=round(float(payload.get("percentage") or 0.0), 4),
-            distinct_clusters=int(payload.get("distinct_clusters") or 0),
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "count": self.count,
-            "percentage": self.percentage,
-            "distinct_clusters": self.distinct_clusters,
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class DisplayPixelFrequenciesModel:
-    matched_inventory_colors: tuple[PixelColorRecord, ...] = field(default_factory=tuple)
-    unmatched_visual_pixels: UnmatchedVisualPixelsModel = field(
-        default_factory=UnmatchedVisualPixelsModel
-    )
-    total_pixels_considered: int = 0
-    excluded_regions_summary: Mapping[str, Any] = field(default_factory=dict)
-
-    @classmethod
-    def build(cls, payload: Mapping[str, Any] | None = None) -> Self:
-        payload = payload or {}
-        return cls(
-            matched_inventory_colors=tuple(
-                PixelColorRecord.from_mapping(item)
-                for item in (payload.get("matched_inventory_colors") or ())
-                if isinstance(item, Mapping)
-            ),
-            unmatched_visual_pixels=UnmatchedVisualPixelsModel.build(
-                payload.get("unmatched_visual_pixels")
-                if isinstance(payload.get("unmatched_visual_pixels"), Mapping)
-                else None
-            ),
-            total_pixels_considered=int(payload.get("total_pixels_considered") or 0),
-            excluded_regions_summary=dict(payload.get("excluded_regions_summary") or {}),
-        )
-
-    def __iter__(self) -> Iterator[PixelColorRecord]:
-        return iter(self.matched_inventory_colors)
-
-    def __len__(self) -> int:
-        return len(self.matched_inventory_colors)
-
-    def to_rows(self) -> list[dict[str, Any]]:
-        return [item.to_dict() for item in self.matched_inventory_colors]
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "matched_inventory_colors": self.to_rows(),
-            "unmatched_visual_pixels": self.unmatched_visual_pixels.to_dict(),
-            "total_pixels_considered": self.total_pixels_considered,
-            "excluded_regions_summary": dict(self.excluded_regions_summary),
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class ColorInventoryEntry:
+class Color:
     color_id: str
     value: str
     hex_value: str
     rgb: tuple[int, int, int]
     alpha: float
     hct: tuple[float, float, float]
+    family_type: ColorFamilyType
     usage_count: int
+    foreground_count: int = 0
+    background_count: int = 0
+    other_count: int = 0
     node_ids: tuple[str, ...] = field(default_factory=tuple)
-    usage: tuple[ColorUsageModel, ...] = field(default_factory=tuple)
+    usage: tuple[ColorUsage, ...] = field(default_factory=tuple)
+    foreground_color_usages: tuple[PropertyUsage, ...] = field(default_factory=tuple)
+    background_color_usages: tuple[PropertyUsage, ...] = field(default_factory=tuple)
+    other_usages: tuple[PropertyUsage, ...] = field(default_factory=tuple)
     observed_usage_count: int = 0
-    observed_roles: tuple[ObservedColorRoleModel, ...] = field(default_factory=tuple)
+    observed_roles: tuple[ObservedRole, ...] = field(default_factory=tuple)
     nearest_web_color: str | None = None
     nearest_web_color_distance: float | None = None
+    confirmation_status: ColorConfirmationStatus = ColorConfirmationStatus.SEMANTIC_ONLY
     declared_in_snapshot: bool = True
-    added_from_pixel_evidence: bool = False
-    display_pixel_count: int = 0
-    display_pixel_percentage: float | None = None
-    clustered_from_display_pixels: bool = False
+    pixel_count: int = 0
+    pixel_percentage: float | None = None
     mapped_palette_id: str | None = None
     mapped_tone: int | None = None
     mapped_tone_rgb: tuple[int, int, int] | None = None
     mapped_tone_distance: float | None = None
+    token_ids: tuple[str, ...] = field(default_factory=tuple)
+    foundation_token_id: str | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "family_type", _coerce_color_family_type(self.family_type))
+        object.__setattr__(
+            self,
+            "confirmation_status",
+            _coerce_confirmation_status(self.confirmation_status),
+        )
 
     @classmethod
     def build(cls, payload: Mapping[str, Any]) -> Self:
         value = str(payload.get("value") or "").strip()
         rgb = color_registry.format_color(value, "rgb")
+        hct = color_registry.hct_of(value)
         nearest_match = nearest_web_color(rgb)
         node_ids = tuple(
             str(item).strip()
@@ -317,7 +231,7 @@ class ColorInventoryEntry:
             if str(item).strip()
         )
         observed_roles = tuple(
-            ObservedColorRoleModel.build(item)
+            ObservedRole.build(item)
             for item in (payload.get("observed_roles") or ())
             if isinstance(item, Mapping)
         )
@@ -326,19 +240,77 @@ class ColorInventoryEntry:
             for role in observed_roles
             for node_id in role.node_ids
         }
+        foreground_count = int(payload.get("foreground_count") or 0)
+        background_count = int(payload.get("background_count") or 0)
+        other_count = int(payload.get("other_count") or 0)
+        foreground_usages: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        background_usages: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        other_usages: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        for usage in payload.get("usage", ()) or ():
+            if not isinstance(usage, Mapping):
+                continue
+            property_name = str(usage.get("property") or "")
+            tag_name = str(usage.get("tag") or "")
+            count = int(usage.get("count") or 0)
+            property_spec = get_css_property(property_name)
+            if property_spec and property_spec.color_role == CssColorRole.BACKGROUND:
+                background_count += count
+                background_usages[property_name][tag_name] += count
+            elif property_spec and property_spec.color_role == CssColorRole.FOREGROUND:
+                foreground_count += count
+                foreground_usages[property_name][tag_name] += count
+            else:
+                other_count += count
+                other_usages[property_name][tag_name] += count
+        for observed_role in observed_roles:
+            if observed_role.role == ObservedColorRole.BACKGROUND:
+                background_count += observed_role.count
+            elif observed_role.role == ObservedColorRole.TEXT:
+                foreground_count += observed_role.count
+            elif observed_role.role != ObservedColorRole.OTHER:
+                other_count += observed_role.count
+        pixel_count = int(payload.get("pixel_count") or 0)
         return cls(
             color_id=str(payload.get("color_id") or ""),
             value=value,
             hex_value=color_registry.format_color(value, "hex"),
             rgb=rgb,
             alpha=color_registry.alpha_of(value),
-            hct=color_registry.hct_of(value),
+            hct=hct,
+            family_type=_family_type_for_hct(hct[1]),
             usage_count=int(payload.get("usage_count") or len(node_ids) or 0),
+            foreground_count=foreground_count,
+            background_count=background_count,
+            other_count=other_count,
             node_ids=node_ids,
             usage=tuple(
-                ColorUsageModel.build(item)
+                ColorUsage.build(item)
                 for item in (payload.get("usage") or ())
                 if isinstance(item, Mapping)
+            ),
+            foreground_color_usages=(
+                tuple(
+                    item if isinstance(item, PropertyUsage) else PropertyUsage.build(item)
+                    for item in (payload.get("foreground_color_usages") or ())
+                    if isinstance(item, (PropertyUsage, Mapping))
+                )
+                or _build_property_usage_models(foreground_usages)
+            ),
+            background_color_usages=(
+                tuple(
+                    item if isinstance(item, PropertyUsage) else PropertyUsage.build(item)
+                    for item in (payload.get("background_color_usages") or ())
+                    if isinstance(item, (PropertyUsage, Mapping))
+                )
+                or _build_property_usage_models(background_usages)
+            ),
+            other_usages=(
+                tuple(
+                    item if isinstance(item, PropertyUsage) else PropertyUsage.build(item)
+                    for item in (payload.get("other_usages") or ())
+                    if isinstance(item, (PropertyUsage, Mapping))
+                )
+                or _build_property_usage_models(other_usages)
             ),
             observed_usage_count=(
                 int(payload.get("observed_usage_count") or len(observed_node_ids) or 0)
@@ -346,16 +318,20 @@ class ColorInventoryEntry:
             observed_roles=observed_roles,
             nearest_web_color=nearest_match.color_name,
             nearest_web_color_distance=round(nearest_match.distance, 4),
-            declared_in_snapshot=bool(payload.get("declared_in_snapshot", True)),
-            added_from_pixel_evidence=bool(payload.get("added_from_pixel_evidence", False)),
-            display_pixel_count=int(payload.get("display_pixel_count") or 0),
-            display_pixel_percentage=(
-                round(float(payload["display_pixel_percentage"]), 4)
-                if payload.get("display_pixel_percentage") is not None
-                else None
+            confirmation_status=(
+                payload.get("confirmation_status")
+                or (
+                    ColorConfirmationStatus.CONFIRMED
+                    if pixel_count > 0
+                    else ColorConfirmationStatus.SEMANTIC_ONLY
+                )
             ),
-            clustered_from_display_pixels=bool(
-                payload.get("clustered_from_display_pixels", False)
+            declared_in_snapshot=bool(payload.get("declared_in_snapshot", True)),
+            pixel_count=pixel_count,
+            pixel_percentage=(
+                round(float(payload["pixel_percentage"]), 4)
+                if payload.get("pixel_percentage") is not None
+                else None
             ),
             mapped_palette_id=(
                 str(payload["mapped_palette_id"])
@@ -377,7 +353,23 @@ class ColorInventoryEntry:
                 if payload.get("mapped_tone_distance") is not None
                 else None
             ),
+            token_ids=tuple(
+                dict.fromkeys(
+                    str(item).strip()
+                    for item in (payload.get("token_ids") or ())
+                    if str(item).strip()
+                )
+            ),
+            foundation_token_id=(
+                str(payload["foundation_token_id"])
+                if payload.get("foundation_token_id") is not None
+                else None
+            ),
         )
+
+    @classmethod
+    def build_many(cls, payloads: Iterable["Color" | Mapping[str, Any]] | None) -> tuple[Self, ...]:
+        return ColorCatalog.build(payloads).entries
 
     def signature(self) -> tuple[str, float]:
         return self.hex_value, round(self.alpha, 4)
@@ -387,11 +379,11 @@ class ColorInventoryEntry:
         for usage_item in (*self.usage, *other.usage):
             merged_usage[(usage_item.tag, usage_item.property_name)] += usage_item.count
         merged_usage_models = tuple(
-            ColorUsageModel(tag=tag, property_name=property_name, count=count)
+            ColorUsage(tag=tag, property_name=property_name, count=count)
             for (tag, property_name), count in sorted(merged_usage.items())
         )
         merged_node_ids = tuple(sorted({*self.node_ids, *other.node_ids}))
-        merged_roles: dict[str, ObservedColorRoleModel] = {}
+        merged_roles: dict[ObservedColorRole, ObservedRole] = {}
         for observed_role in (*self.observed_roles, *other.observed_roles):
             if observed_role.role in merged_roles:
                 merged_roles[observed_role.role] = merged_roles[observed_role.role].merge(
@@ -415,6 +407,9 @@ class ColorInventoryEntry:
                 if merged_node_ids
                 else self.usage_count + other.usage_count
             ),
+            foreground_count=self.foreground_count + other.foreground_count,
+            background_count=self.background_count + other.background_count,
+            other_count=self.other_count + other.other_count,
             node_ids=merged_node_ids,
             usage=merged_usage_models,
             observed_usage_count=(
@@ -424,26 +419,22 @@ class ColorInventoryEntry:
             ),
             observed_roles=merged_observed_roles,
             declared_in_snapshot=self.declared_in_snapshot or other.declared_in_snapshot,
-            added_from_pixel_evidence=(
-                self.added_from_pixel_evidence or other.added_from_pixel_evidence
-            ),
-            display_pixel_count=self.display_pixel_count + other.display_pixel_count,
-            display_pixel_percentage=(
+            pixel_count=self.pixel_count + other.pixel_count,
+            pixel_percentage=(
                 round(
-                    (self.display_pixel_percentage or 0.0)
-                    + (other.display_pixel_percentage or 0.0),
+                    (self.pixel_percentage or 0.0)
+                    + (other.pixel_percentage or 0.0),
                     4,
                 )
-                if self.display_pixel_percentage is not None
-                or other.display_pixel_percentage is not None
+                if self.pixel_percentage is not None
+                or other.pixel_percentage is not None
                 else None
             ),
-            clustered_from_display_pixels=(
-                self.clustered_from_display_pixels or other.clustered_from_display_pixels
-            ),
+            token_ids=tuple(dict.fromkeys((*self.token_ids, *other.token_ids)).keys()),
+            foundation_token_id=self.foundation_token_id or other.foundation_token_id,
         )
 
-    def property_names(self) -> tuple[str, ...]:
+    def property_names(self) -> tuple[CssPropertyId, ...]:
         return tuple(sorted({item.property_name for item in self.usage}))
 
     def tag_names(self) -> tuple[str, ...]:
@@ -465,23 +456,46 @@ class ColorInventoryEntry:
             mapped_tone_distance=round(tone_distance, 4),
         )
 
-    def with_display_evidence(
+    def set_count(
         self,
-        *,
-        pixel_count: int,
-        pixel_percentage: float | None = None,
-        clustered: bool = False,
+        count: int,
+        percentage: float | None = None,
     ) -> Self:
+        visible_pixels = int(count)
         return replace(
             self,
-            display_pixel_count=int(pixel_count),
-            display_pixel_percentage=(
-                round(float(pixel_percentage), 4)
-                if pixel_percentage is not None
-                else self.display_pixel_percentage
+            pixel_count=visible_pixels,
+            confirmation_status=(
+                ColorConfirmationStatus.CONFIRMED
+                if visible_pixels > 0
+                else ColorConfirmationStatus.SEMANTIC_ONLY
             ),
-            clustered_from_display_pixels=clustered,
+            pixel_percentage=(
+                round(float(percentage), 4)
+                if percentage is not None
+                else self.pixel_percentage
+            ),
         )
+
+    def with_token_assignment(
+        self,
+        token_id: str,
+        *,
+        foundation: bool = False,
+    ) -> Self:
+        normalized_token_id = str(token_id or "").strip()
+        if not normalized_token_id:
+            return self
+        return replace(
+            self,
+            token_ids=tuple(dict.fromkeys((*self.token_ids, normalized_token_id)).keys()),
+            foundation_token_id=normalized_token_id if foundation else self.foundation_token_id,
+        )
+
+    def __iter__(self) -> Iterator[PropertyUsage]:
+        yield from self.foreground_color_usages
+        yield from self.background_color_usages
+        yield from self.other_usages
 
     def to_palette_entry(self) -> dict[str, Any]:
         payload = {
@@ -501,24 +515,32 @@ class ColorInventoryEntry:
         payload["rgb"] = list(self.rgb)
         payload["alpha"] = self.alpha
         payload["hct"] = list(self.hct)
+        payload["family_type"] = self.family_type.value
+        payload["foreground_count"] = self.foreground_count
+        payload["background_count"] = self.background_count
+        payload["other_count"] = self.other_count
+        payload["foreground_color_usages"] = [
+            item.to_dict() for item in self.foreground_color_usages
+        ]
+        payload["background_color_usages"] = [
+            item.to_dict() for item in self.background_color_usages
+        ]
+        payload["other_usages"] = [item.to_dict() for item in self.other_usages]
+        payload["confirmation_status"] = self.confirmation_status.value
         if self.nearest_web_color is not None:
             payload["nearest_web_color"] = self.nearest_web_color
         if self.nearest_web_color_distance is not None:
             payload["nearest_web_color_distance"] = self.nearest_web_color_distance
         if not self.declared_in_snapshot:
             payload["declared_in_snapshot"] = False
-        if self.added_from_pixel_evidence:
-            payload["added_from_pixel_evidence"] = True
         if self.observed_usage_count:
             payload["observed_usage_count"] = self.observed_usage_count
         if self.observed_roles:
             payload["observed_roles"] = [item.to_dict() for item in self.observed_roles]
-        if self.display_pixel_count:
-            payload["display_pixel_count"] = self.display_pixel_count
-        if self.display_pixel_percentage is not None and self.display_pixel_percentage > 0:
-            payload["display_pixel_percentage"] = self.display_pixel_percentage
-        if self.clustered_from_display_pixels:
-            payload["clustered_from_display_pixels"] = True
+        if self.pixel_count:
+            payload["pixel_count"] = self.pixel_count
+        if self.pixel_percentage is not None and self.pixel_percentage > 0:
+            payload["pixel_percentage"] = self.pixel_percentage
         if self.mapped_palette_id is not None:
             payload["mapped_palette_id"] = self.mapped_palette_id
         if self.mapped_tone is not None:
@@ -527,27 +549,31 @@ class ColorInventoryEntry:
             payload["mapped_tone_rgb"] = list(self.mapped_tone_rgb)
         if self.mapped_tone_distance is not None:
             payload["mapped_tone_distance"] = self.mapped_tone_distance
+        if self.token_ids:
+            payload["token_ids"] = list(self.token_ids)
+        if self.foundation_token_id is not None:
+            payload["foundation_token_id"] = self.foundation_token_id
         return payload
 
 
 @dataclass(frozen=True, slots=True)
-class ColorInventoryModel:
-    entries: tuple[ColorInventoryEntry, ...] = field(default_factory=tuple)
+class ColorCatalog:
+    entries: tuple[Color, ...] = field(default_factory=tuple)
 
     @classmethod
-    def build(cls, payloads: Iterable[ColorInventoryEntry | Mapping[str, Any]] | None) -> Self:
+    def build(cls, payloads: Iterable[Color | Mapping[str, Any]] | None) -> Self:
         if not payloads:
             return cls()
 
         normalized_payloads = tuple(payloads)
-        deduped: dict[tuple[str, float], ColorInventoryEntry] = {}
+        deduped: dict[tuple[str, float], Color] = {}
         generated_index = max(
             (
                 int(color_id.split("-")[-1])
                 for color_id in (
                     (
                         str(payload.color_id)
-                        if isinstance(payload, ColorInventoryEntry)
+                        if isinstance(payload, Color)
                         else str(payload.get("color_id") or "")
                     )
                     for payload in normalized_payloads
@@ -557,7 +583,7 @@ class ColorInventoryModel:
             default=0,
         )
         for payload in normalized_payloads:
-            entry = payload if isinstance(payload, ColorInventoryEntry) else ColorInventoryEntry.build(payload)
+            entry = payload if isinstance(payload, Color) else Color.build(payload)
             if not entry.color_id:
                 generated_index += 1
                 entry = replace(entry, color_id=f"color-{generated_index}")
@@ -582,12 +608,17 @@ class ColorInventoryModel:
             usage = [
                 {
                     "tag": tag_name,
-                    "property": property_name,
+                    "property": property_name.value
+                    if isinstance(property_name, CssPropertyId)
+                    else str(property_name),
                     "count": len(node_ids),
                 }
                 for (tag_name, property_name), node_ids in sorted(
                     (entry.get("usage") or {}).items(),
-                    key=lambda item: (item[0][0], item[0][1]),
+                    key=lambda item: (
+                        item[0][0],
+                        item[0][1].value if isinstance(item[0][1], CssPropertyId) else str(item[0][1]),
+                    ),
                 )
             ]
             payloads.append(
@@ -601,16 +632,16 @@ class ColorInventoryModel:
             )
         return cls.build(payloads)
 
-    def __iter__(self) -> Iterator[ColorInventoryEntry]:
+    def __iter__(self) -> Iterator[Color]:
         return iter(self.entries)
 
     def __len__(self) -> int:
         return len(self.entries)
 
-    def entry_by_id(self, color_id: str) -> ColorInventoryEntry | None:
+    def entry_by_id(self, color_id: str) -> Color | None:
         return next((entry for entry in self.entries if entry.color_id == color_id), None)
 
-    def entry_by_value(self, value: str) -> ColorInventoryEntry | None:
+    def entry_by_value(self, value: str) -> Color | None:
         try:
             hex_value = color_registry.format_color(value, "hex")
             alpha = color_registry.alpha_of(value)
@@ -625,7 +656,7 @@ class ColorInventoryModel:
             None,
         )
 
-    def with_entries(self, entries: Iterable[ColorInventoryEntry | Mapping[str, Any]]) -> Self:
+    def with_entries(self, entries: Iterable[Color | Mapping[str, Any]]) -> Self:
         return type(self).build(entries)
 
     def to_palette_dicts(self) -> list[dict[str, Any]]:
@@ -651,16 +682,20 @@ def _color_id_sort_key(color_id: str) -> tuple[int, int | str]:
 
 
 def _build_property_usage_models(
-    usages_by_property: Mapping[str, Mapping[str, int]],
-) -> tuple[PropertyUsageModel, ...]:
-    models: list[PropertyUsageModel] = []
-    for property_name, tag_counts in sorted(usages_by_property.items()):
+    usages_by_property: Mapping[CssPropertyId | str, Mapping[str, int]],
+) -> tuple[PropertyUsage, ...]:
+    models: list[PropertyUsage] = []
+    normalized_usages = {
+        _coerce_css_property_id(property_name): tag_counts
+        for property_name, tag_counts in usages_by_property.items()
+    }
+    for property_name, tag_counts in sorted(normalized_usages.items(), key=lambda item: item[0].value):
         tag_models = tuple(
-            TagUsageModel(tag=tag_name, count=count)
+            TagUsage(tag=tag_name, count=count)
             for tag_name, count in sorted(tag_counts.items(), key=lambda item: (-item[1], item[0]))
         )
         models.append(
-            PropertyUsageModel(
+            PropertyUsage(
                 property_name=property_name,
                 total_count=sum(item.count for item in tag_models),
                 tags=tag_models,
@@ -669,274 +704,7 @@ def _build_property_usage_models(
     return tuple(models)
 
 
-def _coerce_color_payload(payload: Mapping[str, Any] | ColorInventoryEntry) -> Mapping[str, Any]:
-    if isinstance(payload, ColorInventoryEntry):
-        return payload.to_dict()
-    return payload
-
-
-@dataclass(frozen=True, slots=True)
-class SnapshotColorEvidence:
-    color_id: str
-    rgb: tuple[int, int, int]
-    alpha: float
-    hct: tuple[float, float, float]
-    family_type: ColorFamilyType
-    usage_count: int
-    foreground_count: int
-    background_count: int
-    other_count: int
-    foreground_color_usages: tuple[PropertyUsageModel, ...] = field(default_factory=tuple)
-    background_color_usages: tuple[PropertyUsageModel, ...] = field(default_factory=tuple)
-    other_usages: tuple[PropertyUsageModel, ...] = field(default_factory=tuple)
-    confirmed_pixel_count: int = 0
-    nearest_web_color: str | None = None
-    nearest_web_color_distance: float | None = None
-    confirmation_status: ColorConfirmationStatus = ColorConfirmationStatus.SEMANTIC_ONLY
-    mapped_palette_id: str | None = None
-    mapped_tone: int | None = None
-    mapped_tone_rgb: tuple[int, int, int] | None = None
-    mapped_tone_distance: float | None = None
-
-    def __post_init__(self) -> None:
-        object.__setattr__(
-            self,
-            "family_type",
-            _coerce_color_family_type(self.family_type),
-        )
-        object.__setattr__(
-            self,
-            "confirmation_status",
-            _coerce_confirmation_status(self.confirmation_status),
-        )
-
-    @classmethod
-    def build(cls, payload: Mapping[str, Any] | ColorInventoryEntry) -> Self | None:
-        color_payload = _coerce_color_payload(payload)
-        value = str(color_payload.get("value") or "").strip()
-        if not value:
-            return None
-
-        hct = color_registry.hct_of(value)
-        rgb = color_registry.format_color(value, "rgb")
-        match = nearest_web_color(rgb)
-
-        foreground_count = 0
-        background_count = 0
-        other_count = 0
-        confirmed_pixel_count = int(
-            color_payload.get("display_pixel_count")
-            or color_payload.get("confirmed_pixel_count")
-            or 0
-        )
-        foreground_usages: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-        background_usages: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-        other_usages: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-
-        for usage in color_payload.get("usage", ()) or ():
-            if not isinstance(usage, Mapping):
-                continue
-            property_name = str(usage.get("property") or "")
-            tag_name = str(usage.get("tag") or "")
-            count = int(usage.get("count") or 0)
-            property_spec = get_css_property(property_name)
-            if property_spec and property_spec.color_role == CssColorRole.BACKGROUND:
-                background_count += count
-                background_usages[property_name][tag_name] += count
-            elif property_spec and property_spec.color_role == CssColorRole.FOREGROUND:
-                foreground_count += count
-                foreground_usages[property_name][tag_name] += count
-            else:
-                other_count += count
-                other_usages[property_name][tag_name] += count
-
-        for observed_role in color_payload.get("observed_roles", ()) or ():
-            if not isinstance(observed_role, Mapping):
-                continue
-            role_name = str(observed_role.get("role") or "").strip().lower()
-            count = int(observed_role.get("count") or 0)
-            if role_name == "background":
-                background_count += count
-            elif role_name == "text":
-                foreground_count += count
-            elif role_name:
-                other_count += count
-
-        return cls(
-            color_id=str(color_payload.get("color_id") or ""),
-            rgb=rgb,
-            alpha=color_registry.alpha_of(value),
-            hct=hct,  # type: ignore[arg-type]
-            family_type=_family_type_for_hct(hct[1]),
-            usage_count=int(color_payload.get("usage_count") or 0),
-            foreground_count=foreground_count,
-            background_count=background_count,
-            other_count=other_count,
-            foreground_color_usages=_build_property_usage_models(foreground_usages),
-            background_color_usages=_build_property_usage_models(background_usages),
-            other_usages=_build_property_usage_models(other_usages),
-            confirmed_pixel_count=confirmed_pixel_count,
-            nearest_web_color=match.color_name,
-            nearest_web_color_distance=round(match.distance, 4),
-            confirmation_status=(
-                ColorConfirmationStatus.CONFIRMED
-                if confirmed_pixel_count > 0
-                else ColorConfirmationStatus.SEMANTIC_ONLY
-            ),
-        )
-
-    @classmethod
-    def build_many(cls, payloads: Any) -> tuple[Self, ...]:
-        if not payloads:
-            return ()
-        return tuple(
-            evidence
-            for evidence in (
-                cls.build(item)
-                for item in payloads
-                if isinstance(item, (ColorInventoryEntry, Mapping))
-            )
-            if evidence is not None
-        )
-
-    @classmethod
-    def confirm_many(
-        cls,
-        evidences: tuple[Self, ...],
-        pixel_records: tuple[PixelColorRecord, ...],
-        *,
-        delta_e_threshold: float = _PIXEL_CONFIRMATION_DELTA_E_THRESHOLD,
-    ) -> tuple[tuple[Self, ...], int, int]:
-        if not evidences:
-            residual_pixels = sum(item.count for item in pixel_records)
-            return (), 0, residual_pixels
-
-        evidence_colors = {
-            evidence.color_id: color_registry.parse_color(evidence.rgb)
-            for evidence in evidences
-        }
-        confirmed_counts = {evidence.color_id: 0 for evidence in evidences}
-        residual_pixel_count = 0
-        residual_distinct_colors = 0
-
-        for pixel_record in pixel_records:
-            pixel_color = color_registry.parse_color(pixel_record.color)
-            best_match = min(
-                evidences,
-                key=lambda evidence: color_registry.delta_e_distance(
-                    pixel_color,
-                    evidence_colors[evidence.color_id],
-                    method="2000",
-                ),
-            )
-            distance = color_registry.delta_e_distance(
-                pixel_color,
-                evidence_colors[best_match.color_id],
-                method="2000",
-            )
-            if distance <= delta_e_threshold:
-                confirmed_counts[best_match.color_id] += pixel_record.count
-            else:
-                residual_pixel_count += pixel_record.count
-                residual_distinct_colors += 1
-
-        confirmed_evidences = tuple(
-            evidence.with_confirmed_pixels(confirmed_counts[evidence.color_id])
-            for evidence in evidences
-        )
-        return confirmed_evidences, residual_distinct_colors, residual_pixel_count
-
-    def with_confirmed_pixels(self, confirmed_pixel_count: int) -> Self:
-        return replace(
-            self,
-            confirmed_pixel_count=confirmed_pixel_count,
-            confirmation_status=(
-                ColorConfirmationStatus.CONFIRMED
-                if confirmed_pixel_count > 0
-                else ColorConfirmationStatus.SEMANTIC_ONLY
-            ),
-        )
-
-    def with_palette_mapping(
-        self,
-        *,
-        palette_id: str,
-        tone: int,
-        tone_rgb: tuple[int, int, int],
-        tone_distance: float,
-    ) -> Self:
-        return replace(
-            self,
-            mapped_palette_id=palette_id,
-            mapped_tone=tone,
-            mapped_tone_rgb=tone_rgb,
-            mapped_tone_distance=round(tone_distance, 4),
-        )
-
-    def __iter__(self) -> Iterator[PropertyUsageModel]:
-        yield from self.foreground_color_usages
-        yield from self.background_color_usages
-        yield from self.other_usages
-
-    def to_dict(self) -> dict[str, Any]:
-        payload = asdict(self)
-        payload["rgb"] = list(self.rgb)
-        payload["hct"] = list(self.hct)
-        payload["family_type"] = self.family_type.value
-        payload["confirmation_status"] = self.confirmation_status.value
-        payload["foreground_color_usages"] = [
-            item.to_dict() for item in self.foreground_color_usages
-        ]
-        payload["background_color_usages"] = [
-            item.to_dict() for item in self.background_color_usages
-        ]
-        payload["other_usages"] = [item.to_dict() for item in self.other_usages]
-        if self.mapped_tone_rgb is not None:
-            payload["mapped_tone_rgb"] = list(self.mapped_tone_rgb)
-        return payload
-
-
-def build_inventory_from_scheme_colors(
-    evidences: Iterable[SnapshotColorEvidence | Mapping[str, Any]],
-) -> ColorInventoryModel:
-    payloads: list[dict[str, Any]] = []
-    for raw_evidence in evidences:
-        evidence = (
-            raw_evidence
-            if isinstance(raw_evidence, SnapshotColorEvidence)
-            else SnapshotColorEvidence.build(raw_evidence)
-        )
-        if evidence is None:
-            continue
-
-        usage_rows: list[dict[str, Any]] = []
-        for property_usage in evidence:
-            for tag_usage in property_usage.tags:
-                usage_rows.append(
-                    {
-                        "tag": tag_usage.tag,
-                        "property": property_usage.property_name,
-                        "count": tag_usage.count,
-                    }
-                )
-
-        payloads.append(
-            {
-                "color_id": evidence.color_id,
-                "value": color_registry.format_color((*evidence.rgb, evidence.alpha), "css"),
-                "usage_count": evidence.usage_count,
-                "usage": usage_rows,
-                "display_pixel_count": evidence.confirmed_pixel_count,
-                "mapped_palette_id": evidence.mapped_palette_id,
-                "mapped_tone": evidence.mapped_tone,
-                "mapped_tone_rgb": list(evidence.mapped_tone_rgb)
-                if evidence.mapped_tone_rgb is not None
-                else None,
-                "mapped_tone_distance": evidence.mapped_tone_distance,
-            }
-        )
-
-    return ColorInventoryModel.build(payloads)
-
-
-ColorModel = ColorInventoryEntry
+def build_color_catalog_from_scheme(
+    evidences: Iterable[Color | Mapping[str, Any]],
+) -> ColorCatalog:
+    return ColorCatalog.build(evidences)

@@ -8,7 +8,7 @@ from typing import Any, Iterator, Sequence, Self
 from engine.adapters.color_service import color_registry
 from engine.domain.data.web_colors import get_web_color
 from engine.domain.enums.types.color import ColorFamilyType, PaletteRoleBias
-from engine.domain.models.color import SnapshotColorEvidence
+from engine.domain.models.color import Color
 
 _DEFAULT_ACHROMATIC_TONAL_STOPS: tuple[int, ...] = (
     0,
@@ -29,20 +29,6 @@ _DEFAULT_ACHROMATIC_TONAL_STOPS: tuple[int, ...] = (
 _DEFAULT_CHROMATIC_TONAL_STOPS: tuple[int, ...] = (10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 98)
 _ACHROMATIC_PALETTE_CHROMA = 6.0
 _MAX_CHROMATIC_PALETTES = 12
-_WEB_FAMILY_DISPLAY_NAMES = {
-    "Colores rojos": "Red",
-    "Colores naranjas": "Orange",
-    "Colores marrones": "Brown",
-    "Colores amarillos": "Yellow",
-    "Colores verdes amarillos": "Lime",
-    "Colores verdes": "Green",
-    "Colores acianos (azul verdes)": "Turquoise",
-    "Colores azules": "Blue",
-    "Colores violetas y púrpuras": "Violet",
-    "Colores rosas": "Fuchsia / Magenta",
-    "Colores blancos": "White",
-    "Colores grises": "Neutral",
-}
 
 
 def _coerce_palette_type(value: ColorFamilyType | str) -> ColorFamilyType:
@@ -82,10 +68,7 @@ def _family_palette_name(
     if not color_name:
         return "Chromatic"
     try:
-        return _WEB_FAMILY_DISPLAY_NAMES.get(
-            get_web_color(color_name).wikipedia_family,
-            get_web_color(color_name).display_name,
-        )
+        return get_web_color(color_name).family_display_name
     except Exception:
         return color_name.replace("_", " ").title()
 
@@ -141,7 +124,7 @@ class PaletteFamilyModel:
     comparison_rgb: tuple[int, int, int]
     comparison_hct: tuple[float, float, float]
     semantic_weight: int
-    confirmed_pixel_count: int
+    pixel_count: int
     foreground_count: int
     background_count: int
     other_count: int
@@ -169,7 +152,7 @@ class PaletteFamilyModel:
             "comparison_rgb": list(self.comparison_rgb),
             "comparison_hct": list(self.comparison_hct),
             "semantic_weight": self.semantic_weight,
-            "confirmed_pixel_count": self.confirmed_pixel_count,
+            "pixel_count": self.pixel_count,
             "foreground_count": self.foreground_count,
             "background_count": self.background_count,
             "other_count": self.other_count,
@@ -190,7 +173,7 @@ class TonalPaletteModel:
     hue: float
     chroma: float
     semantic_weight: int
-    confirmed_pixel_count: int
+    pixel_count: int
     display_name: str | None = None
     seed_display_name: str | None = None
     seed_family_name: str | None = None
@@ -210,7 +193,7 @@ class TonalPaletteModel:
         seed_hex: str,
         role_bias: PaletteRoleBias | str,
         semantic_weight: int,
-        confirmed_pixel_count: int,
+        pixel_count: int,
         seed_name: str | None = None,
         seed_color_id: str | None = None,
         source_color_ids: Sequence[str] = (),
@@ -244,7 +227,7 @@ class TonalPaletteModel:
             hue=round(float(hue), 4),
             chroma=round(float(chroma), 4),
             semantic_weight=semantic_weight,
-            confirmed_pixel_count=confirmed_pixel_count,
+            pixel_count=pixel_count,
             source_color_ids=tuple(source_color_ids),
             tones=tone_models,
         )
@@ -257,7 +240,7 @@ class TonalPaletteModel:
             seed_hex=family.seed_hex,
             role_bias=family.role_bias(),
             semantic_weight=family.semantic_weight,
-            confirmed_pixel_count=family.confirmed_pixel_count,
+            pixel_count=family.pixel_count,
             seed_name=family.seed_name,
             seed_color_id=family.seed_color_id,
             source_color_ids=tuple(family.source_color_ids),
@@ -291,7 +274,7 @@ class TonalPaletteModel:
             "hue": self.hue,
             "chroma": self.chroma,
             "semantic_weight": self.semantic_weight,
-            "confirmed_pixel_count": self.confirmed_pixel_count,
+            "pixel_count": self.pixel_count,
             "display_name": self.display_name,
             "seed_display_name": self.seed_display_name,
             "seed_family_name": self.seed_family_name,
@@ -339,7 +322,7 @@ class CorePalettesModel:
             seed_hex="#ffffff",
             role_bias="background",
             semantic_weight=0,
-            confirmed_pixel_count=0,
+            pixel_count=0,
             seed_name="white",
             source_color_ids=(),
             chroma_override=_ACHROMATIC_PALETTE_CHROMA,
@@ -511,14 +494,11 @@ class MaterialQuantizationAssessment:
 
 @dataclass(frozen=True, slots=True)
 class ColorSchemeInputModel:
-    semantic_colors: tuple[SnapshotColorEvidence, ...]
+    semantic_colors: tuple[Color, ...]
     named_color_breakdown: tuple[dict[str, Any], ...]
     achromatic_family: PaletteFamilyModel | None
     chromatic_families: tuple[PaletteFamilyModel, ...]
     material_quantization_assessment: MaterialQuantizationAssessment
-    confirmed_pixel_count: int
-    residual_pixel_count: int
-    residual_distinct_colors: int
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -529,35 +509,26 @@ class ColorSchemeInputModel:
             ),
             "chromatic_families": [item.to_dict() for item in self.chromatic_families],
             "material_quantization_assessment": self.material_quantization_assessment.to_dict(),
-            "confirmed_pixel_count": self.confirmed_pixel_count,
-            "residual_pixel_count": self.residual_pixel_count,
-            "residual_distinct_colors": self.residual_distinct_colors,
         }
 
 
 @dataclass(frozen=True, slots=True)
 class PaletteAnalysisModel:
-    semantic_colors: tuple[SnapshotColorEvidence, ...]
+    semantic_colors: tuple[Color, ...]
     named_color_breakdown: tuple[dict[str, Any], ...]
     core_palettes: CorePalettesModel
     dynamic_scheme: DynamicSchemeSpecModel
     material_quantization_assessment: MaterialQuantizationAssessment
-    confirmed_pixel_count: int
-    residual_pixel_count: int
-    residual_distinct_colors: int
 
     @classmethod
     def build_from_components(
         cls,
         *,
-        semantic_colors: Sequence[SnapshotColorEvidence],
+        semantic_colors: Sequence[Color],
         named_color_breakdown: Sequence[dict[str, Any]],
         core_palettes: CorePalettesModel,
         dynamic_scheme: DynamicSchemeSpecModel,
         material_quantization_assessment: MaterialQuantizationAssessment,
-        confirmed_pixel_count: int,
-        residual_pixel_count: int,
-        residual_distinct_colors: int,
     ) -> Self:
         return cls(
             semantic_colors=tuple(semantic_colors),
@@ -565,12 +536,9 @@ class PaletteAnalysisModel:
             core_palettes=core_palettes,
             dynamic_scheme=dynamic_scheme,
             material_quantization_assessment=material_quantization_assessment,
-            confirmed_pixel_count=confirmed_pixel_count,
-            residual_pixel_count=residual_pixel_count,
-            residual_distinct_colors=residual_distinct_colors,
         )
 
-    def __iter__(self) -> Iterator[SnapshotColorEvidence]:
+    def __iter__(self) -> Iterator[Color]:
         return iter(self.semantic_colors)
 
     @property
@@ -587,9 +555,6 @@ class PaletteAnalysisModel:
             "core_palettes": self.core_palettes.to_dict(),
             "dynamic_scheme": self.dynamic_scheme.to_dict(),
             "material_quantization_assessment": self.material_quantization_assessment.to_dict(),
-            "confirmed_pixel_count": self.confirmed_pixel_count,
-            "residual_pixel_count": self.residual_pixel_count,
-            "residual_distinct_colors": self.residual_distinct_colors,
         }
 
 

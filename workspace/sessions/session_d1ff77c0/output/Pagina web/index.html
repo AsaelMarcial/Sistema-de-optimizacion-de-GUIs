@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+
+<html lang="es">
+<head><style data-glow-tokens="true">:root {
+  --glow-composed-border-bottom-color-subtle-1: #595f61;
+  --glow-composed-border-left-color-subtle-1: #595f61;
+  --glow-composed-border-right-color-subtle-1: #595f61;
+  --glow-composed-border-top-color-subtle-1: #595f61;
+  --glow-item-background-color-subtle-1: #de9bff;
+  --glow-main-surface-background-color-subtle-1: #171d1e;
+  --glow-surface-background-color-transparent: #171d1e;
+  --glow-surface-box-shadow-elevated: none;
+  --glow-text-background-color-transparent: transparent;
+  --glow-text-color-emphasis-1: #171d1e;
+  --glow-text-color-subtle-1: #006c53;
+  --glow-text-color-subtle-5: #000000;
+}</style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Página Completa Ejemplo</title>
+<style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: var(--glow-main-surface-background-color-subtle-1);
+      }
+
+      header {
+        background-color: #ffb300;
+        color: var(--glow-text-color-subtle-1);
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      header h1 {
+        margin: 0;
+      }
+
+      nav {
+        background-color: #ff00cc;
+        text-align: center;
+      }
+
+      nav a {
+        color: white;
+        padding: 15px 20px;
+        text-decoration: none;
+        display: inline-block;
+      }
+
+      nav a:hover {
+        background-color: #555;
+      }
+
+      .slider {
+        background-color: #ff0000;
+        color: white;
+        text-align: center;
+        padding: 100px 20px;
+        font-size: 2rem;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 20px auto;
+        padding: 0 20px;
+      }
+
+      .services {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        margin-bottom: 40px;
+      }
+
+      .card {
+        background-color: rgb(0, 255, 34);
+        flex: 1 1 30%;
+        padding: 20px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        border-radius: 5px;
+        text-align: center;
+      }
+
+      .testimonials {
+        background-color: var(--glow-item-background-color-subtle-1);
+        padding: 40px 20px;
+        text-align: center;
+      }
+
+      .testimonial {
+        margin-bottom: 20px;
+        font-style: italic;
+      }
+
+      .contact-form {
+        background-color: rgb(0, 0, 255);
+        padding: 20px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        border-radius: 5px;
+      }
+
+      .contact-form input,
+      .contact-form textarea {
+        width: 100%;
+        padding: 10px;
+        margin: 10px 0;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        background-color: var(--glow-item-background-color-subtle-1);
+      }
+
+      footer {
+        background-color: #ff0000;
+        color: white;
+        padding: 20px;
+        text-align: center;
+      }
+
+      footer a {
+        color: var(--glow-text-color-subtle-5);
+        margin: 0 10px;
+        text-decoration: none;
+      }
+
+      footer a:hover {
+        color: white;
+      }
+
+      .buttonForm {
+        background-color: var(--glow-item-background-color-subtle-1);
+      }
+    </style>
+</head>
+<body>
+<header>
+<h1>Mi Sitio Web</h1>
+<span>Diseño moderno y simple</span>
+</header>
+<nav>
+<a href="#">Inicio</a>
+<a href="#">Servicios</a>
+<a href="#">Testimonios</a>
+<a href="#">Contacto</a>
+</nav>
+<section class="slider">Bienvenido a nuestra página</section>
+<div class="container">
+<h2>Nuestros Servicios</h2>
+<div class="services">
+<div class="card">
+<h3>Diseño Web</h3>
+<p>Diseñamos sitios atractivos y funcionales para tu negocio.</p>
+</div>
+<div class="card">
+<h3>Marketing Digital</h3>
+<p>Te ayudamos a aumentar tu presencia en línea y redes sociales.</p>
+</div>
+<div class="card">
+<h3>Soporte Técnico</h3>
+<p>Brindamos soporte técnico especializado 24/7.</p>
+</div>
+</div>
+<h2>Testimonios</h2>
+<div class="testimonials">
+<div class="testimonial">
+          "Excelente servicio y atención personalizada."
+        </div>
+<div class="testimonial">
+          "Mi sitio ahora luce profesional y mis ventas aumentaron."
+        </div>
+</div>
+<h2>Contáctanos</h2>
+<form class="contact-form">
+<input placeholder="Tu nombre" required="" type="text"/>
+<input placeholder="Tu correo electrónico" required="" type="email"/>
+<textarea placeholder="Escribe tu mensaje aquí" required="" rows="5"></textarea>
+<button class="buttonForm" type="submit">Enviar</button>
+</form>
+</div>
+<footer>
+<p>© 2025 Mi Sitio Web. Todos los derechos reservados.</p>
+<a href="#">Facebook</a> | <a href="#">Twitter</a> |
+      <a href="#">Instagram</a>
+</footer>
+</body>
+</html>

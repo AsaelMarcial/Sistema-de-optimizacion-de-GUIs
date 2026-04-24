@@ -8,7 +8,9 @@ from engine.pipeline.debug_trace import DebugTrace
 _ALLOWED_ROOT_KEYS = {
     "session",
     "prototype_structure",
+    "color",
     "scheme",
+    "style",
     "token",
     "derived",
     "environmental",

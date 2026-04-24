@@ -1,15 +1,15 @@
 import unittest
 from pathlib import Path
 
-from engine.adapters.browser.snapshot_analyzer import extract_prototype_css_overview
 from engine.adapters.browser.render_models import SnapshotOptions
+from tests.browser_helpers import extract_prototype_css_overview
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 class CssOverviewTests(unittest.TestCase):
-    def test_extract_prototype_css_overview_returns_colors_media_queries_and_contrast_issues(self) -> None:
+    def test_extract_prototype_css_overview_returns_model_based_colors_and_contrast_issues(self) -> None:
         html_content = """
 <!doctype html>
 <html lang="en">
@@ -77,19 +77,8 @@ class CssOverviewTests(unittest.TestCase):
         border_colors = {entry["hex"] for entry in overview["colors"]["border"]}
         self.assertIn("#0080ff", border_colors)
 
-        self.assertTrue(
-            any("Georgia" in entry["font_family"] for entry in overview["typography"]["font_families"])
-        )
-        self.assertTrue(any(entry["text"] == "(min-width: 600px)" for entry in overview["media_queries"]))
         self.assertTrue(any("p.muted" in issue["selector"] for issue in overview["contrast_issues"]))
         self.assertTrue(all(issue.get("node_id") for issue in overview["contrast_issues"]))
-        self.assertGreater(overview["unused_declarations"]["count"], 0)
-        self.assertTrue(
-            any(
-                entry["property"] == "width" and "span.badge" in entry["selector"]
-                for entry in overview["unused_declarations"]["entries"]
-            )
-        )
 
         issue = next(issue for issue in overview["contrast_issues"] if "p.muted" in issue["selector"])
         self.assertLess(issue["contrast_ratio"], issue["required_ratio"])

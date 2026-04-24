@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-from engine.domain.data.css_properties import get_in_scope_css_properties
-from engine.domain.data.html_elements import HTML_ELEMENT_SPECS, HtmlElementScopeGroup
+from engine.domain.enums.scope.css_properties import get_in_scope_css_properties
+from engine.domain.enums.scope.html_elements import HTML_ELEMENT_SPECS, HtmlElementScopeGroup
 
 
 DICTIONARIES_DIR = (
@@ -36,9 +36,6 @@ def build_scope_elements_payload() -> dict[str, list[dict[str, object]]]:
                 "description": spec.description,
                 "scopeGroup": spec.scope_group.value,
                 "categories": list(spec.categories),
-                "isVisible": spec.is_visible,
-                "captureText": spec.capture_text,
-                "captureChildren": spec.capture_children,
             }
             for spec in HTML_ELEMENT_SPECS
             if spec.scope_group != HtmlElementScopeGroup.IGNORED

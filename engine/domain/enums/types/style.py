@@ -4,6 +4,7 @@ from enum import StrEnum
 
 
 class StyleKind(StrEnum):
+    COMPUTED = "computed"
     INLINE = "inline"
     EMBEDDED = "embedded"
     EXTERNAL = "external"

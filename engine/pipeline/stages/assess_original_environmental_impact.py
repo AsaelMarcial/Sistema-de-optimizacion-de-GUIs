@@ -8,7 +8,6 @@ from engine.domain.models.environmental_assessment.assessment import Environment
 from engine.domain.models.environmental_assessment.energy_consumption import EnergyModel
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
-from engine.validators.palette_validators import has_color_frequency_rows
 
 _ENERGY_MODEL = EnergyModel.build_default()
 _CARBON_MODEL = CarbonFootprintModel.build_default()
@@ -16,32 +15,28 @@ _CARBON_MODEL = CarbonFootprintModel.build_default()
 CONTRACT = StageContract(
     name="assess_original_environmental_impact",
     requires=(
-        context_value(
-            "environmental.inputs.original.raw_pixel_frequencies",
-            list,
-            validator=has_color_frequency_rows,
-        ),
+        context_value("environmental.before.color_histogram", list),
     ),
     produces=(
-        context_value("environmental.assessment.before", EnvironmentalAssessmentModel),
+        context_value("environmental.before.assessment", EnvironmentalAssessmentModel),
     ),
 )
 
 
 def run_stage(context: PipelineContext) -> PipelineContext:
-    if context.error or context.has("environmental.assessment.before"):
+    if context.error or context.has("environmental.before.assessment"):
         return context
 
     context.trace.add_stage_event(CONTRACT.name, "start")
     assessment = EnvironmentalAssessmentModel.build(
         assess_interface(
-            context.get("environmental.inputs.original.raw_pixel_frequencies", []),
+            context.get("environmental.before.color_histogram", []),
             energy_model=_ENERGY_MODEL,
             carbon_model=_CARBON_MODEL,
             time_hours=1,
         )
     )
-    context.set("environmental.assessment.before", assessment)
+    context.set("environmental.before.assessment", assessment)
     context.trace.add_step(
         "assessment.original",
         {

@@ -3,8 +3,11 @@ from __future__ import annotations
 from collections import defaultdict
 import re
 
+from engine.adapters.color_service import color_registry
 from engine.domain.data.tokens import TRANSFORMATION_ORDER, TRANSFORMATION_RULES
-from engine.domain.models.color import ColorInventoryEntry
+from engine.domain.models.color import Color
+from engine.domain.models.palette import TonalPaletteModel
+from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.token import (
     Token,
     TokenInventory,
@@ -13,7 +16,6 @@ from engine.domain.models.token import (
     TokenValidationStatus,
 )
 from engine.domain.utils.token import resolve_initial_contrast, select_same_palette_tone
-from engine.domain.utils.token_graph import TokenGraph
 
 _COLOR_FRAGMENT_RE = re.compile(
     r"(#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]+\)|\b[a-zA-Z][a-zA-Z-]*\b)",
@@ -43,19 +45,43 @@ def _append_validation(
     )
 
 
-def _achromatic_palette(graph: TokenGraph):
+def _color_by_value(colors: tuple[Color, ...], value: str) -> Color | None:
+    try:
+        hex_value = color_registry.format_color(value, "hex")
+        alpha = color_registry.alpha_of(value)
+    except Exception:
+        return None
     return next(
-        (palette for palette in graph.palettes if palette.palette_type.value == "achromatic"),
+        (
+            entry
+            for entry in colors
+            if entry.hex_value == hex_value and round(entry.alpha, 4) == round(alpha, 4)
+        ),
+        None,
+    )
+
+
+def _palette_by_id(
+    palettes: tuple[TonalPaletteModel, ...],
+    palette_id: str,
+) -> TonalPaletteModel | None:
+    normalized = str(palette_id or "").strip()
+    return next((palette for palette in palettes if palette.palette_id == normalized), None)
+
+
+def _achromatic_palette(palettes: tuple[TonalPaletteModel, ...]) -> TonalPaletteModel | None:
+    return next(
+        (palette for palette in palettes if palette.palette_type.value == "achromatic"),
         None,
     )
 
 
 def _foundation_for_tone_targets(
-    graph: TokenGraph,
+    palettes: tuple[TonalPaletteModel, ...],
     tokens: TokenInventory,
     tone_targets: tuple[int, ...],
 ) -> Token | None:
-    palette = _achromatic_palette(graph)
+    palette = _achromatic_palette(palettes)
     if palette is None:
         return None
     for tone in tone_targets:
@@ -76,7 +102,7 @@ def _foundation_for_tone_targets(
 
 def _same_palette_foundation_for_tone_targets(
     token: Token,
-    graph: TokenGraph,
+    palettes: tuple[TonalPaletteModel, ...],
     tokens: TokenInventory,
     tone_targets: tuple[int, ...],
 ) -> Token | None:
@@ -84,7 +110,7 @@ def _same_palette_foundation_for_tone_targets(
     current_tone = int(token.tone or 50)
     allowed_tones = {int(tone) for tone in tone_targets}
     for palette_id in palette_ids:
-        palette = graph.palette_by_id(palette_id)
+        palette = _palette_by_id(palettes, palette_id)
         if palette is None:
             continue
         candidates = sorted(
@@ -115,8 +141,8 @@ def _same_palette_foundation_for_tone_targets(
 
 
 def _foundation_for_color_entry_tone_targets(
-    color_entry: ColorInventoryEntry,
-    graph: TokenGraph,
+    color_entry: Color,
+    palettes: tuple[TonalPaletteModel, ...],
     tokens: TokenInventory,
     tone_targets: tuple[int, ...],
 ) -> Token | None:
@@ -124,7 +150,7 @@ def _foundation_for_color_entry_tone_targets(
     current_tone = int(color_entry.mapped_tone or 50)
     allowed_tones = {int(tone) for tone in tone_targets}
     if palette_id:
-        palette = graph.palette_by_id(palette_id)
+        palette = _palette_by_id(palettes, palette_id)
         if palette is not None:
             candidates = sorted(
                 (
@@ -150,12 +176,13 @@ def _foundation_for_color_entry_tone_targets(
                 )
                 if foundation is not None:
                     return foundation
-    return _foundation_for_tone_targets(graph, tokens, tone_targets)
+    return _foundation_for_tone_targets(palettes, tokens, tone_targets)
 
 
 def _remap_effect_value(
     token: Token,
-    graph: TokenGraph,
+    colors: tuple[Color, ...],
+    palettes: tuple[TonalPaletteModel, ...],
     tokens: TokenInventory,
     tone_targets: tuple[int, ...],
 ) -> str | None:
@@ -166,12 +193,12 @@ def _remap_effect_value(
         fragment = str(match.group(0) or "").strip()
         if not fragment:
             return match.group(0)
-        color_entry = graph.colors.entry_by_value(fragment)
+        color_entry = _color_by_value(colors, fragment)
         if color_entry is None:
             return match.group(0)
         foundation = _foundation_for_color_entry_tone_targets(
             color_entry,
-            graph,
+            palettes,
             tokens,
             tone_targets,
         )
@@ -186,17 +213,21 @@ def _remap_effect_value(
     return updated if changed else None
 
 
-def _primary_background(token: Token, graph: TokenGraph) -> tuple[str | None, str | None]:
+def _primary_background(
+    token: Token,
+    prototype_structure: PrototypeStructure,
+    colors: tuple[Color, ...],
+) -> tuple[str | None, str | None]:
     for element_id in token.assigned_element_ids or token.source_element_ids:
-        background = graph.effective_background_of(element_id)
+        background = prototype_structure.effective_background_of(element_id, colors)
         if background is not None:
             return background.value, background.color_id
     return None, None
 
 
-def _min_text_contrast(token: Token, graph: TokenGraph) -> float:
+def _min_text_contrast(token: Token, prototype_structure: PrototypeStructure) -> float:
     for element_id in token.assigned_element_ids or token.source_element_ids:
-        entry = graph.element_by_id(element_id)
+        entry = prototype_structure.node_by_id(element_id)
         if entry is not None and entry.tag_name.lower() in {"h1", "h2", "h3", "h4", "h5", "h6"}:
             return float(
                 TRANSFORMATION_RULES["text"].get("large_text_minimum_contrast", 3.0)  # type: ignore[index]
@@ -206,16 +237,16 @@ def _min_text_contrast(token: Token, graph: TokenGraph) -> float:
 
 def _apply_surface_alias(
     token: Token,
-    graph: TokenGraph,
+    palettes: tuple[TonalPaletteModel, ...],
     tokens: TokenInventory,
     *,
     rule_id: str,
     tone_targets: tuple[int, ...],
     reason: str,
 ) -> Token:
-    foundation = _same_palette_foundation_for_tone_targets(token, graph, tokens, tone_targets)
+    foundation = _same_palette_foundation_for_tone_targets(token, palettes, tokens, tone_targets)
     if foundation is None:
-        foundation = _foundation_for_tone_targets(graph, tokens, tone_targets)
+        foundation = _foundation_for_tone_targets(palettes, tokens, tone_targets)
     if foundation is None:
         return token
     updated = token.with_alias(
@@ -250,13 +281,15 @@ def _stage_applies(token: Token, stage_name: str) -> bool:
 
 def _apply_main_surface(
     token: Token,
-    graph: TokenGraph,
+    prototype_structure: PrototypeStructure,
+    colors: tuple[Color, ...],
+    palettes: tuple[TonalPaletteModel, ...],
     tokens: TokenInventory,
 ) -> Token:
     if token.property_id == "background-color":
         return _apply_surface_alias(
             token,
-            graph,
+            palettes,
             tokens,
             rule_id="main_surface",
             tone_targets=tuple(TRANSFORMATION_RULES["main_surface"].get("tone_targets") or (0, 10)),
@@ -265,7 +298,8 @@ def _apply_main_surface(
     if token.property_id == "background-image":
         updated_value = _remap_effect_value(
             token,
-            graph,
+            colors,
+            palettes,
             tokens,
             tuple(TRANSFORMATION_RULES["main_surface"].get("tone_targets") or (0, 10)),
         )
@@ -299,7 +333,9 @@ def _apply_main_surface(
 
 def _apply_shadow_elevation(
     token: Token,
-    graph: TokenGraph,
+    prototype_structure: PrototypeStructure,
+    colors: tuple[Color, ...],
+    palettes: tuple[TonalPaletteModel, ...],
     tokens: TokenInventory,
 ) -> Token:
     if token.element_key in TRANSFORMATION_RULES["shadow_elevation"].get("prefer_none_for", ()):  # type: ignore[index]
@@ -312,7 +348,7 @@ def _apply_shadow_elevation(
             before={"resolved_value": token.resolved_value},
             after={"resolved_value": "none"},
         )
-    updated_value = _remap_effect_value(token, graph, tokens, (20, 30, 40))
+    updated_value = _remap_effect_value(token, colors, palettes, tokens, (20, 30, 40))
     if updated_value is not None:
         updated = token.with_resolved_value(
             value=updated_value,
@@ -337,13 +373,15 @@ def _apply_shadow_elevation(
 
 def _apply_surface(
     token: Token,
-    graph: TokenGraph,
+    prototype_structure: PrototypeStructure,
+    colors: tuple[Color, ...],
+    palettes: tuple[TonalPaletteModel, ...],
     tokens: TokenInventory,
 ) -> Token:
     if token.property_id == "background-color":
         return _apply_surface_alias(
             token,
-            graph,
+            palettes,
             tokens,
             rule_id="surface",
             tone_targets=tuple(TRANSFORMATION_RULES["surface"].get("tone_targets") or (10, 20)),
@@ -352,7 +390,8 @@ def _apply_surface(
     if token.property_id == "background-image":
         updated_value = _remap_effect_value(
             token,
-            graph,
+            colors,
+            palettes,
             tokens,
             tuple(TRANSFORMATION_RULES["surface"].get("tone_targets") or (10, 20)),
         )
@@ -386,13 +425,15 @@ def _apply_surface(
 
 def _apply_composed(
     token: Token,
-    graph: TokenGraph,
+    prototype_structure: PrototypeStructure,
+    colors: tuple[Color, ...],
+    palettes: tuple[TonalPaletteModel, ...],
     tokens: TokenInventory,
 ) -> Token:
     if token.property_id == "background-color":
         return _apply_surface_alias(
             token,
-            graph,
+            palettes,
             tokens,
             rule_id="composed",
             tone_targets=tuple(TRANSFORMATION_RULES["composed"].get("tone_targets") or (20, 30)),
@@ -401,7 +442,8 @@ def _apply_composed(
     if token.property_id == "background-image":
         updated_value = _remap_effect_value(
             token,
-            graph,
+            colors,
+            palettes,
             tokens,
             tuple(TRANSFORMATION_RULES["composed"].get("tone_targets") or (20, 30)),
         )
@@ -432,7 +474,7 @@ def _apply_composed(
             status=TokenValidationStatus.SKIPPED,
             reason="Composed effect tokens are handled by the shadow_elevation stage.",
         )
-    background_value, background_color_id = _primary_background(token, graph)
+    background_value, background_color_id = _primary_background(token, prototype_structure, colors)
     if background_value is None:
         return _append_validation(
             token,
@@ -442,7 +484,7 @@ def _apply_composed(
         )
     updated = select_same_palette_tone(
         token,
-        graph,
+        palettes,
         tokens,
         background_value=background_value,
         min_contrast=3.0,
@@ -467,10 +509,12 @@ def _apply_composed(
 
 def _apply_foreground_non_text(
     token: Token,
-    graph: TokenGraph,
+    prototype_structure: PrototypeStructure,
+    colors: tuple[Color, ...],
+    palettes: tuple[TonalPaletteModel, ...],
     tokens: TokenInventory,
 ) -> Token:
-    background_value, background_color_id = _primary_background(token, graph)
+    background_value, background_color_id = _primary_background(token, prototype_structure, colors)
     if background_value is None:
         return _append_validation(
             token,
@@ -480,7 +524,7 @@ def _apply_foreground_non_text(
         )
     updated = select_same_palette_tone(
         token,
-        graph,
+        palettes,
         tokens,
         background_value=background_value,
         min_contrast=float(TRANSFORMATION_RULES["foreground_non_text"].get("minimum_contrast", 3.0)),  # type: ignore[index]
@@ -509,10 +553,12 @@ def _apply_foreground_non_text(
 
 def _apply_text(
     token: Token,
-    graph: TokenGraph,
+    prototype_structure: PrototypeStructure,
+    colors: tuple[Color, ...],
+    palettes: tuple[TonalPaletteModel, ...],
     tokens: TokenInventory,
 ) -> Token:
-    background_value, background_color_id = _primary_background(token, graph)
+    background_value, background_color_id = _primary_background(token, prototype_structure, colors)
     if background_value is None:
         return _append_validation(
             token,
@@ -520,10 +566,10 @@ def _apply_text(
             status=TokenValidationStatus.SKIPPED,
             reason="No effective background was resolved for the text token.",
         )
-    minimum = _min_text_contrast(token, graph)
+    minimum = _min_text_contrast(token, prototype_structure)
     updated = select_same_palette_tone(
         token,
-        graph,
+        palettes,
         tokens,
         background_value=background_value,
         min_contrast=minimum,
@@ -606,43 +652,37 @@ _STAGE_HANDLERS = {
 }
 
 
-def apply_token_rules(tokens: TokenInventory, graph: TokenGraph) -> TokenInventory:
+def apply_token_rules(
+    tokens: TokenInventory,
+    prototype_structure: PrototypeStructure,
+    colors: tuple[Color, ...],
+    palettes: tuple[TonalPaletteModel, ...],
+) -> TokenInventory:
     current_tokens = tokens
-    current_graph = graph.bind_inventories(
-        prototype_structure=graph.prototype_structure,
-        styles=graph.styles,
-        colors=graph.colors,
-        palettes=graph.palettes,
-        tokens=current_tokens,
-    )
+    color_entries = tuple(colors)
+    palette_entries = tuple(palettes)
 
     for stage_name in TRANSFORMATION_ORDER:
         if stage_name == "component_promotion":
             current_tokens = _promote_component_conflicts(current_tokens)
-            current_graph = current_graph.bind_inventories(
-                prototype_structure=current_graph.prototype_structure,
-                styles=current_graph.styles,
-                colors=current_graph.colors,
-                palettes=current_graph.palettes,
-                tokens=current_tokens,
-            )
             continue
 
         handler = _STAGE_HANDLERS[stage_name]
         updated_entries: list[Token] = []
         for token in current_tokens:
             if _stage_applies(token, stage_name):
-                updated_entries.append(handler(token, current_graph, current_tokens))
+                updated_entries.append(
+                    handler(
+                        token,
+                        prototype_structure,
+                        color_entries,
+                        palette_entries,
+                        current_tokens,
+                    )
+                )
             else:
                 updated_entries.append(token)
         current_tokens = TokenInventory.build(updated_entries)
-        current_graph = current_graph.bind_inventories(
-            prototype_structure=current_graph.prototype_structure,
-            styles=current_graph.styles,
-            colors=current_graph.colors,
-            palettes=current_graph.palettes,
-            tokens=current_tokens,
-        )
 
     return TokenInventory.build(
         token.with_resolved_value(

@@ -6,8 +6,8 @@ from engine.pipeline.stage_contract import StageContract, context_value
 
 CONTRACT = StageContract(
     name="close_page_builder",
-    requires=(context_value("session.runtime.page_builder", PageBuilder),),
-    produces=(context_value("session.runtime.page_builder_closed", bool),),
+    requires=(context_value("session.page_builder", PageBuilder),),
+    produces=(),
 )
 
 
@@ -15,10 +15,9 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     if context.error:
         return context
 
-    page_builder = context.get("session.runtime.page_builder")
+    page_builder = context.get("session.page_builder")
     context.trace.add_stage_event(CONTRACT.name, "start")
     page_builder.close()
-    context.delete("session.runtime.page_builder")
-    context.set("session.runtime.page_builder_closed", True)
+    context.delete("session.page_builder")
     context.trace.add_stage_event(CONTRACT.name, "complete")
     return context

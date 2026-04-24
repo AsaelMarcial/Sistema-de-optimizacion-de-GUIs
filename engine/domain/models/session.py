@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar, Self
 
@@ -21,18 +21,14 @@ class Session:
     html_relative_path: str = ""
     input_html_content: str = ""
     output_html_content: str = ""
-    original_capture: Any | None = None
-    original_css_overview: dict[str, Any] | None = None
-    original_snapshot_metadata: dict[str, Any] = field(default_factory=dict)
 
     SESSION_DIR_PREFIX: ClassVar[str] = "session_"
     INPUT_DIRNAME: ClassVar[str] = "input"
     OUTPUT_DIRNAME: ClassVar[str] = "output"
     ARTIFACTS_DIRNAME: ClassVar[str] = "artifacts"
-    ORIGINAL_SCREENSHOT_NAME: ClassVar[str] = "debug_original.png"
-    TRANSFORMED_SCREENSHOT_NAME: ClassVar[str] = "debug_environmental.png"
+    ORIGINAL_SCREENSHOT_NAME: ClassVar[str] = "before.png"
+    TRANSFORMED_SCREENSHOT_NAME: ClassVar[str] = "after.png"
     PALETTE_PREVIEW_NAME: ClassVar[str] = "palette_preview.png"
-    RESULTS_NAME: ClassVar[str] = "results.json"
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "session_id", str(self.session_id))
@@ -50,11 +46,6 @@ class Session:
         )
         object.__setattr__(self, "input_html_content", str(self.input_html_content))
         object.__setattr__(self, "output_html_content", str(self.output_html_content))
-        object.__setattr__(
-            self,
-            "original_snapshot_metadata",
-            dict(self.original_snapshot_metadata or {}),
-        )
 
     @classmethod
     def build(
@@ -67,9 +58,6 @@ class Session:
         html_relative_path: str = "",
         input_html_content: str = "",
         output_html_content: str = "",
-        original_capture: Any | None = None,
-        original_css_overview: dict[str, Any] | None = None,
-        original_snapshot_metadata: dict[str, Any] | None = None,
     ) -> Self:
         return cls(
             session_id=str(session_id),
@@ -79,13 +67,6 @@ class Session:
             html_relative_path=str(html_relative_path),
             input_html_content=str(input_html_content),
             output_html_content=str(output_html_content),
-            original_capture=original_capture,
-            original_css_overview=(
-                dict(original_css_overview)
-                if original_css_overview is not None
-                else None
-            ),
-            original_snapshot_metadata=dict(original_snapshot_metadata or {}),
         )
 
     @property
@@ -153,10 +134,6 @@ class Session:
         return str(Path(self.artifacts_dir) / self.PALETTE_PREVIEW_NAME)
 
     @property
-    def results_json_path(self) -> str:
-        return str(Path(self.artifacts_dir) / self.RESULTS_NAME)
-
-    @property
     def bundle_name(self) -> str:
         source_name = Path(self.upload_path or self.input_html_name).name
         if not source_name:
@@ -221,11 +198,7 @@ class Session:
             "original_screenshot_path": self.original_screenshot_path,
             "transformed_screenshot_path": self.transformed_screenshot_path,
             "palette_preview_path": self.palette_preview_path,
-            "results_json_path": self.results_json_path,
             "bundle_name": self.bundle_name,
             "bundle_path": self.bundle_path,
             "download_path": self.download_path,
-            "original_capture": self.original_capture,
-            "original_css_overview": self.original_css_overview,
-            "original_snapshot_metadata": dict(self.original_snapshot_metadata),
         }

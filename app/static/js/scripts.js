@@ -27,6 +27,8 @@ function initUploadPage() {
     return;
   }
 
+  fileInput.addEventListener("change", showAnalyzeButton);
+
   uploadBox.addEventListener("dragover", (event) => {
     event.preventDefault();
     uploadBox.classList.add("drag-over");
@@ -222,9 +224,12 @@ function initReportPage() {
     return;
   }
 
-  const updateButton = document.getElementById("update-impact-button");
-  if (updateButton) {
-    updateButton.addEventListener("click", updateImpact);
+  const impactForm = document.getElementById("impact-controls");
+  if (impactForm) {
+    impactForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      updateImpact();
+    });
   }
 
   updateImpact();

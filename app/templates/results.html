@@ -3,13 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#050505" />
     <title>Resultados</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
     <link
-      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      href="https://fonts.googleapis.com/icon?family=Material+Icons&display=swap"
       rel="stylesheet"
     />
     <link
@@ -22,6 +26,7 @@
     {% include 'header.html' %}
 
     <main
+      id="main-content"
       data-page="results"
       data-energy-wh="{{ results.energy_wh | round(4) }}"
       data-carbon-footprint="{{ results.carbon_footprint | round(6) }}"
@@ -72,18 +77,36 @@
               <div class="metric__text" id="summaryEnergyUnit">Wh consumidos</div>
             </article>
 
-            <form class="card card--soft impact-controls" onsubmit="return false;">
+            <form class="card card--soft impact-controls" id="impact-controls">
               <div class="field">
                 <label for="user_count">Usuarios</label>
-                <input type="number" id="user_count" value="100" min="1" />
+                <input
+                  type="number"
+                  id="user_count"
+                  name="user_count"
+                  value="100"
+                  min="1"
+                  step="1"
+                  inputmode="numeric"
+                  autocomplete="off"
+                />
               </div>
 
               <div class="field">
                 <label for="usage_hours">Horas</label>
-                <input type="number" id="usage_hours" value="24" min="1" />
+                <input
+                  type="number"
+                  id="usage_hours"
+                  name="usage_hours"
+                  value="24"
+                  min="1"
+                  step="1"
+                  inputmode="numeric"
+                  autocomplete="off"
+                />
               </div>
 
-              <button class="button button--primary" id="update-impact-button" type="button">
+              <button class="button button--primary" id="update-impact-button" type="submit">
                 Actualizar
               </button>
 
@@ -197,9 +220,7 @@
                         data-copy-message="{{ tone.hex_value | upper }}"
                         title="{{ palette_label }} tono {{ tone.tone }} · {{ tone.hex_value | upper }} · Click para copiar"
                         aria-label="{{ palette_label }} tono {{ tone.tone }}, {{ tone.hex_value | upper }}, click para copiar"
-                      >
-                        <span class="material-icons swatch__icon" aria-hidden="true">eco</span>
-                      </button>
+                      ></button>
                     </li>
                     {% endfor %}
                   </ul>

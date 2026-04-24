@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Mapping, Self
 
-from engine.domain.data.css_properties import CssColorRole, CssPropertyCategory, get_css_property
-from engine.domain.models.style import ComputedStyleValueModel
+from engine.domain.enums.scope.css_properties import (
+    CssColorRole,
+    CssPropertyCategory,
+    get_css_property,
+)
+from engine.domain.models.style import ResolvedStyleValue
 
 
 def classify_property(property_name: str) -> str:
@@ -27,7 +31,6 @@ def classify_element(properties: tuple["Property", ...]) -> str:
             return candidate
     return "other"
 
-
 @dataclass(frozen=True, slots=True)
 class Property:
     name: str
@@ -40,6 +43,9 @@ class Property:
     inherited_from_element_id: str | None = None
     resolution_status: str | None = None
     authored_value: str | None = None
+    token_ids: tuple[str, ...] = field(default_factory=tuple)
+    applied_token_id: str | None = None
+    token_alias_to: str | None = None
 
     @classmethod
     def build(cls, payload: Mapping[str, Any]) -> Self:
@@ -77,6 +83,23 @@ class Property:
                 if payload.get("authored_value") is not None
                 else None
             ),
+            token_ids=tuple(
+                dict.fromkeys(
+                    str(item).strip()
+                    for item in (payload.get("token_ids") or ())
+                    if str(item).strip()
+                )
+            ),
+            applied_token_id=(
+                str(payload["applied_token_id"])
+                if payload.get("applied_token_id") is not None
+                else None
+            ),
+            token_alias_to=(
+                str(payload["token_alias_to"])
+                if payload.get("token_alias_to") is not None
+                else None
+            ),
         )
 
     @classmethod
@@ -84,7 +107,7 @@ class Property:
         cls,
         *,
         name: str,
-        computed_style: ComputedStyleValueModel,
+        computed_style: ResolvedStyleValue,
         color_id: str | None = None,
         authored_value: str | None = None,
         classification: str | None = None,
@@ -107,6 +130,32 @@ class Property:
             authored_value=authored_value,
         )
 
+    def with_token_assignment(
+        self,
+        token_id: str,
+        *,
+        alias_to: str | None = None,
+        applied: bool = True,
+    ) -> Self:
+        normalized_token_id = str(token_id or "").strip()
+        if not normalized_token_id:
+            return self
+        return type(self)(
+            name=self.name,
+            value=self.value,
+            classification=self.classification,
+            color_id=self.color_id,
+            style_id=self.style_id,
+            declaration_id=self.declaration_id,
+            declared_property=self.declared_property,
+            inherited_from_element_id=self.inherited_from_element_id,
+            resolution_status=self.resolution_status,
+            authored_value=self.authored_value,
+            token_ids=tuple(dict.fromkeys((*self.token_ids, normalized_token_id)).keys()),
+            applied_token_id=normalized_token_id if applied else self.applied_token_id,
+            token_alias_to=alias_to if alias_to is not None else self.token_alias_to,
+        )
+
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "name": self.name,
@@ -127,6 +176,12 @@ class Property:
             payload["resolution_status"] = self.resolution_status
         if self.authored_value is not None:
             payload["authored_value"] = self.authored_value
+        if self.token_ids:
+            payload["token_ids"] = list(self.token_ids)
+        if self.applied_token_id is not None:
+            payload["applied_token_id"] = self.applied_token_id
+        if self.token_alias_to is not None:
+            payload["token_alias_to"] = self.token_alias_to
         return payload
 
 
@@ -166,6 +221,7 @@ class Element:
     is_stacking_context: bool = False
     effective_background: str | None = None
     properties: tuple[Property, ...] = field(default_factory=tuple)
+    token_ids: tuple[str, ...] = field(default_factory=tuple)
 
     @classmethod
     def build(cls, payload: Mapping[str, Any]) -> Self:
@@ -228,6 +284,25 @@ class Element:
                 for property_payload in (payload.get("properties") or ())
                 if isinstance(property_payload, (Property, Mapping))
             ),
+            token_ids=tuple(
+                dict.fromkeys(
+                    str(item).strip()
+                    for item in (payload.get("token_ids") or ())
+                    if str(item).strip()
+                )
+            ),
+        )
+
+    def with_properties(self, properties: tuple[Property, ...]) -> Self:
+        return replace(self, properties=properties)
+
+    def with_token_assignment(self, token_id: str) -> Self:
+        normalized_token_id = str(token_id or "").strip()
+        if not normalized_token_id:
+            return self
+        return replace(
+            self,
+            token_ids=tuple(dict.fromkeys((*self.token_ids, normalized_token_id)).keys()),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -254,6 +329,8 @@ class Element:
             "is_stacking_context": self.is_stacking_context,
             "properties": [property_model.to_dict() for property_model in self.properties],
         }
+        if self.token_ids:
+            payload["token_ids"] = list(self.token_ids)
         if self.parent_id is not None:
             payload["parent_id"] = self.parent_id
         if self.html_id is not None:
