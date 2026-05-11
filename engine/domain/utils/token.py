@@ -13,7 +13,7 @@ from engine.domain.data.tokens import (
     TOKENIZABLE_PROPERTY_IDS,
     VALUE_RULES,
 )
-from engine.domain.models.color import Color
+from engine.domain.models.color import Color, ColorCatalog
 from engine.domain.models.element import Element, Property
 from engine.domain.models.palette import CorePalettesModel, TonalPaletteModel
 from engine.domain.models.prototype_structure import PrototypeStructure
@@ -600,7 +600,7 @@ def apply_token_assignments(
     prototype_structure: PrototypeStructure,
     colors: Iterable[Color],
     token_inventory: TokenInventory,
-) -> tuple[PrototypeStructure, tuple[Color, ...]]:
+) -> tuple[PrototypeStructure, ColorCatalog]:
     color_entries_by_id = {entry.color_id: entry for entry in colors}
     updated_colors = dict(color_entries_by_id)
     updated_nodes: list[Element] = []
@@ -665,7 +665,7 @@ def apply_token_assignments(
             updated_nodes,
             declaration_values=prototype_structure.declaration_values,
         ),
-        tuple(
+        ColorCatalog.build(
             updated_colors[color_id]
             for color_id in color_entries_by_id
             if color_id in updated_colors

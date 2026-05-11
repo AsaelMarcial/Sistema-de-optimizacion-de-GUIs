@@ -5,6 +5,7 @@ from os import PathLike
 from typing import Any, Callable
 
 from engine.pipeline.context import PipelineContext
+from engine.domain.enums.scope.context_keys import ContextKey, ContextKeyLike
 
 ContextValidator = Callable[[Any], bool]
 
@@ -75,14 +76,14 @@ class PipelineStage:
 
 
 def context_value(
-    key: str,
+    key: ContextKeyLike,
     *expected_types: type[Any],
     allow_none: bool = False,
     validator: ContextValidator | None = None,
     description: str | None = None,
 ) -> ContextValueSpec:
     return ContextValueSpec(
-        key=key,
+        key=key.value if isinstance(key, ContextKey) else str(key),
         expected_types=expected_types,
         allow_none=allow_none,
         validator=validator,

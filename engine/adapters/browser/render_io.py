@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import tempfile
 
-from engine.adapters.utils.io import save_text
+from engine.adapters.file_system.file_manager import save_text
 
 
 TEMP_RENDER_FILE_PREFIX = "__glow_render__-"

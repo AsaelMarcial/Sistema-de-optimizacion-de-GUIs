@@ -3,6 +3,37 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Self
 
+from engine.domain.enums.scope.css_properties import CssPropertyId, get_css_property
+from engine.domain.enums.types.quality import ContrastBackgroundValidation
+
+
+def _css_property_value(property_name: CssPropertyId | str | None) -> str:
+    return property_name.value if isinstance(property_name, CssPropertyId) else str(property_name or "")
+
+
+def _coerce_optional_css_property_id(value: CssPropertyId | str | None) -> CssPropertyId | str | None:
+    if value is None:
+        return None
+    property_spec = get_css_property(value)
+    if property_spec is not None:
+        return property_spec
+    normalized = str(value or "").strip().lower()
+    return normalized or None
+
+
+def _coerce_background_validation(
+    value: ContrastBackgroundValidation | str | None,
+) -> ContrastBackgroundValidation:
+    if isinstance(value, ContrastBackgroundValidation):
+        return value
+    normalized = str(value or ContrastBackgroundValidation.UNVALIDATED.value).strip().lower()
+    try:
+        return ContrastBackgroundValidation(
+            normalized or ContrastBackgroundValidation.UNVALIDATED.value
+        )
+    except ValueError:
+        return ContrastBackgroundValidation.UNVALIDATED
+
 
 @dataclass(frozen=True, slots=True)
 class ContrastColorReference:
@@ -13,8 +44,8 @@ class ContrastColorReference:
     element_id: str | None = None
     style_id: str | None = None
     declaration_id: str | None = None
-    property_name: str | None = None
-    declared_property: str | None = None
+    property_name: CssPropertyId | str | None = None
+    declared_property: CssPropertyId | str | None = None
 
     @classmethod
     def build(cls, payload: Mapping[str, Any] | None = None) -> Self:
@@ -32,12 +63,12 @@ class ContrastColorReference:
                 else None
             ),
             property_name=(
-                str(payload["property_name"])
+                _coerce_optional_css_property_id(payload["property_name"])
                 if payload.get("property_name") is not None
                 else None
             ),
             declared_property=(
-                str(payload["declared_property"])
+                _coerce_optional_css_property_id(payload["declared_property"])
                 if payload.get("declared_property") is not None
                 else None
             ),
@@ -58,9 +89,9 @@ class ContrastColorReference:
         if self.declaration_id is not None:
             payload["declaration_id"] = self.declaration_id
         if self.property_name is not None:
-            payload["property_name"] = self.property_name
+            payload["property_name"] = _css_property_value(self.property_name)
         if self.declared_property is not None:
-            payload["declared_property"] = self.declared_property
+            payload["declared_property"] = _css_property_value(self.declared_property)
         return payload
 
 
@@ -79,7 +110,7 @@ class ContrastIssue:
     bounds: Mapping[str, Any] = field(default_factory=dict)
     foreground: ContrastColorReference = field(default_factory=lambda: ContrastColorReference("", "", 0.0))
     background: ContrastColorReference = field(default_factory=lambda: ContrastColorReference("", "", 0.0))
-    background_validation: str = "unvalidated"
+    background_validation: ContrastBackgroundValidation = ContrastBackgroundValidation.UNVALIDATED
 
     @classmethod
     def build(cls, payload: Mapping[str, Any] | None = None) -> Self:
@@ -102,7 +133,7 @@ class ContrastIssue:
             background=ContrastColorReference.build(
                 payload.get("background") if isinstance(payload.get("background"), Mapping) else None
             ),
-            background_validation=str(payload.get("background_validation") or "unvalidated"),
+            background_validation=_coerce_background_validation(payload.get("background_validation")),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -117,7 +148,7 @@ class ContrastIssue:
             "font_weight": self.font_weight,
             "foreground": self.foreground.to_dict(),
             "background": self.background.to_dict(),
-            "background_validation": self.background_validation,
+            "background_validation": self.background_validation.value,
         }
         if self.element_id is not None:
             payload["element_id"] = self.element_id

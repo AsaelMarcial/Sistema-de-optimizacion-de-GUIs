@@ -1,204 +1,140 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, ClassVar, Self
+from dataclasses import dataclass, field
+import os
+from pathlib import Path, PurePosixPath
+from typing import ClassVar, Iterable
+import uuid
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+SESSIONS_BASE_DIR = Path(
+    os.environ.get("GUI_OPT_SESSIONS_DIR", PROJECT_ROOT / "workspace" / "sessions")
+).resolve()
+SESSION_PREFIX = "session_"
+
+_SESSION_AREAS = {"before", "after", "artifacts"}
 
 
-def _normalize_relative_path(value: str) -> str:
-    normalized = str(value or "").strip()
-    if normalized in {"", "."}:
-        return ""
-    return normalized
+def _new_session_id() -> str:
+    return uuid.uuid4().hex[:8]
 
 
 @dataclass(frozen=True, slots=True)
-class Session:
-    session_id: str
-    base_dir: str
-    upload_path: str = ""
-    project_root_relative_path: str = ""
-    html_relative_path: str = ""
-    input_html_content: str = ""
-    output_html_content: str = ""
-
-    SESSION_DIR_PREFIX: ClassVar[str] = "session_"
-    INPUT_DIRNAME: ClassVar[str] = "input"
-    OUTPUT_DIRNAME: ClassVar[str] = "output"
-    ARTIFACTS_DIRNAME: ClassVar[str] = "artifacts"
-    ORIGINAL_SCREENSHOT_NAME: ClassVar[str] = "before.png"
-    TRANSFORMED_SCREENSHOT_NAME: ClassVar[str] = "after.png"
-    PALETTE_PREVIEW_NAME: ClassVar[str] = "palette_preview.png"
+class FilePath:
+    relative_path: Path
+    kind: str = ""
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "session_id", str(self.session_id))
-        object.__setattr__(self, "base_dir", str(self.base_dir))
-        object.__setattr__(self, "upload_path", str(self.upload_path))
-        object.__setattr__(
-            self,
-            "project_root_relative_path",
-            _normalize_relative_path(self.project_root_relative_path),
-        )
-        object.__setattr__(
-            self,
-            "html_relative_path",
-            _normalize_relative_path(self.html_relative_path),
-        )
-        object.__setattr__(self, "input_html_content", str(self.input_html_content))
-        object.__setattr__(self, "output_html_content", str(self.output_html_content))
+        path = Path(self.relative_path)
+        if path.is_absolute():
+            raise ValueError("FilePath debe ser relativo.")
+
+        kind = str(self.kind or "").strip().lower()
+        if not kind:
+            kind = "file" if path.suffix else "directory"
+        if kind not in {"file", "directory"}:
+            raise ValueError("FilePath.kind debe ser 'file' o 'directory'.")
+
+        object.__setattr__(self, "relative_path", Path() if path == Path(".") else path)
+        object.__setattr__(self, "kind", kind)
 
     @classmethod
-    def build(
-        cls,
-        *,
-        session_id: str,
-        base_dir: str,
-        upload_path: str = "",
-        project_root_relative_path: str = "",
-        html_relative_path: str = "",
-        input_html_content: str = "",
-        output_html_content: str = "",
-    ) -> Self:
-        return cls(
-            session_id=str(session_id),
-            base_dir=str(base_dir),
-            upload_path=str(upload_path),
-            project_root_relative_path=str(project_root_relative_path),
-            html_relative_path=str(html_relative_path),
-            input_html_content=str(input_html_content),
-            output_html_content=str(output_html_content),
-        )
+    def from_physical(cls, path: str | Path, *, relative_to: str | Path) -> "FilePath":
+        physical = Path(path)
+        base = Path(relative_to)
+        kind = "directory" if physical.is_dir() else "file"
+        return cls(physical.relative_to(base), kind)
+
+    @classmethod
+    def from_zip_member(cls, path: str | PurePosixPath, *, is_dir: bool = False) -> "FilePath":
+        pure = PurePosixPath(str(path).replace("\\", "/"))
+        return cls(Path(*pure.parts), "directory" if is_dir else "file")
 
     @property
-    def session_dirname(self) -> str:
-        if self.session_id.startswith(self.SESSION_DIR_PREFIX):
-            return self.session_id
-        return f"{self.SESSION_DIR_PREFIX}{self.session_id}"
+    def name(self) -> str:
+        return self.relative_path.name
 
     @property
-    def session_dir(self) -> str:
-        return str(Path(self.base_dir) / self.session_dirname)
+    def suffix(self) -> str:
+        return "" if self.kind == "directory" else self.relative_path.suffix.lower()
 
     @property
-    def input_dir(self) -> str:
-        return str(Path(self.session_dir) / self.INPUT_DIRNAME)
+    def parent(self) -> Path:
+        return self.relative_path.parent
 
     @property
-    def output_dir(self) -> str:
-        return str(Path(self.session_dir) / self.OUTPUT_DIRNAME)
+    def parts(self) -> tuple[str, ...]:
+        return self.relative_path.parts
 
-    @property
-    def artifacts_dir(self) -> str:
-        return str(Path(self.session_dir) / self.ARTIFACTS_DIRNAME)
+    def with_parent(self, parent: str | Path) -> "FilePath":
+        parent_path = Path(parent)
+        if parent_path == Path():
+            return self
+        return FilePath(parent_path / self.relative_path, self.kind)
 
-    @property
-    def input_base_path(self) -> str:
-        return str(Path(self.input_dir) / self.project_root_relative_path) if self.project_root_relative_path else self.input_dir
+    def resolve_from(self, base: str | Path) -> Path:
+        return (Path(base) / self.relative_path).resolve()
 
-    @property
-    def output_base_path(self) -> str:
-        return str(Path(self.output_dir) / self.project_root_relative_path) if self.project_root_relative_path else self.output_dir
 
-    @property
-    def input_html_path(self) -> str:
-        if not self.html_relative_path:
-            return ""
-        return str(Path(self.input_base_path) / self.html_relative_path)
+@dataclass(slots=True)
+class Session:
+    session_id: str = field(default_factory=_new_session_id)
+    base_dir: Path = SESSIONS_BASE_DIR
+    file_paths: tuple[FilePath, ...] = field(default_factory=tuple)
 
-    @property
-    def input_html_name(self) -> str:
-        if self.html_relative_path:
-            return Path(self.html_relative_path).name
-        return Path(self.upload_path).name
+    SESSION_PREFIX: ClassVar[str] = SESSION_PREFIX
 
-    @property
-    def output_html_path(self) -> str:
-        if not self.html_relative_path:
-            return ""
-        return str(Path(self.output_base_path) / self.html_relative_path)
-
-    @property
-    def output_html_name(self) -> str:
-        return self.input_html_name
-
-    @property
-    def original_screenshot_path(self) -> str:
-        return str(Path(self.artifacts_dir) / self.ORIGINAL_SCREENSHOT_NAME)
-
-    @property
-    def transformed_screenshot_path(self) -> str:
-        return str(Path(self.artifacts_dir) / self.TRANSFORMED_SCREENSHOT_NAME)
-
-    @property
-    def palette_preview_path(self) -> str:
-        return str(Path(self.artifacts_dir) / self.PALETTE_PREVIEW_NAME)
-
-    @property
-    def bundle_name(self) -> str:
-        source_name = Path(self.upload_path or self.input_html_name).name
-        if not source_name:
-            return ""
-        if source_name.lower().endswith(".zip"):
-            return source_name
-        return f"{Path(source_name).stem}.zip"
-
-    @property
-    def bundle_path(self) -> str:
-        if not self.bundle_name:
-            return ""
-        return str(Path(self.artifacts_dir) / self.bundle_name)
-
-    @property
-    def download_path(self) -> str:
-        if not self.bundle_name:
-            return ""
-        return f"/sessions/{self.session_dirname}/artifacts/{self.bundle_name}"
-
-    def ensure_exists(self) -> Self:
-        Path(self.session_dir).mkdir(parents=True, exist_ok=True)
-        Path(self.input_dir).mkdir(parents=True, exist_ok=True)
-        Path(self.output_dir).mkdir(parents=True, exist_ok=True)
-        Path(self.artifacts_dir).mkdir(parents=True, exist_ok=True)
-        return self
-
-    def validate(self) -> None:
-        if not self.session_id.strip():
+    def __post_init__(self) -> None:
+        session_id = str(self.session_id or "").strip()
+        if not session_id:
             raise ValueError("session_id no puede estar vacio.")
-        if not self.base_dir.strip():
-            raise ValueError("base_dir no puede estar vacio.")
-        if not self.session_dir.strip():
-            raise ValueError("session_dir no puede estar vacio.")
-        if not self.input_dir.strip():
-            raise ValueError("input_dir no puede estar vacio.")
-        if not self.output_dir.strip():
-            raise ValueError("output_dir no puede estar vacio.")
-        if not self.artifacts_dir.strip():
-            raise ValueError("artifacts_dir no puede estar vacio.")
+        self.session_id = session_id
+        self.base_dir = Path(self.base_dir).resolve()
+        self.file_paths = tuple(self.file_paths)
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "session_id": self.session_id,
-            "session_dirname": self.session_dirname,
-            "base_dir": self.base_dir,
-            "session_dir": self.session_dir,
-            "input_dir": self.input_dir,
-            "output_dir": self.output_dir,
-            "artifacts_dir": self.artifacts_dir,
-            "upload_path": self.upload_path,
-            "project_root_relative_path": self.project_root_relative_path,
-            "html_relative_path": self.html_relative_path,
-            "input_base_path": self.input_base_path,
-            "output_base_path": self.output_base_path,
-            "input_html_path": self.input_html_path,
-            "input_html_name": self.input_html_name,
-            "output_html_path": self.output_html_path,
-            "output_html_name": self.output_html_name,
-            "input_html_content": self.input_html_content,
-            "output_html_content": self.output_html_content,
-            "original_screenshot_path": self.original_screenshot_path,
-            "transformed_screenshot_path": self.transformed_screenshot_path,
-            "palette_preview_path": self.palette_preview_path,
-            "bundle_name": self.bundle_name,
-            "bundle_path": self.bundle_path,
-            "download_path": self.download_path,
+    def build_path(self, area: str, file_path: FilePath | None = None) -> Path:
+        area_name = str(area or "").strip().lower()
+        if area_name not in _SESSION_AREAS:
+            raise ValueError(f"Area de sesion no permitida: {area}.")
+
+        root = self._area_root(area_name)
+        if file_path is None:
+            return root.resolve()
+        return file_path.resolve_from(root)
+
+    def add_file_path(self, file_path: FilePath) -> None:
+        if file_path not in self.file_paths:
+            self.file_paths = (*self.file_paths, file_path)
+
+    def set_file_paths(self, file_paths: Iterable[FilePath]) -> None:
+        unique: list[FilePath] = []
+        for file_path in file_paths:
+            if file_path not in unique:
+                unique.append(file_path)
+        self.file_paths = tuple(unique)
+
+    def project_root_file_path(self) -> FilePath:
+        roots = {
+            path.parts[0]
+            for path in self.file_paths
+            if path.kind == "directory" and path.parts
         }
+        if len(roots) == 1:
+            return FilePath(next(iter(roots)), "directory")
+        return FilePath(Path(), "directory")
+
+    def _dirname(self) -> str:
+        if self.session_id.startswith(self.SESSION_PREFIX):
+            return self.session_id
+        return f"{self.SESSION_PREFIX}{self.session_id}"
+
+    def _root(self) -> Path:
+        return (self.base_dir / self._dirname()).resolve()
+
+    def _area_root(self, area: str) -> Path:
+        return (self._root() / area).resolve()
+
+
+BEFORE_SCREENSHOT = FilePath("before.png")
+AFTER_SCREENSHOT = FilePath("after.png")
+PALETTE_PREVIEW = FilePath("palette_preview.png")

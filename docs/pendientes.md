@@ -1,25 +1,28 @@
 # Pendientes de alineacion SRS
 
 Fecha de auditoria inicial: 2026-04-11  
-Ultima revision de estado: 2026-04-19  
+Ultima revision de estado: 2026-04-25  
 Scope auditado: `engine/*` y referencias relevantes en `tests/*`.
 
 ## Resumen ejecutivo
 
-- El `PipelineContext` ya esta alineado en roots principales y ya no debe guardar roots legacy como `inventory`, `elements` o `color`.
-- `style.catalog` queda como root permitido para computed styles capturados por CDP/captureSnapshot.
+- El `PipelineContext` ya esta alineado en roots principales, definidas por `engine/domain/enums/scope/context_keys.py`.
+- `style.catalog` queda como rama permitida para computed styles capturados por CDP/captureSnapshot.
+- `page_builder` vive como root propia de runtime, no dentro de `session`.
 - Atendido: ya no existe un modulo relacional paralelo de tokens como dependencia operativa ni verdad paralela.
-- Atendido: los tokens ya se copian a instancias reales: `Element`, `Property` y colores de `scheme.colors`.
-- Implementado: la parte de pixeles ya usa un unico contrato operativo `color_histogram`, sin `pixel_frequency`, sin stage `capture_display_pixels`, sin histogramas en `RenderArtifacts` y sin scalars globales de scheme.
+- Atendido: los tokens ya se copian a instancias reales: `Element`, `Property` y colores de `color.catalog`.
+- Implementado: la parte de pixeles ya usa un unico contrato operativo `color_histogram`, sin `pixel_frequency`, sin stage `capture_display_pixels`, sin histogramas en browser capture y sin scalars globales de scheme.
 - Nota SRS: `color_histogram` es el contrato implementado y testeado, pero los nombres normativos del SRS vigente siguen siendo `scheme.pixel_frequency` y `environmental.inputs.*.pixel_histogram`; queda pendiente ratificar este cambio en el SRS o renombrar el codigo.
-- Deuda principal restante: `TokenInventory` aun debe terminar de degradarse a vista derivada; `ColorCatalog` sigue siendo una proyeccion operativa; `RenderArtifacts` sigue siendo DTO publico de adapter; `StyleCatalog` todavia necesita acotarse mejor; `Property` y `quality_reports` siguen usando strings donde ya existen enums; `css_overview` sigue siendo dependencia fuerte para contraste; y el dominio sigue aceptando demasiados `payload`.
+- Deuda principal restante: `TokenInventory` aun debe terminar de degradarse a vista derivada; `StyleCatalog` todavia necesita acotarse mejor; `css_overview` sigue siendo dependencia fuerte para contraste; y el dominio sigue aceptando demasiados `payload`.
 
 ## Estado almacenado en `PipelineContext`
 
 Roots permitidos en `engine/pipeline/context.py`:
 
 - `session`
+- `page_builder`
 - `prototype_structure`
+- `color`
 - `style`
 - `scheme`
 - `token`
@@ -38,55 +41,48 @@ Claves vivas por fase:
   - Guarda `session`.
 - `start_page_builder`
   - Lee `session`.
-  - Guarda `session.runtime.page_builder`.
+  - Guarda `page_builder`.
 - `capture_original_state`
-  - Lee `session` y `session.runtime.page_builder`.
-  - Captura screenshot, snapshot y css overview.
-  - Guarda `session.runtime.original_capture` como transporte temporal de runtime.
-  - Ya no genera histogramas.
-- `capture_prototype_structure`
-  - Lee `session.runtime.original_capture`.
+  - Lee `session` y `page_builder`.
+  - Captura screenshot y snapshot.
   - Guarda `prototype_structure`.
   - Guarda `style.catalog`.
+  - Guarda `color.catalog`.
   - Guarda `derived.raw_css_overview` como dependencia transicional.
   - Guarda `derived.raw_snapshot_metadata`.
-  - Elimina `session.runtime.original_capture` al terminar.
 - `build_color_scheme`
-  - Lee `prototype_structure`, `derived.raw_css_overview` y `session`.
+  - Lee `prototype_structure`, `color.catalog` y `session`.
   - Genera `environmental.before.color_histogram`.
   - Genera `scheme.color_histogram`.
-  - Guarda `scheme.colors`.
+  - Enriquece `color.catalog` con conteos de pixeles y mapping tonal.
   - Guarda `scheme.tonal_palettes`.
   - Guarda `scheme.named_color_breakdown`.
 - `build_contrast_report`
-  - Lee `prototype_structure`, `scheme.colors` y `derived.raw_css_overview`.
+  - Lee `prototype_structure` y `color.catalog`.
   - Guarda `derived.contrast_report`.
 - `close_page_builder`
-  - Lee y elimina `session.runtime.page_builder`.
-  - Guarda `session.runtime.page_builder_closed`.
+  - Lee, cierra y elimina `page_builder`.
 - `assess_original_environmental_impact`
   - Lee `environmental.before.color_histogram`.
-  - Guarda `environmental.assessment.before`.
+  - Guarda `environmental.before.assessment`.
 - `set_tokens`
-  - Lee `prototype_structure`, `scheme.colors` y `scheme.tonal_palettes`.
+  - Lee `prototype_structure`, `color.catalog` y `scheme.tonal_palettes`.
   - Guarda `token.inventory`.
 - `check_tokens`
-  - Lee `prototype_structure`, `scheme.colors`, `scheme.tonal_palettes` y `token.inventory`.
+  - Lee `prototype_structure`, `color.catalog`, `scheme.tonal_palettes` y `token.inventory`.
   - Reescribe `token.inventory`.
 - `transform_source_project`
   - Lee `session`, `prototype_structure` y `token.inventory`.
   - Guarda `transformation.heuristics`.
   - Guarda `transformation.output.html.path`.
-  - Guarda `transformation.output.html.content`.
-  - Reescribe `session` con `output_html_content`.
 - `assess_transformed_environmental_impact`
-  - Lee `session`, `transformation.output.html.content` y `environmental.assessment.before`.
+  - Lee `page_builder`, `session`, `transformation.output.html.path` y `environmental.before.assessment`.
   - Captura screenshot transformado.
   - Genera `environmental.after.color_histogram`.
-  - Guarda `environmental.assessment.after`.
-  - Guarda `environmental.assessment.savings`.
+  - Guarda `environmental.after.assessment`.
+  - Guarda `environmental.savings`.
 - `assemble_results`
-  - Lee `session`, assessments ambientales, `environmental.before.color_histogram`, `scheme.colors`, `scheme.tonal_palettes`, `scheme.named_color_breakdown`, `token.inventory`, `derived.contrast_report` y `transformation.*`.
+  - Lee `session`, assessments ambientales, `environmental.before.color_histogram`, `color.catalog`, `scheme.tonal_palettes`, `scheme.named_color_breakdown`, `token.inventory`, `derived.contrast_report` y `transformation.*`.
   - Guarda `recommendations`.
   - Guarda `results`.
 
@@ -134,7 +130,7 @@ Atendido:
 - `PrototypeStructure` ya no expone `ColorCatalog`.
 - La proyeccion cromatica vive fuera, en `engine/domain/utils/color_usage.py`.
 - `PrototypeStructure.excluded_pixel_boxes()` usa `get_html_element`, `HtmlElementScopeGroup.OUT_OF_SCOPE_VISIBLE` y `MEDIA_METADATA_ONLY_TAGS`.
-- Ya existen atributos de token en `Element`, `Property` y colores de `scheme.colors`.
+- Ya existen atributos de token en `Element`, `Property` y colores de `color.catalog`.
 
 Pendiente:
 
@@ -144,15 +140,15 @@ Pendiente:
 ## Verdades operativas actuales
 
 - `PrototypeStructure`: verdad estructural de nodos, propiedades, navegacion, layout y resolucion efectiva.
-- `scheme.colors`: verdad semantica de color interpretado por scheme.
+- `color.catalog`: lookup primario de colores observados, enriquecidos, mapeados a paleta y tokenizados.
 - `scheme.color_histogram`: histograma visual del scheme, con exclusiones restadas y clusterizado.
 - `environmental.before.color_histogram`: histograma completo del screenshot original para assessment ambiental.
 - `environmental.after.color_histogram`: histograma completo del screenshot transformado para assessment ambiental.
 - `scheme.tonal_palettes`: verdad de paletas y tonos.
 - `token.inventory`: catalogo/vista de tokens generados; todavia conserva metadata relacional que deberia ser derivada desde instancias.
 - `derived.raw_css_overview`: dependencia transicional para contrast issues y observed colors.
-- `RenderArtifacts`: DTO transitorio de adapter guardado en `session.runtime.original_capture`, no en `Session`.
-- `ColorCatalog`: proyeccion derivada usada como lookup operativo; no debe convertirse en verdad primaria.
+- La captura browser ya no usa DTO intermedio de artifacts; `capture_original_state` llama directamente a `PageBuilder`.
+- `scheme.*`: ramas de analisis de paletas e histogramas; no guardan un catalogo paralelo de colores.
 - `StyleCatalog`: catalogo de computed styles devueltos por CDP/captureSnapshot; no debe representar CSS authored completo ni usage estructural competitivo.
 
 ## Ownership objetivo acordado
@@ -166,9 +162,9 @@ upload/input
        -> PrototypeStructure(Element + Property)
        -> StyleCatalog(computed styles CDP/captureSnapshot)
        -> evidencia de pixeles para environmental/scheme
-       -> Scheme(colors + tonal palettes)
+       -> ColorCatalog + scheme.tonal_palettes
   -> Quality reports derivados de PrototypeStructure y Scheme
-  -> Token assignments en Element/Property/SchemeColor
+  -> Token assignments en Element/Property/ColorCatalog
   -> Transformacion de codigo fuente
   -> environmental_assessment before/after
   -> Results para results.html
@@ -180,10 +176,10 @@ Reglas:
 - `PageBuilder` es owner del browser/CDP y debe cerrarse despues de capturar los modelos finales.
 - `style.catalog` guarda unicamente computed styles capturados por CDP/captureSnapshot.
 - `prototype_structure` guarda DOM, relaciones, layout y propiedades resueltas minimas por nodo.
-- `scheme` guarda colores semanticos, evidencia visual de pixeles y paletas tonales.
+- `color.catalog` guarda colores semanticos, evidencia visual por color, mapping tonal y tokens; `scheme` guarda paletas e histogramas.
 - `environmental` guarda evidencia completa before/after para assessment.
 - Los effect colors se consultan desde `Property(classification="effect")`.
-- Los tokens no crean una fuente primaria paralela: se agregan como atributos en `Element`, `Property` y `SchemeColor`.
+- Los tokens no crean una fuente primaria paralela: se agregan como atributos en `Element`, `Property` y colores de `ColorCatalog`.
 
 ## Pixeles y color evidence
 
@@ -223,7 +219,7 @@ Atendido:
 - Ya no existen `scheme.pixel_count`, `scheme.residual_pixel_count` ni `scheme.residual_distinct_colors`.
 - Ya no existen `environmental.inputs.original.*` ni `environmental.inputs.output.*` para pixeles.
 - Ya no existe `include_pixel_histogram`.
-- `RenderArtifacts` ya no transporta histogramas.
+- El browser adapter ya no transporta histogramas.
 - `PageBuilder` ya no calcula histogramas.
 - `assess_original_environmental_impact` consume `environmental.before.color_histogram`.
 - `assess_transformed_environmental_impact` usa `build_color_histograms`.
@@ -232,7 +228,6 @@ Atendido:
 Pendiente:
 
 - Medir si `cluster_color_histogram` necesita optimizacion para screenshots con muchisimos colores unicos. Hoy no es deuda funcional; es una posible optimizacion de performance.
-- Reducir aun mas la dependencia de `ColorCatalog` como proyeccion operativa cuando `scheme.colors` pueda actuar como lookup primario.
 - Ratificar en el SRS si se conserva `color_histogram` como nombre final o si se renombra al contrato normativo `pixel_frequency` / `pixel_histogram`.
 
 ## Relaciones paralelas de tokens eliminadas
@@ -243,7 +238,7 @@ Estado actual:
 - Atendido: el antiguo helper relacional de tokens ya no vive en `engine/domain/utils`.
 - Atendido: `engine/domain/utils/token.py` ya no requiere una estructura relacional paralela.
 - Atendido: `engine/validators/token_rules.py` ya no requiere una estructura relacional paralela.
-- Atendido: `set_tokens` y `check_tokens` operan sobre `prototype_structure + scheme.colors + scheme.tonal_palettes`, sin una rama paralela de relaciones.
+- Atendido: `set_tokens` y `check_tokens` operan sobre `prototype_structure + color.catalog + scheme.tonal_palettes`, sin una rama paralela de relaciones.
 - La transformacion final ya usa `prototype_structure + token.inventory` y no necesita una estructura relacional paralela.
 
 Pendiente:
@@ -251,30 +246,27 @@ Pendiente:
 - Convertir `TokenInventory` en vista/export derivada.
 - Evitar que `Token` sea owner primario de `assigned_element_ids`, `source_property_refs` y campos equivalentes.
 
-## RenderArtifacts, ColorCatalog y StyleCatalog
+## Captura browser, ColorCatalog y StyleCatalog
 
-`RenderArtifacts`:
+Captura browser:
 
-- Ya no transporta histogramas.
-- Sigue siendo un DTO publico de adapter usado como `session.runtime.original_capture`.
-- Todavia transporta `styles_inventory_seed`, `colors_inventory_seed` y `css_overview`.
+- `PageBuilder.capture_full_page_screenshot(output_path=...)` toma screenshots con rutas explicitas de `Session`.
+- `PageBuilder.capture_snapshot_models()` devuelve `RenderSnapshot`, `StyleCatalog` y `ColorCatalog`.
+- Ya no existe un DTO publico/estable de artifacts para transportar captura.
 
 Pendiente:
 
-- Eliminar `RenderArtifacts` como modelo publico/estable o moverlo a un resultado privado de adapter.
-- Hacer que `PageBuilder` entregue modelos finales o un objeto de captura claramente privado.
-- Eliminar `styles_inventory_seed` y `colors_inventory_seed` cuando `capture_prototype_structure` ya no dependa de semillas paralelas.
+- Decidir si `PageBuilder` debe devolver tambien `PrototypeStructure` y `css_overview`, o si esa composicion sigue en el stage.
 
 `ColorCatalog`:
 
-- No debe ser verdad primaria.
-- Actualmente es una proyeccion derivada para construir/consultar colores.
+- Es el lookup primario de colores del pipeline.
+- Se enriquece con conteos de pixeles, mapping tonal y asignaciones de tokens.
 
 Pendiente:
 
-- Absorber responsabilidades utiles en `scheme.colors`.
-- Degradar o renombrar `ColorCatalog` como proyeccion derivada si se conserva.
-- Evitar reconstruir `ColorCatalog` desde `scheme.colors` en varios stages.
+- Evitar que aparezca otro catalogo paralelo de colores bajo `scheme`.
+- Mantener `scheme.*` limitado a paletas, breakdown e histogramas.
 
 `StyleCatalog`:
 
@@ -295,12 +287,8 @@ Atendido:
 
 Pendientes:
 
-- Migrar `Property.name` a `CssPropertyId`.
-- Migrar `Property.declared_property` a `CssPropertyId | None`.
-- Migrar `Property.resolution_status` a `StyleResolutionStatus`.
-- Eliminar strings libres de `Property.classification`.
-- Derivar classification desde `CssColorRole` y `CssPropertyCategory`.
-- Migrar `quality_reports.property_name` y `quality_reports.declared_property` a `CssPropertyId`.
+- Revisar si `Property.name` debe rechazar valores fuera de scope o conservar fallback string.
+- Evaluar si `Element.tag_name` debe migrar a `HtmlElementId` o mantenerse como string normalizado por compatibilidad con DOM real.
 - Evaluar si `Element.tag_name` debe migrar a `HtmlElementId` o mantenerse como string normalizado por compatibilidad con DOM real.
 
 ## Quality reports
@@ -308,9 +296,9 @@ Pendientes:
 Estado actual:
 
 - Atendido: `EffectColorReport` ya no existe como rama `derived` ni stage del pipeline.
-- `effect_colors` se derivan en `assemble_results` desde `PrototypeStructure.properties(classification="effect")` y `scheme.colors`.
+- `effect_colors` se derivan en `assemble_results` desde `PrototypeStructure.properties(classification="effect")` y `color.catalog`.
 - `ContrastReport` todavia depende de `derived.raw_css_overview["contrast_issues"]`.
-- `quality_reports.py` usa strings para propiedades.
+- `quality_reports.py` usa enums para propiedades en scope y serializa strings compatibles.
 
 Pendiente:
 
@@ -343,7 +331,7 @@ Pendiente:
 - Crear factories explicitas por fuente:
   - `Element.from_cdp_node(...)`
   - `Property.from_resolved_style(...)`
-  - `SchemeColor.from_color_usage(...)`
+  - `Color.from_color_usage(...)`
   - `Session.from_upload(...)`
 
 ## Checklist consolidado
@@ -357,13 +345,13 @@ Pendiente:
 - [x] Quitar la dependencia relacional paralela de `check_tokens`.
 - [x] Eliminar serializers de relaciones paralelas en `artifact_serializers.py`.
 - [x] Eliminar tests que construyen o validan estructuras relacionales paralelas.
-- [x] Cambiar tokenizacion a `prototype_structure + scheme.colors + scheme.tonal_palettes`.
+- [x] Cambiar tokenizacion a `prototype_structure + color.catalog + scheme.tonal_palettes`.
 
 ### P1 - Tokens como atributos de instancias
 
 - [x] Agregar asignacion de tokens a `Property`.
 - [x] Agregar asignacion de tokens a `Element`.
-- [x] Agregar asignacion de tokens a `SchemeColor`.
+- [x] Agregar asignacion de tokens a colores en `ColorCatalog`.
 - [ ] Convertir `TokenInventory` en vista/export derivada.
 - [ ] Evitar que `Token` sea owner primario de relaciones ya presentes en instancias.
 - [x] Ajustar `code_processor` para leer asignaciones desde `Property`.
@@ -373,10 +361,9 @@ Pendiente:
 
 - [x] Sacar `build_color_inventory` de `PrototypeStructure`.
 - [x] Sacar `build_observed_color_payloads` de `PrototypeStructure`.
-- [ ] Absorber responsabilidades utiles de `ColorCatalog` en `scheme.colors`.
-- [ ] Degradar o renombrar `ColorCatalog` como proyeccion derivada.
-- [ ] Evitar reconstruir `ColorCatalog` desde `scheme.colors` en varios stages.
-- [ ] Hacer que `scheme.colors` sea el lookup primario para reports/tokens.
+- [x] Hacer que `color.catalog` sea el lookup primario para reports/tokens.
+- [x] Evitar reconstruir `ColorCatalog` desde una rama paralela de scheme.
+- [x] Mantener guardrails para que `scheme` no vuelva a crear un catalogo de colores paralelo.
 
 ### P3 - Pixeles
 
@@ -386,7 +373,7 @@ Pendiente:
 - [x] Generar `environmental.after.color_histogram`.
 - [x] Generar `scheme.color_histogram`.
 - [x] Eliminar `capture_display_pixels`.
-- [x] Eliminar histogramas de `RenderArtifacts` y `PageBuilder`.
+- [x] Eliminar histogramas del browser adapter.
 - [x] Eliminar `include_pixel_histogram`.
 - [x] Eliminar scalars globales de scheme para pixeles/residuales.
 - [x] Conservar `Color.pixel_count` como evidencia por color.
@@ -395,14 +382,12 @@ Pendiente:
 
 ### P4 - Render/captura
 
-- [x] Evitar guardar `original_capture` en `Session` como estado de dominio.
+- [x] Evitar guardar la captura original en `Session` como estado de dominio.
+- [x] Evitar guardar artifacts de captura en `PipelineContext`.
 - [x] Quitar captura de histogramas del browser adapter.
 - [x] Quitar `include_pixel_histogram`.
-- [x] Quitar histogramas de `RenderArtifacts`.
-- [ ] Eliminar `RenderArtifacts` como modelo publico/estable.
-- [ ] Hacer que `PageBuilder` entregue modelos finales o un resultado privado de adapter.
-- [ ] Eliminar `styles_inventory_seed` de `RenderArtifacts`.
-- [ ] Eliminar `colors_inventory_seed` de `RenderArtifacts`.
+- [x] Eliminar el DTO publico de artifacts de captura.
+- [x] Hacer que `PageBuilder` entregue snapshot + catálogos sin DTO intermedio.
 
 ### P5 - StyleCatalog
 
@@ -414,18 +399,18 @@ Pendiente:
 ### P6 - Enums
 
 - [x] Dejar de usar `engine.domain.data.css_properties` en dominio core.
-- [ ] Migrar `Property.name` a `CssPropertyId`.
-- [ ] Migrar `Property.declared_property` a `CssPropertyId | None`.
-- [ ] Migrar `Property.resolution_status` a `StyleResolutionStatus`.
-- [ ] Migrar `quality_reports` a `CssPropertyId`.
-- [ ] Eliminar strings libres de `classification`.
-- [ ] Usar `CssColorRole` y `CssPropertyCategory` como fuente de clasificacion.
+- [x] Migrar `Property.name` a `CssPropertyId` cuando la propiedad esta en scope.
+- [x] Migrar `Property.declared_property` a `CssPropertyId | None` cuando la propiedad esta en scope.
+- [x] Migrar `Property.resolution_status` a `StyleResolutionStatus`.
+- [x] Migrar `quality_reports` a `CssPropertyId` cuando la propiedad esta en scope.
+- [x] Eliminar strings libres de `classification`.
+- [x] Usar `CssColorRole` y `CssPropertyCategory` como fuente de clasificacion.
 
 ### P7 - Quality reports
 
 - [x] Eliminar `derived.effect_color_report`.
 - [x] Eliminar o desactivar `build_effect_color_report` como stage.
-- [x] Si la UI necesita effects, derivarlos en `results` desde `PrototypeStructure` y `scheme.colors` sin nueva rama `derived`.
+- [x] Si la UI necesita effects, derivarlos en `results` desde `PrototypeStructure` y `color.catalog` sin nueva rama `derived`.
 - [ ] Decidir estrategia final de `ContrastReport`.
 - [ ] Agregar queries de foreground/background/effect en `PrototypeStructure`.
 - [ ] Agregar soporte tipografico si contraste deja de depender de `css_overview`.
@@ -443,10 +428,11 @@ Pendiente:
 - [x] Agregar test que falle si aparece una estructura relacional paralela en `engine/*`.
 - [x] Agregar test que falle si aparece la rama legacy de relaciones de inventario.
 - [x] Agregar test que falle si el antiguo helper relacional de tokens es importable.
-- [x] Agregar test que valide que token assignments viven en `Property`/`Element`/`SchemeColor`.
+- [x] Agregar test que valide que token assignments viven en `Property`/`Element`/`Color`.
 - [x] Agregar test que valide que `prototype_structure` no importa `ColorCatalog`.
 - [x] Agregar tests de `build_color_histograms`, exclusiones, clusterizacion, `get_color_count`, totales y porcentajes.
 - [x] Agregar guardrails contra contratos legacy de pixeles.
+- [x] Agregar guardrails contra catálogos paralelos de color bajo `scheme`.
 - [ ] Agregar test que valide que `Property.name` es `CssPropertyId`.
 - [ ] Agregar guardrails contra nuevos payload builders en dominio core.
 
@@ -461,18 +447,18 @@ Acciones:
 - [ ] Definir si `TokenInventory` queda como vista exportable o catalogo secundario derivado.
 - [ ] Evitar que `Token` sea owner primario de relaciones token-element-property-color.
 - [ ] Revisar `code_processor`, `set_tokens`, `check_tokens` y tests para que las relaciones se lean desde instancias canonicas.
-- [ ] Quitar fallbacks que reconstruyen ownership desde `Token.assigned_element_ids` o `Token.source_property_refs` cuando ya exista asignacion en `Element`, `Property` o `SchemeColor`.
+- [ ] Quitar fallbacks que reconstruyen ownership desde `Token.assigned_element_ids` o `Token.source_property_refs` cuando ya exista asignacion en `Element`, `Property` o `Color`.
 
-### Fase 2 - Consolidar `scheme.colors` como lookup primario
+### Fase 2 - Mantener `color.catalog` como lookup primario
 
 Checklist cubierto: `P2`.
 
 Acciones:
 
-- [ ] Absorber responsabilidades utiles de `ColorCatalog` en `scheme.colors`.
-- [ ] Degradar o renombrar `ColorCatalog` como proyeccion derivada.
-- [ ] Evitar reconstrucciones repetidas de `ColorCatalog`.
-- [ ] Hacer que reports/tokens consulten primero `scheme.colors`.
+- [x] Enriquecer `ColorCatalog` con pixeles, mapping tonal y tokens.
+- [x] Eliminar la rama paralela de colores bajo `scheme`.
+- [x] Hacer que reports/tokens consulten `color.catalog`.
+- [x] Mantener tests de arquitectura contra nuevos catálogos paralelos.
 
 ### Fase 3 - Tipar el dominio base
 
@@ -480,22 +466,21 @@ Checklist cubierto: `P6`, parte de `P5`, parte de `P7`.
 
 Acciones:
 
-- [ ] Migrar `Property.name` a `CssPropertyId`.
-- [ ] Migrar `Property.declared_property` a `CssPropertyId | None`.
-- [ ] Migrar `StyleResolutionStatus` a `Property.resolution_status`.
-- [ ] Reemplazar `classification: str` por derivacion desde `CssColorRole` y `CssPropertyCategory`.
-- [ ] Migrar `quality_reports.property_name` y `quality_reports.declared_property` a `CssPropertyId`.
+- [x] Migrar `Property.name` a `CssPropertyId` cuando esta en scope.
+- [x] Migrar `Property.declared_property` a `CssPropertyId | None` cuando esta en scope.
+- [x] Migrar `StyleResolutionStatus` a `Property.resolution_status`.
+- [x] Reemplazar `classification: str` por derivacion desde `CssColorRole` y `CssPropertyCategory`.
+- [x] Migrar `quality_reports.property_name` y `quality_reports.declared_property` a `CssPropertyId` cuando estan en scope.
 
-### Fase 4 - Limpiar captura y `RenderArtifacts`
+### Fase 4 - Limpiar captura browser
 
 Checklist cubierto: `P4`.
 
 Acciones:
 
-- [ ] Eliminar `RenderArtifacts` como modelo publico/estable.
-- [ ] Hacer que `PageBuilder` entregue modelos finales o un resultado privado de adapter.
-- [ ] Eliminar `styles_inventory_seed`.
-- [ ] Eliminar `colors_inventory_seed`.
+- [x] Eliminar el DTO publico de artifacts de captura.
+- [x] Hacer que `PageBuilder` entregue snapshot + catálogos.
+- [ ] Decidir si `PageBuilder` tambien debe construir `PrototypeStructure` y `css_overview`.
 
 ### Fase 5 - Reacotar `StyleCatalog`
 
@@ -542,12 +527,11 @@ Acciones:
 
 ## Riesgos y codesmells restantes
 
-- `ColorCatalog` puede volver a convertirse en verdad paralela.
+- Puede reaparecer una verdad paralela de colores bajo `scheme`.
 - `TokenInventory` aun guarda metadata relacional que deberia ser derivada.
 - `StyleCatalog` puede mezclar computed styles con authored CSS o usage derivable.
 - `css_overview` sigue siendo dependencia fuerte para contraste.
-- Strings de CSS properties pueden divergir de `CssPropertyId`.
+- Strings de CSS properties fuera de scope aun se preservan como fallback de compatibilidad.
 - Payloads abundantes facilitan coerciones inconsistentes.
-- `capture_prototype_structure` hace demasiadas cosas: canonicaliza, mergea colores, linkea overview y limpia runtime.
-- `RenderArtifacts` introduce una fase paralela no reflejada por el SRS.
+- `PageBuilder` todavia reparte captura y construccion de modelos con el stage; puede consolidarse mas si se decide que el adapter entregue `PrototypeStructure`.
 - `cluster_color_histogram` podria requerir optimizacion si se mide lentitud real en screenshots grandes.

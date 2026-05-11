@@ -6,12 +6,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from engine.adapters.browser.render_models import RenderArtifacts, RenderSnapshot
+from engine.adapters.browser.render_models import RenderSnapshot
 from engine.domain.models.color import Color, ColorCatalog
 from engine.domain.models.element import Element, Property
 from engine.domain.models.palette import CorePalettesModel, TonalPaletteModel
 from engine.domain.models.prototype_structure import PrototypeStructure
-from engine.domain.models.session import Session
+from engine.domain.models.session import BEFORE_SCREENSHOT, PALETTE_PREVIEW, FilePath, Session
 from engine.domain.models.style import StyleCatalog
 from engine.domain.utils.color_usage import build_color_usage_catalog
 from engine.pipeline.context import PipelineContext
@@ -24,15 +24,25 @@ from engine.pipeline.stages.capture_original_state import run_stage as run_captu
 def _build_session(
     base_dir: Path,
     *,
-    input_html_content: str = "<html></html>",
+    html_content: str = "<html></html>",
 ) -> Session:
-    return Session.build(
+    session = Session(
         session_id="prototype-test",
         base_dir=str(base_dir),
-        upload_path="fixture.html",
-        html_relative_path="index.html",
-        input_html_content=input_html_content,
-    ).ensure_exists()
+    )
+    html_file = FilePath("index.html")
+    session.set_file_paths((html_file,))
+    for directory in ("before", "after", "artifacts"):
+        session.build_path(directory).mkdir(parents=True, exist_ok=True)
+    Path(session.build_path("before", html_file)).write_text(
+        html_content,
+        encoding="utf-8",
+    )
+    Path(session.build_path("after", html_file)).write_text(
+        html_content,
+        encoding="utf-8",
+    )
+    return session
 
 
 def _sample_elements() -> tuple[Element, ...]:
@@ -132,87 +142,48 @@ def _sample_colors() -> ColorCatalog:
     )
 
 
-def _sample_contrast_css_overview() -> dict[str, object]:
-    return {
-        "contrast_issues": [
-            {
-                "node_id": "title-node",
-                "selector": "#title",
-                "tag_name": "h1",
-                "text_sample": "Title",
-                "contrast_ratio": 3.4,
-                "required_ratio": 4.5,
-                "is_large_text": False,
-                "font_size_px": 16.0,
-                "font_weight": 400,
-                "bounds": {"x": 12, "y": 24, "width": 160, "height": 32},
-                "foreground": {
-                    "css": "rgb(20, 20, 20)",
-                    "hex": "#141414",
-                    "alpha": 1.0,
-                },
-                "background": {
-                    "css": "rgb(255, 255, 255)",
-                    "hex": "#ffffff",
-                    "alpha": 1.0,
-                },
-            }
-        ]
-    }
-
-
 class PrototypeStructureTests(unittest.TestCase):
     def test_pipeline_context_accepts_prototype_structure_root(self) -> None:
-        context = PipelineContext(file=None)
+        context = PipelineContext()
         prototype_structure = PrototypeStructure.build(_sample_elements())
         context.set("prototype_structure", prototype_structure)
         self.assertIs(context.get("prototype_structure"), prototype_structure)
 
     def test_capture_original_state_populates_canonical_nodes(self) -> None:
-        artifacts = RenderArtifacts(
-            screenshot_path=None,
-            snapshot=RenderSnapshot(
-                metadata={"nodeCount": 2},
-                document={},
-                nodes=_sample_elements(),
-            ),
-            styles_inventory_seed=StyleCatalog(),
-            colors_inventory_seed=_sample_colors(),
+        snapshot = RenderSnapshot(
+            metadata={"nodeCount": 2},
+            document={},
+            nodes=_sample_elements(),
         )
-        class FakePageBuilder:
-            def __init__(self, artifacts: RenderArtifacts) -> None:
-                self.artifacts = artifacts
-                self.calls: list[dict[str, str | None]] = []
 
-            def capture_state_artifacts(
-                self,
-                *,
-                artifacts_dir: str | None = None,
-                screenshot_filename: str | None = None,
-            ) -> RenderArtifacts:
-                self.calls.append(
-                    {
-                        "artifacts_dir": artifacts_dir,
-                        "screenshot_filename": screenshot_filename,
-                    }
-                )
-                return self.artifacts
+        class FakePageBuilder:
+            def __init__(self) -> None:
+                self.screenshot_paths: list[str] = []
+
+            def capture_full_page_screenshot(self, *, output_path: str) -> str:
+                self.screenshot_paths.append(output_path)
+                return output_path
+
+            def capture_snapshot_models(self) -> tuple[RenderSnapshot, StyleCatalog, ColorCatalog]:
+                return snapshot, StyleCatalog(), _sample_colors()
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
-            page_builder = FakePageBuilder(artifacts)
-            context = PipelineContext(file=None)
-            context.set("session", _build_session(tmp_path))
-            context.set("session.page_builder", page_builder)
+            page_builder = FakePageBuilder()
+            context = PipelineContext()
+            session = _build_session(tmp_path)
+            context.set("session", session)
+            context.set("page_builder", page_builder)
             run_capture_original_state_stage(context)
 
         prototype_structure = context.get("prototype_structure")
         self.assertIsInstance(prototype_structure, PrototypeStructure)
+        self.assertTrue(context.has("style.catalog"))
         self.assertTrue(context.has("color.catalog"))
         self.assertTrue(context.has("derived.raw_css_overview"))
         self.assertTrue(context.has("derived.raw_snapshot_metadata"))
         self.assertFalse(context.has("session.before_capture"))
-        self.assertEqual(page_builder.calls[0]["screenshot_filename"], Session.ORIGINAL_SCREENSHOT_NAME)
+        self.assertEqual(page_builder.screenshot_paths[0], session.build_path("artifacts", BEFORE_SCREENSHOT))
         self.assertEqual(len(prototype_structure), 2)
         self.assertEqual(prototype_structure.indexes.by_tag["body"], ("body-node",))
         self.assertEqual(prototype_structure.indexes.by_depth[0], ("body-node",))
@@ -271,6 +242,31 @@ class PrototypeStructureTests(unittest.TestCase):
         self.assertIsNotNone(colors_inventory.entry_by_id("color-1"))
         self.assertIsNotNone(colors_inventory.entry_by_id("color-2"))
         self.assertEqual(colors_inventory.entry_by_value("rgb(20, 20, 20)").color_id, "color-2")
+
+    def test_color_catalog_enrichment_preserves_existing_metadata(self) -> None:
+        base_entries = list(_sample_colors())
+        base_entries[0] = base_entries[0].with_token_assignment("token-color-1")
+        colors_inventory = ColorCatalog.build(base_entries)
+
+        counted = colors_inventory.with_pixel_counts({"color-1": (42, 12.5)})
+        mapped = counted.with_palette_mappings(
+            (
+                counted.entry_by_id("color-1").with_palette_mapping(
+                    palette_id="palette-achromatic-1",
+                    tone=90,
+                    tone_rgb=(250, 250, 250),
+                    tone_distance=1.25,
+                ),
+            )
+        )
+        entry = mapped.entry_by_id("color-1")
+
+        self.assertEqual(entry.pixel_count, 42)
+        self.assertEqual(entry.pixel_percentage, 12.5)
+        self.assertEqual(entry.mapped_palette_id, "palette-achromatic-1")
+        self.assertEqual(entry.mapped_tone, 90)
+        self.assertEqual(entry.token_ids, ("token-color-1",))
+        self.assertEqual(tuple(color.color_id for color in mapped), ("color-1", "color-2", "color-3"))
 
     def test_prototype_structure_does_not_import_color_catalog(self) -> None:
         source = Path("engine/domain/models/prototype_structure.py").read_text(encoding="utf-8")
@@ -373,7 +369,7 @@ class PrototypeStructureTests(unittest.TestCase):
         prototype_structure = PrototypeStructure.build(_sample_elements())
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            context = PipelineContext(file=None)
+            context = PipelineContext()
             context.set("prototype_structure", prototype_structure)
             context.set(
                 "color.catalog",
@@ -392,10 +388,16 @@ class PrototypeStructureTests(unittest.TestCase):
                     "scheme": [{"color": [255, 255, 255], "count": 12}],
                 }
                 run_build_color_scheme_stage(context)
-            self.assertTrue(context.has("scheme.colors"))
-            self.assertTrue(all(isinstance(color, Color) for color in context.get("scheme.colors")))
+            self.assertFalse(context.has("scheme." + "colors"))
+            colors = context.get("color.catalog")
+            self.assertTrue(all(isinstance(color, Color) for color in colors))
+            self.assertEqual(colors.entry_by_id("color-1").pixel_count, 12)
+            self.assertEqual(colors.entry_by_id("color-1").pixel_percentage, 100.0)
+            self.assertTrue(
+                any(color.mapped_palette_id is not None for color in colors)
+            )
             self.assertTrue(context.has("scheme.tonal_palettes"))
-            self.assertTrue(Path(session.palette_preview_path).exists())
+            self.assertTrue(Path(session.build_path("artifacts", PALETTE_PREVIEW)).exists())
 
         self.assertFalse(context.has("scheme.color_scheme"))
         self.assertEqual(
@@ -424,21 +426,73 @@ class PrototypeStructureTests(unittest.TestCase):
         self.assertEqual(effect_entry["colors"][0]["hex"], "#00000033")
 
     def test_build_contrast_report_reads_from_prototype_structure(self) -> None:
-        prototype_structure = PrototypeStructure.build(_sample_elements())
+        prototype_structure = PrototypeStructure.build(
+            (
+                Element.build(
+                    {
+                        "node_id": "body-node",
+                        "backend_node_id": 1,
+                        "document_order": 1,
+                        "children_ids": ["muted-node"],
+                        "tag_name": "body",
+                        "node_name": "BODY",
+                        "is_visible": True,
+                        "effective_background": "rgb(255, 255, 255)",
+                        "properties": [
+                            {
+                                "name": "background-color",
+                                "value": "rgb(255, 255, 255)",
+                                "color_id": "color-1",
+                            }
+                        ],
+                    }
+                ),
+                Element.build(
+                    {
+                        "node_id": "muted-node",
+                        "backend_node_id": 2,
+                        "parent_id": "body-node",
+                        "document_order": 2,
+                        "children_ids": [],
+                        "tag_name": "p",
+                        "node_name": "P",
+                        "selector": "p.muted",
+                        "text": "Muted text",
+                        "is_visible": True,
+                        "x": 12,
+                        "y": 24,
+                        "width": 160,
+                        "height": 32,
+                        "properties": [
+                            {
+                                "name": "color",
+                                "value": "rgb(180, 180, 180)",
+                                "color_id": "color-2",
+                            }
+                        ],
+                    }
+                ),
+            )
+        )
+        colors_inventory = ColorCatalog.build(
+            (
+                {"color_id": "color-1", "value": "rgb(255, 255, 255)", "usage_count": 1},
+                {"color_id": "color-2", "value": "rgb(180, 180, 180)", "usage_count": 1},
+            )
+        )
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            context = PipelineContext(file=None)
+            context = PipelineContext()
             context.set("prototype_structure", prototype_structure)
-            context.set("scheme.colors", tuple(ColorCatalog.build(_sample_colors())))
-            context.set("derived.raw_css_overview", _sample_contrast_css_overview())
+            context.set("color.catalog", colors_inventory)
             run_build_contrast_report_stage(context)
 
         report = context.get("derived.contrast_report")
         self.assertEqual(len(report), 1)
         issue = next(iter(report))
-        self.assertEqual(issue.element_id, "title-node")
+        self.assertEqual(issue.element_id, "muted-node")
         self.assertEqual(issue.foreground.color_id, "color-2")
-        self.assertEqual(issue.foreground.element_id, "title-node")
+        self.assertEqual(issue.foreground.element_id, "muted-node")
         self.assertEqual(issue.background.color_id, "color-1")
         self.assertEqual(issue.background.element_id, "body-node")
-        self.assertEqual(issue.background_validation, "match")
+        self.assertEqual(issue.background_validation, "model")

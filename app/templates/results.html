@@ -306,7 +306,7 @@
               </div>
 
               <img
-                src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.original) }}"
+                src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.before) }}"
                 alt="Vista previa original"
                 class="preview-window__image"
                 loading="lazy"
@@ -327,7 +327,7 @@
               </div>
 
               <img
-                src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.environmental) }}"
+                src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.after) }}"
                 alt="Vista previa ajustada"
                 class="preview-window__image"
                 loading="lazy"

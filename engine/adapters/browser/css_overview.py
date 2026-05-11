@@ -150,7 +150,7 @@ def _build_unused_declarations(style_catalog: StyleCatalog) -> list[dict[str, An
                 {
                     "selector": selector,
                     "tag_name": "",
-                    "property": declaration.name.value,
+                    "property": str(declaration.name),
                     "value": declaration.value,
                     "reason": "declaration has no linked element usage",
                     "source_kind": style_rule.kind.value,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from engine.adapters.browser.page_builder import PageBuilder
+from engine.adapters.file_system.file_manager import read_text
 from engine.adapters.utils.pixel import build_color_histograms
 from engine.domain.models.environmental_assessment.assessment import (
     EnvironmentalAssessmentModel,
@@ -11,8 +12,9 @@ from engine.domain.models.environmental_assessment.carbon_footprint import (
     assess_interface,
 )
 from engine.domain.models.environmental_assessment.energy_consumption import EnergyModel
-from engine.domain.models.session import Session
+from engine.domain.models.session import AFTER_SCREENSHOT, Session
 from engine.pipeline.context import PipelineContext
+from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.pipeline.stage_contract import StageContract, context_value
 
 _ENERGY_MODEL = EnergyModel.build_default()
@@ -20,32 +22,28 @@ _CARBON_MODEL = CarbonFootprintModel.build_default()
 
 
 def _session_ready_for_environmental_assessment(session: Session) -> bool:
-    return (
-        bool(session.session_id.strip())
-        and bool(session.output_base_path.strip())
-        and bool(session.transformed_screenshot_path.strip())
-    )
+    return bool(session.session_id.strip())
 
 CONTRACT = StageContract(
     name="assess_transformed_environmental_impact",
     requires=(
-        context_value("session.page_builder", PageBuilder),
+        context_value(K.PAGE_BUILDER, PageBuilder),
         context_value(
-            "transformation.output.html.content",
+            K.TRANSFORMATION_OUTPUT_HTML_PATH,
             str,
             validator=lambda value: bool(value.strip()),
         ),
         context_value(
-            "session",
+            K.SESSION,
             Session,
             validator=_session_ready_for_environmental_assessment,
         ),
-        context_value("environmental.before.assessment", EnvironmentalAssessmentModel),
+        context_value(K.ENVIRONMENTAL_BEFORE_ASSESSMENT, EnvironmentalAssessmentModel),
     ),
     produces=(
-        context_value("environmental.after.color_histogram", list),
-        context_value("environmental.after.assessment", EnvironmentalAssessmentModel),
-        context_value("environmental.savings", EnvironmentalSavingsModel),
+        context_value(K.ENVIRONMENTAL_AFTER_COLOR_HISTOGRAM, list),
+        context_value(K.ENVIRONMENTAL_AFTER_ASSESSMENT, EnvironmentalAssessmentModel),
+        context_value(K.ENVIRONMENTAL_SAVINGS, EnvironmentalSavingsModel),
     ),
 )
 
@@ -68,33 +66,32 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     if context.error:
         return context
 
-    session = context.get("session")
-    output_base_path = session.output_base_path
-    screenshot_path = session.transformed_screenshot_path
+    session = context.get(K.SESSION)
+    output_base_path = session.build_path("after", session.project_root_file_path())
+    screenshot_path = session.build_path("artifacts", AFTER_SCREENSHOT)
     context.trace.add_stage_event(
         CONTRACT.name,
         "start",
         {
-            "base_path": output_base_path,
-            "output_image": screenshot_path,
+            "base_path": str(output_base_path),
+            "output_image": str(screenshot_path),
         },
     )
-    page_builder = context.get("session.page_builder")
+    page_builder = context.get(K.PAGE_BUILDER)
     page_builder.load(
-        context.get("transformation.output.html.content", ""),
+        read_text(context.get(K.TRANSFORMATION_OUTPUT_HTML_PATH)),
         output_base_path,
     )
     screenshot_output_path = page_builder.capture_full_page_screenshot(
-        artifacts_dir=session.artifacts_dir,
-        filename=session.TRANSFORMED_SCREENSHOT_NAME,
+        output_path=screenshot_path,
     )
     color_histograms = build_color_histograms(screenshot_output_path or screenshot_path)
     color_histogram = color_histograms["environmental"]
-    context.set("environmental.after.color_histogram", color_histogram)
+    context.set(K.ENVIRONMENTAL_AFTER_COLOR_HISTOGRAM, color_histogram)
     context.trace.add_step(
         "environmental_prototype.render_done",
         {
-            "screenshot_path": screenshot_output_path or screenshot_path,
+            "screenshot_path": str(screenshot_output_path or screenshot_path),
         },
     )
     context.trace.add_step(
@@ -110,10 +107,10 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             time_hours=1,
         )
     )
-    before_assessment = context.get("environmental.before.assessment")
+    before_assessment = context.get(K.ENVIRONMENTAL_BEFORE_ASSESSMENT)
     savings = _build_savings(before_assessment, after_assessment)
-    context.set("environmental.after.assessment", after_assessment)
-    context.set("environmental.savings", savings)
+    context.set(K.ENVIRONMENTAL_AFTER_ASSESSMENT, after_assessment)
+    context.set(K.ENVIRONMENTAL_SAVINGS, savings)
     context.trace.add_step(
         "assessment.environmental",
         {

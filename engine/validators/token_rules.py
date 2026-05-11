@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 import re
+from typing import Iterable
 
 from engine.adapters.color_service import color_registry
 from engine.domain.data.tokens import TRANSFORMATION_ORDER, TRANSFORMATION_RULES
@@ -655,7 +656,7 @@ _STAGE_HANDLERS = {
 def apply_token_rules(
     tokens: TokenInventory,
     prototype_structure: PrototypeStructure,
-    colors: tuple[Color, ...],
+    colors: Iterable[Color],
     palettes: tuple[TonalPaletteModel, ...],
 ) -> TokenInventory:
     current_tokens = tokens

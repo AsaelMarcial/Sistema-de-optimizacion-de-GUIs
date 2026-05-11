@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 from playwright.sync_api import sync_playwright
 
 from engine.adapters.browser.layout_snapshot import build_layout_nodes, capture_layout_snapshot
 from engine.adapters.browser.render_io import remove_temp_render_html, write_temp_render_html
-from engine.adapters.browser.render_models import RenderArtifacts, SnapshotOptions
+from engine.adapters.browser.render_models import RenderSnapshot, SnapshotOptions
 from engine.adapters.browser.style_trace import collect_style_information, register_stylesheet_headers
-from engine.adapters.utils.io import ensure_parent_dir
+from engine.adapters.file_system.file_manager import ensure_parent_dir
 from engine.domain.enums.scope.css_properties import get_in_scope_css_properties
+from engine.domain.models.color import ColorCatalog
 from engine.domain.models.style import StyleCatalog
 from engine.domain.utils.parsers import normalize_snapshot_nodes
 
@@ -225,28 +225,21 @@ class PageBuilder:
     def capture_full_page_screenshot(
         self,
         *,
-        artifacts_dir: str,
-        filename: str,
+        output_path: str,
     ) -> str | None:
         self._ensure_open()
         if not self.options.capture_screenshot:
             return None
 
-        screenshot_name = Path(filename).name
-        if not screenshot_name or screenshot_name != filename:
-            raise ValueError("El nombre del screenshot debe ser un archivo simple dentro de artifacts.")
+        output_image_path = str(output_path or "").strip()
+        if not output_image_path:
+            raise ValueError("La ruta del screenshot no puede estar vacia.")
 
-        output_image = str(Path(artifacts_dir) / screenshot_name)
-        ensure_parent_dir(output_image)
-        self.page.screenshot(path=output_image, full_page=True, caret="initial" )
-        return output_image
+        ensure_parent_dir(output_image_path)
+        self.page.screenshot(path=output_image_path, full_page=True, caret="initial")
+        return output_image_path
 
-    def capture_state_artifacts(
-        self,
-        *,
-        artifacts_dir: str | None = None,
-        screenshot_filename: str | None = None,
-    ) -> RenderArtifacts:
+    def capture_snapshot_models(self) -> tuple[RenderSnapshot, StyleCatalog, ColorCatalog]:
         self._ensure_open()
         cdp = self.cdp_session
         stylesheet_headers = register_stylesheet_headers(cdp)
@@ -256,7 +249,7 @@ class PageBuilder:
         for raw_node in raw_nodes:
             raw_node["node_id"] = str(raw_node["backend_node_id"])
 
-        style_traces, authored_styles_inventory, colors_inventory = collect_style_information(
+        style_traces, style_catalog, colors_inventory = collect_style_information(
             cdp,
             raw_nodes,
             stylesheet_headers,
@@ -270,20 +263,4 @@ class PageBuilder:
             base_path=os.path.abspath(self.base_path),
             document_metrics=document_metrics,
         )
-        computed_styles_inventory = StyleCatalog.build_from_computed_properties(
-            snapshot.nodes,
-            base_catalog=authored_styles_inventory,
-        )
-        screenshot_path = None
-        if self.options.capture_screenshot and artifacts_dir and screenshot_filename:
-            screenshot_path = self.capture_full_page_screenshot(
-                artifacts_dir=artifacts_dir,
-                filename=screenshot_filename,
-            )
-
-        return RenderArtifacts(
-            screenshot_path=screenshot_path,
-            snapshot=snapshot,
-            styles_inventory_seed=computed_styles_inventory,
-            colors_inventory_seed=colors_inventory,
-        )
+        return snapshot, style_catalog, colors_inventory

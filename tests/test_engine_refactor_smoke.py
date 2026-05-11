@@ -1,5 +1,8 @@
+import ast
 import importlib
 import io
+import re
+import shutil
 import tempfile
 import unittest
 import zipfile
@@ -13,13 +16,12 @@ from tests.browser_helpers import (
     capture_prototype_state_artifacts,
     extract_prototype_state_snapshot,
 )
-from engine.adapters.file_system.code_processor import (
+from engine.adapters.source_code_handler.code_processor import (
     apply_tokens_to_project,
     evaluate_and_apply_heuristics,
-    stage_project_assets,
 )
 from engine.adapters.color_service import build_default_strategy_registry, color_registry
-from engine.adapters.file_system.file_handler import load_project_input
+from engine.pipeline.stages import prepare_project_session
 from engine.adapters.utils.palette_preview import render_palette_preview
 from engine.adapters.utils.pixel import (
     build_color_histograms,
@@ -69,7 +71,7 @@ from engine.domain.models.color import ColorCatalog
 from engine.domain.models.element import Element
 from engine.domain.models.palette import TonalPaletteModel
 from engine.domain.models.prototype_structure import PrototypeStructure
-from engine.domain.models.session import Session
+from engine.domain.models.session import FilePath, Session
 from engine.domain.models.style import StyleCatalog
 from engine.domain.models.token import (
     Token,
@@ -80,9 +82,10 @@ from engine.domain.models.token import (
 )
 from engine.domain.utils.palette_analysis import build_palette_analysis
 from engine.domain.utils.tokenization import build_token_inventory
-from engine.validators.file_handling.archive_validators import validate_zip_members
+from engine.validators.project_uploaded import has_single_html, is_file_permitted, is_safe_relative_path, single_html_file
 from engine.validators.token_rules import apply_token_rules
 from engine.pipeline.context import PipelineContext
+from engine.domain.enums.scope.context_keys import ContextKey, ContextRoot
 from engine.pipeline.artifact_serializers import build_token_inventory_artifact
 from engine.pipeline.pipeline import run_pipeline
 from engine.pipeline.stages.assemble_results import _build_results_view
@@ -170,13 +173,13 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         return {
             "snapshot": artifacts.snapshot.to_dict(),
             "styles_inventory": (
-                artifacts.styles_inventory_seed.to_dict()
-                if artifacts.styles_inventory_seed is not None
+                artifacts.style_catalog.to_dict()
+                if artifacts.style_catalog is not None
                 else []
             ),
             "palette": (
-                artifacts.colors_inventory_seed.to_palette_dicts()
-                if artifacts.colors_inventory_seed is not None
+                artifacts.colors_inventory.to_palette_dicts()
+                if artifacts.colors_inventory is not None
                 else []
             ),
         }
@@ -289,12 +292,12 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertFalse((Path("engine/utils/html_utils.py")).exists())
 
     def test_pipeline_context_uses_hierarchical_runtime_state(self) -> None:
-        context = PipelineContext(file=None)
+        context = PipelineContext()
         self.assertEqual(context.trace.__class__.__name__, "DebugTrace")
-        context.set("session.input.html_name", "index.html")
+        context.set("session.before.html_name", "index.html")
         context.set("prototype_structure.nodes", ())
         context.set("style.catalog", StyleCatalog())
-        self.assertEqual(context.get("session.input.html_name"), "index.html")
+        self.assertEqual(context.get("session.before.html_name"), "index.html")
         self.assertTrue(context.has("prototype_structure.nodes"))
         self.assertTrue(context.has("style.catalog"))
         self.assertIsInstance(context.snapshot(), dict)
@@ -303,16 +306,78 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             context.set("inventory.catalog", {})
 
-    def test_session_model_builds_related_input_output_and_artifact_directories(self) -> None:
-        session = Session.build(
+    def test_pipeline_context_keys_are_canonical_enums(self) -> None:
+        self.assertEqual(ContextRoot.PAGE_BUILDER.value, "page_builder")
+        self.assertEqual(ContextRoot.COLOR.value, "color")
+        self.assertEqual(ContextKey.COLOR_CATALOG.value, "color.catalog")
+        self.assertEqual(ContextKey.ENVIRONMENTAL_BEFORE_ASSESSMENT.value, "environmental.before.assessment")
+        self.assertEqual(
+            {
+                key.value
+                for key in ContextKey
+                if key.value.startswith("scheme.")
+            },
+            {
+                "scheme.color_histogram",
+                "scheme.tonal_palettes",
+                "scheme.named_color_breakdown",
+            },
+        )
+
+        context = PipelineContext()
+        context.set(ContextKey.PROTOTYPE_STRUCTURE, ())
+        self.assertEqual(context.get(ContextKey.PROTOTYPE_STRUCTURE), ())
+        self.assertFalse(context.has("session.before.file"))
+
+    def test_pipeline_uses_context_key_enums_for_literal_context_access(self) -> None:
+        checked_methods = {"get", "set", "has", "require"}
+        violations: list[str] = []
+        for path in Path("engine/pipeline").rglob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr in checked_methods
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == "context"
+                    and node.args
+                    and isinstance(node.args[0], ast.Constant)
+                    and isinstance(node.args[0].value, str)
+                ):
+                    violations.append(f"{path}:{node.lineno}:{node.func.attr}")
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Name)
+                    and node.func.id == "context_value"
+                    and node.args
+                    and isinstance(node.args[0], ast.Constant)
+                    and isinstance(node.args[0].value, str)
+                ):
+                    violations.append(f"{path}:{node.lineno}:context_value")
+        self.assertEqual(violations, [])
+
+    def test_session_model_builds_related_before_after_and_artifact_directories(self) -> None:
+        session = Session(
             session_id="abc12345",
             base_dir="workspace/sessions",
         )
+        html = FilePath("pages/index.html")
+        session.add_file_path(html)
 
-        self.assertTrue(session.session_dir.endswith("session_abc12345"))
-        self.assertTrue(session.input_dir.endswith("session_abc12345\\input"))
-        self.assertTrue(session.output_dir.endswith("session_abc12345\\output"))
-        self.assertTrue(session.artifacts_dir.endswith("session_abc12345\\artifacts"))
+        self.assertEqual(session.build_path("before").name, "before")
+        self.assertEqual(session.build_path("after").name, "after")
+        self.assertEqual(session.build_path("artifacts").name, "artifacts")
+        self.assertEqual(
+            session.build_path("before", html),
+            (Path("workspace/sessions") / "session_abc12345" / "before" / "pages" / "index.html").resolve(),
+        )
+        self.assertTrue(
+            str(session.build_path("after", html)).endswith(
+                str(Path("session_abc12345") / "after" / "pages" / "index.html")
+            )
+        )
+        self.assertEqual(single_html_file(session.file_paths), html)
 
     def test_color_processing_uses_canonical_domain_and_adapter_modules(self) -> None:
         self.assertFalse((Path("engine/color_processing/models.py")).exists())
@@ -391,29 +456,88 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertEqual(TransformationKind.HEURISTIC.value, "heuristic")
         self.assertEqual(TransformationStatus.APPLIED.value, "applied")
 
-    def test_validate_zip_members_rejects_traversal(self) -> None:
+    def test_project_upload_predicates_reject_traversal(self) -> None:
+        self.assertFalse(is_safe_relative_path("../escape.html"))
+
+    def test_project_upload_predicates_reject_extensionless_files(self) -> None:
+        self.assertFalse(is_file_permitted("project/README", {".html"}))
+
+    def test_project_upload_predicates_reject_disallowed_extensions(self) -> None:
+        self.assertFalse(is_file_permitted("project/app.exe", {".html", ".css"}))
+
+    def test_project_upload_predicate_rejects_multiple_html_files(self) -> None:
+        file_paths = (
+            FilePath("project/index.html"),
+            FilePath("project/about.html"),
+        )
+
+        self.assertFalse(has_single_html(file_paths))
+
+    def test_prepare_project_session_does_not_create_workspace_for_invalid_zip(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            zip_path = Path(temp_dir) / "unsafe.zip"
-            with zipfile.ZipFile(zip_path, "w") as archive:
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, "w") as archive:
                 archive.writestr("../escape.html", "<html></html>")
-            with zipfile.ZipFile(zip_path, "r") as archive:
-                error = validate_zip_members(archive)
 
-        self.assertIn("ZIP inseguro", error or "")
+            context = prepare_project_session.run_stage(
+                PipelineContext(),
+                InMemoryUpload("unsafe.zip", buffer.getvalue()),
+                base_dir=Path(temp_dir),
+            )
 
-    def test_load_project_input_returns_typed_input(self) -> None:
+            self.assertIsNotNone(context.error)
+            self.assertEqual(list(Path(temp_dir).glob("session_*")), [])
+
+    def test_prepare_project_session_does_not_create_workspace_for_corrupt_zip(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            context = prepare_project_session.run_stage(
+                PipelineContext(),
+                InMemoryUpload("broken.zip", b"not a zip"),
+                base_dir=Path(temp_dir),
+            )
+
+            self.assertEqual(context.error, "ZIP corrupto")
+            self.assertEqual(list(Path(temp_dir).glob("session_*")), [])
+
+    def test_prepare_project_session_returns_typed_session(self) -> None:
         html_bytes = RENDER_SCOPE_MATRIX.read_bytes()
         upload = InMemoryUpload("render_scope_matrix.html", html_bytes)
 
-        project_input = load_project_input(upload, "testsess1")
+        context = prepare_project_session.run_stage(PipelineContext(), upload)
+        project_before = context.get(ContextKey.SESSION)
 
-        self.assertFalse(isinstance(project_input, str))
-        assert not isinstance(project_input, str)
-        self.assertIsInstance(project_input, Session)
-        self.assertEqual(project_input.input_html_name, "render_scope_matrix.html")
-        self.assertIn("Snapshot Matrix", project_input.input_html_content)
-        self.assertEqual(project_input.session_id, "testsess1")
-        self.assertTrue(project_input.input_html_path.endswith("render_scope_matrix.html"))
+        self.assertIsInstance(project_before, Session)
+        html_file = single_html_file(project_before.file_paths)
+        before_html_path = project_before.build_path("before", html_file)
+        self.assertEqual(html_file.name, "render_scope_matrix.html")
+        self.assertIn("Snapshot Matrix", before_html_path.read_text(encoding="utf-8"))
+        self.assertTrue(str(before_html_path).endswith("render_scope_matrix.html"))
+
+    def test_prepare_project_session_supports_deep_nested_zip_project(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, "w") as archive:
+                archive.writestr(
+                    "project/src/pages/index.html",
+                    "<html><body>Deep nested project</body></html>",
+                )
+                archive.writestr("project/src/styles/site.css", "body { color: #111; }")
+
+            context = prepare_project_session.run_stage(
+                PipelineContext(),
+                InMemoryUpload("project.zip", buffer.getvalue()),
+                base_dir=Path(temp_dir),
+            )
+            project_before = context.get(ContextKey.SESSION)
+
+            self.assertIsInstance(project_before, Session)
+            html_file = single_html_file(project_before.file_paths)
+            self.assertEqual(project_before.project_root_file_path().relative_path, Path("project"))
+            self.assertEqual(html_file.relative_path.parts, ("project", "src", "pages", "index.html"))
+            self.assertIn(
+                "Deep nested project",
+                project_before.build_path("before", html_file).read_text(encoding="utf-8"),
+            )
 
     def test_render_snapshot_contains_expected_scope_and_text(self) -> None:
         html_content = RENDER_SCOPE_MATRIX.read_text(encoding="utf-8")
@@ -505,7 +629,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertTrue(all("style_id" in rule for rule in styles_inventory))
         self.assertTrue(all("kind" in rule for rule in styles_inventory))
         self.assertTrue(all("declarations" in rule for rule in styles_inventory))
-        self.assertTrue(all(rule["kind"] == "computed" for rule in styles_inventory))
+        self.assertTrue(all(rule["kind"] != "computed" for rule in styles_inventory))
         self.assertTrue(all("node_ids" not in rule for rule in styles_inventory))
         self.assertTrue(all("usage_count" not in rule for rule in styles_inventory))
         self.assertTrue(
@@ -1086,13 +1210,34 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             options=SnapshotOptions(capture_screenshot=False),
         )
         elements_inventory = _elements(artifacts.snapshot.nodes)
-        styles_inventory = StyleCatalog.build(artifacts.styles_inventory_seed)
-        colors_inventory = ColorCatalog.build(artifacts.colors_inventory_seed)
+        styles_inventory = (
+            artifacts.style_catalog
+            if artifacts.style_catalog is not None
+            else StyleCatalog()
+        )
+        colors_inventory = ColorCatalog.build(artifacts.colors_inventory)
         prototype_structure = _prototype(elements_inventory, styles_inventory)
 
         title_entry = next(
             entry for entry in elements_inventory if entry.html_id == "title"
         )
+        resolved_property_with_declaration = next(
+            (
+                (element_entry, property_model)
+                for element_entry in prototype_structure
+                for property_model in prototype_structure.properties_for(element_entry)
+                if property_model.declaration_id and property_model.resolution_status == "exact_match"
+            ),
+            None,
+        )
+        self.assertIsNotNone(resolved_property_with_declaration)
+        assert resolved_property_with_declaration is not None
+        declaration_owner, property_with_declaration = resolved_property_with_declaration
+        declaration = styles_inventory.declaration_by_id(property_with_declaration.declaration_id or "")
+        self.assertIsNotNone(declaration)
+        assert declaration is not None
+        self.assertIn(declaration_owner.node_id, declaration.used_by_element_ids)
+        self.assertGreaterEqual(declaration.element_usage_count, 1)
         parent = prototype_structure.parent_of(title_entry.node_id)
         self.assertIsNotNone(parent)
         assert parent is not None
@@ -1204,9 +1349,13 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             base_path=str(FIXTURES_DIR),
             options=SnapshotOptions(capture_screenshot=False),
         )
-        colors_inventory = ColorCatalog.build(artifacts.colors_inventory_seed)
+        colors_inventory = ColorCatalog.build(artifacts.colors_inventory)
         elements_inventory = _elements(artifacts.snapshot.nodes)
-        styles_inventory = StyleCatalog.build(artifacts.styles_inventory_seed)
+        styles_inventory = (
+            artifacts.style_catalog
+            if artifacts.style_catalog is not None
+            else StyleCatalog()
+        )
         palette_analysis = build_palette_analysis(
             snapshot_palette=colors_inventory.to_palette_dicts(),
             material_quantization_assessment=get_material_quantization_assessment(),
@@ -1256,9 +1405,13 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             base_path=str(FIXTURES_DIR),
             options=SnapshotOptions(capture_screenshot=False),
         )
-        colors_inventory = ColorCatalog.build(artifacts.colors_inventory_seed)
+        colors_inventory = ColorCatalog.build(artifacts.colors_inventory)
         elements_inventory = _elements(artifacts.snapshot.nodes)
-        styles_inventory = StyleCatalog.build(artifacts.styles_inventory_seed)
+        styles_inventory = (
+            artifacts.style_catalog
+            if artifacts.style_catalog is not None
+            else StyleCatalog()
+        )
         palette_analysis = build_palette_analysis(
             snapshot_palette=colors_inventory.to_palette_dicts(),
             material_quantization_assessment=get_material_quantization_assessment(),
@@ -1286,15 +1439,15 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             tokens_path = Path(tmp_dir) / "tokens.json"
             legacy_relations_filename = "inventory" + "_" + "gra" + "ph.json"
             legacy_path = Path(tmp_dir) / legacy_relations_filename
-            context = PipelineContext(file=None)
-            context.set("prototype_structure", _prototype(elements_inventory, styles_inventory))
-            context.set("scheme.colors", tuple(mapped_colors))
-            context.set("scheme.tonal_palettes", palette_analysis.core_palettes)
+            context = PipelineContext()
+            context.set(ContextKey.PROTOTYPE_STRUCTURE, _prototype(elements_inventory, styles_inventory))
+            context.set(ContextKey.COLOR_CATALOG, mapped_colors)
+            context.set(ContextKey.SCHEME_TONAL_PALETTES, palette_analysis.core_palettes)
             run_set_tokens_stage(context)
             legacy_key = "inventory" + "." + "gra" + "ph"
             self.assertFalse(context.has(legacy_key))
-            self.assertTrue(context.has("token.inventory"))
-            tokenized_structure = context.get("prototype_structure")
+            self.assertTrue(context.has(ContextKey.TOKEN_INVENTORY))
+            tokenized_structure = context.get(ContextKey.PROTOTYPE_STRUCTURE)
             self.assertTrue(any(element.token_ids for element in tokenized_structure))
             self.assertTrue(
                 any(
@@ -1303,12 +1456,12 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                     for property_model in element.properties
                 )
             )
-            self.assertTrue(any(color.token_ids for color in context.get("scheme.colors")))
+            self.assertTrue(any(color.token_ids for color in context.get(ContextKey.COLOR_CATALOG)))
 
             run_check_tokens_stage(context)
             self.assertFalse(context.has(legacy_key))
-            self.assertTrue(context.has("token.inventory"))
-            self.assertTrue(any(color.token_ids for color in context.get("scheme.colors")))
+            self.assertTrue(context.has(ContextKey.TOKEN_INVENTORY))
+            self.assertTrue(any(color.token_ids for color in context.get(ContextKey.COLOR_CATALOG)))
             self.assertFalse(tokens_path.exists())
             self.assertFalse(legacy_path.exists())
 
@@ -1317,7 +1470,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             input_root = Path(tmp_dir) / "input_project"
             output_root = Path(tmp_dir) / "output_project"
             html_path, html_content = _build_nested_asset_project(input_root)
-            stage_project_assets(str(input_root), str(output_root))
+            shutil.copytree(input_root, output_root)
 
             apply_tokens_to_project(
                 html_content,
@@ -1348,7 +1501,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             input_root = Path(tmp_dir) / "input_project"
             output_root = Path(tmp_dir) / "output_project"
             html_path, html_content = _build_nested_asset_project(input_root)
-            stage_project_assets(str(input_root), str(output_root))
+            shutil.copytree(input_root, output_root)
 
             evaluate_and_apply_heuristics(
                 html_content,
@@ -2135,6 +2288,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 "<html><body style=\"background:#000;color:#fff\"><h1>Hola</h1></body></html>",
             )
             archive.writestr("Pagina/css/site.css", "body { margin: 0; }")
+            archive.writestr("Pagina/assets/logo.png", b"fake-png")
 
         app = create_app()
         upload = InMemoryUpload("Pagina_de_prueba_2.zip", buffer.getvalue())
@@ -2144,13 +2298,85 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertIsNone(error)
         assert results is not None
         session_dir = Path("workspace/sessions") / results["session_dirname"]
-        self.assertTrue((session_dir / "input" / "Pagina" / "menu.html").exists())
-        self.assertTrue((session_dir / "output" / "Pagina" / "menu.html").exists())
-        self.assertTrue((session_dir / "output" / "Pagina" / "css" / "site.css").exists())
-        self.assertFalse((session_dir / "output" / "palette_preview.png").exists())
-        self.assertFalse((session_dir / "output" / "Pagina_de_prueba_2.zip").exists())
+        self.assertTrue((session_dir / "before" / "Pagina" / "menu.html").exists())
+        self.assertTrue((session_dir / "before" / "Pagina" / "assets" / "logo.png").exists())
+        self.assertTrue((session_dir / "after" / "Pagina" / "menu.html").exists())
+        self.assertTrue((session_dir / "after" / "Pagina" / "css" / "site.css").exists())
+        self.assertTrue((session_dir / "after" / "Pagina" / "assets" / "logo.png").exists())
+        self.assertFalse((session_dir / "after" / "palette_preview.png").exists())
+        self.assertFalse((session_dir / "after" / "Pagina_de_prueba_2.zip").exists())
         self.assertTrue((session_dir / "artifacts" / "palette_preview.png").exists())
-        self.assertTrue((session_dir / "artifacts" / "Pagina_de_prueba_2.zip").exists())
+        self.assertTrue((session_dir / "artifacts" / "Pagina.zip").exists())
+
+    def test_results_route_serves_zip_assets_screenshots_and_download_bundle(self) -> None:
+        png_1x1 = (
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+            b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+            b"\x00\x00\x00\nIDATx\x9cc\xf8\x0f\x00\x01\x01\x01\x00"
+            b"\x18\xdd\x8d\xb0\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr(
+                "site/pages/index.html",
+                """
+                <html>
+                  <head><link rel="stylesheet" href="../styles/site.css"></head>
+                  <body>
+                    <main class="hero"><h1>Asset route check</h1><img src="../assets/logo.png"></main>
+                  </body>
+                </html>
+                """,
+            )
+            archive.writestr(
+                "site/styles/site.css",
+                ".hero { background: #ffffff; color: #111111; padding: 24px; } img { width: 1px; height: 1px; }",
+            )
+            archive.writestr("site/assets/logo.png", png_1x1)
+
+        app = create_app()
+        client = app.test_client()
+        response = client.post(
+            "/results",
+            data={"file": (io.BytesIO(buffer.getvalue()), "asset_project.zip")},
+            content_type="multipart/form-data",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        match = re.search(r"/sessions/(session_[^/]+)/artifacts/before\.png", html)
+        self.assertIsNotNone(match)
+        session_dirname = match.group(1)
+        session_dir = Path("workspace/sessions") / session_dirname
+
+        self.assertTrue((session_dir / "before" / "site" / "pages" / "index.html").exists())
+        self.assertTrue((session_dir / "before" / "site" / "styles" / "site.css").exists())
+        self.assertTrue((session_dir / "before" / "site" / "assets" / "logo.png").exists())
+        self.assertTrue((session_dir / "after" / "site" / "pages" / "index.html").exists())
+        self.assertTrue((session_dir / "after" / "site" / "styles" / "site.css").exists())
+        self.assertTrue((session_dir / "after" / "site" / "assets" / "logo.png").exists())
+
+        before_response = client.get(f"/sessions/{session_dirname}/artifacts/before.png")
+        after_response = client.get(f"/sessions/{session_dirname}/artifacts/after.png")
+        bundle_response = client.get(f"/sessions/{session_dirname}/artifacts/site.zip")
+        transformed_response = client.get(f"/sessions/{session_dirname}/output/site/pages/index.html")
+
+        try:
+            self.assertEqual(before_response.status_code, 200)
+            self.assertEqual(after_response.status_code, 200)
+            self.assertEqual(bundle_response.status_code, 200)
+            self.assertEqual(transformed_response.status_code, 200)
+            self.assertIn("Asset route check", transformed_response.get_data(as_text=True))
+
+            with zipfile.ZipFile(io.BytesIO(bundle_response.data), "r") as bundle:
+                self.assertIn("site/pages/index.html", bundle.namelist())
+                self.assertIn("site/styles/site.css", bundle.namelist())
+                self.assertIn("site/assets/logo.png", bundle.namelist())
+        finally:
+            before_response.close()
+            after_response.close()
+            bundle_response.close()
+            transformed_response.close()
 
     def test_placeholder_gitkeeps_are_removed_from_cleaned_domains(self) -> None:
         forbidden_gitkeeps = (
@@ -2184,12 +2410,11 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             Path("engine/domain/enums/types/color.py"),
             Path("engine/domain/enums/types/elements.py"),
             Path("engine/domain/enums/types/transformations.py"),
-            Path("engine/adapters/file_system/file_handler.py"),
-            Path("engine/adapters/file_system/code_processor.py"),
+            Path("engine/adapters/file_system/file_manager.py"),
+            Path("engine/adapters/source_code_handler/code_processor.py"),
             Path("engine/adapters/browser/page_builder.py"),
             Path("engine/adapters/browser/render_models.py"),
             Path("engine/adapters/color_service/service.py"),
-            Path("engine/adapters/utils/io.py"),
             Path("engine/adapters/utils/pixel.py"),
             Path("engine/validators/file_handling"),
         )
@@ -2256,6 +2481,11 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             "inventory" + "." + "gra" + "ph",
             "build_" + "effect_color_report",
             "derived" + ".effect_color_report",
+            "scheme." + "colors",
+            "SCHEME" + "_COLORS",
+            "scheme." + "color_catalog",
+            "scheme." + "semantic_colors",
+            "build_" + "color_catalog_from_scheme",
         )
 
         for path in python_files:
@@ -2264,18 +2494,21 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 self.assertNotIn(token, content, msg=f"{token} still present in {path}")
 
     def test_runtime_state_is_not_stored_on_session_or_results_json(self) -> None:
-        session_source = Path("engine/domain/models/session.py").read_text(encoding="utf-8")
+        repo_root = Path(__file__).resolve().parents[1]
+        session_source = (repo_root / "engine" / "domain" / "models" / "session.py").read_text(
+            encoding="utf-8"
+        )
         self.assertNotIn("original_" + "capture", session_source)
         self.assertNotIn("original_" + "css_overview", session_source)
         self.assertNotIn("results_" + "json_path", session_source)
 
-        assemble_source = Path("engine/pipeline/stages/assemble_results.py").read_text(
+        assemble_source = (repo_root / "engine" / "pipeline" / "stages" / "assemble_results.py").read_text(
             encoding="utf-8"
         )
         self.assertNotIn("save_" + "json", assemble_source)
         self.assertNotIn("results_" + "json_path", assemble_source)
 
-        for path in Path("engine").rglob("*.py"):
+        for path in (repo_root / "engine").rglob("*.py"):
             content = path.read_text(encoding="utf-8")
             self.assertNotIn("def " + "save_json", content, msg=str(path))
 

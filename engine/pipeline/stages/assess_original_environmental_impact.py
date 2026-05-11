@@ -7,6 +7,7 @@ from engine.domain.models.environmental_assessment.carbon_footprint import (
 from engine.domain.models.environmental_assessment.assessment import EnvironmentalAssessmentModel
 from engine.domain.models.environmental_assessment.energy_consumption import EnergyModel
 from engine.pipeline.context import PipelineContext
+from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.pipeline.stage_contract import StageContract, context_value
 
 _ENERGY_MODEL = EnergyModel.build_default()
@@ -15,28 +16,28 @@ _CARBON_MODEL = CarbonFootprintModel.build_default()
 CONTRACT = StageContract(
     name="assess_original_environmental_impact",
     requires=(
-        context_value("environmental.before.color_histogram", list),
+        context_value(K.ENVIRONMENTAL_BEFORE_COLOR_HISTOGRAM, list),
     ),
     produces=(
-        context_value("environmental.before.assessment", EnvironmentalAssessmentModel),
+        context_value(K.ENVIRONMENTAL_BEFORE_ASSESSMENT, EnvironmentalAssessmentModel),
     ),
 )
 
 
 def run_stage(context: PipelineContext) -> PipelineContext:
-    if context.error or context.has("environmental.before.assessment"):
+    if context.error or context.has(K.ENVIRONMENTAL_BEFORE_ASSESSMENT):
         return context
 
     context.trace.add_stage_event(CONTRACT.name, "start")
     assessment = EnvironmentalAssessmentModel.build(
         assess_interface(
-            context.get("environmental.before.color_histogram", []),
+            context.get(K.ENVIRONMENTAL_BEFORE_COLOR_HISTOGRAM, []),
             energy_model=_ENERGY_MODEL,
             carbon_model=_CARBON_MODEL,
             time_hours=1,
         )
     )
-    context.set("environmental.before.assessment", assessment)
+    context.set(K.ENVIRONMENTAL_BEFORE_ASSESSMENT, assessment)
     context.trace.add_step(
         "assessment.original",
         {

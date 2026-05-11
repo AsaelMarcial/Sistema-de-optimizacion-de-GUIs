@@ -9,7 +9,7 @@ from flask import (
 )
 from pathlib import Path
 
-from app.config import get_artifacts_dir, get_output_dir
+from engine.domain.models.session import Session
 from engine.pipeline.pipeline import run_pipeline
 
 
@@ -28,13 +28,13 @@ def header():
 
 @main.route("/sessions/<session_id>/artifacts/<path:filename>")
 def session_artifact(session_id: str, filename: str):
-    artifacts_dir = get_artifacts_dir(session_id)
+    artifacts_dir = Session(session_id=session_id).build_path("artifacts")
     return send_from_directory(artifacts_dir, filename)
 
 
 @main.route("/sessions/<session_id>/output/<path:filename>")
 def session_output(session_id: str, filename: str):
-    output_dir = get_output_dir(session_id)
+    output_dir = Session(session_id=session_id).build_path("after")
     return send_from_directory(output_dir, filename)
 
 

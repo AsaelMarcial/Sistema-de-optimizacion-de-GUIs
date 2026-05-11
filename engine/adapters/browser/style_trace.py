@@ -472,6 +472,28 @@ def _build_styles_inventory(
     return StyleCatalog.build_from_aggregate(aggregate)
 
 
+def _apply_exact_declaration_usage(
+    style_catalog: StyleCatalog,
+    declaration_usage_by_id: Mapping[str, set[str]],
+) -> StyleCatalog:
+    entries = []
+    for style_rule in style_catalog:
+        declarations = tuple(
+            declaration.with_usage(
+                used_by_element_ids=tuple(
+                    sorted(str(item) for item in declaration_usage_by_id.get(declaration.declaration_id or "", set()))
+                ),
+                usage_status="used"
+                if declaration_usage_by_id.get(declaration.declaration_id or "", set())
+                else "unknown",
+                element_usage_count=len(declaration_usage_by_id.get(declaration.declaration_id or "", set())),
+            )
+            for declaration in style_rule.declarations
+        )
+        entries.append(style_rule.with_declarations(declarations))
+    return StyleCatalog(entries=tuple(entries))
+
+
 def _computed_style_map(raw_node: dict[str, Any]) -> dict[CssPropertyId, str]:
     computed: dict[CssPropertyId, str] = {}
     for raw_value in raw_node.get("styles", {}).get("computed", []):
@@ -976,6 +998,7 @@ def collect_style_information(
     palette_usage: dict[str, dict[str, Any]] = {}
     node_style_entries: dict[int, list[dict[str, Any]]] = defaultdict(list)
     node_backgrounds: dict[int, tuple[list[str] | None, str | None]] = {}
+    declaration_usage_by_id: dict[str, set[str]] = defaultdict(set)
     declaration_seed = 0
     expansion_cache: dict[tuple[CssPropertyId, str], list[tuple[CssPropertyId, str]]] = {}
     resolve_cache: dict[tuple[int, CssPropertyId, str], str | None] = {}
@@ -1178,11 +1201,24 @@ def collect_style_information(
             expansion_cache=expansion_cache,
             resolve_cache=resolve_cache,
         )
+        node_id = backend_to_node_id.get(backend_node_id)
+        if node_id:
+            for resolved_value in resolved_computed_styles.values():
+                if not resolved_value.is_resolved():
+                    continue
+                declaration_id = str(resolved_value.declaration_id or "").strip()
+                if declaration_id:
+                    declaration_usage_by_id[declaration_id].add(node_id)
         background_colors, effective_background = node_backgrounds.get(backend_node_id, (None, None))
         element_traces[backend_node_id] = {
             "computed_styles": resolved_computed_styles,
             "background_colors": background_colors,
             "effective_background": effective_background,
         }
+
+    styles_inventory = _apply_exact_declaration_usage(
+        styles_inventory,
+        declaration_usage_by_id,
+    )
 
     return element_traces, styles_inventory, color_inventory

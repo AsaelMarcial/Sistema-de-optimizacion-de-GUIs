@@ -95,7 +95,7 @@ session.input_path
 session.output_path
 session.artifacts_path
 
-scheme.colors
+color.catalog
 scheme.tonal_palettes
 scheme.pixel_frequency
 style.catalog
@@ -312,7 +312,7 @@ Debe incluir únicamente evidencia visual agregada del render visible:
 - `total_pixels_considered`
 - `excluded_rect_count`
 
-Regla: `scheme.pixel_frequency` es evidencia visual complementaria para cuantización/pesos visuales; no reemplaza `scheme.colors` ni forma parte de `prototype_structure`.
+Regla: `scheme.pixel_frequency` es evidencia visual complementaria para cuantización/pesos visuales; no reemplaza `color.catalog` ni forma parte de `prototype_structure`.
 
 ### 11.3 `prototype_structure.nodes[].properties`
 
@@ -423,7 +423,7 @@ Para el flujo acordado, el reemplazo global tambien incluye `style.catalog` como
 8. `environmental_assessment`
 9. `assemble_results`
 
-> Nota: en compatibilidad transicional pueden permanecer stages separados (`capture_prototype_structure`, `capture_display_pixels`, `build_color_scheme`), pero el objetivo de ownership es que `PageBuilder` capture las características del diseño y el contexto guarde `prototype_structure`, `style.catalog` y `scheme` sin verdades paralelas.
+> Estado actual: `capture_original_state` ya concentra la captura original y pobla `prototype_structure`, `style.catalog`, `color.catalog` y `derived.raw_*`; `page_builder` vive como root propia de runtime y no dentro de `session`.
 
 ---
 
@@ -686,7 +686,7 @@ Resultado de revisión: los nombres usados en esta SRS quedan consistentes con l
 
 - Etapas: `prepare_session`, `start_page_builder`, `capture_design_state`, `close_page_builder`, `derive_quality_reports`, `set_token_assignments`, `transform_source_project`, `environmental_assessment`, `assemble_results`.
 - Clases de dominio propuestas o ajustadas: `Session`, `ColorScheme`, `PrototypeStructure`, `StyleCatalog`, `Element`, `Property`.
-- Claves de contexto: `session.*`, `scheme.*`, `style.catalog.*`, `prototype_structure.*`, `environmental.*`, `results.*`.
+- Claves de contexto: `session.*`, `page_builder`, `prototype_structure`, `style.catalog`, `color.catalog`, `scheme.*`, `token.inventory`, `derived.*`, `environmental.*`, `transformation.*`, `recommendations` y `results`.
 
 ### 22.2 Nombres que se consideran transicionales o heredados
 
@@ -719,7 +719,7 @@ Resultado de revisión: los nombres usados en esta SRS quedan consistentes con l
    - Ajuste: asegurar campos canónicos (`id`, `base_path`, `input_path`, `output_path`, `artifacts_path`) y constructor único por corrida.
 
 2. `ColorScheme` / modelo de esquema (actualmente en `engine/domain/models/palette.py` y flujo asociado)
-   - Ajuste: normalizar lectura/escritura en `scheme.colors`, `scheme.tonal_palettes` y `scheme.pixel_frequency`.
+   - Ajuste: normalizar lectura/escritura en `color.catalog`, `scheme.tonal_palettes` y `scheme.pixel_frequency`.
 
 3. `Element` (actualmente en `engine/domain/models/element.py`)
    - Ajuste: consolidar `classification` y `properties` para que soporte explícitamente `effect`.

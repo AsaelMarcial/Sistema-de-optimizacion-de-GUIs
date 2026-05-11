@@ -1,16 +1,24 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 from engine.adapters.browser.page_builder import PageBuilder
 from engine.adapters.browser.css_overview import build_css_overview_from_models
-from engine.adapters.browser.render_models import RenderArtifacts, SnapshotOptions
+from engine.adapters.browser.render_models import RenderSnapshot, SnapshotOptions
 from engine.domain.models.color import ColorCatalog
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.style import StyleCatalog
 from engine.domain.utils.color_usage import build_color_usage_catalog
+
+
+@dataclass(frozen=True, slots=True)
+class CapturedPrototypeState:
+    screenshot_path: str | None
+    snapshot: RenderSnapshot
+    style_catalog: StyleCatalog
+    colors_inventory: ColorCatalog
 
 
 def capture_prototype_state_artifacts(
@@ -22,7 +30,7 @@ def capture_prototype_state_artifacts(
     screenshot_filename: str | None = None,
     page_builder: PageBuilder | None = None,
     session_id: str | None = None,
-) -> RenderArtifacts:
+) -> CapturedPrototypeState:
     options = options or SnapshotOptions()
     if session_id and artifacts_dir is None:
         artifacts_path = Path("workspace") / "sessions" / f"session_{session_id}" / "artifacts"
@@ -36,9 +44,17 @@ def capture_prototype_state_artifacts(
         options=options,
     )
     try:
-        return builder.capture_state_artifacts(
-            artifacts_dir=artifacts_dir,
-            screenshot_filename=screenshot_filename,
+        screenshot_path = None
+        if artifacts_dir and screenshot_filename:
+            screenshot_path = builder.capture_full_page_screenshot(
+                output_path=str(Path(artifacts_dir) / Path(screenshot_filename).name),
+            )
+        snapshot, style_catalog, colors_inventory = builder.capture_snapshot_models()
+        return CapturedPrototypeState(
+            screenshot_path=screenshot_path,
+            snapshot=snapshot,
+            style_catalog=style_catalog,
+            colors_inventory=colors_inventory,
         )
     finally:
         if owns_page_builder:
@@ -71,17 +87,16 @@ def extract_prototype_css_overview(
         options=options,
     )
     try:
-        artifacts = builder.capture_state_artifacts()
+        snapshot, styles_inventory, colors_inventory = builder.capture_snapshot_models()
     finally:
         builder.close()
-    styles_inventory = StyleCatalog.build(artifacts.styles_inventory_seed or StyleCatalog())
     prototype_structure = PrototypeStructure.build(
-        artifacts.snapshot.nodes,
+        snapshot.nodes,
         styles_inventory=styles_inventory,
     )
     colors_inventory = build_color_usage_catalog(
         prototype_structure,
-        existing_inventory=ColorCatalog.build(artifacts.colors_inventory_seed or ColorCatalog()),
+        existing_inventory=ColorCatalog.build(colors_inventory),
     )
     return build_css_overview_from_models(
         prototype_structure,

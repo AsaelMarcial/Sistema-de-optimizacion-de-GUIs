@@ -1,44 +1,37 @@
 from __future__ import annotations
 
-from dataclasses import replace
-
-from engine.adapters.file_system.code_processor import (
+from engine.adapters.source_code_handler.code_processor import (
     apply_tokens_to_project,
     evaluate_and_apply_heuristics,
-    load_transformed_html,
-    stage_project_assets,
 )
+from engine.adapters.file_system.file_manager import read_text
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.session import Session
 from engine.domain.models.token import TokenInventoryModel
 from engine.pipeline.context import PipelineContext
+from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.pipeline.stage_contract import StageContract, context_value
+from engine.validators.project_uploaded import single_html_file
 
 
 def _session_ready_for_transform(session: Session) -> bool:
-    return (
-        bool(session.input_html_content.strip())
-        and bool(session.input_base_path.strip())
-        and bool(session.output_dir.strip())
-        and bool(session.output_html_path.strip())
-    )
+    try:
+        html_file = single_html_file(session.file_paths)
+        return session.build_path("before", html_file).exists() and session.build_path("after", html_file).exists()
+    except Exception:
+        return False
 
-
-def _transformed_session(session: Session) -> bool:
-    return bool(session.output_html_content.strip())
 
 CONTRACT = StageContract(
     name="transform_source_project",
     requires=(
-        context_value("session", Session, validator=_session_ready_for_transform),
-        context_value("prototype_structure", PrototypeStructure),
-        context_value("token.inventory", TokenInventoryModel),
+        context_value(K.SESSION, Session, validator=_session_ready_for_transform),
+        context_value(K.PROTOTYPE_STRUCTURE, PrototypeStructure),
+        context_value(K.TOKEN_INVENTORY, TokenInventoryModel),
     ),
     produces=(
-        context_value("transformation.heuristics", list),
-        context_value("transformation.output.html.path", str, validator=lambda value: bool(value.strip())),
-        context_value("transformation.output.html.content", str, validator=lambda value: bool(value.strip())),
-        context_value("session", Session, validator=_transformed_session),
+        context_value(K.TRANSFORMATION_HEURISTICS, list),
+        context_value(K.TRANSFORMATION_OUTPUT_HTML_PATH, str, validator=lambda value: bool(value.strip())),
     ),
 )
 
@@ -47,54 +40,49 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     if context.error:
         return context
 
-    session = context.get("session")
-    output_dir = session.output_dir
-    context.trace.add_stage_event(CONTRACT.name, "start", {"output_dir": output_dir})
-
-    stage_project_assets(
-        session.input_base_path,
-        session.output_base_path,
-    )
-    context.trace.add_step("transformed.resources_prepared", {"output_dir": output_dir})
+    session = context.get(K.SESSION)
+    html_file = single_html_file(session.file_paths)
+    project_root = session.project_root_file_path()
+    before_html_path = session.build_path("before", html_file)
+    after_html_path = session.build_path("after", html_file)
+    html_content = read_text(before_html_path)
+    after_dir = session.build_path("after")
+    context.trace.add_stage_event(CONTRACT.name, "start", {"after_dir": str(after_dir)})
 
     token_results = apply_tokens_to_project(
-        session.input_html_content,
-        session.output_html_path,
-        session.output_base_path,
-        context.get("token.inventory"),
-        context.get("prototype_structure"),
+        html_content,
+        after_html_path,
+        session.build_path("after", project_root),
+        context.get(K.TOKEN_INVENTORY),
+        context.get(K.PROTOTYPE_STRUCTURE),
     )
     if token_results:
         heuristics_results = token_results
     else:
         heuristics_results = evaluate_and_apply_heuristics(
-            session.input_html_content,
-            session.output_html_path,
-            session.output_base_path,
+            html_content,
+            after_html_path,
+            session.build_path("after", project_root),
             None,
         )
-    context.set("transformation.heuristics", heuristics_results)
+    context.set(K.TRANSFORMATION_HEURISTICS, heuristics_results)
     context.trace.add_step(
         "transformed.heuristics_applied",
         {"heuristics_count": len(heuristics_results)},
     )
 
-    transformed_html_path, transformed_html_content = load_transformed_html(
-        session.output_html_path,
-    )
-    context.set("transformation.output.html.path", transformed_html_path)
-    context.set("transformation.output.html.content", transformed_html_content)
-    context.set("session", replace(session, output_html_content=transformed_html_content))
+    transformed_html_path = after_html_path
+    context.set(K.TRANSFORMATION_OUTPUT_HTML_PATH, str(transformed_html_path))
     context.trace.add_step(
         "transformed.html_loaded",
-        {"html_environmental_path": transformed_html_path},
+        {"html_environmental_path": str(transformed_html_path)},
     )
     context.trace.add_stage_event(
         CONTRACT.name,
         "complete",
         {
             "heuristics_count": len(heuristics_results),
-            "transformed_html_path": transformed_html_path,
+            "transformed_html_path": str(transformed_html_path),
         },
     )
     return context

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from engine.domain.models.color import Color, build_color_catalog_from_scheme
+from typing import Any
+
+from engine.adapters.color_service import color_registry
+from engine.domain.models.color import Color, ColorCatalog
 from engine.domain.models.element import Element, Property
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.quality_reports import (
@@ -8,7 +11,9 @@ from engine.domain.models.quality_reports import (
     ContrastIssue,
     ContrastReport,
 )
+from engine.domain.enums.types.quality import ContrastBackgroundValidation
 from engine.pipeline.context import PipelineContext
+from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.pipeline.stage_contract import StageContract, context_value
 
 _FOREGROUND_PROPERTY_NAMES = ("color", "fill", "stroke", "text-decoration-color", "outline-color")
@@ -18,11 +23,10 @@ _BACKGROUND_PROPERTY_NAMES = ("background-color", "background")
 CONTRACT = StageContract(
     name="build_contrast_report",
     requires=(
-        context_value("prototype_structure", PrototypeStructure),
-        context_value("scheme.colors", tuple),
-        context_value("derived.raw_css_overview", dict),
+        context_value(K.PROTOTYPE_STRUCTURE, PrototypeStructure),
+        context_value(K.COLOR_CATALOG, ColorCatalog),
     ),
-    produces=(context_value("derived.contrast_report", ContrastReport),),
+    produces=(context_value(K.DERIVED_CONTRAST_REPORT, ContrastReport),),
 )
 
 
@@ -52,23 +56,15 @@ def _resolve_color_source(
 
 
 def _build_color_reference(
-    fallback_payload: dict,
     *,
     color_entry: Color | None,
     source_element: Element | None,
     source_property: Property | None,
 ) -> ContrastColorReference:
     return ContrastColorReference(
-        css=str(fallback_payload.get("css") or ""),
-        hex_value=str(
-            fallback_payload.get("hex")
-            or (color_entry.hex_value if color_entry is not None else "")
-        ),
-        alpha=float(
-            fallback_payload.get("alpha")
-            if fallback_payload.get("alpha") is not None
-            else (color_entry.alpha if color_entry is not None else 0.0)
-        ),
+        css=color_entry.value if color_entry is not None else "",
+        hex_value=color_entry.hex_value if color_entry is not None else "",
+        alpha=color_entry.alpha if color_entry is not None else 0.0,
         color_id=color_entry.color_id if color_entry is not None else None,
         element_id=source_element.node_id if source_element is not None else None,
         style_id=source_property.style_id if source_property is not None else None,
@@ -78,91 +74,129 @@ def _build_color_reference(
     )
 
 
+def _property_value(element: Element, property_name: str) -> str:
+    property_model = next(
+        (item for item in element.properties if item.name == property_name),
+        None,
+    )
+    return str(property_model.value or "").strip() if property_model is not None else ""
+
+
+def _font_size_px(element: Element) -> float:
+    value = _property_value(element, "font-size").lower()
+    if value.endswith("px"):
+        value = value[:-2]
+    try:
+        return round(float(value), 4)
+    except ValueError:
+        return 0.0
+
+
+def _font_weight(element: Element) -> int:
+    value = _property_value(element, "font-weight").lower()
+    if value == "bold":
+        return 700
+    try:
+        return int(float(value))
+    except ValueError:
+        return 400
+
+
+def _contrast_ratio(foreground: Color, background: Color) -> float | None:
+    try:
+        foreground_value: Any = foreground.value
+        if foreground.alpha < 1.0:
+            foreground_value = color_registry.composite_over(foreground.value, background.value)
+        return round(float(color_registry.contrast_ratio(foreground_value, background.value)), 4)
+    except Exception:
+        return None
+
+
+def _text_sample(element: Element) -> str:
+    return str(element.text or "").strip()[:160]
+
+
+def _bounds(element: Element) -> dict[str, float]:
+    return {
+        "x": round(element.x, 4),
+        "y": round(element.y, 4),
+        "width": round(element.width, 4),
+        "height": round(element.height, 4),
+    }
+
+
 def _build_report(
-    css_overview: dict,
     prototype_structure: PrototypeStructure,
-    scheme_colors: tuple,
+    colors_inventory: ColorCatalog,
 ) -> ContrastReport:
-    colors_inventory = build_color_catalog_from_scheme(scheme_colors)
     issues: list[ContrastIssue] = []
-    raw_issues = tuple(css_overview.get("contrast_issues") or ())
 
-    for index, raw_issue in enumerate(raw_issues, start=1):
-        element_id = str(raw_issue.get("node_id") or "").strip() or None
-        element = prototype_structure.node_by_id(element_id) if element_id is not None else None
-        foreground_payload = dict(raw_issue.get("foreground") or {})
-        background_payload = dict(raw_issue.get("background") or {})
+    for element in prototype_structure.visible_nodes():
+        text_sample = _text_sample(element)
+        if not text_sample:
+            continue
 
-        foreground_entry = colors_inventory.entry_by_value(
-            str(foreground_payload.get("css") or foreground_payload.get("hex") or "")
+        foreground_entry = prototype_structure.effective_color_of(
+            element.node_id,
+            colors_inventory,
         )
-        background_entry = colors_inventory.entry_by_value(
-            str(background_payload.get("css") or background_payload.get("hex") or "")
+        background_entry = prototype_structure.effective_background_of(
+            element.node_id,
+            colors_inventory,
         )
+        if foreground_entry is None or background_entry is None:
+            continue
 
-        foreground_source_element = None
-        foreground_property = None
-        background_source_element = None
-        background_property = None
-        background_validation = "missing"
+        ratio = _contrast_ratio(foreground_entry, background_entry)
+        if ratio is None:
+            continue
 
-        if element is not None:
-            foreground_source_element, foreground_property = _resolve_color_source(
-                prototype_structure,
-                element=element,
-                color_entry=foreground_entry,
-                property_names=_FOREGROUND_PROPERTY_NAMES,
-            )
-            background_source_element, background_property = _resolve_color_source(
-                prototype_structure,
-                element=element,
-                color_entry=background_entry,
-                property_names=_BACKGROUND_PROPERTY_NAMES,
-            )
+        font_size_px = _font_size_px(element)
+        font_weight = _font_weight(element)
+        large_text = font_size_px >= 24.0 or (font_size_px >= 18.667 and font_weight >= 700)
+        required_ratio = 3.0 if large_text else 4.5
+        if ratio >= required_ratio:
+            continue
 
-            effective_background = prototype_structure.effective_background_of(
-                element.node_id,
-                colors_inventory,
-            )
-            if effective_background is not None and background_entry is not None:
-                background_validation = (
-                    "match"
-                    if effective_background.color_id == background_entry.color_id
-                    else "mismatch"
-                )
-            elif effective_background is not None:
-                background_entry = effective_background
-                background_validation = "inventory_only"
-
-            if background_source_element is None:
-                background_source_element = prototype_structure.surface_container_of(element.node_id)
+        foreground_source_element, foreground_property = _resolve_color_source(
+            prototype_structure,
+            element=element,
+            color_entry=foreground_entry,
+            property_names=_FOREGROUND_PROPERTY_NAMES,
+        )
+        background_source_element, background_property = _resolve_color_source(
+            prototype_structure,
+            element=element,
+            color_entry=background_entry,
+            property_names=_BACKGROUND_PROPERTY_NAMES,
+        )
+        if background_source_element is None:
+            background_source_element = prototype_structure.surface_container_of(element.node_id)
 
         issues.append(
             ContrastIssue(
-                issue_id=f"contrast-{index}",
-                element_id=element.node_id if element is not None else element_id,
-                selector=str(raw_issue.get("selector") or ""),
-                tag_name=str(raw_issue.get("tag_name") or ""),
-                text_sample=str(raw_issue.get("text_sample") or ""),
-                contrast_ratio=float(raw_issue.get("contrast_ratio") or 0.0),
-                required_ratio=float(raw_issue.get("required_ratio") or 0.0),
-                is_large_text=bool(raw_issue.get("is_large_text", False)),
-                font_size_px=float(raw_issue.get("font_size_px") or 0.0),
-                font_weight=int(raw_issue.get("font_weight") or 0),
-                bounds=dict(raw_issue.get("bounds") or {}),
+                issue_id=f"contrast-{len(issues) + 1}",
+                element_id=element.node_id,
+                selector=element.selector or element.xpath or element.node_id,
+                tag_name=element.tag_name,
+                text_sample=text_sample,
+                contrast_ratio=ratio,
+                required_ratio=required_ratio,
+                is_large_text=large_text,
+                font_size_px=font_size_px,
+                font_weight=font_weight,
+                bounds=_bounds(element),
                 foreground=_build_color_reference(
-                    foreground_payload,
                     color_entry=foreground_entry,
                     source_element=foreground_source_element,
                     source_property=foreground_property,
                 ),
                 background=_build_color_reference(
-                    background_payload,
                     color_entry=background_entry,
                     source_element=background_source_element,
                     source_property=background_property,
                 ),
-                background_validation=background_validation,
+                background_validation=ContrastBackgroundValidation.MODEL,
             )
         )
 
@@ -171,16 +205,15 @@ def _build_report(
 
 
 def run_stage(context: PipelineContext) -> PipelineContext:
-    if context.error or context.has("derived.contrast_report"):
+    if context.error or context.has(K.DERIVED_CONTRAST_REPORT):
         return context
 
     context.trace.add_stage_event(CONTRACT.name, "start")
     report = _build_report(
-        context.get("derived.raw_css_overview") or {},
-        context.get("prototype_structure"),
-        tuple(context.get("scheme.colors")),
+        context.get(K.PROTOTYPE_STRUCTURE),
+        context.get(K.COLOR_CATALOG),
     )
-    context.set("derived.contrast_report", report)
+    context.set(K.DERIVED_CONTRAST_REPORT, report)
     context.trace.add_stage_event(
         CONTRACT.name,
         "complete",

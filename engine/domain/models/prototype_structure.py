@@ -9,6 +9,7 @@ from engine.domain.enums.scope.html_elements import (
     MEDIA_METADATA_ONLY_TAGS,
     get_html_element,
 )
+from engine.domain.enums.types.elements import PropertyClassification
 from engine.domain.models.color import Color
 from engine.domain.models.element import Element, Property, classify_property
 from engine.domain.models.style import StyleCatalog
@@ -160,7 +161,10 @@ class PrototypeStructure:
                 return background
         for candidate in (entry, *self.ancestors_of(node_id)):
             for property_model in candidate.properties:
-                if property_model.classification != "background" or not property_model.color_id:
+                if (
+                    property_model.classification != PropertyClassification.BACKGROUND
+                    or not property_model.color_id
+                ):
                     continue
                 color_entry = _color_by_id(color_entries, property_model.color_id)
                 if color_entry is not None:
@@ -191,7 +195,8 @@ class PrototypeStructure:
             return None
         for candidate in (entry, *self.ancestors_of(node_id)):
             has_background = any(
-                property_model.classification == "background" and property_model.color_id
+                property_model.classification == PropertyClassification.BACKGROUND
+                and property_model.color_id
                 for property_model in candidate.properties
             )
             if has_background:
@@ -300,7 +305,7 @@ def _build_indexes(
         by_depth[depth_by_id.get(entry.node_id, 0)].append(entry.node_id)
         seen_classifications = {property_model.classification for property_model in entry.properties}
         for classification in sorted(seen_classifications):
-            by_classification[classification].append(entry.node_id)
+            by_classification[classification.value].append(entry.node_id)
 
     return PrototypeIndexes(
         by_tag={key: tuple(value) for key, value in sorted(by_tag.items())},

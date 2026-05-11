@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import os
 import re
-import shutil
 from collections import defaultdict
+from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-from app.config import get_output_dir
 from engine.adapters.color_service import color_registry
 from engine.domain.enums.scope.css_properties import get_css_property
 from engine.domain.data.tokens import PROPERTY_TOKEN_RULES
@@ -17,43 +15,10 @@ from engine.domain.utils.color_utils import (
     reconstruct_inline_style,
 )
 from engine.domain.models.prototype_structure import PrototypeStructure
+from engine.domain.models.session import Session
 from engine.domain.models.token import TokenInventoryModel
 from engine.pipeline.debug_trace import DebugTrace
 
-DEFAULT_ASSET_EXTENSIONS = (
-    ".aac",
-    ".avif",
-    ".bmp",
-    ".css",
-    ".eot",
-    ".gif",
-    ".html",
-    ".ico",
-    ".jpeg",
-    ".jpg",
-    ".js",
-    ".json",
-    ".m4a",
-    ".map",
-    ".mp3",
-    ".mp4",
-    ".ogv",
-    ".ogg",
-    ".otf",
-    ".pdf",
-    ".png",
-    ".svg",
-    ".ttf",
-    ".txt",
-    ".wasm",
-    ".wav",
-    ".webm",
-    ".webmanifest",
-    ".webp",
-    ".woff",
-    ".woff2",
-    ".xml",
-)
 _REMOTE_REFERENCE_PREFIXES = ("http://", "https://", "//", "data:", "javascript:", "mailto:", "tel:")
 _HTML_ASSET_ATTRIBUTES = (
     ("a", "href"),
@@ -74,23 +39,6 @@ _COLOR_FRAGMENT_RE = re.compile(
     r"(#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]+\)|\b[a-zA-Z][a-zA-Z-]*\b)",
     re.IGNORECASE,
 )
-
-
-def stage_project_assets(
-    input_dir: str,
-    output_dir: str,
-    allowed_extensions: tuple[str, ...] = DEFAULT_ASSET_EXTENSIONS,
-) -> None:
-    for root, _, files in os.walk(input_dir):
-        for filename in files:
-            if not filename.lower().endswith(allowed_extensions):
-                continue
-
-            source_path = os.path.join(root, filename)
-            relative_path = os.path.relpath(source_path, input_dir)
-            target_path = os.path.join(output_dir, relative_path)
-            os.makedirs(os.path.dirname(target_path), exist_ok=True)
-            shutil.copy2(source_path, target_path)
 
 
 def load_transformed_html(transformed_html_path: str) -> tuple[str, str]:
@@ -448,26 +396,25 @@ def _is_remote_reference(value: str) -> bool:
 def _resolve_local_reference_path(
     reference: str,
     *,
-    current_file_path: str,
-    project_base_path: str,
-) -> str | None:
+    current_file_path: str | Path,
+    project_base_path: str | Path,
+) -> Path | None:
     path_value, _suffix = _split_reference_suffix(reference)
     if _is_remote_reference(path_value):
         return None
 
     normalized_path = path_value.replace("\\", "/")
     if normalized_path.startswith("/"):
-        return os.path.normpath(os.path.join(project_base_path, normalized_path.lstrip("/")))
+        return (Path(project_base_path) / normalized_path.lstrip("/")).resolve()
 
-    current_dir = os.path.dirname(current_file_path)
-    return os.path.normpath(os.path.join(current_dir, normalized_path))
+    return (Path(current_file_path).parent / normalized_path).resolve()
 
 
 def _rewrite_local_reference(
     reference: str,
     *,
-    current_file_path: str,
-    project_base_path: str,
+    current_file_path: str | Path,
+    project_base_path: str | Path,
 ) -> str:
     path_value, suffix = _split_reference_suffix(reference)
     if _is_remote_reference(path_value):
@@ -485,7 +432,10 @@ def _rewrite_local_reference(
     if not resolved:
         return f"{normalized_path}{suffix}"
 
-    relative_path = os.path.relpath(resolved, os.path.dirname(current_file_path)).replace("\\", "/")
+    relative_path = Path(resolved).relative_to(
+        Path(current_file_path).resolve().parent,
+        walk_up=True,
+    ).as_posix()
     return f"{relative_path}{suffix}"
 
 
@@ -883,10 +833,9 @@ def apply_tokens_to_project(
         )
         if not css_path:
             continue
-        if not os.path.exists(css_path):
+        if not Path(css_path).exists():
             continue
-        with open(css_path, "r", encoding="utf-8") as file:
-            css_text = file.read()
+        css_text = Path(css_path).read_text(encoding="utf-8")
         updated_css, css_changes = _apply_token_replacements_to_css_text(
             css_text,
             replacement_specs,
@@ -897,8 +846,7 @@ def apply_tokens_to_project(
             current_file_path=css_path,
             project_base_path=base_path,
         )
-        with open(css_path, "w", encoding="utf-8") as file:
-            file.write(updated_css)
+        Path(css_path).write_text(updated_css, encoding="utf-8")
         change_log.extend(css_changes)
 
     _rewrite_local_asset_attributes(
@@ -936,10 +884,10 @@ def evaluate_and_apply_heuristics(html_content, output_path, base_path, session_
 
     # 1) Preparación de salida por sesión
     if session_id:
-        html_name = os.path.basename(output_path)
-        output_dir = get_output_dir(session_id)
-        output_path = os.path.join(output_dir, html_name)
-        os.makedirs(output_dir, exist_ok=True)
+        html_name = Path(output_path).name
+        output_dir = Session(session_id=session_id).build_path("after")
+        output_path = str(output_dir / html_name)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
     # 2) Parseo HTML y contadores de evaluación
     soup = BeautifulSoup(html_content, "html.parser")
@@ -1075,9 +1023,8 @@ def evaluate_and_apply_heuristics(html_content, output_path, base_path, session_
             )
             if not ruta_css:
                 continue
-            if os.path.exists(ruta_css):
-                with open(ruta_css, "r", encoding="utf-8") as file:
-                    lines = file.readlines()
+            if Path(ruta_css).exists():
+                lines = Path(ruta_css).read_text(encoding="utf-8").splitlines(keepends=True)
                 new_lines = []
                 for line in lines:
                     line = adjust_gradient_rgb_line(line, "CSS externo", detalles_colores)
@@ -1113,8 +1060,7 @@ def evaluate_and_apply_heuristics(html_content, output_path, base_path, session_
                     current_file_path=ruta_css,
                     project_base_path=base_path,
                 )
-                with open(ruta_css, "w", encoding="utf-8") as file:
-                    file.write(updated_css)
+                Path(ruta_css).write_text(updated_css, encoding="utf-8")
 
     _rewrite_local_asset_attributes(
         soup,

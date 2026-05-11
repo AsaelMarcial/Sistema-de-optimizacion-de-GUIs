@@ -1,23 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import InitVar, dataclass, field
+from dataclasses import dataclass, field
 from typing import Any
 
+from engine.domain.enums.scope.context_keys import ContextKey, ContextKeyLike, ContextRoot
 from engine.pipeline.debug_trace import DebugTrace
 
-_ALLOWED_ROOT_KEYS = {
-    "session",
-    "prototype_structure",
-    "color",
-    "scheme",
-    "style",
-    "token",
-    "derived",
-    "environmental",
-    "transformation",
-    "recommendations",
-    "results",
-}
+_ALLOWED_ROOT_KEYS = {root.value for root in ContextRoot}
 _VALUE_KEY = "__value__"
 
 
@@ -39,15 +28,11 @@ class MissingContextKeysError(ValueError):
 
 @dataclass(slots=True)
 class PipelineContext:
-    file: InitVar[Any | None] = None
     trace: DebugTrace = field(default_factory=lambda: DebugTrace(enabled=True))
     error: str | None = None
     _state: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
 
-    def __post_init__(self, file: Any | None) -> None:
-        self.set("session.input.file", file)
-
-    def get(self, key: str, default: Any | None = None) -> Any:
+    def get(self, key: ContextKeyLike, default: Any | None = None) -> Any:
         current: Any = self._state
         for part in self._parts(key):
             if not isinstance(current, dict) or part not in current:
@@ -57,7 +42,7 @@ class PipelineContext:
             return current[_VALUE_KEY]
         return current
 
-    def set(self, key: str, value: Any) -> "PipelineContext":
+    def set(self, key: ContextKeyLike, value: Any) -> "PipelineContext":
         current = self._state
         parts = self._parts(key)
         if parts[0] not in _ALLOWED_ROOT_KEYS:
@@ -77,11 +62,11 @@ class PipelineContext:
             current[parts[-1]] = value
         return self
 
-    def has(self, key: str) -> bool:
+    def has(self, key: ContextKeyLike) -> bool:
         sentinel = object()
         return self.get(key, sentinel) is not sentinel
 
-    def require(self, *keys: str) -> "PipelineContext":
+    def require(self, *keys: ContextKeyLike) -> "PipelineContext":
         missing = tuple(key for key in keys if not self.has(key) or self.get(key) is None)
         if missing:
             raise MissingContextKeysError(
@@ -89,7 +74,7 @@ class PipelineContext:
             )
         return self
 
-    def delete(self, key: str) -> None:
+    def delete(self, key: ContextKeyLike) -> None:
         current: Any = self._state
         parts = self._parts(key)
         for part in parts[:-1]:
@@ -107,8 +92,9 @@ class PipelineContext:
         return self
 
     @staticmethod
-    def _parts(key: str) -> tuple[str, ...]:
-        normalized = tuple(part.strip() for part in key.split(".") if part.strip())
+    def _parts(key: ContextKeyLike) -> tuple[str, ...]:
+        raw_key = key.value if isinstance(key, ContextKey) else str(key)
+        normalized = tuple(part.strip() for part in raw_key.split(".") if part.strip())
         if not normalized:
             raise ValueError("La clave del contexto no puede estar vacia.")
         return normalized

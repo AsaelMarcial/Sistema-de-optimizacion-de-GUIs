@@ -1,24 +1,27 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 
-from engine.adapters.file_system.file_handler import create_output_bundle
+from engine.adapters.file_system.file_manager import create_output_bundle
 from engine.adapters.utils.pixel import dominant_color_percentages
 from engine.domain.data.web_colors import nearest_web_color
-from engine.domain.models.color import ColorCatalog, build_color_catalog_from_scheme
+from engine.domain.enums.types.elements import PropertyClassification
+from engine.domain.models.color import ColorCatalog
 from engine.domain.models.environmental_assessment.assessment import (
     EnvironmentalAssessmentModel,
     EnvironmentalSavingsModel,
 )
 from engine.domain.models.palette import CorePalettesModel
 from engine.domain.models.prototype_structure import PrototypeStructure
-from engine.domain.models.session import Session
+from engine.domain.models.session import AFTER_SCREENSHOT, BEFORE_SCREENSHOT, FilePath, Session
 from engine.domain.models.token import TokenInventoryModel
 from engine.adapters.color_service import color_registry
 from engine.pipeline.context import PipelineContext, RecommendationsPayload
+from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.pipeline.stage_contract import StageContract, context_value
+from engine.validators.project_uploaded import has_single_html, single_html_file
 
 _TONE_STOPS = (0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 98, 99, 100)
 _EFFECT_COLOR_PROPERTIES = (
@@ -32,32 +35,27 @@ _FUNCTION_COLOR_RE = re.compile(r"(?:rgba?|hsla?)\([^)]+\)", re.IGNORECASE)
 
 
 def _session_ready_for_results(session: Session) -> bool:
-    return (
-        bool(session.output_dir.strip())
-        and bool(session.artifacts_dir.strip())
-        and bool(session.bundle_name.strip())
-        and bool(session.download_path.strip())
-    )
+    return bool(session.session_id.strip()) and has_single_html(session.file_paths)
 
 CONTRACT = StageContract(
     name="assemble_results",
     requires=(
-        context_value("environmental.before.assessment", EnvironmentalAssessmentModel),
-        context_value("environmental.after.assessment", EnvironmentalAssessmentModel),
-        context_value("environmental.savings", EnvironmentalSavingsModel),
-        context_value("scheme.colors", tuple),
-        context_value("scheme.named_color_breakdown", tuple),
-        context_value("scheme.tonal_palettes", CorePalettesModel),
-        context_value("environmental.before.color_histogram", list),
-        context_value("prototype_structure", PrototypeStructure),
-        context_value("derived.raw_snapshot_metadata", dict),
-        context_value("token.inventory", TokenInventoryModel),
-        context_value("transformation.heuristics", list),
-        context_value("session", Session, validator=_session_ready_for_results),
+        context_value(K.ENVIRONMENTAL_BEFORE_ASSESSMENT, EnvironmentalAssessmentModel),
+        context_value(K.ENVIRONMENTAL_AFTER_ASSESSMENT, EnvironmentalAssessmentModel),
+        context_value(K.ENVIRONMENTAL_SAVINGS, EnvironmentalSavingsModel),
+        context_value(K.COLOR_CATALOG, ColorCatalog),
+        context_value(K.SCHEME_NAMED_COLOR_BREAKDOWN, tuple),
+        context_value(K.SCHEME_TONAL_PALETTES, CorePalettesModel),
+        context_value(K.ENVIRONMENTAL_BEFORE_COLOR_HISTOGRAM, list),
+        context_value(K.PROTOTYPE_STRUCTURE, PrototypeStructure),
+        context_value(K.DERIVED_RAW_SNAPSHOT_METADATA, dict),
+        context_value(K.TOKEN_INVENTORY, TokenInventoryModel),
+        context_value(K.TRANSFORMATION_HEURISTICS, list),
+        context_value(K.SESSION, Session, validator=_session_ready_for_results),
     ),
     produces=(
-        context_value("recommendations", RecommendationsPayload),
-        context_value("results", dict),
+        context_value(K.RECOMMENDATIONS, RecommendationsPayload),
+        context_value(K.RESULTS, dict),
     ),
 )
 
@@ -68,7 +66,7 @@ def _as_mapping(value: object) -> Mapping[str, object]:
 
 def _token_runtime_summary(
     prototype_structure: PrototypeStructure,
-    scheme_colors: tuple[object, ...],
+    color_entries: tuple[object, ...],
 ) -> dict[str, int]:
     assigned_element_ids = {
         element.node_id
@@ -87,13 +85,13 @@ def _token_runtime_summary(
     }
     color_ids = {
         str(getattr(color, "color_id", "")).strip()
-        for color in scheme_colors
+        for color in color_entries
         if getattr(color, "token_ids", ()) or getattr(color, "foundation_token_id", None)
         if str(getattr(color, "color_id", "")).strip()
     }
     palette_tones = {
         f"{str(getattr(color, 'mapped_palette_id')).strip()}:{int(getattr(color, 'mapped_tone'))}"
-        for color in scheme_colors
+        for color in color_entries
         if (getattr(color, "token_ids", ()) or getattr(color, "foundation_token_id", None))
         and getattr(color, "mapped_palette_id", None) is not None
         and getattr(color, "mapped_tone", None) is not None
@@ -131,7 +129,7 @@ def _effect_colors_payload(
     for element in prototype_structure:
         for property_model in prototype_structure.properties_for(element):
             if (
-                property_model.classification != "effect"
+                property_model.classification != PropertyClassification.EFFECT
                 and property_model.name not in _EFFECT_COLOR_PROPERTIES
             ):
                 continue
@@ -172,7 +170,7 @@ def _effect_colors_payload(
                 "effect_id": f"effect-{entry_index}",
                 "element_id": element.node_id,
                 "tag_name": element.tag_name,
-                "property_name": property_model.name,
+                "property_name": str(property_model.name),
                 "resolved_value": property_model.value,
                 "colors": color_rows,
             }
@@ -183,7 +181,7 @@ def _effect_colors_payload(
             if property_model.declaration_id is not None:
                 payload["declaration_id"] = property_model.declaration_id
             if property_model.declared_property is not None:
-                payload["declared_property"] = property_model.declared_property
+                payload["declared_property"] = str(property_model.declared_property)
             entries.append(payload)
 
     by_property: dict[str, dict[str, object]] = {}
@@ -678,40 +676,46 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         return context
 
     context.trace.add_stage_event(CONTRACT.name, "start")
-    session = context.get("session")
-    output_dir = session.output_dir
-    artifacts_dir = session.artifacts_dir
-    session_dirname = session.session_dirname
+    session = context.get(K.SESSION)
+    output_dir = session.build_path("after")
+    artifacts_dir = session.build_path("artifacts")
+    session_dirname = artifacts_dir.parent.name
+    html_file = single_html_file(session.file_paths)
+    project_root = session.project_root_file_path()
+    bundle_file = FilePath(
+        f"{project_root.name}.zip" if project_root.name else f"{html_file.relative_path.stem}.zip",
+    )
+    bundle_name = bundle_file.name
     zip_output_path, zip_filename = create_output_bundle(
         source_dir=output_dir,
         bundle_dir=artifacts_dir,
-        bundle_name=session.bundle_name,
+        bundle_name=bundle_name,
     )
-    download_path = session.download_path
-    context.set("recommendations", RecommendationsPayload(items=(), summary=None))
+    download_path = str(PurePosixPath("/sessions", session_dirname, "artifacts", bundle_name))
+    context.set(K.RECOMMENDATIONS, RecommendationsPayload(items=(), summary=None))
     context.trace.add_step("transformed.zip_created", {"zip_output_path": zip_output_path})
 
-    before = context.get("environmental.before.assessment", {})
-    after = context.get("environmental.after.assessment", {})
-    savings = context.get("environmental.savings")
-    named_color_breakdown = [dict(item) for item in (context.get("scheme.named_color_breakdown") or ())]
-    tonal_palettes = context.get("scheme.tonal_palettes")
-    scheme_colors = tuple(context.get("scheme.colors"))
-    scheme_color_inventory = build_color_catalog_from_scheme(scheme_colors)
-    prototype_structure = context.get("prototype_structure")
-    environmental_before_color_histogram = context.get("environmental.before.color_histogram") or []
-    token_inventory = context.get("token.inventory")
-    token_runtime = _token_runtime_summary(prototype_structure, scheme_colors)
-    original_snapshot_metadata = dict(context.get("derived.raw_snapshot_metadata") or {})
-    original_screenshot = Path(session.original_screenshot_path).name
-    transformed_screenshot = Path(session.transformed_screenshot_path).name
+    before = context.get(K.ENVIRONMENTAL_BEFORE_ASSESSMENT, {})
+    after = context.get(K.ENVIRONMENTAL_AFTER_ASSESSMENT, {})
+    savings = context.get(K.ENVIRONMENTAL_SAVINGS)
+    named_color_breakdown = [dict(item) for item in (context.get(K.SCHEME_NAMED_COLOR_BREAKDOWN) or ())]
+    tonal_palettes = context.get(K.SCHEME_TONAL_PALETTES)
+    colors_inventory = context.get(K.COLOR_CATALOG)
+    color_entries = tuple(colors_inventory)
+    prototype_structure = context.get(K.PROTOTYPE_STRUCTURE)
+    environmental_before_color_histogram = context.get(K.ENVIRONMENTAL_BEFORE_COLOR_HISTOGRAM) or []
+    token_inventory = context.get(K.TOKEN_INVENTORY)
+    token_runtime = _token_runtime_summary(prototype_structure, color_entries)
+    before_snapshot_metadata = dict(context.get(K.DERIVED_RAW_SNAPSHOT_METADATA) or {})
+    before_screenshot = BEFORE_SCREENSHOT.name
+    after_screenshot = AFTER_SCREENSHOT.name
     contrast_report = (
-        context.get("derived.contrast_report")
-        if context.has("derived.contrast_report")
+        context.get(K.DERIVED_CONTRAST_REPORT)
+        if context.has(K.DERIVED_CONTRAST_REPORT)
         else None
     )
     contrast_payload = contrast_report.to_dict() if contrast_report is not None else {"count": 0, "issues": []}
-    effect_color_payload = _effect_colors_payload(prototype_structure, scheme_color_inventory)
+    effect_color_payload = _effect_colors_payload(prototype_structure, colors_inventory)
 
     results = {
         "total_current": before.current_a,
@@ -721,14 +725,14 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         "environmental_co2eq_per_use": after.co2eq_per_use,
         "session_id": session.session_id,
         "session_dirname": session_dirname,
-        "html_name": session.input_html_name,
-        "heuristics": context.get("transformation.heuristics", []),
+        "html_name": html_file.name,
+        "heuristics": context.get(K.TRANSFORMATION_HEURISTICS, []),
         "debug": context.trace.to_dict() if context.trace else None,
         "debug_screenshots": {
-            "original": original_screenshot,
-            "environmental": transformed_screenshot,
+            "before": before_screenshot,
+            "after": after_screenshot,
         },
-        "recommendations": context.get("recommendations").to_dict(),
+        "recommendations": context.get(K.RECOMMENDATIONS).to_dict(),
         "download_url": download_path,
         "environmental_assessment": {
             "before": before.to_dict(),
@@ -736,8 +740,8 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             "savings": savings.to_dict(),
         },
         "render_snapshot": {
-            "node_count": original_snapshot_metadata.get("nodeCount"),
-            "palette_color_count": len(scheme_colors),
+            "node_count": before_snapshot_metadata.get("nodeCount"),
+            "palette_color_count": len(colors_inventory),
         },
         "color_processing": {
             "palette_preview_location": "artifacts",
@@ -796,10 +800,10 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     }
     results["view"] = _build_results_view(
         results,
-        color_inventory=scheme_color_inventory,
+        color_inventory=colors_inventory,
     )
     results = _prune_empty_artifact_fields(results)
-    context.set("results", results)
+    context.set(K.RESULTS, results)
 
     context.trace.add_stage_event(
         CONTRACT.name,

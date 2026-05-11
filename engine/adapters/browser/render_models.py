@@ -3,9 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterator, Mapping
 
-from engine.domain.models.color import ColorCatalog
 from engine.domain.models.element import Element
-from engine.domain.models.style import StyleCatalog
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,13 +46,3 @@ class RenderSnapshot:
             "document": self.document,
             "nodes": [node.to_dict() for node in self.nodes],
         }
-
-
-@dataclass(frozen=True, slots=True)
-class RenderArtifacts:
-    """Adapter DTO for raw browser capture transport between adjacent stages."""
-
-    screenshot_path: str | None
-    snapshot: RenderSnapshot
-    styles_inventory_seed: StyleCatalog | None = None
-    colors_inventory_seed: ColorCatalog | None = None

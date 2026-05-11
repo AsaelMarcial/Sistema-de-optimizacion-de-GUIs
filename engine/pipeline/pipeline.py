@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from engine.pipeline.context import PipelineContext
+from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.pipeline.debug_trace import DebugTrace
 from engine.pipeline.result import PipelineResult
 from engine.pipeline.stage_contract import PipelineContractError, StageContract, validate_produces, validate_requires
@@ -44,7 +45,6 @@ from engine.pipeline.stages.transform_source_project import CONTRACT as TRANSFOR
 from engine.pipeline.stages.transform_source_project import run_stage as run_transform_source_project_stage
 
 _STAGES: tuple[tuple[StageContract, Any], ...] = (
-    (PREPARE_PROJECT_SESSION_CONTRACT, run_prepare_project_session_stage),
     (START_PAGE_BUILDER_CONTRACT, run_start_page_builder_stage),
     (CAPTURE_ORIGINAL_STATE_CONTRACT, run_capture_original_state_stage),
     (BUILD_COLOR_SCHEME_CONTRACT, run_build_color_scheme_stage),
@@ -66,19 +66,41 @@ _STAGES: tuple[tuple[StageContract, Any], ...] = (
 
 
 def _close_page_builder(context: PipelineContext) -> None:
-    page_builder = context.get("session.page_builder")
+    page_builder = context.get(K.PAGE_BUILDER)
     close = getattr(page_builder, "close", None)
     if callable(close):
         try:
             close()
         except Exception:
             pass
-    context.delete("session.page_builder")
+    context.delete(K.PAGE_BUILDER)
 
 
 def run_pipeline(file) -> tuple[dict[str, Any] | None, str | None]:
-    context = PipelineContext(file=file, trace=DebugTrace(enabled=True))
+    context = PipelineContext(trace=DebugTrace(enabled=True))
     try:
+        try:
+            context.trace.add_stage_event(PREPARE_PROJECT_SESSION_CONTRACT.name, "validate_requires")
+            validate_requires(context, PREPARE_PROJECT_SESSION_CONTRACT)
+            context = run_prepare_project_session_stage(context, file)
+            if not context.error:
+                context.trace.add_stage_event(PREPARE_PROJECT_SESSION_CONTRACT.name, "validate_produces")
+                validate_produces(context, PREPARE_PROJECT_SESSION_CONTRACT)
+        except PipelineContractError as exc:
+            context.set_error(str(exc))
+            context.trace.add_stage_event(
+                PREPARE_PROJECT_SESSION_CONTRACT.name,
+                "error",
+                {"message": context.error},
+            )
+        except Exception as exc:  # pragma: no cover - defensive runtime guard
+            context.set_error(str(exc))
+            context.trace.add_stage_event(
+                PREPARE_PROJECT_SESSION_CONTRACT.name,
+                "error",
+                {"message": context.error},
+            )
+
         for contract, stage_runner in _STAGES:
             if context.error:
                 break
@@ -112,6 +134,6 @@ def run_pipeline(file) -> tuple[dict[str, Any] | None, str | None]:
                 )
                 break
     finally:
-        if context.has("session.page_builder"):
+        if context.has(K.PAGE_BUILDER):
             _close_page_builder(context)
-    return PipelineResult(payload=context.get("results"), error=context.error).to_tuple()
+    return PipelineResult(payload=context.get(K.RESULTS), error=context.error).to_tuple()

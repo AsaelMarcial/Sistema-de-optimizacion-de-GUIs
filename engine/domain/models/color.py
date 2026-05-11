@@ -659,6 +659,47 @@ class ColorCatalog:
     def with_entries(self, entries: Iterable[Color | Mapping[str, Any]]) -> Self:
         return type(self).build(entries)
 
+    def with_pixel_counts(
+        self,
+        counts_by_color_id: Mapping[str, tuple[int, float]],
+    ) -> Self:
+        return self.with_entries(
+            entry.set_count(
+                int(counts_by_color_id[entry.color_id][0]),
+                percentage=float(counts_by_color_id[entry.color_id][1]),
+            )
+            if entry.color_id in counts_by_color_id
+            else entry
+            for entry in self.entries
+        )
+
+    def with_palette_mappings(
+        self,
+        mapped_entries: Iterable[Color],
+    ) -> Self:
+        mapped_by_id = {
+            entry.color_id: entry
+            for entry in mapped_entries
+            if entry.color_id
+        }
+        return self.with_entries(
+            entry.with_palette_mapping(
+                palette_id=mapped_entry.mapped_palette_id,
+                tone=mapped_entry.mapped_tone,
+                tone_rgb=mapped_entry.mapped_tone_rgb,
+                tone_distance=mapped_entry.mapped_tone_distance,
+            )
+            if (
+                (mapped_entry := mapped_by_id.get(entry.color_id)) is not None
+                and mapped_entry.mapped_palette_id is not None
+                and mapped_entry.mapped_tone is not None
+                and mapped_entry.mapped_tone_rgb is not None
+                and mapped_entry.mapped_tone_distance is not None
+            )
+            else entry
+            for entry in self.entries
+        )
+
     def to_palette_dicts(self) -> list[dict[str, Any]]:
         return [entry.to_palette_entry() for entry in self.entries]
 
@@ -703,8 +744,3 @@ def _build_property_usage_models(
         )
     return tuple(models)
 
-
-def build_color_catalog_from_scheme(
-    evidences: Iterable[Color | Mapping[str, Any]],
-) -> ColorCatalog:
-    return ColorCatalog.build(evidences)

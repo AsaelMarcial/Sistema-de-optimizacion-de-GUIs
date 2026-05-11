@@ -2,3 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Runtime/session artifacts
+workspace/sessions/*
+!workspace/sessions/.gitkeep

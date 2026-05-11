@@ -14,11 +14,20 @@ _Box: TypeAlias = tuple[int, int, int, int]
 
 def load_image_array(image_source: Any) -> np.ndarray:
     if isinstance(image_source, (str, PathLike)):
-        with Image.open(image_source) as image:
-            return np.array(image.convert("RGB"))
+        with open(image_source, "rb") as image_file:
+            with Image.open(image_file) as image:
+                converted = image.convert("RGB")
+                try:
+                    return np.array(converted)
+                finally:
+                    converted.close()
 
     if isinstance(image_source, Image.Image):
-        return np.array(image_source.convert("RGB"))
+        converted = image_source.convert("RGB")
+        try:
+            return np.array(converted)
+        finally:
+            converted.close()
 
     return _drop_alpha_channel(np.asarray(image_source))
 
