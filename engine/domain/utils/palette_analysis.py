@@ -1,27 +1,19 @@
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import Any, Iterable, Mapping, Sequence
 
 from engine.adapters.color_service import color_registry
 from engine.domain.data.web_colors import get_web_color
+from engine.domain.enums.types.color import ColorFamilyType, PaletteRoleBias
 from engine.domain.models.color import Color
-from engine.domain.models.palette import (
-    ContrastCurveModel,
-    CorePalettesModel,
-    DynamicSchemeSpecModel,
-    MaterialQuantizationAssessment,
-    PaletteAnalysisModel,
-    PaletteFamilyModel,
-    TonalPaletteModel,
-)
+from engine.domain.models.color_scheme import ColorSchemeModel, TonalPaletteModel
+from engine.domain.models.palette import ColorSchemeArtifactModel
 
-_MAX_CHROMATIC_PALETTES = 12
 _FAMILY_COMPARISON_TONE = 60.0
 _FAMILY_HUE_DELTA_THRESHOLD = 12.0
 _FAMILY_CHROMA_DELTA_THRESHOLD = 30.0
 _FAMILY_NORMALIZED_DELTA_E_THRESHOLD = 10.0
-_PIXEL_CONFIRMATION_DELTA_E_THRESHOLD = 6.0
+_FAMILY_FALLBACK_MATCH_DELTA_E = 6.0
 
 
 def _hue_distance(left_hue: float, right_hue: float) -> float:
@@ -29,8 +21,8 @@ def _hue_distance(left_hue: float, right_hue: float) -> float:
     return min(distance, 360.0 - distance)
 
 
-def _broad_color_family(color_name: str | None, *, palette_type: str) -> str | None:
-    if palette_type == "achromatic":
+def _broad_color_family(color_name: str | None, *, palette_type: ColorFamilyType | str) -> str | None:
+    if palette_type == ColorFamilyType.ACHROMATIC or str(palette_type) == ColorFamilyType.ACHROMATIC.value:
         return "Neutral"
     if not color_name:
         return None
@@ -38,6 +30,19 @@ def _broad_color_family(color_name: str | None, *, palette_type: str) -> str | N
         return get_web_color(color_name).wikipedia_family
     except Exception:
         return None
+
+
+def _role_bias(seed: Mapping[str, Any]) -> PaletteRoleBias:
+    background_count = int(seed.get("background_count") or 0)
+    foreground_count = int(seed.get("foreground_count") or 0)
+    other_count = int(seed.get("other_count") or 0)
+    if background_count > foreground_count and background_count >= other_count:
+        return PaletteRoleBias.BACKGROUND
+    if foreground_count > background_count and foreground_count >= other_count:
+        return PaletteRoleBias.FOREGROUND
+    if other_count > max(background_count, foreground_count):
+        return PaletteRoleBias.OTHER
+    return PaletteRoleBias.MIXED
 
 
 def _comparison_signature(value: Any) -> tuple[tuple[int, int, int], tuple[float, float, float]]:
@@ -48,52 +53,53 @@ def _comparison_signature(value: Any) -> tuple[tuple[int, int, int], tuple[float
     )  # type: ignore[arg-type]
 
 
-def _family_from_evidence(evidence: Color) -> PaletteFamilyModel:
+def _seed_from_color(evidence: Color) -> dict[str, Any]:
     comparison_rgb, comparison_hct = _comparison_signature(evidence.rgb)
-    return PaletteFamilyModel(
-        palette_type=evidence.family_type,
-        seed_color_id=evidence.color_id,
-        seed_hex=color_registry.format_color(evidence.rgb, "hex"),
-        seed_name=evidence.nearest_web_color,
-        seed_family_name=_broad_color_family(
+    seed = {
+        "palette_type": evidence.family_type,
+        "seed_color_id": evidence.color_id,
+        "seed_hex": color_registry.format_color(evidence.rgb, "hex"),
+        "seed_name": evidence.nearest_web_color,
+        "seed_family_name": _broad_color_family(
             evidence.nearest_web_color,
             palette_type=evidence.family_type,
         ),
-        comparison_rgb=comparison_rgb,
-        comparison_hct=comparison_hct,
-        semantic_weight=evidence.usage_count,
-        pixel_count=evidence.pixel_count,
-        foreground_count=evidence.foreground_count,
-        background_count=evidence.background_count,
-        other_count=evidence.other_count,
-        source_color_ids=(evidence.color_id,),
-    )
+        "comparison_rgb": comparison_rgb,
+        "comparison_hct": comparison_hct,
+        "semantic_weight": evidence.usage_count,
+        "pixel_count": evidence.pixel_count,
+        "foreground_count": evidence.foreground_count,
+        "background_count": evidence.background_count,
+        "other_count": evidence.other_count,
+    }
+    seed["role_bias"] = _role_bias(seed)
+    return seed
 
 
-def _family_matches(family: PaletteFamilyModel, evidence: Color) -> bool:
-    if family.palette_type != evidence.family_type:
+def _seed_matches(seed: Mapping[str, Any], evidence: Color) -> bool:
+    palette_type = seed.get("palette_type")
+    if str(palette_type) != evidence.family_type.value:
         return False
 
-    if family.palette_type == "chromatic":
+    if evidence.family_type == ColorFamilyType.CHROMATIC:
         evidence_family_name = _broad_color_family(
             evidence.nearest_web_color,
             palette_type=evidence.family_type,
         )
-        if (
-            family.seed_family_name
-            and evidence_family_name
-            and family.seed_family_name != evidence_family_name
-        ):
+        seed_family_name = seed.get("seed_family_name")
+        if seed_family_name and evidence_family_name and seed_family_name != evidence_family_name:
             return False
 
         comparison_rgb, comparison_hct = _comparison_signature(evidence.rgb)
+        seed_rgb = tuple(int(channel) for channel in seed["comparison_rgb"])
+        seed_hct = tuple(float(channel) for channel in seed["comparison_hct"])
         normalized_distance = color_registry.delta_e_distance(
-            family.comparison_rgb,
+            seed_rgb,
             comparison_rgb,
             method="2000",
         )
-        hue_delta = _hue_distance(family.comparison_hct[0], comparison_hct[0])
-        chroma_delta = abs(float(family.comparison_hct[1]) - float(comparison_hct[1]))
+        hue_delta = _hue_distance(seed_hct[0], comparison_hct[0])
+        chroma_delta = abs(seed_hct[1] - float(comparison_hct[1]))
 
         if (
             hue_delta <= _FAMILY_HUE_DELTA_THRESHOLD
@@ -102,108 +108,104 @@ def _family_matches(family: PaletteFamilyModel, evidence: Color) -> bool:
         ):
             return True
 
-    distance = color_registry.delta_e_distance(family.seed_hex, evidence.rgb, method="2000")
-    return distance <= _PIXEL_CONFIRMATION_DELTA_E_THRESHOLD or (
-        family.seed_name is not None
-        and family.seed_name == evidence.nearest_web_color
+    distance = color_registry.delta_e_distance(seed["seed_hex"], evidence.rgb, method="2000")
+    return distance <= _FAMILY_FALLBACK_MATCH_DELTA_E or (
+        seed.get("seed_name") is not None
+        and seed.get("seed_name") == evidence.nearest_web_color
         and distance <= 10.0
     )
 
 
-def _absorb_family(family: PaletteFamilyModel, evidence: Color) -> PaletteFamilyModel:
-    source_color_ids = tuple(
-        dict.fromkeys((*family.source_color_ids, evidence.color_id)).keys()
-    )
-    return replace(
-        family,
-        semantic_weight=family.semantic_weight + evidence.usage_count,
-        pixel_count=family.pixel_count + evidence.pixel_count,
-        foreground_count=family.foreground_count + evidence.foreground_count,
-        background_count=family.background_count + evidence.background_count,
-        other_count=family.other_count + evidence.other_count,
-        source_color_ids=tuple(source_color_ids),
+def _absorb_seed(seed: Mapping[str, Any], evidence: Color) -> dict[str, Any]:
+    updated = dict(seed)
+    updated["semantic_weight"] = int(updated.get("semantic_weight") or 0) + evidence.usage_count
+    updated["pixel_count"] = int(updated.get("pixel_count") or 0) + evidence.pixel_count
+    updated["foreground_count"] = int(updated.get("foreground_count") or 0) + evidence.foreground_count
+    updated["background_count"] = int(updated.get("background_count") or 0) + evidence.background_count
+    updated["other_count"] = int(updated.get("other_count") or 0) + evidence.other_count
+    updated["role_bias"] = _role_bias(updated)
+    return updated
+
+
+def filter_supported_colors(
+    colors: Iterable[Mapping[str, Any] | Color],
+) -> tuple[Color, ...]:
+    return tuple(
+        color
+        for color in Color.build_many(colors)
+        if color.usage_count > 0
     )
 
 
-def _build_families(
-    evidences: Sequence[Color],
-) -> tuple[PaletteFamilyModel | None, tuple[PaletteFamilyModel, ...]]:
-    sorted_evidences = sorted(
-        evidences,
-        key=lambda evidence: (
-            evidence.usage_count,
-            evidence.background_count,
-            evidence.foreground_count,
-            evidence.pixel_count,
+def build_palette_seed_specs(
+    colors: Sequence[Color],
+) -> tuple[Mapping[str, Any] | None, tuple[Mapping[str, Any], ...]]:
+    sorted_colors = sorted(
+        colors,
+        key=lambda color: (
+            color.usage_count,
+            color.background_count,
+            color.foreground_count,
+            color.pixel_count,
         ),
         reverse=True,
     )
-    achromatic_families: list[PaletteFamilyModel] = []
-    chromatic_families: list[PaletteFamilyModel] = []
+    achromatic_seeds: list[dict[str, Any]] = []
+    chromatic_seeds: list[dict[str, Any]] = []
 
-    for evidence in sorted_evidences:
-        target = achromatic_families if evidence.family_type == "achromatic" else chromatic_families
+    for color in sorted_colors:
+        target = achromatic_seeds if color.family_type == ColorFamilyType.ACHROMATIC else chromatic_seeds
         match_index = next(
-            (index for index, item in enumerate(target) if _family_matches(item, evidence)),
+            (index for index, seed in enumerate(target) if _seed_matches(seed, color)),
             None,
         )
         if match_index is None:
-            target.append(_family_from_evidence(evidence))
+            target.append(_seed_from_color(color))
             continue
-        target[match_index] = _absorb_family(target[match_index], evidence)
+        target[match_index] = _absorb_seed(target[match_index], color)
 
-    achromatic_families.sort(
-        key=lambda family: (family.pixel_count, family.semantic_weight),
+    achromatic_seeds.sort(
+        key=lambda seed: (int(seed.get("pixel_count") or 0), int(seed.get("semantic_weight") or 0)),
         reverse=True,
     )
-    chromatic_families.sort(
-        key=lambda family: (family.pixel_count, family.semantic_weight),
+    chromatic_seeds.sort(
+        key=lambda seed: (int(seed.get("pixel_count") or 0), int(seed.get("semantic_weight") or 0)),
         reverse=True,
     )
-    return (achromatic_families[0] if achromatic_families else None), tuple(chromatic_families)
-
-
-def _filter_supported_evidences(
-    evidences: Sequence[Color],
-) -> tuple[Color, ...]:
-    return tuple(
-        evidence
-        for evidence in evidences
-        if evidence.usage_count > 0
-    )
+    return (achromatic_seeds[0] if achromatic_seeds else None), tuple(chromatic_seeds)
 
 
 def _candidate_palettes_for(
-    core_palettes: CorePalettesModel,
-    evidence: Color,
+    scheme: ColorSchemeModel,
+    color: Color,
 ) -> tuple[TonalPaletteModel, ...]:
-    if evidence.family_type == "achromatic":
-        return (core_palettes.achromatic_palette,) if core_palettes.achromatic_palette else ()
-    if core_palettes.chromatic_palettes:
-        return core_palettes.chromatic_palettes
-    return (core_palettes.achromatic_palette,) if core_palettes.achromatic_palette else ()
+    if color.family_type == ColorFamilyType.ACHROMATIC:
+        return (scheme.achromatic_palette,) if scheme.achromatic_palette else ()
+    if scheme.chromatic_palettes:
+        return scheme.chromatic_palettes
+    return (scheme.achromatic_palette,) if scheme.achromatic_palette else ()
 
 
-def _map_evidences(
-    core_palettes: CorePalettesModel,
-    evidences: Sequence[Color],
+def map_colors_to_scheme(
+    scheme: ColorSchemeModel,
+    colors: Sequence[Color],
 ) -> tuple[Color, ...]:
-    mapped_evidences: list[Color] = []
-    for evidence in evidences:
+    mapped_colors: list[Color] = []
+    for color in colors:
         seed_palette = next(
             (
                 palette
-                for palette in core_palettes
-                if palette.seed_color_id is not None and palette.seed_color_id == evidence.color_id
+                for palette in scheme
+                if palette.seed_color_id is not None and palette.seed_color_id == color.color_id
             ),
             None,
         )
         if seed_palette is not None:
-            mapped_evidences.append(
-                evidence.with_palette_mapping(
+            mapped_colors.append(
+                color.with_palette_mapping(
                     palette_id=seed_palette.palette_id,
-                    tone=int(round(seed_palette.seed_hct[2])),
-                    tone_rgb=seed_palette.seed_rgb,
+                    tone=seed_palette.seed_tone(),
+                    tone_rgb=seed_palette.seed_rgb(),
                     tone_distance=0.0,
                 )
             )
@@ -213,8 +215,8 @@ def _map_evidences(
         best_tone = None
         best_distance: float | None = None
 
-        for palette in _candidate_palettes_for(core_palettes, evidence):
-            tone_stop, distance = palette.nearest_tone_to(evidence.rgb)
+        for palette in _candidate_palettes_for(scheme, color):
+            tone_stop, distance = palette.nearest_tone_to(color.rgb)
             if tone_stop is None or distance is None:
                 continue
             if best_distance is None or distance < best_distance:
@@ -223,22 +225,22 @@ def _map_evidences(
                 best_distance = distance
 
         if best_palette is None or best_tone is None or best_distance is None:
-            mapped_evidences.append(evidence)
+            mapped_colors.append(color)
             continue
 
-        mapped_evidences.append(
-            evidence.with_palette_mapping(
+        mapped_colors.append(
+            color.with_palette_mapping(
                 palette_id=best_palette.palette_id,
                 tone=best_tone.tone,
                 tone_rgb=best_tone.rgb,
                 tone_distance=best_distance,
             )
         )
-    return tuple(mapped_evidences)
+    return tuple(mapped_colors)
 
 
-def _build_named_color_breakdown(
-    evidences: Sequence[Color],
+def build_named_color_breakdown(
+    colors: Sequence[Color],
     *,
     total_pixels: int,
 ) -> tuple[dict[str, Any], ...]:
@@ -246,16 +248,16 @@ def _build_named_color_breakdown(
     breakdown: dict[str, dict[str, Any]] = {}
     total_weight = 0
 
-    for evidence in evidences:
-        weight = evidence.pixel_count if use_pixel_weight else evidence.usage_count
-        if weight <= 0 or not evidence.nearest_web_color:
+    for color in colors:
+        weight = color.pixel_count if use_pixel_weight else color.usage_count
+        if weight <= 0 or not color.nearest_web_color:
             continue
         total_weight += weight
-        named_color = get_web_color(evidence.nearest_web_color)
+        named_color = get_web_color(color.nearest_web_color)
         item = breakdown.setdefault(
-            evidence.nearest_web_color,
+            color.nearest_web_color,
             {
-                "name": evidence.nearest_web_color,
+                "name": color.nearest_web_color,
                 "display_name": named_color.display_name,
                 "family": named_color.wikipedia_family,
                 "hex_value": named_color.hex_value,
@@ -279,52 +281,27 @@ def _build_named_color_breakdown(
     return tuple(normalized_items)
 
 
-def _build_dynamic_scheme(
-    core_palettes: CorePalettesModel,
-    evidences: Sequence[Color],
-) -> DynamicSchemeSpecModel:
-    achromatic_palette = core_palettes.achromatic_palette
-    primary_palette = (
-        core_palettes.chromatic_palettes[0]
-        if core_palettes.chromatic_palettes
-        else achromatic_palette
-    )
-    return DynamicSchemeSpecModel(
-        scheme_id="project-color-analysis",
-        source_color_ids=tuple(evidence.color_id for evidence in evidences),
-        primary_palette_id=primary_palette.palette_id if primary_palette else None,
-        achromatic_palette_id=achromatic_palette.palette_id if achromatic_palette else None,
-        chromatic_palette_ids=tuple(
-            palette.palette_id for palette in core_palettes.chromatic_palettes
-        ),
-        contrast_curve=ContrastCurveModel(low=3.0, normal=4.5, medium=7.0, high=11.0),
-    )
-
-
 def build_palette_analysis(
-    snapshot_palette: Iterable[Mapping[str, Any] | Color],
     *,
-    material_quantization_assessment: MaterialQuantizationAssessment,
-    max_chromatic_palettes: int = _MAX_CHROMATIC_PALETTES,
-) -> PaletteAnalysisModel:
-    semantic_colors = _filter_supported_evidences(
-        Color.build_many(snapshot_palette)
+    snapshot_palette: Iterable[Mapping[str, Any] | Color],
+    material_quantization_assessment: Any,
+    max_chromatic_palettes: int = 12,
+) -> ColorSchemeArtifactModel:
+    semantic_colors = filter_supported_colors(snapshot_palette)
+    achromatic_seed, chromatic_seeds = build_palette_seed_specs(semantic_colors)
+    core_palettes = ColorSchemeModel.build(
+        achromatic_seed=achromatic_seed,
+        chromatic_seeds=chromatic_seeds[:max_chromatic_palettes],
     )
-    achromatic_family, chromatic_families = _build_families(semantic_colors)
-    core_palettes = CorePalettesModel.build(
-        achromatic_family=achromatic_family,
-        chromatic_families=chromatic_families,
-        max_chromatic_palettes=max_chromatic_palettes,
+    mapped_colors = map_colors_to_scheme(core_palettes, semantic_colors)
+    named_color_breakdown = build_named_color_breakdown(
+        mapped_colors,
+        total_pixels=sum(color.pixel_count for color in mapped_colors),
     )
-    mapped_evidences = _map_evidences(core_palettes, semantic_colors)
-    pixel_count = sum(evidence.pixel_count for evidence in mapped_evidences)
-    return PaletteAnalysisModel.build_from_components(
-        semantic_colors=mapped_evidences,
-        named_color_breakdown=_build_named_color_breakdown(
-            mapped_evidences,
-            total_pixels=pixel_count,
-        ),
+    return ColorSchemeArtifactModel.build_from_components(
+        semantic_colors=mapped_colors,
+        named_color_breakdown=named_color_breakdown,
         core_palettes=core_palettes,
-        dynamic_scheme=_build_dynamic_scheme(core_palettes, mapped_evidences),
+        dynamic_scheme={},
         material_quantization_assessment=material_quantization_assessment,
     )

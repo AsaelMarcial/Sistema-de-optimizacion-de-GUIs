@@ -12,7 +12,6 @@ from engine.domain.enums.scope.html_elements import (
 from engine.domain.enums.types.elements import PropertyClassification
 from engine.domain.models.color import Color
 from engine.domain.models.element import Element, Property, classify_property
-from engine.domain.models.style import StyleCatalog
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,7 +32,6 @@ class PrototypeIndexes:
 class PrototypeStructure:
     nodes: tuple[Element, ...] = field(default_factory=tuple)
     indexes: PrototypeIndexes = field(default_factory=PrototypeIndexes)
-    declaration_values: Mapping[str, str] = field(default_factory=dict)
     _node_by_id: Mapping[str, Element] = field(default_factory=dict, repr=False, compare=False)
     _children_by_id: Mapping[str, tuple[Element, ...]] = field(default_factory=dict, repr=False, compare=False)
     _depth_by_id: Mapping[str, int] = field(default_factory=dict, repr=False, compare=False)
@@ -42,9 +40,6 @@ class PrototypeStructure:
     def build(
         cls,
         payload: Any,
-        *,
-        styles_inventory: StyleCatalog | None = None,
-        declaration_values: Mapping[str, str] | None = None,
     ) -> Self:
         if isinstance(payload, cls):
             return payload
@@ -56,17 +51,13 @@ class PrototypeStructure:
             node if isinstance(node, Element) else Element.build(node)
             for node in (nodes_payload or ())
         )
-        declaration_lookup = dict(declaration_values or {})
-        if styles_inventory is not None:
-            declaration_lookup.update(_build_declaration_value_lookup(styles_inventory))
-        normalized_nodes = _normalize_nodes(nodes, declaration_lookup)
+        normalized_nodes = _normalize_nodes(nodes)
         node_by_id = {node.node_id: node for node in normalized_nodes}
         children_by_id = _build_children_lookup(normalized_nodes, node_by_id)
         depth_by_id = _build_depths(normalized_nodes, node_by_id)
         return cls(
             nodes=normalized_nodes,
             indexes=_build_indexes(normalized_nodes, depth_by_id),
-            declaration_values=declaration_lookup,
             _node_by_id=node_by_id,
             _children_by_id=children_by_id,
             _depth_by_id=depth_by_id,
@@ -220,34 +211,17 @@ class PrototypeStructure:
         }
 
 
-def _build_declaration_value_lookup(
-    styles_inventory: StyleCatalog,
-) -> dict[str, str]:
-    return {
-        declaration.declaration_id: declaration.value
-        for style_entry in styles_inventory
-        for declaration in style_entry.declarations
-        if declaration.declaration_id and str(declaration.value or "").strip()
-    }
-
-
 def _normalize_nodes(
     nodes: tuple[Element, ...],
-    declaration_lookup: Mapping[str, str],
 ) -> tuple[Element, ...]:
     normalized_nodes: list[Element] = []
     for entry in nodes:
         properties: list[Property] = []
         for property_model in entry.properties:
-            authored_value = property_model.authored_value
-            declaration_id = str(property_model.declaration_id or "").strip()
-            if authored_value is None and declaration_id and declaration_id in declaration_lookup:
-                authored_value = declaration_lookup[declaration_id]
             properties.append(
                 replace(
                     property_model,
                     classification=property_model.classification or classify_property(property_model.name),
-                    authored_value=authored_value,
                 )
             )
         normalized_nodes.append(replace(entry, properties=tuple(properties)))

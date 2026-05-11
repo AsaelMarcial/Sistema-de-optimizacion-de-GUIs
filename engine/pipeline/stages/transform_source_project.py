@@ -7,6 +7,7 @@ from engine.adapters.source_code_handler.code_processor import (
 from engine.adapters.file_system.file_manager import read_text
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.session import Session
+from engine.domain.models.style import StyleCatalog
 from engine.domain.models.token import TokenInventoryModel
 from engine.pipeline.context import PipelineContext
 from engine.domain.enums.scope.context_keys import ContextKey as K
@@ -27,6 +28,7 @@ CONTRACT = StageContract(
     requires=(
         context_value(K.SESSION, Session, validator=_session_ready_for_transform),
         context_value(K.PROTOTYPE_STRUCTURE, PrototypeStructure),
+        context_value(K.STYLE_CATALOG, StyleCatalog),
         context_value(K.TOKEN_INVENTORY, TokenInventoryModel),
     ),
     produces=(
@@ -55,6 +57,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         session.build_path("after", project_root),
         context.get(K.TOKEN_INVENTORY),
         context.get(K.PROTOTYPE_STRUCTURE),
+        context.get(K.STYLE_CATALOG),
     )
     if token_results:
         heuristics_results = token_results

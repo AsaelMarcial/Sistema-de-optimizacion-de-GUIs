@@ -7,7 +7,7 @@ from typing import Iterable
 from engine.adapters.color_service import color_registry
 from engine.domain.data.tokens import TRANSFORMATION_ORDER, TRANSFORMATION_RULES
 from engine.domain.models.color import Color
-from engine.domain.models.palette import TonalPaletteModel
+from engine.domain.models.color_scheme import TonalPaletteModel
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.token import (
     Token,

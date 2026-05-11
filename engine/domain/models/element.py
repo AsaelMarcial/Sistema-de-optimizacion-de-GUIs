@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import Any, Mapping, Self
+from typing import Any, Callable, Iterable, Mapping, Self
 
 from engine.domain.enums.scope.css_properties import (
     CssColorRole,
@@ -10,8 +10,6 @@ from engine.domain.enums.scope.css_properties import (
     get_css_property,
 )
 from engine.domain.enums.types.elements import PropertyClassification
-from engine.domain.enums.types.style import StyleResolutionStatus
-from engine.domain.models.style import ResolvedStyleValue
 
 
 def _css_property_value(property_name: CssPropertyId | str | None) -> str:
@@ -42,15 +40,6 @@ def _coerce_property_classification(
         return PropertyClassification(normalized or PropertyClassification.OTHER.value)
     except ValueError:
         return PropertyClassification.OTHER
-
-
-def _coerce_style_resolution_status(
-    value: StyleResolutionStatus | str | None,
-) -> StyleResolutionStatus | None:
-    if isinstance(value, StyleResolutionStatus):
-        return value
-    normalized = str(value or "").strip().lower()
-    return StyleResolutionStatus(normalized) if normalized else None
 
 
 def classify_property(property_name: CssPropertyId | str) -> PropertyClassification:
@@ -88,8 +77,6 @@ class Property:
     declaration_id: str | None = None
     declared_property: CssPropertyId | str | None = None
     inherited_from_element_id: str | None = None
-    resolution_status: StyleResolutionStatus | None = None
-    authored_value: str | None = None
     token_ids: tuple[str, ...] = field(default_factory=tuple)
     applied_token_id: str | None = None
     token_alias_to: str | None = None
@@ -124,16 +111,6 @@ class Property:
                 if payload.get("inherited_from_element_id") is not None
                 else None
             ),
-            resolution_status=(
-                _coerce_style_resolution_status(payload["resolution_status"])
-                if payload.get("resolution_status") is not None
-                else None
-            ),
-            authored_value=(
-                str(payload["authored_value"])
-                if payload.get("authored_value") is not None
-                else None
-            ),
             token_ids=tuple(
                 dict.fromkeys(
                     str(item).strip()
@@ -158,27 +135,40 @@ class Property:
         cls,
         *,
         name: str,
-        computed_style: ResolvedStyleValue,
+        computed_style: Mapping[str, Any],
         color_id: str | None = None,
-        authored_value: str | None = None,
         classification: PropertyClassification | str | None = None,
     ) -> Self:
         normalized_name = _coerce_css_property_id(name)
         return cls(
             name=normalized_name,
-            value=str(computed_style.computed_value or ""),
+            value=str(computed_style.get("computed_value") or ""),
             classification=(
                 _coerce_property_classification(classification)
                 if classification
                 else classify_property(normalized_name)
             ),
             color_id=color_id,
-            style_id=computed_style.style_id,
-            declaration_id=computed_style.declaration_id,
-            declared_property=_coerce_optional_css_property_id(computed_style.declared_property),
-            inherited_from_element_id=computed_style.inherited_from_element_id,
-            resolution_status=_coerce_style_resolution_status(computed_style.resolution_status),
-            authored_value=authored_value,
+            style_id=(
+                str(computed_style["style_id"])
+                if computed_style.get("style_id") is not None
+                else None
+            ),
+            declaration_id=(
+                str(computed_style["declaration_id"])
+                if computed_style.get("declaration_id") is not None
+                else None
+            ),
+            declared_property=(
+                _coerce_optional_css_property_id(computed_style["declared_property"])
+                if computed_style.get("declared_property") is not None
+                else None
+            ),
+            inherited_from_element_id=(
+                str(computed_style["inherited_from_element_id"])
+                if computed_style.get("inherited_from_element_id") is not None
+                else None
+            ),
         )
 
     def with_token_assignment(
@@ -214,10 +204,6 @@ class Property:
             payload["declared_property"] = _css_property_value(self.declared_property)
         if self.inherited_from_element_id is not None:
             payload["inherited_from_element_id"] = self.inherited_from_element_id
-        if self.resolution_status is not None:
-            payload["resolution_status"] = self.resolution_status.value
-        if self.authored_value is not None:
-            payload["authored_value"] = self.authored_value
         if self.token_ids:
             payload["token_ids"] = list(self.token_ids)
         if self.applied_token_id is not None:
@@ -225,6 +211,113 @@ class Property:
         if self.token_alias_to is not None:
             payload["token_alias_to"] = self.token_alias_to
         return payload
+
+
+def _origin_family(candidate: Mapping[str, Any]) -> str:
+    source_kind = str(candidate.get("source_kind") or "").strip().lower()
+    origin = str(candidate.get("origin") or "").strip().lower()
+    if source_kind in {"inline", "embedded", "external", "inherited"}:
+        return "author"
+    if origin == "user":
+        return "user"
+    if origin == "user-agent" or source_kind == "user-agent":
+        return "user-agent"
+    return "author"
+
+
+def _inline_specificity(candidate: Mapping[str, Any]) -> tuple[int, int, int, int]:
+    if str(candidate.get("source_kind") or "").strip().lower() == "inline":
+        return (1, 0, 0, 0)
+    specificity = candidate.get("specificity")
+    if isinstance(specificity, tuple):
+        return (0, specificity[0], specificity[1], specificity[2])
+    if isinstance(specificity, list) and len(specificity) >= 3:
+        return (0, int(specificity[0]), int(specificity[1]), int(specificity[2]))
+    return (0, 0, 0, 0)
+
+
+def _layer_priority(candidate: Mapping[str, Any]) -> tuple[int, int]:
+    layer_order = candidate.get("layer_order")
+    source_kind = str(candidate.get("source_kind") or "").strip().lower()
+    inline_bonus = 2 if source_kind == "inline" else 0
+
+    if bool(candidate.get("important")):
+        if source_kind == "inline":
+            return (inline_bonus, 0)
+        if layer_order is None:
+            return (0, 0)
+        return (1, -int(layer_order))
+
+    if source_kind == "inline":
+        return (inline_bonus, 0)
+    if layer_order is None:
+        return (1, 0)
+    return (0, int(layer_order))
+
+
+def _cascade_sort_key(candidate: Mapping[str, Any]) -> tuple[Any, ...]:
+    important = 1 if bool(candidate.get("important")) else 0
+    origin_family = _origin_family(candidate)
+    if important:
+        origin_rank = {"author": 0, "user": 1, "user-agent": 2}.get(origin_family, 0)
+    else:
+        origin_rank = {"user-agent": 0, "user": 1, "author": 2}.get(origin_family, 2)
+    return (
+        important,
+        origin_rank,
+        _layer_priority(candidate),
+        _inline_specificity(candidate),
+        candidate.get("source_order"),
+    )
+
+
+def resolve_property_winner(
+    *,
+    computed_value: str,
+    candidates: Iterable[Mapping[str, Any]],
+    mark_selector_used: Callable[[str, str | None], None] | None = None,
+) -> dict[str, Any]:
+    candidate_pool = tuple(candidates)
+    direct_candidates = tuple(
+        candidate for candidate in candidate_pool if not candidate.get("inherited_from_element_id")
+    )
+    ranked_candidates = sorted(direct_candidates or candidate_pool, key=_cascade_sort_key)
+    if not ranked_candidates:
+        return {"computed_value": computed_value}
+
+    winner = ranked_candidates[-1]
+    if len(ranked_candidates) > 1 and _cascade_sort_key(ranked_candidates[-1]) == _cascade_sort_key(ranked_candidates[-2]):
+        return {"computed_value": computed_value}
+
+    style_id = str(winner.get("style_id") or "").strip()
+    selector_id = str(winner.get("selector_id") or "").strip() or None
+    if mark_selector_used is not None and style_id:
+        mark_selector_used(style_id, selector_id)
+
+    payload: dict[str, Any] = {
+        "computed_value": computed_value,
+    }
+    for key in ("style_id", "declaration_id", "declared_property", "inherited_from_element_id"):
+        value = winner.get(key)
+        if value not in (None, ""):
+            payload[key] = value
+    return payload
+
+
+def resolve_element_computed_styles(
+    *,
+    computed_styles: Mapping[CssPropertyId, str],
+    candidates_by_property: Mapping[CssPropertyId, Iterable[Mapping[str, Any]]],
+    mark_selector_used: Callable[[str, str | None], None] | None = None,
+) -> dict[CssPropertyId, dict[str, Any]]:
+    resolved: dict[CssPropertyId, dict[str, Any]] = {}
+    for property_name, computed_value in computed_styles.items():
+        resolved[property_name] = resolve_property_winner(
+            computed_value=computed_value,
+            candidates=candidates_by_property.get(property_name, ()),
+            mark_selector_used=mark_selector_used,
+        )
+    return resolved
 
 
 @dataclass(frozen=True, slots=True)

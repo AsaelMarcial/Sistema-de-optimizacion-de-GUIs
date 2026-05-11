@@ -6,13 +6,16 @@ from engine.adapters.utils.pixel import (
     color_histogram_total,
     get_color_count,
 )
-from engine.domain.data.material_quantization import get_material_quantization_assessment
 from engine.domain.models.color import ColorCatalog
-from engine.domain.models.palette import CorePalettesModel
+from engine.domain.models.color_scheme import ColorSchemeModel
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.session import BEFORE_SCREENSHOT, PALETTE_PREVIEW, Session
-from engine.domain.utils.color_scheme import build_color_scheme_artifact
-from engine.domain.utils.color_scheme import build_color_scheme_input
+from engine.domain.utils.palette_analysis import (
+    build_named_color_breakdown,
+    build_palette_seed_specs,
+    filter_supported_colors,
+    map_colors_to_scheme,
+)
 from engine.pipeline.context import PipelineContext
 from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.pipeline.stage_contract import StageContract, context_value
@@ -32,7 +35,7 @@ CONTRACT = StageContract(
         context_value(K.COLOR_CATALOG, ColorCatalog),
         context_value(K.ENVIRONMENTAL_BEFORE_COLOR_HISTOGRAM, list),
         context_value(K.SCHEME_COLOR_HISTOGRAM, list),
-        context_value(K.SCHEME_TONAL_PALETTES, CorePalettesModel),
+        context_value(K.SCHEME_TONAL_PALETTES, ColorSchemeModel),
         context_value(K.SCHEME_NAMED_COLOR_BREAKDOWN, tuple),
     ),
 )
@@ -66,23 +69,30 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         counts_by_color_id[entry.color_id] = (pixel_count, pixel_percentage)
     colors_inventory = colors_inventory.with_pixel_counts(counts_by_color_id)
     context.set(K.COLOR_CATALOG, colors_inventory)
-    scheme_input = build_color_scheme_input(
-        colors_inventory if len(colors_inventory) else (),
-        material_quantization_assessment=get_material_quantization_assessment(),
+    semantic_colors = filter_supported_colors(colors_inventory if len(colors_inventory) else ())
+    achromatic_seed, chromatic_seeds = build_palette_seed_specs(semantic_colors)
+    color_scheme_model = ColorSchemeModel.build(
+        achromatic_seed=achromatic_seed,
+        chromatic_seeds=chromatic_seeds,
     )
-    color_scheme_model = build_color_scheme_artifact(scheme_input)
+    mapped_colors = map_colors_to_scheme(color_scheme_model, semantic_colors)
+    mapped_pixel_count = sum(color.pixel_count for color in mapped_colors)
+    named_color_breakdown = build_named_color_breakdown(
+        mapped_colors,
+        total_pixels=mapped_pixel_count,
+    )
     preview_path = session.build_path("artifacts", PALETTE_PREVIEW)
 
     render_palette_preview(color_scheme_model.to_dict(), preview_path)
-    colors_inventory = colors_inventory.with_palette_mappings(color_scheme_model.semantic_colors)
+    colors_inventory = colors_inventory.with_palette_mappings(mapped_colors)
     context.set(K.COLOR_CATALOG, colors_inventory)
-    context.set(K.SCHEME_TONAL_PALETTES, color_scheme_model.core_palettes)
-    context.set(K.SCHEME_NAMED_COLOR_BREAKDOWN, color_scheme_model.named_color_breakdown)
+    context.set(K.SCHEME_TONAL_PALETTES, color_scheme_model)
+    context.set(K.SCHEME_NAMED_COLOR_BREAKDOWN, named_color_breakdown)
     context.trace.add_step(
         "scheme.built",
         {
-            "semantic_color_count": len(color_scheme_model.semantic_colors),
-            "chromatic_palette_count": len(color_scheme_model.core_palettes.chromatic_palettes),
+            "semantic_color_count": len(mapped_colors),
+            "chromatic_palette_count": len(color_scheme_model.chromatic_palettes),
             "scheme_color_count": len(scheme_color_histogram),
         },
     )
@@ -90,7 +100,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         CONTRACT.name,
         "complete",
         {
-            "semantic_color_count": len(color_scheme_model.semantic_colors),
+            "semantic_color_count": len(mapped_colors),
             "scheme_color_count": len(scheme_color_histogram),
         },
     )

@@ -142,18 +142,20 @@ def _build_stylesheets(style_catalog: StyleCatalog) -> list[dict[str, Any]]:
 def _build_unused_declarations(style_catalog: StyleCatalog) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for style_rule in style_catalog:
+        if not style_rule.selectors:
+            continue
+        if style_rule.used:
+            continue
         selector = style_rule.selector_text or ""
         for declaration in style_rule.declarations:
-            if declaration.element_usage_count != 0:
-                continue
             entries.append(
                 {
                     "selector": selector,
                     "tag_name": "",
                     "property": str(declaration.name),
-                    "value": declaration.value,
-                    "reason": "declaration has no linked element usage",
-                    "source_kind": style_rule.kind.value,
+                    "value": declaration.value_text,
+                    "reason": "rule has no linked selector usage",
+                    "source_kind": style_rule.source_kind.value,
                     "source": style_rule.source_url,
                     "rule_selector": style_rule.selector_text,
                 }

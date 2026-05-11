@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from engine.domain.models.color import ColorCatalog
-from engine.domain.models.palette import CorePalettesModel
+from engine.domain.models.color_scheme import ColorSchemeModel
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.token import TokenInventoryModel
 from engine.domain.utils.tokenization import apply_token_assignments
@@ -15,7 +15,7 @@ CONTRACT = StageContract(
     requires=(
         context_value(K.PROTOTYPE_STRUCTURE, PrototypeStructure),
         context_value(K.COLOR_CATALOG, ColorCatalog),
-        context_value(K.SCHEME_TONAL_PALETTES, CorePalettesModel),
+        context_value(K.SCHEME_TONAL_PALETTES, ColorSchemeModel),
         context_value(K.TOKEN_INVENTORY, TokenInventoryModel),
     ),
     produces=(

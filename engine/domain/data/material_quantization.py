@@ -1,6 +1,20 @@
 from __future__ import annotations
 
-from engine.domain.models.palette import MaterialQuantizationAssessment
+from dataclasses import asdict, dataclass
+
+
+@dataclass(frozen=True, slots=True)
+class MaterialQuantizationAssessment:
+    recommended: bool
+    summary: str
+    resize_before_quantization: bool
+    recommended_size: tuple[int, int]
+    recommended_quantizer: str
+    recommended_max_colors: int
+    notes: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
 
 
 def get_material_quantization_assessment() -> MaterialQuantizationAssessment:

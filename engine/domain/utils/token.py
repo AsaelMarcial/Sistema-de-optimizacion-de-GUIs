@@ -15,7 +15,7 @@ from engine.domain.data.tokens import (
 )
 from engine.domain.models.color import Color, ColorCatalog
 from engine.domain.models.element import Element, Property
-from engine.domain.models.palette import CorePalettesModel, TonalPaletteModel
+from engine.domain.models.color_scheme import ColorSchemeModel, TonalPaletteModel
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.token import Token, TokenInventory
 
@@ -333,11 +333,11 @@ def resolve_foundation_color(
 
 
 def _build_base_tokens(
-    core_palettes: CorePalettesModel,
+    color_scheme: ColorSchemeModel,
 ) -> tuple[tuple[Token, ...], dict[tuple[str, int], Token]]:
     tokens: list[Token] = []
     by_palette_tone: dict[tuple[str, int], Token] = {}
-    for palette in core_palettes:
+    for palette in color_scheme:
         for tone_stop in palette.tones:
             token = Token.foundation(
                 path=_foundation_path(palette, tone_stop.tone),
@@ -552,9 +552,9 @@ def _effect_candidate(
 def build_token_inventory(
     prototype_structure: PrototypeStructure,
     colors: Iterable[Color],
-    core_palettes: CorePalettesModel,
+    color_scheme: ColorSchemeModel,
 ) -> TokenInventory:
-    base_tokens, base_token_map = _build_base_tokens(core_palettes)
+    base_tokens, base_token_map = _build_base_tokens(color_scheme)
     fallback_tokens: dict[str, Token] = {}
     semantic_candidates: list[tuple[Token, Element]] = []
     color_entries = tuple(colors)
@@ -661,10 +661,7 @@ def apply_token_assignments(
         updated_nodes.append(updated_element)
 
     return (
-        PrototypeStructure.build(
-            updated_nodes,
-            declaration_values=prototype_structure.declaration_values,
-        ),
+        PrototypeStructure.build(updated_nodes),
         ColorCatalog.build(
             updated_colors[color_id]
             for color_id in color_entries_by_id

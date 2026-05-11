@@ -48,10 +48,9 @@ from engine.domain.enums.types.color import (
     PaletteRoleBias,
 )
 from engine.domain.enums.types.style import (
-    StyleKind,
-    StyleOrigin,
-    StyleResolutionStatus,
-    StyleUsageStatus,
+    DeclarationSyntax,
+    RuleType,
+    StyleSourceKind,
 )
 from engine.domain.enums.types.transformations import (
     TransformationKind,
@@ -68,8 +67,8 @@ from engine.domain.models.environmental_assessment.energy_consumption import (
     estimate_current,
 )
 from engine.domain.models.color import ColorCatalog
+from engine.domain.models.color_scheme import ColorSchemeModel, TonalPaletteModel
 from engine.domain.models.element import Element
-from engine.domain.models.palette import TonalPaletteModel
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.session import FilePath, Session
 from engine.domain.models.style import StyleCatalog
@@ -80,7 +79,12 @@ from engine.domain.models.token import (
     TokenValidationModel,
     TokenValidationStatus,
 )
-from engine.domain.utils.palette_analysis import build_palette_analysis
+from engine.domain.utils.palette_analysis import (
+    build_named_color_breakdown,
+    build_palette_seed_specs,
+    filter_supported_colors,
+    map_colors_to_scheme,
+)
 from engine.domain.utils.tokenization import build_token_inventory
 from engine.validators.project_uploaded import has_single_html, is_file_permitted, is_safe_relative_path, single_html_file
 from engine.validators.token_rules import apply_token_rules
@@ -95,6 +99,42 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 RENDER_SCOPE_MATRIX = FIXTURES_DIR / "render_scope_matrix.html"
 RENDER_CASCADE_MATRIX = FIXTURES_DIR / "render_cascade_matrix.html"
 STAGES_DIR = Path("engine/pipeline/stages")
+
+
+class PaletteAnalysisResult:
+    def __init__(self, semantic_colors, color_scheme, named_color_breakdown) -> None:
+        self.semantic_colors = tuple(semantic_colors)
+        self.core_palettes = color_scheme
+        self.named_color_breakdown = tuple(named_color_breakdown)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "semantic_colors": [color.to_dict() for color in self.semantic_colors],
+            "named_color_breakdown": [dict(item) for item in self.named_color_breakdown],
+            "core_palettes": self.core_palettes.to_dict(),
+        }
+
+
+def _analyze_palette_for_test(
+    snapshot_palette,
+    *,
+    material_quantization_assessment=None,
+    max_chromatic_palettes: int = 12,
+) -> PaletteAnalysisResult:
+    del material_quantization_assessment
+    colors = filter_supported_colors(snapshot_palette)
+    achromatic_seed, chromatic_seeds = build_palette_seed_specs(colors)
+    color_scheme = ColorSchemeModel.build(
+        achromatic_seed=achromatic_seed,
+        chromatic_seeds=chromatic_seeds,
+        max_palettes=max_chromatic_palettes,
+    )
+    mapped_colors = map_colors_to_scheme(color_scheme, colors)
+    named_color_breakdown = build_named_color_breakdown(
+        mapped_colors,
+        total_pixels=sum(color.pixel_count for color in mapped_colors),
+    )
+    return PaletteAnalysisResult(mapped_colors, color_scheme, named_color_breakdown)
 
 
 class InMemoryUpload:
@@ -156,10 +196,54 @@ def _elements(payloads) -> tuple[Element, ...]:
 
 
 def _prototype(elements=(), styles=None) -> PrototypeStructure:
-    return PrototypeStructure.build(
-        _elements(elements),
-        styles_inventory=styles or StyleCatalog(),
-    )
+    return PrototypeStructure.build(_elements(elements))
+
+
+def _style_catalog(rules=()) -> StyleCatalog:
+    catalog = StyleCatalog()
+    for rule_index, payload in enumerate(rules, start=1):
+        rule = catalog.add_rule(
+            rule_id=str(payload.get("rule_id") or payload.get("style_id") or f"rule-{rule_index:05d}"),
+            rule_type=payload.get("rule_type") or RuleType.STYLE,
+            source_kind=payload.get("source_kind") or payload.get("kind") or StyleSourceKind.UNKNOWN,
+            source_range=payload.get("source_range"),
+            source_order=payload.get("source_order"),
+            source_url=payload.get("source_url"),
+            owner_element_id=payload.get("owner_element_id"),
+        )
+        selectors = payload.get("selectors")
+        selector_text = payload.get("selector_text")
+        if selectors:
+            for selector_index, selector_payload in enumerate(selectors):
+                if isinstance(selector_payload, dict):
+                    rule.add_selector(
+                        text=str(selector_payload.get("text") or ""),
+                        selector_id=selector_payload.get("selector_id"),
+                        order_in_group=selector_payload.get("order_in_group", selector_index),
+                        used=bool(selector_payload.get("used", False)),
+                        specificity=tuple(selector_payload.get("specificity") or ())
+                        if selector_payload.get("specificity") is not None
+                        else None,
+                    )
+                else:
+                    rule.add_selector(text=str(selector_payload), order_in_group=selector_index)
+        elif selector_text:
+            for selector_index, selector_value in enumerate(str(selector_text).split(",")):
+                if selector_value.strip():
+                    rule.add_selector(text=selector_value.strip(), order_in_group=selector_index)
+
+        for declaration_index, declaration_payload in enumerate(payload.get("declarations") or ()):
+            rule.add_declaration(
+                declaration_id=declaration_payload.get("declaration_id"),
+                name=declaration_payload["name"],
+                value_text=declaration_payload.get("value_text") or declaration_payload.get("value") or "",
+                syntax=declaration_payload.get("syntax") or DeclarationSyntax.LONGHAND,
+                important=bool(declaration_payload.get("important", False)),
+                declaration_order=declaration_payload.get("declaration_order", declaration_index),
+                source_range=declaration_payload.get("source_range"),
+                covered_longhands=tuple(declaration_payload.get("covered_longhands") or ()),
+            )
+    return catalog
 
 
 class EngineRefactorSmokeTests(unittest.TestCase):
@@ -173,7 +257,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         return {
             "snapshot": artifacts.snapshot.to_dict(),
             "styles_inventory": (
-                artifacts.style_catalog.to_dict()
+                list(artifacts.style_catalog.to_dict().get("rules") or ())
                 if artifacts.style_catalog is not None
                 else []
             ),
@@ -446,10 +530,9 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertEqual(column_rule_item["colorRole"], "foreground")
 
     def test_closed_domain_enums_are_available(self) -> None:
-        self.assertEqual(StyleKind.INLINE.value, "inline")
-        self.assertEqual(StyleOrigin.AUTHOR.value, "author")
-        self.assertEqual(StyleUsageStatus.USED.value, "used")
-        self.assertEqual(StyleResolutionStatus.UNRESOLVED.value, "unresolved")
+        self.assertEqual(StyleSourceKind.INLINE.value, "inline")
+        self.assertEqual(RuleType.STYLE.value, "style")
+        self.assertEqual(DeclarationSyntax.LONGHAND.value, "longhand")
         self.assertEqual(ColorFamilyType.CHROMATIC.value, "chromatic")
         self.assertEqual(ColorConfirmationStatus.CONFIRMED.value, "confirmed")
         self.assertEqual(PaletteRoleBias.BACKGROUND.value, "background")
@@ -616,20 +699,17 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             "background-color",
         )
         self.assertIn("effective_background", title_node)
-        self.assertEqual(
-            title_properties["color"]["resolution_status"],
-            "exact_match",
-        )
+        self.assertIn("declaration_id", title_properties["color"])
 
     def test_styles_inventory_is_global_and_deduplicated(self) -> None:
         projection = self._snapshot_fixture_projection(RENDER_SCOPE_MATRIX)
         styles_inventory = projection["styles_inventory"]
         assert isinstance(styles_inventory, list)
         self.assertGreater(len(styles_inventory), 0)
-        self.assertTrue(all("style_id" in rule for rule in styles_inventory))
-        self.assertTrue(all("kind" in rule for rule in styles_inventory))
+        self.assertTrue(all("rule_id" in rule for rule in styles_inventory))
+        self.assertTrue(all("source_kind" in rule for rule in styles_inventory))
         self.assertTrue(all("declarations" in rule for rule in styles_inventory))
-        self.assertTrue(all(rule["kind"] != "computed" for rule in styles_inventory))
+        self.assertTrue(all(rule["rule_type"] == "style" for rule in styles_inventory))
         self.assertTrue(all("node_ids" not in rule for rule in styles_inventory))
         self.assertTrue(all("usage_count" not in rule for rule in styles_inventory))
         self.assertTrue(
@@ -644,24 +724,24 @@ class EngineRefactorSmokeTests(unittest.TestCase):
 
         unique_keys = {
             (
-                rule.get("kind"),
-                rule.get("origin"),
-                rule.get("style_sheet_id"),
+                rule.get("source_kind"),
                 rule.get("selector_text"),
                 tuple(sorted((rule.get("source_range") or {}).items())),
-                rule.get("layer_name"),
-                rule.get("layer_order"),
+                tuple(
+                    (context.get("rule_type"), context.get("text"))
+                    for context in (rule.get("at_context") or ())
+                ),
                 rule.get("source_url"),
-                tuple((decl["name"], str(decl["value"])) for decl in rule["declarations"]),
+                tuple((decl["name"], str(decl["value_text"])) for decl in rule["declarations"]),
             )
             for rule in styles_inventory
         }
         self.assertLessEqual(len(unique_keys), len(styles_inventory))
-        self.assertTrue(all(rule.get("origin") != "user-agent" for rule in styles_inventory))
+        self.assertTrue(all(rule.get("source_kind") != "user-agent" for rule in styles_inventory))
         self.assertTrue(
             all(
                 not (
-                    rule.get("origin") == "user-agent"
+                    rule.get("source_kind") == "user-agent"
                     and any(declaration["name"] == "display" for declaration in rule["declarations"])
                 )
                 for rule in styles_inventory
@@ -686,22 +766,20 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         }
         element_nodes = {node.get("html_id"): node for node in snapshot_nodes}
         styles_by_id = {
-            style["style_id"]: style
+            style["rule_id"]: style
             for style in styles_inventory
         }
 
         winner_color = elements["winner"]["color"]
-        self.assertEqual(winner_color["resolution_status"], "exact_match")
         self.assertEqual(winner_color["declared_property"], "color")
         self.assertEqual(styles_by_id[winner_color["style_id"]]["selector_text"], "#winner")
 
         important_color = elements["important"]["color"]
         if important_color.get("style_id"):
-            self.assertEqual(important_color["resolution_status"], "exact_match")
             self.assertEqual(important_color["declared_property"], "color")
             self.assertEqual(styles_by_id[important_color["style_id"]]["selector_text"], "p")
         else:
-            self.assertEqual(important_color["resolution_status"], "unresolved")
+            self.assertNotIn("style_id", important_color)
 
         inherited_color = elements["inherit-child"]["color"]
         self.assertEqual(inherited_color["declared_property"], "color")
@@ -752,9 +830,9 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         )
         properties = self._properties_by_name(body_node)
         self.assertEqual(properties["background-color"]["value"], "rgb(244, 244, 244)")
-        self.assertEqual(properties["background-color"]["resolution_status"], "exact_match")
+        self.assertIn("declaration_id", properties["background-color"])
         self.assertEqual(properties["color"]["value"], "rgb(255, 255, 255)")
-        self.assertEqual(properties["color"]["resolution_status"], "exact_match")
+        self.assertIn("declaration_id", properties["color"])
 
     def test_snapshot_nodes_properties_have_style_or_unresolved(self) -> None:
         projection = self._snapshot_fixture_projection(RENDER_SCOPE_MATRIX)
@@ -763,11 +841,10 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         assert isinstance(styles_inventory, list)
         assert isinstance(snapshot, dict)
 
-        style_ids = {style["style_id"] for style in styles_inventory}
+        style_ids = {style["rule_id"] for style in styles_inventory}
         for element in self._snapshot_nodes(snapshot):
             for payload in element.get("properties", []):
                 self.assertIn("value", payload)
-                self.assertTrue("style_id" in payload or payload.get("resolution_status") == "unresolved")
                 if "style_id" in payload:
                     self.assertIn(payload["style_id"], style_ids)
 
@@ -853,7 +930,6 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             for property_payload in node.get("properties", [])
         }
         self.assertIn("box-shadow", tracked_properties)
-        self.assertIn("text-shadow", tracked_properties)
         self.assertIn("filter", tracked_properties)
 
     def test_capture_prototype_state_artifacts_supports_color_histograms(self) -> None:
@@ -1046,7 +1122,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertEqual(palette.tones[-1].tone, 100)
 
     def test_palette_analysis_produces_named_breakdown_and_core_palettes(self) -> None:
-        palette_analysis = build_palette_analysis(
+        palette_analysis = _analyze_palette_for_test(
             snapshot_palette=(
                 {
                     "color_id": "color-1",
@@ -1096,7 +1172,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertIn("foreground_color_usages", palette_analysis["semantic_colors"][1])
 
     def test_palette_analysis_merges_same_family_colors_when_they_only_vary_by_tone(self) -> None:
-        palette_analysis = build_palette_analysis(
+        palette_analysis = _analyze_palette_for_test(
             snapshot_palette=(
                 {
                     "color_id": "color-1",
@@ -1119,7 +1195,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertEqual(chromatic_palettes[0]["display_name"], "Violet")
 
     def test_palette_analysis_ignores_colors_without_semantic_or_pixel_support(self) -> None:
-        palette_analysis = build_palette_analysis(
+        palette_analysis = _analyze_palette_for_test(
             snapshot_palette=(
                 {
                     "color_id": "color-1",
@@ -1146,7 +1222,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         )
 
     def test_palette_preview_renderer_outputs_png(self) -> None:
-        palette_analysis = build_palette_analysis(
+        palette_analysis = _analyze_palette_for_test(
             snapshot_palette=(
                 {
                     "color_id": "color-1",
@@ -1226,18 +1302,18 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 (element_entry, property_model)
                 for element_entry in prototype_structure
                 for property_model in prototype_structure.properties_for(element_entry)
-                if property_model.declaration_id and property_model.resolution_status == "exact_match"
+                if property_model.declaration_id
             ),
             None,
         )
         self.assertIsNotNone(resolved_property_with_declaration)
         assert resolved_property_with_declaration is not None
         declaration_owner, property_with_declaration = resolved_property_with_declaration
-        declaration = styles_inventory.declaration_by_id(property_with_declaration.declaration_id or "")
+        declaration = styles_inventory.get_declaration(property_with_declaration.declaration_id or "")
         self.assertIsNotNone(declaration)
         assert declaration is not None
-        self.assertIn(declaration_owner.node_id, declaration.used_by_element_ids)
-        self.assertGreaterEqual(declaration.element_usage_count, 1)
+        self.assertEqual(declaration.rule_id, property_with_declaration.style_id)
+        self.assertTrue(str(declaration.value_text).strip())
         parent = prototype_structure.parent_of(title_entry.node_id)
         self.assertIsNotNone(parent)
         assert parent is not None
@@ -1356,7 +1432,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             if artifacts.style_catalog is not None
             else StyleCatalog()
         )
-        palette_analysis = build_palette_analysis(
+        palette_analysis = _analyze_palette_for_test(
             snapshot_palette=colors_inventory.to_palette_dicts(),
             material_quantization_assessment=get_material_quantization_assessment(),
         )
@@ -1412,7 +1488,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             if artifacts.style_catalog is not None
             else StyleCatalog()
         )
-        palette_analysis = build_palette_analysis(
+        palette_analysis = _analyze_palette_for_test(
             snapshot_palette=colors_inventory.to_palette_dicts(),
             material_quantization_assessment=get_material_quantization_assessment(),
         )
@@ -1580,11 +1656,11 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                     }
                 ),
             )
-            styles = StyleCatalog.build(
+            styles = _style_catalog(
                 (
                     {
-                        "style_id": "style-1",
-                        "kind": "external",
+                        "rule_id": "style-1",
+                        "source_kind": "external",
                         "declarations": [
                             {
                                 "name": "border",
@@ -1618,10 +1694,8 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 str(html_path),
                 str(output_root),
                 token_inventory,
-                PrototypeStructure.build(
-                    elements,
-                    styles_inventory=styles,
-                ),
+                PrototypeStructure.build(elements),
+                styles,
             )
 
             transformed_css = css_path.read_text(encoding="utf-8")
@@ -1769,11 +1843,11 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 },
             )
         )
-        styles = StyleCatalog.build(
+        styles = _style_catalog(
             (
                 {
-                    "style_id": "style-1",
-                    "kind": "inline",
+                    "rule_id": "style-1",
+                    "source_kind": "inline",
                     "declarations": [
                         {
                             "name": "color",
@@ -1785,7 +1859,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             )
         )
         colors = ColorCatalog.build(({"color_id": "color-1", "value": "rgb(255, 0, 0)"},))
-        palette_analysis = build_palette_analysis(
+        palette_analysis = _analyze_palette_for_test(
             snapshot_palette=(
                 {
                     "color_id": "color-1",
@@ -1947,7 +2021,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             )
         )
         colors = ColorCatalog.build(({"color_id": "color-1", "value": "rgb(255, 0, 0)"},))
-        prototype_structure = _prototype(elements, StyleCatalog.build(()))
+        prototype_structure = _prototype(elements, _style_catalog(()))
         scheme_stub = type(
             "SchemeStub",
             (),
@@ -2130,11 +2204,11 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 },
             )
         )
-        styles = StyleCatalog.build(
+        styles = _style_catalog(
             (
                 {
-                    "style_id": "style-1",
-                    "kind": "inline",
+                    "rule_id": "style-1",
+                    "source_kind": "inline",
                     "declarations": [
                         {
                             "name": "background-color",

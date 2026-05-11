@@ -13,7 +13,7 @@ from engine.domain.models.environmental_assessment.assessment import (
     EnvironmentalAssessmentModel,
     EnvironmentalSavingsModel,
 )
-from engine.domain.models.palette import CorePalettesModel
+from engine.domain.models.color_scheme import ColorSchemeModel
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.session import AFTER_SCREENSHOT, BEFORE_SCREENSHOT, FilePath, Session
 from engine.domain.models.token import TokenInventoryModel
@@ -45,7 +45,7 @@ CONTRACT = StageContract(
         context_value(K.ENVIRONMENTAL_SAVINGS, EnvironmentalSavingsModel),
         context_value(K.COLOR_CATALOG, ColorCatalog),
         context_value(K.SCHEME_NAMED_COLOR_BREAKDOWN, tuple),
-        context_value(K.SCHEME_TONAL_PALETTES, CorePalettesModel),
+        context_value(K.SCHEME_TONAL_PALETTES, ColorSchemeModel),
         context_value(K.ENVIRONMENTAL_BEFORE_COLOR_HISTOGRAM, list),
         context_value(K.PROTOTYPE_STRUCTURE, PrototypeStructure),
         context_value(K.DERIVED_RAW_SNAPSHOT_METADATA, dict),

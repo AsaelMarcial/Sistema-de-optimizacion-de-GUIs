@@ -90,10 +90,7 @@ def extract_prototype_css_overview(
         snapshot, styles_inventory, colors_inventory = builder.capture_snapshot_models()
     finally:
         builder.close()
-    prototype_structure = PrototypeStructure.build(
-        snapshot.nodes,
-        styles_inventory=styles_inventory,
-    )
+    prototype_structure = PrototypeStructure.build(snapshot.nodes)
     colors_inventory = build_color_usage_catalog(
         prototype_structure,
         existing_inventory=ColorCatalog.build(colors_inventory),

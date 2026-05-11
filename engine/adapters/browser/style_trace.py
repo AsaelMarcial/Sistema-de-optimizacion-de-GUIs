@@ -12,14 +12,11 @@ from engine.domain.enums.scope.css_properties import (
     get_css_property,
 )
 from engine.domain.models.color import ColorCatalog
-from engine.domain.models.style import (
-    ResolvedStyleValue,
-    StyleCatalog,
-)
+from engine.domain.models.element import resolve_element_computed_styles
+from engine.domain.models.style import AtRuleContext, StyleCatalog
 from engine.domain.enums.types.style import (
-    StyleKind,
-    StyleOrigin,
-    StyleResolutionStatus,
+    RuleType,
+    StyleSourceKind,
 )
 
 _HEX_COLOR_RE = re.compile(r"#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b")
@@ -179,9 +176,9 @@ def _normalize_source_range(raw_range: dict[str, Any] | None) -> dict[str, int] 
         return None
 
     return {
-        "start_line": start_line,
+        "start_line": start_line + 1,
         "start_column": start_column,
-        "end_line": end_line,
+        "end_line": end_line + 1,
         "end_column": end_column,
     }
 
@@ -281,32 +278,25 @@ def _extract_layer_metadata(rule: dict[str, Any], layer_orders: dict[str, int]) 
     return normalized_name, (max(candidate_orders) if candidate_orders else None)
 
 
-def _style_kind(
+def _authored_source_kind(
     *,
-    origin: StyleOrigin | str | None,
-    inherited_from_element_id: str | None,
     inline: bool = False,
-    attributes: bool = False,
     source_url: str | None = None,
-) -> StyleKind:
-    if inherited_from_element_id:
-        return StyleKind.INHERITED
-    if origin == StyleOrigin.USER_AGENT or str(origin or "").strip().lower() == StyleOrigin.USER_AGENT.value:
-        return StyleKind.USER_AGENT
-    if inline or attributes:
-        return StyleKind.INLINE
+) -> StyleSourceKind:
+    if inline:
+        return StyleSourceKind.INLINE
     if source_url:
-        return StyleKind.EXTERNAL
-    return StyleKind.EMBEDDED
+        return StyleSourceKind.EXTERNAL
+    return StyleSourceKind.EMBEDDED
 
 
-def _normalize_cascade_origin(origin: str | None) -> StyleOrigin:
+def _normalize_cascade_origin(origin: str | None) -> str:
     normalized = str(origin or "").strip().lower()
-    if normalized == StyleOrigin.USER_AGENT.value:
-        return StyleOrigin.USER_AGENT
-    if normalized == StyleOrigin.USER.value:
-        return StyleOrigin.USER
-    return StyleOrigin.AUTHOR
+    if normalized == "user-agent":
+        return "user-agent"
+    if normalized == "user":
+        return "user"
+    return "author"
 
 
 def _style_sort_key(
@@ -320,11 +310,62 @@ def _style_sort_key(
     return (sheet_order, start_line, start_column, declaration_seed)
 
 
+def _extract_rule_selectors(rule_entry: dict[str, Any]) -> tuple[dict[str, Any], ...]:
+    selector_entries: list[dict[str, Any]] = []
+    selector_payloads = (((rule_entry.get("rule") or {}).get("selectorList") or {}).get("selectors") or ())
+    for index, payload in enumerate(selector_payloads):
+        if not isinstance(payload, dict):
+            continue
+        text = str(payload.get("text") or "").strip()
+        if not text:
+            continue
+        selector_entries.append(
+            {
+                "text": text,
+                "order_in_group": index,
+                "specificity": _specificity_tuple(payload.get("specificity")),
+                "source_range": _normalize_source_range(payload.get("range")),
+            }
+        )
+    if selector_entries:
+        return tuple(selector_entries)
+
+    selector_text = str((((rule_entry.get("rule") or {}).get("selectorList") or {}).get("text")) or "").strip()
+    if not selector_text:
+        return ()
+    return tuple(
+        {
+            "text": item.strip(),
+            "order_in_group": index,
+            "specificity": None,
+            "source_range": None,
+        }
+        for index, item in enumerate(selector_text.split(","))
+        if item.strip()
+    )
+
+
+def _entry_at_context(
+    *,
+    layer_name: str | None,
+) -> tuple[dict[str, Any], ...]:
+    contexts: list[dict[str, Any]] = []
+    if layer_name:
+        contexts.append(
+            {
+                "rule_type": RuleType.LAYER,
+                "text": layer_name,
+                "source_range": None,
+            }
+        )
+    return tuple(contexts)
+
+
 def _build_inline_entry(
     style_obj: dict[str, Any],
     stylesheet_headers: dict[str, dict[str, Any]],
     *,
-    kind: StyleKind,
+    owner_element_id: str,
     inherited_from_element_id: str | None,
     resolution_frontend_node_id: int,
     source_computed_styles: Mapping[CssPropertyId, str],
@@ -338,26 +379,22 @@ def _build_inline_entry(
     style_sheet_id = style_obj.get("styleSheetId")
     stylesheet_header = stylesheet_headers.get(style_sheet_id)
     source_range = _normalize_source_range(style_obj.get("range"))
-    style_kind = _style_kind(
-        origin=StyleOrigin.AUTHOR,
-        inherited_from_element_id=inherited_from_element_id,
-        inline=kind == StyleKind.INLINE,
-        attributes=False,
-        source_url=(stylesheet_header or {}).get("source_url"),
-    )
+    source_url = (stylesheet_header or {}).get("source_url")
 
     return {
-        "kind": style_kind,
+        "source_kind": _authored_source_kind(inline=True, source_url=source_url),
         "origin": "author",
         "style_sheet_id": style_sheet_id,
-        "selector_text": None,
+        "selectors": (),
         "declarations": declarations,
         "matching_selector_index": None,
         "specificity": None,
         "source_range": source_range,
+        "at_context": (),
         "layer_name": None,
         "layer_order": None,
-        "source_url": (stylesheet_header or {}).get("source_url"),
+        "source_url": source_url,
+        "owner_element_id": owner_element_id,
         "_sort_key": _style_sort_key(stylesheet_header, source_range, declaration_seed),
         "_resolution_frontend_node_id": resolution_frontend_node_id,
         "_source_computed_styles": source_computed_styles,
@@ -387,27 +424,29 @@ def _build_rule_entry(
     stylesheet_header = stylesheet_headers.get(style_sheet_id)
     matching_selector_index, specificity, selector_range = _extract_matching_selector_metadata(rule_entry)
     source_range = _normalize_source_range(style.get("range")) or selector_range
-    selector_text = ((rule.get("selectorList") or {}).get("text")) or None
+    selectors = _extract_rule_selectors(rule_entry)
     layer_name, layer_order = _extract_layer_metadata(rule, layer_orders)
     origin = _normalize_cascade_origin(rule.get("origin"))
     source_url = (stylesheet_header or {}).get("source_url")
 
     return {
-        "kind": _style_kind(
-            origin=origin,
-            inherited_from_element_id=inherited_from_element_id,
-            source_url=source_url,
+        "source_kind": (
+            "user-agent"
+            if origin == "user-agent"
+            else _authored_source_kind(source_url=source_url).value
         ),
         "origin": origin,
         "style_sheet_id": style_sheet_id,
-        "selector_text": selector_text,
+        "selectors": selectors,
         "declarations": declarations,
         "matching_selector_index": matching_selector_index,
         "specificity": specificity,
         "source_range": source_range,
+        "at_context": _entry_at_context(layer_name=layer_name),
         "layer_name": layer_name,
         "layer_order": layer_order,
         "source_url": source_url,
+        "owner_element_id": None,
         "_sort_key": _style_sort_key(stylesheet_header, source_range, declaration_seed),
         "_resolution_frontend_node_id": resolution_frontend_node_id,
         "_source_computed_styles": source_computed_styles,
@@ -418,20 +457,32 @@ def _build_rule_entry(
 
 def _inventory_key(entry: dict[str, Any]) -> tuple[Any, ...]:
     return (
-        entry["kind"],
-        entry["origin"],
+        entry["source_kind"],
         entry["style_sheet_id"],
-        entry["selector_text"],
+        tuple(
+            (
+                selector["text"],
+                selector.get("specificity"),
+            )
+            for selector in entry.get("selectors", ())
+        ),
         tuple(sorted((entry["source_range"] or {}).items())),
-        entry["layer_name"],
-        entry["layer_order"],
+        tuple(
+            (
+                context["rule_type"].value if hasattr(context["rule_type"], "value") else str(context["rule_type"]),
+                context["text"],
+            )
+            for context in entry.get("at_context", ())
+        ),
         entry["source_url"],
+        entry["owner_element_id"],
         tuple(
             (
                 declaration["name"],
                 declaration["value"],
                 declaration["important"],
                 declaration["implicit"],
+                declaration["declaration_order"],
             )
             for declaration in entry["declarations"]
         ),
@@ -447,15 +498,17 @@ def _register_style_inventory_entry(
     key = _inventory_key(entry)
     if key not in aggregate:
         aggregate[key] = {
-            "kind": entry["kind"],
+            "source_kind": entry["source_kind"],
             "origin": entry["origin"],
             "style_sheet_id": entry["style_sheet_id"],
-            "selector_text": entry["selector_text"],
-            "declarations": _sanitize_declarations(entry["declarations"]),
+            "selectors": tuple(dict(selector) for selector in entry.get("selectors", ())),
+            "declarations": tuple(dict(declaration) for declaration in entry["declarations"]),
             "source_range": entry["source_range"],
+            "at_context": tuple(dict(context) for context in entry.get("at_context", ())),
             "layer_name": entry["layer_name"],
             "layer_order": entry["layer_order"],
             "source_url": entry["source_url"],
+            "owner_element_id": entry["owner_element_id"],
             "node_ids": set(),
             "usage_count": 0,
             "_sort_key": entry["_sort_key"],
@@ -468,30 +521,72 @@ def _register_style_inventory_entry(
 
 def _build_styles_inventory(
     aggregate: dict[tuple[Any, ...], dict[str, Any]],
-) -> tuple[StyleCatalog, dict[tuple[Any, ...], str]]:
-    return StyleCatalog.build_from_aggregate(aggregate)
+) -> tuple[
+    StyleCatalog,
+    dict[tuple[Any, ...], str],
+    dict[tuple[str, CssPropertyId, str, bool, bool], str],
+    dict[tuple[tuple[Any, ...], int], str],
+]:
+    style_catalog = StyleCatalog()
+    style_ids_by_key: dict[tuple[Any, ...], str] = {}
+    declaration_ids_by_signature: dict[tuple[str, CssPropertyId, str, bool, bool], str] = {}
+    selector_ids_by_key_and_index: dict[tuple[tuple[Any, ...], int], str] = {}
 
-
-def _apply_exact_declaration_usage(
-    style_catalog: StyleCatalog,
-    declaration_usage_by_id: Mapping[str, set[str]],
-) -> StyleCatalog:
-    entries = []
-    for style_rule in style_catalog:
-        declarations = tuple(
-            declaration.with_usage(
-                used_by_element_ids=tuple(
-                    sorted(str(item) for item in declaration_usage_by_id.get(declaration.declaration_id or "", set()))
-                ),
-                usage_status="used"
-                if declaration_usage_by_id.get(declaration.declaration_id or "", set())
-                else "unknown",
-                element_usage_count=len(declaration_usage_by_id.get(declaration.declaration_id or "", set())),
-            )
-            for declaration in style_rule.declarations
+    for source_order, (inventory_key, entry) in enumerate(
+        sorted(aggregate.items(), key=lambda item: item[1]["_sort_key"])
+    ):
+        rule = style_catalog.add_rule(
+            rule_type=RuleType.STYLE,
+            source_kind=entry["source_kind"],
+            at_context=tuple(
+                AtRuleContext(
+                    rule_type=context["rule_type"],
+                    text=context["text"],
+                    source_range=context.get("source_range"),
+                )
+                for context in entry.get("at_context", ())
+            ),
+            source_range=entry.get("source_range"),
+            source_order=source_order,
+            source_url=entry.get("source_url"),
+            owner_element_id=entry.get("owner_element_id"),
         )
-        entries.append(style_rule.with_declarations(declarations))
-    return StyleCatalog(entries=tuple(entries))
+        for selector_payload in entry.get("selectors", ()):
+            selector = rule.add_selector(
+                text=selector_payload["text"],
+                order_in_group=int(selector_payload.get("order_in_group") or 0),
+                specificity=selector_payload.get("specificity"),
+            )
+            selector_ids_by_key_and_index[(inventory_key, selector.order_in_group)] = selector.selector_id
+        for declaration_payload in entry["declarations"]:
+            declaration = rule.add_declaration(
+                name=declaration_payload["name"],
+                value_text=declaration_payload["value"],
+                important=bool(declaration_payload.get("important")),
+                declaration_order=int(declaration_payload.get("declaration_order") or 0),
+                source_range=declaration_payload.get("source_range"),
+                covered_longhands=tuple(
+                    item.value if hasattr(item, "value") else str(item)
+                    for item in declaration_payload.get("longhand_properties", ())
+                ),
+            )
+            declaration_ids_by_signature[
+                (
+                    rule.rule_id,
+                    declaration_payload["name"],
+                    declaration_payload["value"],
+                    bool(declaration_payload.get("important")),
+                    bool(declaration_payload.get("implicit")),
+                )
+            ] = declaration.declaration_id
+        style_ids_by_key[inventory_key] = rule.rule_id
+
+    return (
+        style_catalog,
+        style_ids_by_key,
+        declaration_ids_by_signature,
+        selector_ids_by_key_and_index,
+    )
 
 
 def _computed_style_map(raw_node: dict[str, Any]) -> dict[CssPropertyId, str]:
@@ -505,73 +600,6 @@ def _computed_style_map(raw_node: dict[str, Any]) -> dict[CssPropertyId, str]:
             continue
         computed[property_id] = _normalize_css_value(property_id, value)
     return computed
-
-
-def _origin_family(candidate: dict[str, Any]) -> StyleOrigin:
-    if candidate["kind"] in {
-        StyleKind.INLINE,
-        StyleKind.EMBEDDED,
-        StyleKind.EXTERNAL,
-        StyleKind.INHERITED,
-    }:
-        return StyleOrigin.AUTHOR
-    if candidate.get("origin") == StyleOrigin.USER:
-        return StyleOrigin.USER
-    if candidate.get("origin") == StyleOrigin.USER_AGENT or candidate["kind"] == StyleKind.USER_AGENT:
-        return StyleOrigin.USER_AGENT
-    return StyleOrigin.AUTHOR
-
-
-def _inline_specificity(candidate: dict[str, Any]) -> tuple[int, int, int, int]:
-    if candidate["kind"] == StyleKind.INLINE:
-        return (1, 0, 0, 0)
-    specificity = candidate.get("specificity")
-    if isinstance(specificity, tuple):
-        return (0, specificity[0], specificity[1], specificity[2])
-    return (0, 0, 0, 0)
-
-
-def _layer_priority(candidate: dict[str, Any]) -> tuple[int, int]:
-    layer_order = candidate.get("layer_order")
-    inline_bonus = 2 if candidate["kind"] == StyleKind.INLINE else 0
-
-    if candidate["important"]:
-        if candidate["kind"] == StyleKind.INLINE:
-            return (inline_bonus, 0)
-        if layer_order is None:
-            return (0, 0)
-        return (1, -int(layer_order))
-
-    if candidate["kind"] == StyleKind.INLINE:
-        return (inline_bonus, 0)
-    if layer_order is None:
-        return (1, 0)
-    return (0, int(layer_order))
-
-
-def _cascade_sort_key(candidate: dict[str, Any]) -> tuple[Any, ...]:
-    important = 1 if candidate["important"] else 0
-    origin_family = _origin_family(candidate)
-    if candidate["important"]:
-        origin_rank = {
-            StyleOrigin.AUTHOR: 0,
-            StyleOrigin.USER: 1,
-            StyleOrigin.USER_AGENT: 2,
-        }.get(origin_family, 0)
-    else:
-        origin_rank = {
-            StyleOrigin.USER_AGENT: 0,
-            StyleOrigin.USER: 1,
-            StyleOrigin.AUTHOR: 2,
-        }.get(origin_family, 2)
-
-    return (
-        important,
-        origin_rank,
-        _layer_priority(candidate),
-        _inline_specificity(candidate),
-        candidate["source_order"],
-    )
 
 
 def _extract_palette_colors(property_name: CssPropertyId | str, value: str) -> list[str]:
@@ -824,6 +852,7 @@ def _property_candidates(
     style_entries: list[dict[str, Any]],
     style_ids_by_key: dict[tuple[Any, ...], str],
     declaration_ids_by_signature: dict[tuple[str, CssPropertyId, str, bool, bool], str],
+    selector_ids_by_key_and_index: Mapping[tuple[tuple[Any, ...], int], str],
     expansion_cache: dict[tuple[CssPropertyId, str], list[tuple[CssPropertyId, str]]],
     resolve_cache: dict[tuple[int, CssPropertyId, str], str | None],
 ) -> list[dict[str, Any]]:
@@ -834,7 +863,15 @@ def _property_candidates(
         if inherited_from_element_id and target_property not in _INHERITED_SCOPE_PROPERTIES:
             continue
 
-        style_id = style_ids_by_key[entry["_inventory_key"]]
+        inventory_key = entry.get("_inventory_key")
+        style_id = style_ids_by_key.get(inventory_key) if inventory_key is not None else None
+        selector_id = None
+        matching_selector_index = entry.get("matching_selector_index")
+        if style_id and inventory_key is not None:
+            if isinstance(matching_selector_index, int):
+                selector_id = selector_ids_by_key_and_index.get((inventory_key, matching_selector_index))
+            if selector_id is None and len(entry.get("selectors", ())) == 1:
+                selector_id = selector_ids_by_key_and_index.get((inventory_key, 0))
         for declaration in entry["declarations"]:
             for resolved_property, resolved_value in _expand_declaration_targets(
                 cdp,
@@ -859,17 +896,21 @@ def _property_candidates(
                 candidates.append(
                     {
                         "style_id": style_id,
-                        "kind": entry["kind"],
+                        "source_kind": entry["source_kind"],
                         "origin": entry["origin"],
                         "declared_property": declaration["name"],
-                        "declaration_id": declaration_ids_by_signature.get(
-                            (
-                                style_id,
-                                declaration["name"],
-                                declaration["value"],
-                                declaration["important"],
-                                declaration["implicit"],
+                        "declaration_id": (
+                            declaration_ids_by_signature.get(
+                                (
+                                    style_id,
+                                    declaration["name"],
+                                    declaration["value"],
+                                    declaration["important"],
+                                    declaration["implicit"],
+                                )
                             )
+                            if style_id
+                            else None
                         ),
                         "important": declaration["important"],
                         "specificity": entry["specificity"],
@@ -879,23 +920,25 @@ def _property_candidates(
                             entry["_sort_key"],
                             declaration["declaration_order"],
                         ),
+                        "selector_id": selector_id,
                     }
                 )
 
     return candidates
 
 
-def _resolve_element_computed_styles(
+def _candidate_map_for_element(
     cdp: Any,
     *,
     computed_styles: Mapping[CssPropertyId, str],
     style_entries: list[dict[str, Any]],
     style_ids_by_key: dict[tuple[Any, ...], str],
     declaration_ids_by_signature: dict[tuple[str, CssPropertyId, str, bool, bool], str],
+    selector_ids_by_key_and_index: Mapping[tuple[tuple[Any, ...], int], str],
     expansion_cache: dict[tuple[CssPropertyId, str], list[tuple[CssPropertyId, str]]],
     resolve_cache: dict[tuple[int, CssPropertyId, str], str | None],
-) -> dict[CssPropertyId, ResolvedStyleValue]:
-    resolved_styles: dict[CssPropertyId, ResolvedStyleValue] = {}
+) -> dict[CssPropertyId, list[dict[str, Any]]]:
+    candidates_by_property: dict[CssPropertyId, list[dict[str, Any]]] = {}
     candidate_property_names: set[CssPropertyId] = set()
 
     for entry in style_entries:
@@ -911,58 +954,18 @@ def _resolve_element_computed_styles(
         if property_name not in computed_styles:
             continue
         computed_value = computed_styles[property_name]
-        candidates = _property_candidates(
+        candidates_by_property[property_name] = _property_candidates(
             cdp,
             target_property=property_name,
             target_computed_value=computed_value,
             style_entries=style_entries,
             style_ids_by_key=style_ids_by_key,
             declaration_ids_by_signature=declaration_ids_by_signature,
+            selector_ids_by_key_and_index=selector_ids_by_key_and_index,
             expansion_cache=expansion_cache,
             resolve_cache=resolve_cache,
         )
-
-        direct_candidates = [
-            candidate
-            for candidate in candidates
-            if not candidate.get("inherited_from_element_id")
-        ]
-        inherited_candidates = [
-            candidate
-            for candidate in candidates
-            if candidate.get("inherited_from_element_id")
-        ]
-        candidate_pool = direct_candidates or inherited_candidates
-
-        if not candidate_pool:
-            resolved_styles[property_name] = ResolvedStyleValue(
-                computed_value=computed_value,
-                resolution_status=StyleResolutionStatus.UNRESOLVED,
-            )
-            continue
-
-        ranked_candidates = sorted(candidate_pool, key=_cascade_sort_key)
-        winner = ranked_candidates[-1]
-        if len(ranked_candidates) > 1 and _cascade_sort_key(ranked_candidates[-1]) == _cascade_sort_key(
-            ranked_candidates[-2]
-        ):
-            resolved_styles[property_name] = ResolvedStyleValue(
-                computed_value=computed_value,
-                resolution_status=StyleResolutionStatus.AMBIGUOUS_MATCH,
-            )
-            continue
-
-        resolved_styles[property_name] = ResolvedStyleValue(
-            computed_value=computed_value,
-            style_id=winner["style_id"],
-            declared_property=winner["declared_property"],
-            declaration_id=winner.get("declaration_id"),
-            kind=winner["kind"],
-            inherited_from_element_id=winner.get("inherited_from_element_id"),
-            resolution_status=StyleResolutionStatus.EXACT_MATCH,
-        )
-
-    return resolved_styles
+    return candidates_by_property
 
 
 def collect_style_information(
@@ -998,7 +1001,6 @@ def collect_style_information(
     palette_usage: dict[str, dict[str, Any]] = {}
     node_style_entries: dict[int, list[dict[str, Any]]] = defaultdict(list)
     node_backgrounds: dict[int, tuple[list[str] | None, str | None]] = {}
-    declaration_usage_by_id: dict[str, set[str]] = defaultdict(set)
     declaration_seed = 0
     expansion_cache: dict[tuple[CssPropertyId, str], list[tuple[CssPropertyId, str]]] = {}
     resolve_cache: dict[tuple[int, CssPropertyId, str], str | None] = {}
@@ -1026,14 +1028,14 @@ def collect_style_information(
 
         layer_orders = _fetch_layer_orders(cdp, frontend_node_id)
 
-        for inline_kind, style_obj in (
-            (StyleKind.INLINE, matched.get("inlineStyle") or {}),
-            (StyleKind.INLINE, matched.get("attributesStyle") or {}),
+        for _is_attribute_style, style_obj in (
+            (False, matched.get("inlineStyle") or {}),
+            (True, matched.get("attributesStyle") or {}),
         ):
             entry = _build_inline_entry(
                 style_obj,
                 stylesheet_headers,
-                kind=inline_kind,
+                owner_element_id=backend_to_node_id[backend_node_id],
                 inherited_from_element_id=None,
                 resolution_frontend_node_id=frontend_node_id,
                 source_computed_styles=computed_styles,
@@ -1063,7 +1065,9 @@ def collect_style_information(
             )
             if not entry:
                 continue
-            if not include_user_agent_rules and entry["origin"] == StyleOrigin.USER_AGENT:
+            if entry["origin"] == "user-agent":
+                if include_user_agent_rules:
+                    node_style_entries[backend_node_id].append(entry)
                 continue
             declaration_seed += 1
             entry["_inventory_key"] = _register_style_inventory_entry(
@@ -1115,7 +1119,7 @@ def collect_style_information(
             entry = _build_inline_entry(
                 inherited_entry.get("inlineStyle") or {},
                 stylesheet_headers,
-                kind=StyleKind.INLINE,
+                owner_element_id=inherited_from_element_id or backend_to_node_id[backend_node_id],
                 inherited_from_element_id=inherited_from_element_id,
                 resolution_frontend_node_id=ancestor_frontend_node_id,
                 source_computed_styles=ancestor_computed_styles,
@@ -1144,7 +1148,9 @@ def collect_style_information(
                 )
                 if not entry:
                     continue
-                if not include_user_agent_rules and entry["origin"] == StyleOrigin.USER_AGENT:
+                if entry["origin"] == "user-agent":
+                    if include_user_agent_rules:
+                        node_style_entries[backend_node_id].append(entry)
                     continue
                 declaration_seed += 1
                 entry["_inventory_key"] = _register_style_inventory_entry(
@@ -1163,7 +1169,7 @@ def collect_style_information(
         direct_property_names = {
             declaration["name"]
             for entry in node_style_entries[backend_node_id]
-            if not entry.get("_inherited_from_element_id") and entry.get("origin") == StyleOrigin.AUTHOR
+            if not entry.get("_inherited_from_element_id") and entry.get("origin") == "author"
             for declaration in entry["declarations"]
             if declaration["name"] in _COLOR_VALUE_PROPERTIES
         }
@@ -1174,51 +1180,52 @@ def collect_style_information(
             direct_property_names,
         )
 
-    styles_inventory, style_ids_by_key = _build_styles_inventory(aggregate_styles)
-    declaration_ids_by_signature = {
-        (
-            style.style_id,
-            declaration.name,
-            declaration.value,
-            declaration.important,
-            declaration.implicit,
-        ): declaration.declaration_id
-        for style in styles_inventory
-        for declaration in style.declarations
-        if declaration.declaration_id
-    }
+    (
+        styles_inventory,
+        style_ids_by_key,
+        declaration_ids_by_signature,
+        selector_ids_by_key_and_index,
+    ) = _build_styles_inventory(aggregate_styles)
     color_inventory = ColorCatalog.build_from_usage_map(palette_usage)
+
+    def _mark_selector_used(style_id: str, selector_id: str | None) -> None:
+        if not style_id:
+            return
+        try:
+            style_rule = styles_inventory.get_rule(style_id)
+        except Exception:
+            return
+        if selector_id:
+            selector = style_rule.get_selector(selector_id)
+            if selector is not None:
+                selector.mark_used()
+                return
+        if len(style_rule.selectors) == 1:
+            style_rule.selectors[0].mark_used()
 
     element_traces: dict[int, dict[str, Any]] = {}
     for backend_node_id in backend_node_ids:
         computed_styles = computed_styles_by_backend.get(backend_node_id, {})
-        resolved_computed_styles = _resolve_element_computed_styles(
+        candidates_by_property = _candidate_map_for_element(
             cdp,
             computed_styles=computed_styles,
             style_entries=node_style_entries.get(backend_node_id, []),
             style_ids_by_key=style_ids_by_key,
             declaration_ids_by_signature=declaration_ids_by_signature,
+            selector_ids_by_key_and_index=selector_ids_by_key_and_index,
             expansion_cache=expansion_cache,
             resolve_cache=resolve_cache,
         )
-        node_id = backend_to_node_id.get(backend_node_id)
-        if node_id:
-            for resolved_value in resolved_computed_styles.values():
-                if not resolved_value.is_resolved():
-                    continue
-                declaration_id = str(resolved_value.declaration_id or "").strip()
-                if declaration_id:
-                    declaration_usage_by_id[declaration_id].add(node_id)
+        resolved_computed_styles = resolve_element_computed_styles(
+            computed_styles=computed_styles,
+            candidates_by_property=candidates_by_property,
+            mark_selector_used=_mark_selector_used,
+        )
         background_colors, effective_background = node_backgrounds.get(backend_node_id, (None, None))
         element_traces[backend_node_id] = {
             "computed_styles": resolved_computed_styles,
             "background_colors": background_colors,
             "effective_background": effective_background,
         }
-
-    styles_inventory = _apply_exact_declaration_usage(
-        styles_inventory,
-        declaration_usage_by_id,
-    )
 
     return element_traces, styles_inventory, color_inventory

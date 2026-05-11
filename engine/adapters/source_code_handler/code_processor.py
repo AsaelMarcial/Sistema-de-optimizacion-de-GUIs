@@ -16,6 +16,7 @@ from engine.domain.utils.color_utils import (
 )
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.session import Session
+from engine.domain.models.style import StyleCatalog
 from engine.domain.models.token import TokenInventoryModel
 from engine.pipeline.debug_trace import DebugTrace
 
@@ -55,8 +56,10 @@ class _TokenRewriteLookup:
         self,
         *,
         prototype_structure: PrototypeStructure,
+        style_catalog: StyleCatalog | None = None,
     ) -> None:
         self.prototype_structure = prototype_structure
+        self.style_catalog = style_catalog
 
     def element_by_id(self, node_id: str):
         return self.prototype_structure.node_by_id(str(node_id or "").strip())
@@ -74,6 +77,14 @@ class _TokenRewriteLookup:
             ),
             None,
         )
+
+    def authored_value_for(self, property_model) -> str:
+        if self.style_catalog is None or not property_model.declaration_id:
+            return ""
+        declaration = self.style_catalog.get_declaration(property_model.declaration_id)
+        if declaration is None:
+            return ""
+        return str(declaration.value_text or "").strip()
 
 
 def reduce_energy_intensity(rgb, factor: float = 0.5):
@@ -330,11 +341,7 @@ def _token_source_spec(
                 else:
                     fragment_properties.add(candidate)
             resolved_property = properties_by_name.get(normalized_property)
-            authored_value = (
-                str(resolved_property.authored_value).strip()
-                if resolved_property is not None and str(resolved_property.authored_value or "").strip()
-                else ""
-            )
+            authored_value = lookup.authored_value_for(resolved_property) if resolved_property is not None else ""
             if not authored_value:
                 continue
             authored_color_fragments = _matching_color_fragments(authored_value, source_color_variants)
@@ -513,8 +520,13 @@ def _rewrite_css_asset_urls(
 def _build_token_replacement_specs(
     token_inventory: TokenInventoryModel,
     prototype_structure: PrototypeStructure,
+    style_catalog: StyleCatalog | None = None,
 ) -> list[dict[str, object]]:
     tokens_by_id = {token.token_id: token for token in token_inventory}
+    lookup = _TokenRewriteLookup(
+        prototype_structure=prototype_structure,
+        style_catalog=style_catalog,
+    )
     specs: list[dict[str, object]] = []
     for element in prototype_structure:
         for property_model in element.properties:
@@ -537,7 +549,7 @@ def _build_token_replacement_specs(
                 str(item).strip().lower()
                 for item in (
                     property_model.value,
-                    property_model.authored_value,
+                    lookup.authored_value_for(property_model),
                 )
                 if str(item or "").strip()
             }
@@ -578,9 +590,6 @@ def _build_token_replacement_specs(
     if specs:
         return specs
 
-    lookup = _TokenRewriteLookup(
-        prototype_structure=prototype_structure,
-    )
     for token in token_inventory:
         if not (token.is_semantic or token.is_component):
             continue
@@ -792,10 +801,12 @@ def apply_tokens_to_project(
     base_path: str,
     token_inventory: TokenInventoryModel,
     prototype_structure: PrototypeStructure,
+    style_catalog: StyleCatalog | None = None,
 ) -> list[dict[str, object]]:
     replacement_specs = _build_token_replacement_specs(
         token_inventory,
         prototype_structure,
+        style_catalog,
     )
     soup = BeautifulSoup(html_content, "html.parser")
     _inject_glow_variables(

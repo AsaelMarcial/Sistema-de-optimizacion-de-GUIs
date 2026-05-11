@@ -59,10 +59,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         return context.set_error("Render capture bundle does not contain a valid snapshot structure.")
 
     seed_inventory = ColorCatalog.build(seed_inventory)
-    prototype_structure = PrototypeStructure.build(
-        snapshot.nodes,
-        styles_inventory=styles_inventory,
-    )
+    prototype_structure = PrototypeStructure.build(snapshot.nodes)
     colors_inventory = build_color_usage_catalog(
         prototype_structure,
         existing_inventory=seed_inventory,

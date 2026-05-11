@@ -6,10 +6,9 @@ from typing import Any
 
 from engine.adapters.color_service import color_registry
 from engine.adapters.browser.render_models import RenderSnapshot, SnapshotOptions
-from engine.domain.enums.scope.css_properties import get_css_property
+from engine.domain.enums.scope.css_properties import CssPropertyCategory, get_css_property
 from engine.domain.models.color import ColorCatalog
 from engine.domain.models.element import Element, Property
-from engine.domain.models.style import ResolvedStyleValue
 
 _PURE_COLOR_PROPERTIES = {
     "accent-color",
@@ -34,6 +33,7 @@ _PURE_COLOR_PROPERTIES = {
     "text-decoration-color",
     "text-emphasis-color",
 }
+_UNRESOLVED_EFFECT_PROPERTIES = {"background-image", "box-shadow", "filter", "text-shadow"}
 
 
 def normalize_snapshot_nodes(
@@ -165,12 +165,8 @@ def _build_property(
     payload: Any,
     colors_inventory: ColorCatalog,
 ) -> Property:
-    computed_style = (
-        payload
-        if isinstance(payload, ResolvedStyleValue)
-        else ResolvedStyleValue.build(payload)
-    )
-    color_entry = colors_inventory.entry_by_value(str(computed_style.computed_value or ""))
+    computed_style = payload if isinstance(payload, dict) else {}
+    color_entry = colors_inventory.entry_by_value(str(computed_style.get("computed_value") or ""))
     return Property.from_computed_style(
         name=property_name,
         computed_style=computed_style,
@@ -185,9 +181,7 @@ def _filter_computed_styles(computed_styles: dict[str, Any]) -> dict[str, Any]:
         if property_spec is None:
             continue
         canonical_name = property_spec.value
-        if isinstance(payload, ResolvedStyleValue):
-            raw_payload: dict[str, Any] = payload.to_dict()
-        elif isinstance(payload, dict):
+        if isinstance(payload, dict):
             raw_payload = payload
         else:
             continue
@@ -197,6 +191,18 @@ def _filter_computed_styles(computed_styles: dict[str, Any]) -> dict[str, Any]:
             raw_payload.get("computed_value"),
         )
         if computed_value in ("", None):
+            continue
+        has_authored_link = any(
+            raw_payload.get(key)
+            for key in ("style_id", "declared_property", "declaration_id", "inherited_from_element_id")
+        )
+        if (
+            not has_authored_link
+            and (
+                CssPropertyCategory.EFFECT not in property_spec.categories
+                or canonical_name not in _UNRESOLVED_EFFECT_PROPERTIES
+            )
+        ):
             continue
 
         normalized_payload = {
@@ -212,8 +218,6 @@ def _filter_computed_styles(computed_styles: dict[str, Any]) -> dict[str, Any]:
             normalized_payload["inherited_from_element_id"] = raw_payload[
                 "inherited_from_element_id"
             ]
-        if raw_payload.get("resolution_status"):
-            normalized_payload["resolution_status"] = raw_payload["resolution_status"]
 
         filtered[canonical_name] = normalized_payload
     return filtered
