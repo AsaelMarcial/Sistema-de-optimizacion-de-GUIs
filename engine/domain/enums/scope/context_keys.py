@@ -6,7 +6,7 @@ from enum import StrEnum
 class ContextRoot(StrEnum):
     SESSION = "session"
     PAGE_BUILDER = "page_builder"
-    PROTOTYPE_STRUCTURE = "prototype_structure"
+    DOM = "dom"
     COLOR = "color"
     SCHEME = "scheme"
     STYLE = "style"
@@ -21,8 +21,9 @@ class ContextRoot(StrEnum):
 class ContextKey(StrEnum):
     SESSION = "session"
     PAGE_BUILDER = "page_builder"
-    PROTOTYPE_STRUCTURE = "prototype_structure"
+    DOM_TREE = "dom.tree"
     COLOR_CATALOG = "color.catalog"
+    COLOR_SCHEME = "scheme.color_scheme"
     SCHEME_COLOR_HISTOGRAM = "scheme.color_histogram"
     SCHEME_TONAL_PALETTES = "scheme.tonal_palettes"
     SCHEME_NAMED_COLOR_BREAKDOWN = "scheme.named_color_breakdown"

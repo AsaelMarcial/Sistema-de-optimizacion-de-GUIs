@@ -1,5 +1,5 @@
-from collections.abc import Mapping
 from enum import StrEnum
+from types import MappingProxyType
 
 
 class HtmlElementScopeGroup(StrEnum):
@@ -936,9 +936,9 @@ class HtmlElementId(StrEnum):
 
 
 HTML_ELEMENT_SPECS: tuple[HtmlElementId, ...] = tuple(HtmlElementId)
-_HTML_ELEMENT_CANONICAL_BY_ID: dict[str, HtmlElementId] = {spec.value: spec for spec in HTML_ELEMENT_SPECS}
-
-HTML_ELEMENTS_BY_ID: Mapping[str, HtmlElementId] = _HTML_ELEMENT_CANONICAL_BY_ID
+HTML_ELEMENTS_BY_ID = MappingProxyType(
+    {spec.value: spec for spec in HTML_ELEMENT_SPECS}
+)
 
 MEDIA_METADATA_ONLY_TAGS: frozenset[str] = frozenset({"area", "map", "source", "track"})
 

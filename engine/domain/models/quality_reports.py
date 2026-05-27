@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Self
 
 from engine.domain.data.web_colors import get_web_color
-from engine.domain.enums.scope.css_properties import CATEGORY, CSS_PROPERTIES, Category
 from engine.domain.enums.types.quality import ContrastBackgroundValidation
 from engine.domain.models.color import Color
 
@@ -148,66 +147,6 @@ class ContrastReport:
         return {
             "count": len(self.issues),
             "issues": [issue.to_dict() for issue in self.issues],
-        }
-
-
-@dataclass(slots=True)
-class ColorUsages:
-    background: tuple[str, ...] = field(default_factory=tuple)
-    border: tuple[str, ...] = field(default_factory=tuple)
-    decoration: tuple[str, ...] = field(default_factory=tuple)
-    typography: tuple[str, ...] = field(default_factory=tuple)
-    other: tuple[str, ...] = field(default_factory=tuple)
-
-    def add(
-        self,
-        *,
-        color_id: str,
-        property_name: str,
-        element_id: str,
-    ) -> Self:
-        del element_id
-        bucket_name = self._bucket_name(property_name)
-        normalized_color_id = str(color_id or "").strip()
-        if not normalized_color_id:
-            return self
-        bucket = getattr(self, bucket_name)
-        if normalized_color_id in bucket:
-            return self
-        setattr(self, bucket_name, (*bucket, normalized_color_id))
-        return self
-
-    def _bucket_name(self, property_name: str) -> str:
-        normalized_name = str(property_name or "").strip().lower()
-        if normalized_name == "color":
-            return "typography"
-        if normalized_name in {
-            "accent-color",
-            "fill",
-            "stroke",
-            "stop-color",
-            "flood-color",
-            "lighting-color",
-        }:
-            return "other"
-        property_data = CSS_PROPERTIES.get(normalized_name)
-        if property_data is None:
-            return "other"
-        if property_data[CATEGORY] == Category.BACKGROUND:
-            return "background"
-        if property_data[CATEGORY] == Category.BORDER:
-            return "border"
-        if property_data[CATEGORY] == Category.DECORATION:
-            return "decoration"
-        return "other"
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "background": list(self.background),
-            "border": list(self.border),
-            "decoration": list(self.decoration),
-            "typography": list(self.typography),
-            "other": list(self.other),
         }
 
 

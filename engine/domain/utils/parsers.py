@@ -1,251 +1,149 @@
 from __future__ import annotations
 
-from dataclasses import asdict
-from datetime import datetime, timezone
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from itertools import zip_longest
 from typing import Any
 
-from engine.adapters.color_service import color_registry
-from engine.adapters.browser.render_models import RenderSnapshot, SnapshotOptions
-from engine.domain.enums.scope.css_properties import CATEGORY, CSS_PROPERTIES, Category
-from engine.domain.models.element import Element, Property
-
-_PURE_COLOR_PROPERTIES = {
-    "accent-color",
-    "background-color",
-    "border-block-end-color",
-    "border-block-start-color",
-    "border-bottom-color",
-    "border-color",
-    "border-inline-start-color",
-    "border-left-color",
-    "border-right-color",
-    "border-top-color",
-    "caret-color",
-    "color",
-    "column-rule-color",
-    "fill",
-    "flood-color",
-    "lighting-color",
-    "outline-color",
-    "stop-color",
-    "stroke",
-    "text-decoration-color",
-    "text-emphasis-color",
-}
-_UNRESOLVED_EFFECT_PROPERTIES = {"background-image", "box-shadow", "filter", "text-shadow"}
+Missing = object()
+Condition = Callable[[Any], bool]
+KeyFunction = Callable[[Any], Any]
 
 
-def normalize_snapshot_nodes(
-    raw_nodes: list[dict[str, Any]],
-    style_traces: dict[int, dict[str, Any]],
-    *,
-    options: SnapshotOptions,
-    base_path: str,
-    document_metrics: dict[str, Any],
-) -> RenderSnapshot:
-    filtered_raw_nodes = [
-        node
-        for node in raw_nodes
-        if options.include_invisible or node["flags"].get("is_visible")
-    ]
-    retained_source_indexes = {node["source_index"] for node in filtered_raw_nodes}
+def get_value(element: Any, key: str | int, default: Any = None) -> Any:
+    if isinstance(element, Mapping):
+        return element.get(key, default)
 
-    snapshot_nodes: list[Element] = []
-    source_index_to_snapshot_id = {
-        node["source_index"]: node["node_id"]
-        for node in filtered_raw_nodes
-    }
-    children_map: dict[str, list[str]] = {node["node_id"]: [] for node in filtered_raw_nodes}
-    retained_parent_map: dict[str, str | None] = {}
+    if isinstance(key, int) and isinstance(element, Sequence) and not isinstance(
+        element,
+        (str, bytes, bytearray),
+    ):
+        return element[key] if -len(element) <= key < len(element) else default
 
-    for raw_node in filtered_raw_nodes:
-        parent_source_index = raw_node.get("parent_source_index")
-        while isinstance(parent_source_index, int) and parent_source_index not in retained_source_indexes:
-            parent_source_index = next(
-                (
-                    candidate.get("parent_source_index")
-                    for candidate in raw_nodes
-                    if candidate["source_index"] == parent_source_index
-                ),
-                None,
-            )
+    if isinstance(key, str):
+        return getattr(element, key, default)
 
-        parent_id = (
-            source_index_to_snapshot_id[parent_source_index]
-            if isinstance(parent_source_index, int) and parent_source_index in source_index_to_snapshot_id
-            else None
-        )
-        retained_parent_map[raw_node["node_id"]] = parent_id
-        if parent_id:
-            children_map.setdefault(parent_id, []).append(raw_node["node_id"])
+    return default
 
-    for raw_node in filtered_raw_nodes:
-        backend_node_id = raw_node["backend_node_id"]
-        node_trace = style_traces.get(backend_node_id, {})
-        computed_styles = _filter_computed_styles(node_trace.get("computed_styles", {}))
-        effective_background = _normalize_color_value(
-            "background-color",
-            node_trace.get("effective_background"),
-        )
 
-        parent_id = retained_parent_map.get(raw_node["node_id"])
-        children_ids = tuple(sorted(children_map.get(raw_node["node_id"], [])))
-        flags = raw_node["flags"]
-        flags["is_leaf"] = len(children_ids) == 0
-        flags["has_siblings"] = bool(parent_id and len(children_map.get(parent_id, [])) > 1)
+def resolve_value(
+    source: Any,
+    path: str | Sequence[str | int],
+    default: Any = None,
+) -> Any:
+    keys = (
+        tuple(_coerce_path_key(part) for part in path.split("."))
+        if isinstance(path, str)
+        else path
+    )
+    current = source
+    for key in keys:
+        current = get_value(current, key, Missing)
+        if current is Missing:
+            return default
+    return current
 
-        properties = tuple(
-            _build_property(property_name, payload)
-            for property_name, payload in sorted(computed_styles.items())
-        )
 
-        identity = dict(raw_node.get("identity") or {})
-        layout = dict(raw_node.get("layout") or {})
-        absolute_bounds = dict(layout.get("absolute_bounds") or {})
-        snapshot_nodes.append(
-            Element.build(
-                {
-                    "node_id": raw_node["node_id"],
-                    "backend_node_id": backend_node_id,
-                    "parent_id": parent_id,
-                    "children_ids": children_ids,
-                    "document_order": raw_node["document_order"],
-                    "tag_name": identity.get("tag"),
-                    "node_name": identity.get("node_name"),
-                    "html_id": identity.get("id"),
-                    "name": identity.get("name"),
-                    "role": identity.get("role"),
-                    "class_names": tuple(identity.get("class_list") or ()),
-                    "data_attributes": dict(identity.get("data_attributes") or {}),
-                    "attributes": dict(identity.get("attributes") or {}),
-                    "selector": identity.get("selector_hint"),
-                    "xpath": identity.get("xpath"),
-                    "related_media": dict(identity.get("related_media") or {}),
-                    "text": raw_node.get("text"),
-                    "paint_order": raw_node.get("paint_order"),
-                    "x": layout.get("x"),
-                    "y": layout.get("y"),
-                    "width": layout.get("width"),
-                    "height": layout.get("height"),
-                    "left": absolute_bounds.get("left"),
-                    "top": absolute_bounds.get("top"),
-                    "right": absolute_bounds.get("right"),
-                    "bottom": absolute_bounds.get("bottom"),
-                    "is_visible": flags.get("is_visible"),
-                    "is_leaf": flags.get("is_leaf"),
-                    "has_siblings": flags.get("has_siblings"),
-                    "is_text_node": flags.get("is_text_node"),
-                    "is_out_of_scope": flags.get("is_out_of_scope"),
-                    "is_stacking_context": flags.get("is_stacking_context"),
-                    "effective_background": effective_background,
-                    "properties": [property_model.to_dict() for property_model in properties],
-                }
-            )
-        )
+def _coerce_path_key(value: str) -> str | int:
+    stripped = value.strip()
+    return int(stripped) if stripped.lstrip("-").isdigit() else stripped
 
-    metadata = {
-        "module": "prototype_structural_extractor.prototype_state_pipeline",
-        "basePath": base_path,
-        "capturedAt": datetime.now(timezone.utc).isoformat(),
-        "nodeCount": len(snapshot_nodes),
-        "options": asdict(options),
-    }
 
-    return RenderSnapshot(
-        metadata=_prune_empty(metadata),
-        document=_prune_empty(document_metrics),
-        nodes=tuple(snapshot_nodes),
+def flatten_list(
+    nested_list: list[Any] | dict[str, Any],
+    attributes: list[str],
+    depth: int = 0,
+    _attr_index: int = 0,
+) -> Iterator[list[Any]]:
+    if _attr_index >= len(attributes):
+        return
+
+    source_items = nested_list if isinstance(nested_list, list) else [nested_list]
+    attribute = attributes[_attr_index]
+    result: list[Any] = []
+
+    for element in source_items:
+        value = get_value(element, attribute)
+        if value is None:
+            continue
+        if not isinstance(value, list):
+            result.append(value)
+            continue
+
+        pending: list[tuple[Any, int]] = [(item, depth) for item in reversed(value)]
+        while pending:
+            item, current_depth = pending.pop()
+            if isinstance(item, list) and current_depth > 0:
+                pending.extend(
+                    (sub_item, current_depth - 1)
+                    for sub_item in reversed(item)
+                )
+            else:
+                result.append(item)
+
+    yield result
+    yield from flatten_list(
+        nested_list=nested_list,
+        attributes=attributes,
+        depth=depth,
+        _attr_index=_attr_index + 1,
     )
 
 
-def _build_property(
-    property_name: str,
-    payload: Any,
-) -> Property:
-    computed_style = payload if isinstance(payload, dict) else {}
-    return Property.from_computed_style(
-        name=property_name,
-        computed_style=computed_style,
-    )
+def resolve_index_map(items: Iterable[Any]) -> dict[Any, int]:
+    return {value: index for index, value in enumerate(items)}
 
 
-def _filter_computed_styles(computed_styles: dict[str, Any]) -> dict[str, Any]:
-    filtered: dict[str, Any] = {}
-    for property_name, payload in (computed_styles or {}).items():
-        canonical_name = str(property_name or "").strip().lower()
-        property_data = CSS_PROPERTIES.get(canonical_name)
-        if property_data is None:
+def resolve_pairs(
+    keys: Iterable[Any],
+    values: Iterable[Any],
+    fill_value: Any = None,
+) -> Iterator[tuple[Any, Any]]:
+    for key, value in zip_longest(keys, values, fillvalue=fill_value):
+        if key is fill_value:
             continue
-        if isinstance(payload, dict):
-            raw_payload = payload
-        else:
-            continue
-
-        computed_value = _normalize_color_value(
-            canonical_name,
-            raw_payload.get("computed_value"),
-        )
-        if computed_value in ("", None):
-            continue
-        has_authored_link = any(
-            raw_payload.get(key)
-            for key in ("style_id", "declared_property", "declaration_id", "inherited_from_element_id")
-        )
-        if (
-            not has_authored_link
-            and (
-                property_data[CATEGORY] != Category.DECORATION
-                or canonical_name not in _UNRESOLVED_EFFECT_PROPERTIES
-            )
-        ):
-            continue
-
-        normalized_payload = {
-            "computed_value": computed_value,
-        }
-        if raw_payload.get("style_id"):
-            normalized_payload["style_id"] = raw_payload["style_id"]
-        if raw_payload.get("declared_property"):
-            normalized_payload["declared_property"] = raw_payload["declared_property"]
-        if raw_payload.get("declaration_id"):
-            normalized_payload["declaration_id"] = raw_payload["declaration_id"]
-        if raw_payload.get("inherited_from_element_id"):
-            normalized_payload["inherited_from_element_id"] = raw_payload[
-                "inherited_from_element_id"
-            ]
-
-        filtered[canonical_name] = normalized_payload
-    return filtered
+        yield key, value
 
 
-def _prune_empty(value: Any) -> Any:
-    if isinstance(value, dict):
-        cleaned: dict[str, Any] = {}
-        for key, inner in value.items():
-            keep_empty = key in {"children_ids", "node_ids", "usage", "properties"}
-            if inner in (None, "", (), [], {}) and not keep_empty:
-                continue
-            normalized = _prune_empty(inner)
-            if normalized in (None, "", (), [], {}) and not keep_empty:
-                continue
-            cleaned[key] = normalized
-        return cleaned
-
-    if isinstance(value, list):
-        return [_prune_empty(item) for item in value if item not in (None, "", {}, ())]
-
-    if isinstance(value, tuple):
-        return tuple(_prune_empty(item) for item in value if item not in (None, "", {}, ()))
-
-    return value
+def filter_items(items: Iterable[Any], condition: Condition) -> list[Any]:
+    return [item for item in items if check_content(item, condition)]
 
 
-def _normalize_color_value(property_name: str, value: Any) -> str | None:
-    if value in (None, ""):
-        return None
+def group_by(
+    items: Iterable[Any],
+    key: str | int | KeyFunction,
+) -> dict[Any, list[Any]]:
+    grouped: dict[Any, list[Any]] = {}
+    for item in items:
+        group_key = key(item) if callable(key) else get_value(item, key)
+        grouped.setdefault(group_key, []).append(item)
+    return grouped
 
-    normalized = str(value).strip()
-    if property_name not in _PURE_COLOR_PROPERTIES:
-        return normalized
 
-    return color_registry.normalize_css_color_token(normalized)
+def check_content(item: Any, condition: Condition) -> bool:
+    try:
+        return bool(condition(item))
+    except (KeyError, IndexError, TypeError, AttributeError, ValueError):
+        return False
+
+
+def attr_equals(key: str | int, expected: Any) -> Condition:
+    return lambda item: get_value(item, key, Missing) == expected
+
+
+def attr_in(
+    key: str | int,
+    expected_values: set[Any] | tuple[Any, ...] | list[Any],
+) -> Condition:
+    return lambda item: get_value(item, key, Missing) in expected_values
+
+
+def attr_not_none(key: str | int) -> Condition:
+    return lambda item: get_value(item, key, Missing) is not None
+
+
+def all_conditions(*conditions: Condition) -> Condition:
+    return lambda item: all(check_content(item, condition) for condition in conditions)
+
+
+def any_condition(*conditions: Condition) -> Condition:
+    return lambda item: any(check_content(item, condition) for condition in conditions)
