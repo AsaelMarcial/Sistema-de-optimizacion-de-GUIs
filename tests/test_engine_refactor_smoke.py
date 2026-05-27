@@ -33,10 +33,18 @@ from engine.adapters.utils.pixel import (
 from engine.domain.data.material_quantization import (
     get_material_quantization_assessment,
 )
-from engine.domain.enums.scope.css_properties import CSS_PROPERTIES_BY_ID, get_css_property
+from engine.domain.enums.scope.css_properties import (
+    CATEGORY,
+    ROLE,
+    SUPPORTS_COLOR,
+    CSS_PROPERTIES,
+    Category,
+    Role,
+    getAllPropertyNames,
+    getColorSupportedProperties,
+)
 from engine.domain.enums.scope.html_elements import HTML_ELEMENT_SPECS, get_html_element
 from engine.domain.data.web_colors import WebColor, nearest_web_color
-from engine.domain.enums.scope.css_properties import CssPropertyId
 from engine.domain.enums.scope.html_elements import HtmlElementId
 from engine.domain.enums.scope.json_exports import (
     build_scope_elements_payload,
@@ -45,7 +53,6 @@ from engine.domain.enums.scope.json_exports import (
 from engine.domain.enums.types.color import (
     ColorConfirmationStatus,
     ColorFamilyType,
-    PaletteRoleBias,
 )
 from engine.domain.enums.types.style import (
     DeclarationSyntax,
@@ -66,11 +73,12 @@ from engine.domain.models.environmental_assessment.energy_consumption import (
     calculate_power,
     estimate_current,
 )
-from engine.domain.models.color import ColorCatalog
-from engine.domain.models.color_scheme import ColorSchemeModel, TonalPaletteModel
+from engine.domain.models.color import Color, ColorCatalog
+from engine.domain.models.color_scheme import ColorScheme, TonalPalette
 from engine.domain.models.element import Element
 from engine.domain.models.prototype_structure import PrototypeStructure
-from engine.domain.models.session import FilePath, Session
+from engine.domain.models.quality_reports import build_named_color_breakdown
+from engine.domain.models.session import Session
 from engine.domain.models.style import StyleCatalog
 from engine.domain.models.token import (
     Token,
@@ -79,14 +87,8 @@ from engine.domain.models.token import (
     TokenValidationModel,
     TokenValidationStatus,
 )
-from engine.domain.utils.palette_analysis import (
-    build_named_color_breakdown,
-    build_palette_seed_specs,
-    filter_supported_colors,
-    map_colors_to_scheme,
-)
 from engine.domain.utils.tokenization import build_token_inventory
-from engine.validators.project_uploaded import has_single_html, is_file_permitted, is_safe_relative_path, single_html_file
+from engine.validators.project_uploaded import is_file_permitted, is_safe_relative_path
 from engine.validators.token_rules import apply_token_rules
 from engine.pipeline.context import PipelineContext
 from engine.domain.enums.scope.context_keys import ContextKey, ContextRoot
@@ -115,6 +117,47 @@ class PaletteAnalysisResult:
         }
 
 
+def _build_color_catalog(entries) -> ColorCatalog:
+    if isinstance(entries, ColorCatalog):
+        return entries
+
+    colors: list[Color] = []
+    for index, item in enumerate(entries or (), start=1):
+        if isinstance(item, Color):
+            colors.append(item)
+            continue
+        if not isinstance(item, dict):
+            raise TypeError(f"Unsupported color fixture entry: {type(item)!r}")
+
+        color_id = str(item.get("color_id") or f"color-{index}")
+        value = item.get("rgb_value") or item.get("value") or item.get("css") or "rgb(0, 0, 0)"
+        color = Color.from_rgb(color_id=color_id, rgb_value=str(value))
+        usage_count = int(item.get("element_usage_count") or item.get("usage_count") or 0)
+        if usage_count > 0:
+            color.element_usage_count = usage_count
+        pixel_count = int(item.get("pixel_count") or 0)
+        pixel_percentage = float(item.get("pixel_percentage") or 0.0)
+        if pixel_count > 0 or pixel_percentage > 0.0:
+            color.set_pixel_count(pixel_count, pixel_percentage)
+        palette_id = item.get("palette_id") or item.get("mapped_palette_id")
+        tone = item.get("tone") or item.get("mapped_tone")
+        if palette_id is not None and tone is not None:
+            color.set_palette_mapping(palette_id=str(palette_id), tone=int(tone))
+        token = item.get("token")
+        token_ids = item.get("token_ids") or ()
+        if token:
+            color.set_token_assignment(str(token))
+        elif token_ids:
+            color.set_token_assignment(str(next(iter(token_ids))))
+        colors.append(color)
+
+    return ColorCatalog(colors=tuple(colors))
+
+
+def _color_catalog_payload(colors: ColorCatalog) -> list[dict[str, object]]:
+    return colors.to_dict()
+
+
 def _analyze_palette_for_test(
     snapshot_palette,
     *,
@@ -122,18 +165,12 @@ def _analyze_palette_for_test(
     max_chromatic_palettes: int = 12,
 ) -> PaletteAnalysisResult:
     del material_quantization_assessment
-    colors = filter_supported_colors(snapshot_palette)
-    achromatic_seed, chromatic_seeds = build_palette_seed_specs(colors)
-    color_scheme = ColorSchemeModel.build(
-        achromatic_seed=achromatic_seed,
-        chromatic_seeds=chromatic_seeds,
-        max_palettes=max_chromatic_palettes,
-    )
-    mapped_colors = map_colors_to_scheme(color_scheme, colors)
-    named_color_breakdown = build_named_color_breakdown(
-        mapped_colors,
-        total_pixels=sum(color.pixel_count for color in mapped_colors),
-    )
+    catalog = _build_color_catalog(snapshot_palette)
+    colors = catalog.supported_scheme_colors()
+    palette_sources = catalog.scheme_palette_sources(max_palettes=max_chromatic_palettes)
+    color_scheme = ColorScheme.build(palette_sources, max_palettes=max_chromatic_palettes)
+    mapped_colors = color_scheme.map_colors(colors)
+    named_color_breakdown = build_named_color_breakdown(mapped_colors)
     return PaletteAnalysisResult(mapped_colors, color_scheme, named_color_breakdown)
 
 
@@ -202,14 +239,18 @@ def _prototype(elements=(), styles=None) -> PrototypeStructure:
 def _style_catalog(rules=()) -> StyleCatalog:
     catalog = StyleCatalog()
     for rule_index, payload in enumerate(rules, start=1):
-        rule = catalog.add_rule(
+        source = catalog.add_source(
+            kind=payload.get("source_kind") or payload.get("kind") or StyleSourceKind.UNKNOWN,
+            source_order=payload.get("source_order"),
+            stylesheet_id=payload.get("stylesheet_id") or payload.get("style_sheet_id"),
+            href=payload.get("source_url"),
+            owner_node_id=payload.get("owner_element_id"),
+        )
+        rule = source.add_rule(
             rule_id=str(payload.get("rule_id") or payload.get("style_id") or f"rule-{rule_index:05d}"),
             rule_type=payload.get("rule_type") or RuleType.STYLE,
-            source_kind=payload.get("source_kind") or payload.get("kind") or StyleSourceKind.UNKNOWN,
             source_range=payload.get("source_range"),
             source_order=payload.get("source_order"),
-            source_url=payload.get("source_url"),
-            owner_element_id=payload.get("owner_element_id"),
         )
         selectors = payload.get("selectors")
         selector_text = payload.get("selector_text")
@@ -262,7 +303,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 else []
             ),
             "palette": (
-                artifacts.colors_inventory.to_palette_dicts()
+                _color_catalog_payload(artifacts.colors_inventory)
                 if artifacts.colors_inventory is not None
                 else []
             ),
@@ -442,35 +483,38 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertEqual(violations, [])
 
     def test_session_model_builds_related_before_after_and_artifact_directories(self) -> None:
-        session = Session(
-            session_id="abc12345",
-            base_dir="workspace/sessions",
-        )
-        html = FilePath("pages/index.html")
-        session.add_file_path(html)
+        session = Session()
+        try:
+            self.assertEqual(session.get_area_root("before").name, "before")
+            self.assertEqual(session.get_area_root("after").name, "after")
+            self.assertEqual(session.get_area_root("artifacts").name, "artifacts")
+            self.assertTrue(session.session_dir.name.startswith("session_"))
 
-        self.assertEqual(session.build_path("before").name, "before")
-        self.assertEqual(session.build_path("after").name, "after")
-        self.assertEqual(session.build_path("artifacts").name, "artifacts")
-        self.assertEqual(
-            session.build_path("before", html),
-            (Path("workspace/sessions") / "session_abc12345" / "before" / "pages" / "index.html").resolve(),
-        )
-        self.assertTrue(
-            str(session.build_path("after", html)).endswith(
-                str(Path("session_abc12345") / "after" / "pages" / "index.html")
-            )
-        )
-        self.assertEqual(single_html_file(session.file_paths), html)
+            before_html = session.get_area_root("before") / "pages" / "index.html"
+            after_html = session.get_area_root("after") / "pages" / "index.html"
+            before_html.parent.mkdir(parents=True)
+            after_html.parent.mkdir(parents=True)
+            before_html.write_text("<html></html>", encoding="utf-8")
+            after_html.write_text("<html></html>", encoding="utf-8")
+            session.save_in_before(before_html)
+            session.save_in_after(after_html)
+
+            html_file = session.get_path("index.html", "before", "html")
+            self.assertEqual(html_file.name, "index.html")
+            self.assertEqual(html_file.relative_to(session.get_area_root("before")), Path("pages/index.html"))
+            self.assertEqual(len(session.find_by_suffix("before", ("html",))), 1)
+        finally:
+            shutil.rmtree(session.session_dir, ignore_errors=True)
 
     def test_color_processing_uses_canonical_domain_and_adapter_modules(self) -> None:
-        self.assertFalse((Path("engine/color_processing/models.py")).exists())
-        self.assertFalse((Path("engine/color_processing/models")).exists())
-        self.assertTrue((Path("engine/domain/models/palette.py")).exists())
-        self.assertTrue((Path("engine/domain/utils/palette_analysis.py")).exists())
-        self.assertFalse((Path("engine/adapters/utils/screenshot.py")).exists())
-        self.assertTrue((Path("engine/adapters/utils/pixel.py")).exists())
-        self.assertFalse((Path("engine/models/color_processing")).exists())
+        repo_root = Path(__file__).resolve().parents[1]
+        self.assertFalse((repo_root / "engine/color_processing/models.py").exists())
+        self.assertFalse((repo_root / "engine/color_processing/models").exists())
+        self.assertTrue((repo_root / "engine/domain/models/color_scheme.py").exists())
+        self.assertTrue((repo_root / "engine/domain/models/color_scheme.py").exists())
+        self.assertFalse((repo_root / "engine/adapters/utils/screenshot.py").exists())
+        self.assertTrue((repo_root / "engine/adapters/utils/pixel.py").exists())
+        self.assertFalse((repo_root / "engine/models/color_processing").exists())
         self.assertFalse((Path("engine/utils")).exists())
         self.assertTrue((Path("engine/validators")).exists())
 
@@ -478,14 +522,16 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         properties_payload = build_scope_properties_payload()
         elements_payload = build_scope_elements_payload()
 
-        self.assertIn("fill", CSS_PROPERTIES_BY_ID)
-        self.assertIn("lighting-color", CSS_PROPERTIES_BY_ID)
-        self.assertNotIn("backgroundColor", CSS_PROPERTIES_BY_ID)
-        self.assertIs(get_css_property("backgroundColor"), CssPropertyId.BACKGROUND_COLOR)
-        self.assertIs(get_css_property("BACKGROUND_COLOR"), CssPropertyId.BACKGROUND_COLOR)
-        self.assertIsNone(get_css_property("currentColor"))
-        self.assertIsNone(get_css_property("margin"))
-        self.assertIsNone(get_css_property("pointer-events"))
+        self.assertIn("fill", CSS_PROPERTIES)
+        self.assertIn("lighting-color", CSS_PROPERTIES)
+        self.assertNotIn("backgroundColor", CSS_PROPERTIES)
+        self.assertNotIn("margin", CSS_PROPERTIES)
+        self.assertNotIn("pointer-events", CSS_PROPERTIES)
+        self.assertIn("background-color", getAllPropertyNames())
+        self.assertIn("fill", getColorSupportedProperties())
+        self.assertEqual(CSS_PROPERTIES["background-color"][CATEGORY], Category.BACKGROUND)
+        self.assertEqual(CSS_PROPERTIES["border-color"][ROLE], Role.FOREGROUND)
+        self.assertTrue(CSS_PROPERTIES["text-shadow"][SUPPORTS_COLOR])
 
         html_element_values = {spec.value for spec in HTML_ELEMENT_SPECS}
         self.assertIn("search", html_element_values)
@@ -500,7 +546,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         fill_item = next(
             item for item in properties_payload["onScope"] if item["propertyID"] == "fill"
         )
-        self.assertNotIn("computedAliases", fill_item)
+        self.assertEqual(set(fill_item), {"propertyID", "category", "supportsColor", "role"})
         background_item = next(
             item
             for item in properties_payload["onScope"]
@@ -522,12 +568,14 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             for item in properties_payload["onScope"]
             if item["propertyID"] == "column-rule-color"
         )
-        self.assertEqual(fill_item["colorRole"], "foreground")
-        self.assertEqual(background_item["colorRole"], "background")
-        self.assertEqual(lighting_item["colorRole"], "other")
-        self.assertEqual(border_item["colorRole"], "foreground")
-        self.assertEqual(outline_item["colorRole"], "foreground")
-        self.assertEqual(column_rule_item["colorRole"], "foreground")
+        self.assertEqual(fill_item["role"], "foreground")
+        self.assertEqual(background_item["role"], "background")
+        self.assertEqual(lighting_item["role"], "foreground")
+        self.assertEqual(border_item["role"], "foreground")
+        self.assertEqual(outline_item["role"], "foreground")
+        self.assertEqual(column_rule_item["role"], "foreground")
+        self.assertEqual(fill_item["category"], "decoration")
+        self.assertTrue(fill_item["supportsColor"])
 
     def test_closed_domain_enums_are_available(self) -> None:
         self.assertEqual(StyleSourceKind.INLINE.value, "inline")
@@ -535,7 +583,6 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertEqual(DeclarationSyntax.LONGHAND.value, "longhand")
         self.assertEqual(ColorFamilyType.CHROMATIC.value, "chromatic")
         self.assertEqual(ColorConfirmationStatus.CONFIRMED.value, "confirmed")
-        self.assertEqual(PaletteRoleBias.BACKGROUND.value, "background")
         self.assertEqual(TransformationKind.HEURISTIC.value, "heuristic")
         self.assertEqual(TransformationStatus.APPLIED.value, "applied")
 
@@ -548,39 +595,44 @@ class EngineRefactorSmokeTests(unittest.TestCase):
     def test_project_upload_predicates_reject_disallowed_extensions(self) -> None:
         self.assertFalse(is_file_permitted("project/app.exe", {".html", ".css"}))
 
-    def test_project_upload_predicate_rejects_multiple_html_files(self) -> None:
-        file_paths = (
-            FilePath("project/index.html"),
-            FilePath("project/about.html"),
-        )
+    def test_session_html_files_reports_multiple_html_files(self) -> None:
+        session = Session()
+        try:
+            session.get_area_root("before").mkdir(parents=True)
+            index_html = session.get_area_root("before") / "index.html"
+            about_html = session.get_area_root("before") / "about.html"
+            index_html.write_text("<html></html>", encoding="utf-8")
+            about_html.write_text("<html></html>", encoding="utf-8")
+            session.save_in_before(index_html)
+            session.save_in_before(about_html)
 
-        self.assertFalse(has_single_html(file_paths))
+            self.assertEqual(len(session.find_by_suffix("before", ("html",))), 2)
+        finally:
+            shutil.rmtree(session.session_dir, ignore_errors=True)
 
     def test_prepare_project_session_does_not_create_workspace_for_invalid_zip(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            buffer = io.BytesIO()
-            with zipfile.ZipFile(buffer, "w") as archive:
-                archive.writestr("../escape.html", "<html></html>")
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr("../escape.html", "<html></html>")
 
-            context = prepare_project_session.run_stage(
-                PipelineContext(),
-                InMemoryUpload("unsafe.zip", buffer.getvalue()),
-                base_dir=Path(temp_dir),
-            )
+        before_sessions = set(Path("sessions").glob("session_*"))
+        context = prepare_project_session.run_stage(
+            PipelineContext(),
+            InMemoryUpload("unsafe.zip", buffer.getvalue()),
+        )
 
-            self.assertIsNotNone(context.error)
-            self.assertEqual(list(Path(temp_dir).glob("session_*")), [])
+        self.assertIsNotNone(context.error)
+        self.assertEqual(set(Path("sessions").glob("session_*")) - before_sessions, set())
 
     def test_prepare_project_session_does_not_create_workspace_for_corrupt_zip(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            context = prepare_project_session.run_stage(
-                PipelineContext(),
-                InMemoryUpload("broken.zip", b"not a zip"),
-                base_dir=Path(temp_dir),
-            )
+        before_sessions = set(Path("sessions").glob("session_*"))
+        context = prepare_project_session.run_stage(
+            PipelineContext(),
+            InMemoryUpload("broken.zip", b"not a zip"),
+        )
 
-            self.assertEqual(context.error, "ZIP corrupto")
-            self.assertEqual(list(Path(temp_dir).glob("session_*")), [])
+        self.assertEqual(context.error, "ZIP corrupto")
+        self.assertEqual(set(Path("sessions").glob("session_*")) - before_sessions, set())
 
     def test_prepare_project_session_returns_typed_session(self) -> None:
         html_bytes = RENDER_SCOPE_MATRIX.read_bytes()
@@ -590,37 +642,40 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         project_before = context.get(ContextKey.SESSION)
 
         self.assertIsInstance(project_before, Session)
-        html_file = single_html_file(project_before.file_paths)
-        before_html_path = project_before.build_path("before", html_file)
+        html_file = project_before.find_by_suffix("before", ("html",))[0]
         self.assertEqual(html_file.name, "render_scope_matrix.html")
-        self.assertIn("Snapshot Matrix", before_html_path.read_text(encoding="utf-8"))
-        self.assertTrue(str(before_html_path).endswith("render_scope_matrix.html"))
+        self.assertIn("Snapshot Matrix", html_file.read_text(encoding="utf-8"))
+        self.assertTrue(str(html_file).endswith("render_scope_matrix.html"))
 
     def test_prepare_project_session_supports_deep_nested_zip_project(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            buffer = io.BytesIO()
-            with zipfile.ZipFile(buffer, "w") as archive:
-                archive.writestr(
-                    "project/src/pages/index.html",
-                    "<html><body>Deep nested project</body></html>",
-                )
-                archive.writestr("project/src/styles/site.css", "body { color: #111; }")
-
-            context = prepare_project_session.run_stage(
-                PipelineContext(),
-                InMemoryUpload("project.zip", buffer.getvalue()),
-                base_dir=Path(temp_dir),
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr(
+                "project/src/pages/index.html",
+                "<html><body>Deep nested project</body></html>",
             )
+            archive.writestr("project/src/styles/site.css", "body { color: #111; }")
+
+        context = prepare_project_session.run_stage(
+            PipelineContext(),
+            InMemoryUpload("project.zip", buffer.getvalue()),
+        )
+        try:
             project_before = context.get(ContextKey.SESSION)
 
             self.assertIsInstance(project_before, Session)
-            html_file = single_html_file(project_before.file_paths)
-            self.assertEqual(project_before.project_root_file_path().relative_path, Path("project"))
-            self.assertEqual(html_file.relative_path.parts, ("project", "src", "pages", "index.html"))
+            html_file = project_before.find_by_suffix("before", ("html",))[0]
+            self.assertEqual(html_file.relative_to(project_before.get_area_root("before")).parts[0], "project")
+            self.assertEqual(
+                html_file.relative_to(project_before.get_area_root("before")).parts,
+                ("project", "src", "pages", "index.html"),
+            )
             self.assertIn(
                 "Deep nested project",
-                project_before.build_path("before", html_file).read_text(encoding="utf-8"),
+                html_file.read_text(encoding="utf-8"),
             )
+        finally:
+            shutil.rmtree(project_before.session_dir, ignore_errors=True)
 
     def test_render_snapshot_contains_expected_scope_and_text(self) -> None:
         html_content = RENDER_SCOPE_MATRIX.read_text(encoding="utf-8")
@@ -690,7 +745,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             for style in styles_inventory
             for declaration in style.get("declarations", [])
         ]
-        self.assertTrue(all(get_css_property(name) is not None for name in all_declarations))
+        self.assertTrue(all(name in CSS_PROPERTIES for name in all_declarations))
         self.assertIn("color", title_properties)
         self.assertIn("background-color", title_properties)
         self.assertIn("style_id", title_properties["color"])
@@ -725,6 +780,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         unique_keys = {
             (
                 rule.get("source_kind"),
+                rule.get("stylesheet_id"),
                 rule.get("selector_text"),
                 tuple(sorted((rule.get("source_range") or {}).items())),
                 tuple(
@@ -901,28 +957,12 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         assert isinstance(palette, list)
         self.assertGreater(len(palette), 0)
         self.assertTrue(all("color_id" in entry for entry in palette))
-        self.assertTrue(all("value" in entry for entry in palette))
-        self.assertTrue(all("usage" in entry for entry in palette))
-        self.assertTrue(
-            any(
-                usage["property"] == "color" and usage["tag"] == "h1"
-                for entry in palette
-                for usage in entry["usage"]
-            )
-        )
-        palette_values = {entry["value"] for entry in palette}
-        self.assertNotIn("rgba(0, 0, 0, 0.35)", palette_values)
-        self.assertNotIn("rgba(0, 0, 0, 0.5)", palette_values)
-
-        palette_usage_properties = {
-            usage["property"]
-            for entry in palette
-            for usage in entry["usage"]
-        }
-        self.assertNotIn("border-top-color", palette_usage_properties)
-        self.assertNotIn("border-right-color", palette_usage_properties)
-        self.assertNotIn("border-bottom-color", palette_usage_properties)
-        self.assertNotIn("border-left-color", palette_usage_properties)
+        self.assertTrue(all("rgb_value" in entry for entry in palette))
+        self.assertTrue(all("element_usage_count" in entry for entry in palette))
+        palette_values = {entry["rgb_value"] for entry in palette}
+        self.assertIn("rgb(255, 255, 255)", palette_values)
+        self.assertIn("rgb(12, 12, 12)", palette_values)
+        self.assertIn("rgba(0, 0, 0, 0.35)", palette_values)
 
         tracked_properties = {
             property_payload["name"]
@@ -1087,17 +1127,13 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertEqual(match.family_display_name, "White")
 
     def test_tonal_palette_model_builds_seed_tones(self) -> None:
-        palette = TonalPaletteModel.from_seed(
+        palette = TonalPalette.from_value(
             palette_id="palette-chromatic-1",
             palette_type="chromatic",
-            seed_hex="#ff0000",
-            role_bias="foreground",
-            semantic_weight=10,
-            pixel_count=25,
-            seed_name="red",
-            source_color_ids=("color-1",),
+            value="#ff0000",
+            label="red",
         )
-        self.assertEqual(palette.seed_name, "red")
+        self.assertEqual(palette.label, "red")
         self.assertGreater(len(palette.tones), 10)
         self.assertEqual(palette.tones[0].tone, 10)
         self.assertEqual(palette.tones[-1].tone, 98)
@@ -1107,16 +1143,11 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         )
 
     def test_achromatic_tonal_palette_keeps_full_base_scale(self) -> None:
-        palette = TonalPaletteModel.from_seed(
+        palette = TonalPalette.from_value(
             palette_id="palette-achromatic-1",
             palette_type="achromatic",
-            seed_hex="#ffffff",
-            role_bias="background",
-            semantic_weight=5,
-            pixel_count=50,
-            seed_name="white",
-            source_color_ids=("color-1",),
-            chroma_override=6.0,
+            value="#ffffff",
+            label="white",
         )
         self.assertEqual(palette.tones[0].tone, 0)
         self.assertEqual(palette.tones[-1].tone, 100)
@@ -1159,17 +1190,23 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertEqual(palette_analysis["named_color_breakdown"][0]["name"], "white")
         self.assertNotIn("residual" + "_pixel_count", palette_analysis)
         self.assertTrue(
-            palette_analysis["semantic_colors"][0]["mapped_palette_id"].startswith(
+            palette_analysis["semantic_colors"][0]["palette_id"].startswith(
                 "palette-achromatic-"
             )
         )
         self.assertTrue(
-            palette_analysis["semantic_colors"][1]["mapped_palette_id"].startswith(
+            palette_analysis["semantic_colors"][1]["palette_id"].startswith(
                 "palette-chromatic-"
             )
         )
-        self.assertIn("background_color_usages", palette_analysis["semantic_colors"][0])
-        self.assertIn("foreground_color_usages", palette_analysis["semantic_colors"][1])
+        self.assertGreaterEqual(
+            palette_analysis["semantic_colors"][0]["element_usage_count"],
+            1,
+        )
+        self.assertGreaterEqual(
+            palette_analysis["semantic_colors"][1]["element_usage_count"],
+            1,
+        )
 
     def test_palette_analysis_merges_same_family_colors_when_they_only_vary_by_tone(self) -> None:
         palette_analysis = _analyze_palette_for_test(
@@ -1192,7 +1229,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
 
         chromatic_palettes = palette_analysis["core_palettes"]["chromatic_palettes"]
         self.assertEqual(len(chromatic_palettes), 1)
-        self.assertEqual(chromatic_palettes[0]["display_name"], "Violet")
+        self.assertEqual(chromatic_palettes[0]["label"], "Violet")
 
     def test_palette_analysis_ignores_colors_without_semantic_or_pixel_support(self) -> None:
         palette_analysis = _analyze_palette_for_test(
@@ -1291,7 +1328,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             if artifacts.style_catalog is not None
             else StyleCatalog()
         )
-        colors_inventory = ColorCatalog.build(artifacts.colors_inventory)
+        colors_inventory = artifacts.colors_inventory
         prototype_structure = _prototype(elements_inventory, styles_inventory)
 
         title_entry = next(
@@ -1425,7 +1462,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             base_path=str(FIXTURES_DIR),
             options=SnapshotOptions(capture_screenshot=False),
         )
-        colors_inventory = ColorCatalog.build(artifacts.colors_inventory)
+        colors_inventory = artifacts.colors_inventory
         elements_inventory = _elements(artifacts.snapshot.nodes)
         styles_inventory = (
             artifacts.style_catalog
@@ -1433,19 +1470,17 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             else StyleCatalog()
         )
         palette_analysis = _analyze_palette_for_test(
-            snapshot_palette=colors_inventory.to_palette_dicts(),
+            snapshot_palette=colors_inventory,
             material_quantization_assessment=get_material_quantization_assessment(),
         )
-        mapped_colors = ColorCatalog.build(
+        mapped_colors = _build_color_catalog(
             [
-                entry.with_palette_mapping(
-                    palette_id=semantic_color.mapped_palette_id or "palette-achromatic-1",
-                    tone=semantic_color.mapped_tone or 0,
-                    tone_rgb=semantic_color.mapped_tone_rgb or entry.rgb,
-                    tone_distance=semantic_color.mapped_tone_distance or 0.0,
+                entry.set_palette_mapping(
+                    palette_id=semantic_color.palette_id or "palette-achromatic-1",
+                    tone=semantic_color.tone or 0,
                 )
                 if (semantic_color := next((item for item in palette_analysis.semantic_colors if item.color_id == entry.color_id), None))
-                and semantic_color.mapped_palette_id is not None
+                and semantic_color.palette_id is not None
                 else entry
                 for entry in colors_inventory
             ]
@@ -1481,7 +1516,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             base_path=str(FIXTURES_DIR),
             options=SnapshotOptions(capture_screenshot=False),
         )
-        colors_inventory = ColorCatalog.build(artifacts.colors_inventory)
+        colors_inventory = artifacts.colors_inventory
         elements_inventory = _elements(artifacts.snapshot.nodes)
         styles_inventory = (
             artifacts.style_catalog
@@ -1489,16 +1524,14 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             else StyleCatalog()
         )
         palette_analysis = _analyze_palette_for_test(
-            snapshot_palette=colors_inventory.to_palette_dicts(),
+            snapshot_palette=colors_inventory,
             material_quantization_assessment=get_material_quantization_assessment(),
         )
-        mapped_colors = ColorCatalog.build(
+        mapped_colors = _build_color_catalog(
             [
-                entry.with_palette_mapping(
-                    palette_id=semantic_color.mapped_palette_id or "palette-achromatic-1",
-                    tone=semantic_color.mapped_tone or 0,
-                    tone_rgb=semantic_color.mapped_tone_rgb or entry.rgb,
-                    tone_distance=semantic_color.mapped_tone_distance or 0.0,
+                entry.set_palette_mapping(
+                    palette_id=semantic_color.palette_id or "palette-achromatic-1",
+                    tone=semantic_color.tone or 0,
                 )
                 if (
                     semantic_color := next(
@@ -1506,7 +1539,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                         None,
                     )
                 )
-                and semantic_color.mapped_palette_id is not None
+                and semantic_color.palette_id is not None
                 else entry
                 for entry in colors_inventory
             ]
@@ -1532,12 +1565,12 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                     for property_model in element.properties
                 )
             )
-            self.assertTrue(any(color.token_ids for color in context.get(ContextKey.COLOR_CATALOG)))
+            self.assertTrue(any(color.token for color in context.get(ContextKey.COLOR_CATALOG)))
 
             run_check_tokens_stage(context)
             self.assertFalse(context.has(legacy_key))
             self.assertTrue(context.has(ContextKey.TOKEN_INVENTORY))
-            self.assertTrue(any(color.token_ids for color in context.get(ContextKey.COLOR_CATALOG)))
+            self.assertTrue(any(color.token for color in context.get(ContextKey.COLOR_CATALOG)))
             self.assertFalse(tokens_path.exists())
             self.assertFalse(legacy_path.exists())
 
@@ -1671,7 +1704,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                     },
                 )
             )
-            colors = ColorCatalog.build(({"color_id": "color-1", "value": "rgb(255, 255, 0)"},))
+            colors = _build_color_catalog(({"color_id": "color-1", "value": "rgb(255, 255, 0)"},))
             token_inventory = TokenInventory.build(
                 (
                     Token.semantic(
@@ -1858,7 +1891,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 },
             )
         )
-        colors = ColorCatalog.build(({"color_id": "color-1", "value": "rgb(255, 0, 0)"},))
+        colors = _build_color_catalog(({"color_id": "color-1", "value": "rgb(255, 0, 0)"},))
         palette_analysis = _analyze_palette_for_test(
             snapshot_palette=(
                 {
@@ -1887,35 +1920,26 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         )
 
     def test_apply_token_rules_adjusts_composed_shadow_effects(self) -> None:
-        achromatic_palette = TonalPaletteModel.from_seed(
+        achromatic_palette = TonalPalette.from_value(
             palette_id="palette-achromatic-1",
             palette_type="achromatic",
-            seed_hex="#ffffff",
-            role_bias="background",
-            semantic_weight=0,
-            pixel_count=0,
-            seed_name="white",
-            chroma_override=6.0,
+            value="#ffffff",
+            label="white",
         )
-        chromatic_palette = TonalPaletteModel.from_seed(
+        chromatic_palette = TonalPalette.from_value(
             palette_id="palette-chromatic-1",
             palette_type="chromatic",
-            seed_hex="#ff0000",
-            role_bias="background",
-            semantic_weight=1,
-            pixel_count=64,
-            seed_name="red",
+            value="#ff0000",
+            label="red",
         )
         tone_30 = next(tone for tone in chromatic_palette.tones if tone.tone == 30)
-        colors = ColorCatalog.build(
+        colors = _build_color_catalog(
             (
                 {
                     "color_id": "color-1",
                     "value": "rgb(255, 0, 0)",
-                    "mapped_palette_id": chromatic_palette.palette_id,
-                    "mapped_tone": 90,
-                    "mapped_tone_rgb": [255, 138, 128],
-                    "mapped_tone_distance": 0.0,
+                    "palette_id": chromatic_palette.palette_id,
+                    "tone": 90,
                 },
             )
         )
@@ -1966,24 +1990,17 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertIn(tone_30.hex_value.lower(), shadow_token.resolved_value.lower())
 
     def test_build_token_inventory_prefers_full_effect_value_over_color_fragment(self) -> None:
-        achromatic_palette = TonalPaletteModel.from_seed(
+        achromatic_palette = TonalPalette.from_value(
             palette_id="palette-achromatic-1",
             palette_type="achromatic",
-            seed_hex="#ffffff",
-            role_bias="background",
-            semantic_weight=0,
-            pixel_count=0,
-            seed_name="white",
-            chroma_override=6.0,
+            value="#ffffff",
+            label="white",
         )
-        chromatic_palette = TonalPaletteModel.from_seed(
+        chromatic_palette = TonalPalette.from_value(
             palette_id="palette-chromatic-1",
             palette_type="chromatic",
-            seed_hex="#ff0000",
-            role_bias="background",
-            semantic_weight=1,
-            pixel_count=64,
-            seed_name="red",
+            value="#ff0000",
+            label="red",
         )
         elements = _elements(
             (
@@ -2020,7 +2037,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 },
             )
         )
-        colors = ColorCatalog.build(({"color_id": "color-1", "value": "rgb(255, 0, 0)"},))
+        colors = _build_color_catalog(({"color_id": "color-1", "value": "rgb(255, 0, 0)"},))
         prototype_structure = _prototype(elements, _style_catalog(()))
         scheme_stub = type(
             "SchemeStub",
@@ -2040,53 +2057,39 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertEqual(shadow_token.resolved_value, "0 0 12px rgb(255, 0, 0)")
 
     def test_apply_token_rules_adjusts_composed_background_image_effects(self) -> None:
-        achromatic_palette = TonalPaletteModel.from_seed(
+        achromatic_palette = TonalPalette.from_value(
             palette_id="palette-achromatic-1",
             palette_type="achromatic",
-            seed_hex="#ffffff",
-            role_bias="background",
-            semantic_weight=0,
-            pixel_count=0,
-            seed_name="white",
-            chroma_override=6.0,
+            value="#ffffff",
+            label="white",
         )
-        red_palette = TonalPaletteModel.from_seed(
+        red_palette = TonalPalette.from_value(
             palette_id="palette-chromatic-1",
             palette_type="chromatic",
-            seed_hex="#ff0000",
-            role_bias="background",
-            semantic_weight=1,
-            pixel_count=64,
-            seed_name="red",
+            value="#ff0000",
+            label="red",
         )
-        yellow_palette = TonalPaletteModel.from_seed(
+        yellow_palette = TonalPalette.from_value(
             palette_id="palette-chromatic-2",
             palette_type="chromatic",
-            seed_hex="#ffff00",
-            role_bias="background",
-            semantic_weight=1,
-            pixel_count=64,
-            seed_name="yellow",
+            value="#ffff00",
+            label="yellow",
         )
         red_tone = next(tone for tone in red_palette.tones if tone.tone == 30)
         yellow_tone = next(tone for tone in yellow_palette.tones if tone.tone == 30)
-        colors = ColorCatalog.build(
+        colors = _build_color_catalog(
             (
                 {
                     "color_id": "color-1",
                     "value": "rgb(255, 0, 0)",
-                    "mapped_palette_id": red_palette.palette_id,
-                    "mapped_tone": 90,
-                    "mapped_tone_rgb": [255, 138, 128],
-                    "mapped_tone_distance": 0.0,
+                    "palette_id": red_palette.palette_id,
+                    "tone": 90,
                 },
                 {
                     "color_id": "color-2",
                     "value": "rgb(255, 255, 0)",
-                    "mapped_palette_id": yellow_palette.palette_id,
-                    "mapped_tone": 90,
-                    "mapped_tone_rgb": [255, 245, 157],
-                    "mapped_tone_distance": 0.0,
+                    "palette_id": yellow_palette.palette_id,
+                    "tone": 90,
                 },
             )
         )
@@ -2139,34 +2142,25 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertIn(yellow_tone.hex_value.lower(), gradient_token.resolved_value.lower())
 
     def test_surface_background_prefers_same_palette_foundation_over_achromatic(self) -> None:
-        colors = ColorCatalog.build(({"color_id": "color-1", "value": "rgb(255, 0, 0)"},))
-        achromatic_palette = TonalPaletteModel.from_seed(
+        colors = _build_color_catalog(({"color_id": "color-1", "value": "rgb(255, 0, 0)"},))
+        achromatic_palette = TonalPalette.from_value(
             palette_id="palette-achromatic-1",
             palette_type="achromatic",
-            seed_hex="#ffffff",
-            role_bias="background",
-            semantic_weight=0,
-            pixel_count=0,
-            seed_name="white",
-            chroma_override=6.0,
+            value="#ffffff",
+            label="white",
         )
-        chromatic_palette = TonalPaletteModel.from_seed(
+        chromatic_palette = TonalPalette.from_value(
             palette_id="palette-chromatic-1",
             palette_type="chromatic",
-            seed_hex="#ff0000",
-            role_bias="background",
-            semantic_weight=1,
-            pixel_count=64,
-            seed_name="red",
+            value="#ff0000",
+            label="red",
         )
         tone_90 = next(tone for tone in chromatic_palette.tones if tone.tone == 90)
-        mapped_colors = ColorCatalog.build(
+        mapped_colors = _build_color_catalog(
             (
-                colors.entry_by_id("color-1").with_palette_mapping(  # type: ignore[union-attr]
+                colors.entry_by_id("color-1").set_palette_mapping(  # type: ignore[union-attr]
                     palette_id=chromatic_palette.palette_id,
                     tone=tone_90.tone,
-                    tone_rgb=tone_90.rgb,
-                    tone_distance=0.0,
                 ),
             )
         )
@@ -2291,37 +2285,20 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertGreaterEqual(results["token_processing"]["semantic_token_count"], 1)
         self.assertGreaterEqual(results["token_processing"]["tokenized_element_count"], 1)
         preview_output = (
-            Path("workspace/sessions")
+            Path("sessions")
             / results["session_dirname"]
             / "artifacts"
             / "palette_preview.png"
         )
         self.assertTrue(preview_output.exists())
         self.assertNotIn("artifact", results["render_snapshot"])
-        css_overview_path = (
-            Path("workspace/sessions")
-            / results["session_dirname"]
-            / "artifacts"
-            / "css_overview_original.json"
-        )
-        self.assertFalse(css_overview_path.exists())
-        css_overview_payload = results.get("accessibility", {}).get("css_overview", {}) or {
-            "colors": {},
-            "contrast_issues": [],
-            "unused_declarations": {},
-        }
-        self.assertIsInstance(css_overview_payload, dict)
-        self.assertIsInstance(css_overview_payload, dict)
-        self.assertIsInstance(css_overview_payload, dict)
-        self.assertTrue(
-            all(
-                "color_id" in entry or not entry
-                for entries in css_overview_payload["colors"].values()
-                for entry in entries
-            )
+        self.assertNotIn("css_overview", results["accessibility"])
+        self.assertEqual(
+            set(results["color_processing"]["color_usages"]),
+            {"background", "border", "decoration", "typography", "other"},
         )
         colors_inventory_path = (
-            Path("workspace/sessions")
+            Path("sessions")
             / results["session_dirname"]
             / "artifacts"
             / "colors_inventory_original.json"
@@ -2330,7 +2307,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         colors_inventory_payload = {"entries": []}
         self.assertIn("entries", colors_inventory_payload)
         legacy_effect_path = (
-            Path("workspace/sessions")
+            Path("sessions")
             / results["session_dirname"]
             / "artifacts"
             / ("effect" + "_colors_original.json")
@@ -2340,14 +2317,14 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertIn("entries", effect_colors_payload)
         self.assertIn("properties", effect_colors_payload)
         legacy_relations_path = (
-            Path("workspace/sessions")
+            Path("sessions")
             / results["session_dirname"]
             / "artifacts"
             / ("inventory" + "_" + "gra" + "ph.json")
         )
         self.assertFalse(legacy_relations_path.exists())
         results_json_path = (
-            Path("workspace/sessions")
+            Path("sessions")
             / results["session_dirname"]
             / "artifacts"
             / ("results" + ".json")
@@ -2371,7 +2348,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
 
         self.assertIsNone(error)
         assert results is not None
-        session_dir = Path("workspace/sessions") / results["session_dirname"]
+        session_dir = Path("sessions") / results["session_dirname"]
         self.assertTrue((session_dir / "before" / "Pagina" / "menu.html").exists())
         self.assertTrue((session_dir / "before" / "Pagina" / "assets" / "logo.png").exists())
         self.assertTrue((session_dir / "after" / "Pagina" / "menu.html").exists())
@@ -2421,7 +2398,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         match = re.search(r"/sessions/(session_[^/]+)/artifacts/before\.png", html)
         self.assertIsNotNone(match)
         session_dirname = match.group(1)
-        session_dir = Path("workspace/sessions") / session_dirname
+        session_dir = Path("sessions") / session_dirname
 
         self.assertTrue((session_dir / "before" / "site" / "pages" / "index.html").exists())
         self.assertTrue((session_dir / "before" / "site" / "styles" / "site.css").exists())
@@ -2433,7 +2410,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         before_response = client.get(f"/sessions/{session_dirname}/artifacts/before.png")
         after_response = client.get(f"/sessions/{session_dirname}/artifacts/after.png")
         bundle_response = client.get(f"/sessions/{session_dirname}/artifacts/site.zip")
-        transformed_response = client.get(f"/sessions/{session_dirname}/output/site/pages/index.html")
+        transformed_response = client.get(f"/sessions/{session_dirname}/after/site/pages/index.html")
 
         try:
             self.assertEqual(before_response.status_code, 200)
@@ -2469,28 +2446,29 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             self.assertFalse(path.exists(), msg=str(path))
 
     def test_root_layer_topology_is_present(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
         expected_paths = (
-            Path("engine/domain/models/color.py"),
-            Path("engine/domain/models/palette.py"),
-            Path("engine/domain/models/prototype_structure.py"),
-            Path("engine/domain/models/quality_reports.py"),
-            Path("engine/domain/models/environmental_assessment/energy_consumption.py"),
-            Path("engine/domain/models/environmental_assessment/carbon_footprint.py"),
-            Path("engine/domain/data/web_colors.py"),
-            Path("engine/domain/enums/scope/css_properties.py"),
-            Path("engine/domain/enums/scope/html_elements.py"),
-            Path("engine/domain/enums/scope/json_exports.py"),
-            Path("engine/domain/enums/types/style.py"),
-            Path("engine/domain/enums/types/color.py"),
-            Path("engine/domain/enums/types/elements.py"),
-            Path("engine/domain/enums/types/transformations.py"),
-            Path("engine/adapters/file_system/file_manager.py"),
-            Path("engine/adapters/source_code_handler/code_processor.py"),
-            Path("engine/adapters/browser/page_builder.py"),
-            Path("engine/adapters/browser/render_models.py"),
-            Path("engine/adapters/color_service/service.py"),
-            Path("engine/adapters/utils/pixel.py"),
-            Path("engine/validators/file_handling"),
+            repo_root / "engine/domain/models/color.py",
+            repo_root / "engine/domain/models/color_scheme.py",
+            repo_root / "engine/domain/models/prototype_structure.py",
+            repo_root / "engine/domain/models/quality_reports.py",
+            repo_root / "engine/domain/models/environmental_assessment/energy_consumption.py",
+            repo_root / "engine/domain/models/environmental_assessment/carbon_footprint.py",
+            repo_root / "engine/domain/data/web_colors.py",
+            repo_root / "engine/domain/enums/scope/css_properties.py",
+            repo_root / "engine/domain/enums/scope/html_elements.py",
+            repo_root / "engine/domain/enums/scope/json_exports.py",
+            repo_root / "engine/domain/enums/types/style.py",
+            repo_root / "engine/domain/enums/types/color.py",
+            repo_root / "engine/domain/enums/types/elements.py",
+            repo_root / "engine/domain/enums/types/transformations.py",
+            repo_root / "engine/adapters/file_system/file_manager.py",
+            repo_root / "engine/adapters/source_code_handler/code_processor.py",
+            repo_root / "engine/adapters/browser/page_builder.py",
+            repo_root / "engine/adapters/browser/render_models.py",
+            repo_root / "engine/adapters/color_service/service.py",
+            repo_root / "engine/adapters/utils/pixel.py",
+            repo_root / "engine/validators/file_handling",
         )
         for path in expected_paths:
             self.assertTrue(path.exists(), msg=str(path))
@@ -2696,6 +2674,50 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         self.assertEqual(len(view["palette_rows"]), 3)
         self.assertEqual(view["palette_rows"][0]["label"], "Neutral")
 
+    def test_results_view_groups_repeated_contrast_rows_with_count(self) -> None:
+        results = {
+            "accessibility": {
+                "contrast": {
+                    "issues": [
+                        {
+                            "selector": "/html/body/nav/a[1]/text()[1]",
+                            "contrast_ratio": 3.43,
+                            "required_ratio": 4.5,
+                            "foreground": {"hex": "#ffffff"},
+                            "background": {"hex": "#ec00c8"},
+                        },
+                        {
+                            "selector": "/html/body/nav/a[2]/text()[1]",
+                            "contrast_ratio": 3.43,
+                            "required_ratio": 4.5,
+                            "foreground": {"hex": "#ffffff"},
+                            "background": {"hex": "#ec00c8"},
+                        },
+                        {
+                            "selector": "/html/body/footer/a[1]/text()[1]",
+                            "contrast_ratio": 2.5,
+                            "required_ratio": 4.5,
+                            "foreground": {"hex": "#ffd600"},
+                            "background": {"hex": "#ff0000"},
+                        },
+                    ]
+                }
+            },
+            "color_processing": {"core_palettes": {}},
+        }
+
+        view = _build_results_view(results)
+
+        self.assertEqual(len(view["contrast_rows"]), 2)
+        violet_row = next(row for row in view["contrast_rows"] if row["background_hex"] == "#ec00c8")
+        self.assertEqual(violet_row["count"], 2)
+        self.assertEqual(
+            violet_row["sample_selectors"],
+            ["/html/body/nav/a[1]/text()[1]", "/html/body/nav/a[2]/text()[1]"],
+        )
+        red_row = next(row for row in view["contrast_rows"] if row["background_hex"] == "#ff0000")
+        self.assertEqual(red_row["count"], 1)
+
     def test_results_template_no_longer_contains_macro_preparation_block(self) -> None:
         template = Path("app/templates/results.html").read_text(encoding="utf-8")
 
@@ -2709,3 +2731,4 @@ class EngineRefactorSmokeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

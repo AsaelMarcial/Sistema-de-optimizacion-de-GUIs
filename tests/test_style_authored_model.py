@@ -11,14 +11,61 @@ from engine.domain.models.style import (
 
 
 class StyleAuthoredModelTests(unittest.TestCase):
+    def _add_rule(
+        self,
+        catalog: StyleCatalog,
+        *,
+        source_kind: StyleSourceKind,
+        selectors=(),
+        stylesheet_id: str | None = None,
+        source_url: str | None = None,
+        owner_element_id: str | None = None,
+    ):
+        source = catalog.add_source(
+            kind=source_kind,
+            stylesheet_id=stylesheet_id,
+            href=source_url,
+            owner_node_id=owner_element_id,
+        )
+        return source.add_rule(selectors=selectors)
+
+    def test_catalog_partitions_inline_external_and_embedded_rules(self) -> None:
+        catalog = StyleCatalog()
+
+        inline_rule = self._add_rule(
+            catalog,
+            source_kind=StyleSourceKind.INLINE,
+            selectors=(":scope",),
+            owner_element_id="element-1",
+        )
+        embedded_rule = self._add_rule(
+            catalog,
+            source_kind=StyleSourceKind.EMBEDDED,
+            selectors=(".card",),
+        )
+        external_rule = self._add_rule(
+            catalog,
+            source_kind=StyleSourceKind.EXTERNAL,
+            selectors=("body",),
+            stylesheet_id="sheet-1",
+            source_url="/static/site.css",
+        )
+
+        self.assertEqual((inline_rule.rule_id,), tuple(rule.rule_id for rule in catalog.inline_rules))
+        self.assertEqual((embedded_rule.rule_id,), tuple(rule.rule_id for rule in catalog.rules_for_source_kind(StyleSourceKind.EMBEDDED)))
+        self.assertEqual((external_rule.rule_id,), tuple(rule.rule_id for rule in catalog.rules_for_source_kind(StyleSourceKind.EXTERNAL)))
+        self.assertEqual("sheet-1", catalog.external_sources[0].stylesheet_id)
+
     def test_catalog_creates_rules_in_stable_order(self) -> None:
         catalog = StyleCatalog()
 
-        first = catalog.add_rule(
+        first = self._add_rule(
+            catalog,
             source_kind=StyleSourceKind.EXTERNAL,
             selectors=("body",),
         )
-        second = catalog.add_rule(
+        second = self._add_rule(
+            catalog,
             source_kind=StyleSourceKind.EMBEDDED,
             selectors=(".card",),
         )
@@ -27,7 +74,8 @@ class StyleAuthoredModelTests(unittest.TestCase):
 
     def test_rule_allows_multiple_declarations_with_same_name(self) -> None:
         catalog = StyleCatalog()
-        rule = catalog.add_rule(
+        rule = self._add_rule(
+            catalog,
             source_kind=StyleSourceKind.EXTERNAL,
             selectors=(".card",),
         )
@@ -38,9 +86,26 @@ class StyleAuthoredModelTests(unittest.TestCase):
         self.assertNotEqual(first.declaration_id, second.declaration_id)
         self.assertEqual(("red", "blue"), tuple(item.value_text for item in rule.get_declarations("color")))
 
+    def test_shorthand_covers_nested_longhands(self) -> None:
+        catalog = StyleCatalog()
+        rule = self._add_rule(
+            catalog,
+            source_kind=StyleSourceKind.EXTERNAL,
+            selectors=(".card",),
+        )
+
+        border = rule.add_declaration(name="border", value_text="1px solid red")
+        margin = rule.add_declaration(name="margin", value_text="1rem")
+
+        self.assertTrue(border.covers_property("border-top-color"))
+        self.assertTrue(border.covers_property("border-left-style"))
+        self.assertTrue(border.covers_property("border-right-width"))
+        self.assertTrue(margin.covers_property("margin-bottom"))
+
     def test_rule_used_is_derived_from_selector_usage(self) -> None:
         catalog = StyleCatalog()
-        rule = catalog.add_rule(
+        rule = self._add_rule(
+            catalog,
             source_kind=StyleSourceKind.EXTERNAL,
             selectors=("body", ".page"),
         )
@@ -53,7 +118,8 @@ class StyleAuthoredModelTests(unittest.TestCase):
 
     def test_split_grouped_rule_preserves_declarations(self) -> None:
         catalog = StyleCatalog()
-        rule = catalog.add_rule(
+        rule = self._add_rule(
+            catalog,
             source_kind=StyleSourceKind.EXTERNAL,
             selectors=("body", ".page"),
         )
@@ -75,7 +141,8 @@ class StyleAuthoredModelTests(unittest.TestCase):
 
     def test_root_custom_property_declarations_are_stored_as_regular_declarations(self) -> None:
         catalog = StyleCatalog()
-        root_rule = catalog.add_rule(
+        root_rule = self._add_rule(
+            catalog,
             source_kind=StyleSourceKind.EMBEDDED,
             selectors=(":root",),
         )
@@ -93,11 +160,11 @@ class StyleAuthoredModelTests(unittest.TestCase):
 
     def test_catalog_get_declaration_resolves_through_rules(self) -> None:
         catalog = StyleCatalog()
-        rule = catalog.add_rule(
-            source_kind=StyleSourceKind.INLINE,
-            selectors=(Selector(selector_id="inline-1", text=":scope", order_in_group=0),),
-            owner_element_id="element-1",
+        source = catalog.add_source(
+            kind=StyleSourceKind.INLINE,
+            owner_node_id="element-1",
         )
+        rule = source.add_rule(selectors=(Selector(selector_id="inline-1", text=":scope", order_in_group=0),))
         declaration = rule.add_declaration(name="color", value_text="red")
 
         self.assertIs(declaration, catalog.get_declaration(declaration.declaration_id))

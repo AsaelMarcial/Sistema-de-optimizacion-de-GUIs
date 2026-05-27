@@ -7,15 +7,10 @@ from engine.adapters.utils.pixel import (
     get_color_count,
 )
 from engine.domain.models.color import ColorCatalog
-from engine.domain.models.color_scheme import ColorSchemeModel
+from engine.domain.models.color_scheme import ColorScheme
 from engine.domain.models.prototype_structure import PrototypeStructure
-from engine.domain.models.session import BEFORE_SCREENSHOT, PALETTE_PREVIEW, Session
-from engine.domain.utils.palette_analysis import (
-    build_named_color_breakdown,
-    build_palette_seed_specs,
-    filter_supported_colors,
-    map_colors_to_scheme,
-)
+from engine.domain.models.quality_reports import build_named_color_breakdown
+from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
 from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.pipeline.stage_contract import StageContract, context_value
@@ -35,7 +30,7 @@ CONTRACT = StageContract(
         context_value(K.COLOR_CATALOG, ColorCatalog),
         context_value(K.ENVIRONMENTAL_BEFORE_COLOR_HISTOGRAM, list),
         context_value(K.SCHEME_COLOR_HISTOGRAM, list),
-        context_value(K.SCHEME_TONAL_PALETTES, ColorSchemeModel),
+        context_value(K.SCHEME_TONAL_PALETTES, ColorScheme),
         context_value(K.SCHEME_NAMED_COLOR_BREAKDOWN, tuple),
     ),
 )
@@ -49,7 +44,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     prototype_structure = context.get(K.PROTOTYPE_STRUCTURE)
     colors_inventory = context.get(K.COLOR_CATALOG)
     context.trace.add_stage_event(CONTRACT.name, "start")
-    before_screenshot = session.build_path("artifacts", BEFORE_SCREENSHOT)
+    before_screenshot = session.get_path("before.png", "artifacts", "png")
     color_histograms = build_color_histograms(
         before_screenshot,
         prototype_structure=prototype_structure,
@@ -61,30 +56,20 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     context.set(K.SCHEME_COLOR_HISTOGRAM, scheme_color_histogram)
 
     total_pixels = color_histogram_total(scheme_color_histogram)
-    counts_by_color_id = {}
     for entry in colors_inventory:
         record = get_color_count(scheme_color_histogram, *entry.rgb)
         pixel_count = int(record.get("count") or 0)
-        pixel_percentage = round((pixel_count / total_pixels) * 100, 4) if total_pixels else 0.0
-        counts_by_color_id[entry.color_id] = (pixel_count, pixel_percentage)
-    colors_inventory = colors_inventory.with_pixel_counts(counts_by_color_id)
+        pixel_percentage = ((pixel_count / total_pixels) * 100.0) if total_pixels > 0 else 0.0
+        entry.set_pixel_count(pixel_count, pixel_percentage)
     context.set(K.COLOR_CATALOG, colors_inventory)
-    semantic_colors = filter_supported_colors(colors_inventory if len(colors_inventory) else ())
-    achromatic_seed, chromatic_seeds = build_palette_seed_specs(semantic_colors)
-    color_scheme_model = ColorSchemeModel.build(
-        achromatic_seed=achromatic_seed,
-        chromatic_seeds=chromatic_seeds,
-    )
-    mapped_colors = map_colors_to_scheme(color_scheme_model, semantic_colors)
-    mapped_pixel_count = sum(color.pixel_count for color in mapped_colors)
-    named_color_breakdown = build_named_color_breakdown(
-        mapped_colors,
-        total_pixels=mapped_pixel_count,
-    )
-    preview_path = session.build_path("artifacts", PALETTE_PREVIEW)
+    semantic_colors = colors_inventory.supported_scheme_colors()
+    palette_sources = colors_inventory.scheme_palette_sources()
+    color_scheme_model = ColorScheme.build(palette_sources)
+    mapped_colors = color_scheme_model.map_colors(semantic_colors)
+    named_color_breakdown = build_named_color_breakdown(mapped_colors)
+    preview_path = session.get_path("palette_preview.png", "artifacts", "png")
 
     render_palette_preview(color_scheme_model.to_dict(), preview_path)
-    colors_inventory = colors_inventory.with_palette_mappings(mapped_colors)
     context.set(K.COLOR_CATALOG, colors_inventory)
     context.set(K.SCHEME_TONAL_PALETTES, color_scheme_model)
     context.set(K.SCHEME_NAMED_COLOR_BREAKDOWN, named_color_breakdown)
@@ -105,3 +90,4 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         },
     )
     return context
+

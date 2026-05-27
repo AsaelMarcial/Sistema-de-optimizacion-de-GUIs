@@ -1,7 +1,12 @@
 import json
 from pathlib import Path
 
-from engine.domain.enums.scope.css_properties import get_in_scope_css_properties
+from engine.domain.enums.scope.css_properties import (
+    CATEGORY,
+    ROLE,
+    SUPPORTS_COLOR,
+    CSS_PROPERTIES,
+)
 from engine.domain.enums.scope.html_elements import HTML_ELEMENT_SPECS, HtmlElementScopeGroup
 
 
@@ -14,15 +19,12 @@ def build_scope_properties_payload() -> dict[str, list[dict[str, object]]]:
     return {
         "onScope": [
             {
-                "propertyID": spec.value,
-                "categories": [category.value for category in spec.categories],
-                "shorthandFor": [item.value for item in spec.shorthand_for],
-                "longhandOf": spec.longhand_of.value if spec.longhand_of else None,
-                "colorRole": spec.color_role.value if spec.color_role else None,
-                "affectsVisibility": spec.affects_visibility,
-                "affectsPaintOrder": spec.affects_paint_order,
+                "propertyID": property_name,
+                "category": property_data[CATEGORY].value,
+                "supportsColor": bool(property_data[SUPPORTS_COLOR]),
+                "role": property_data[ROLE].value,
             }
-            for spec in get_in_scope_css_properties()
+            for property_name, property_data in CSS_PROPERTIES.items()
         ]
     }
 

@@ -15,7 +15,7 @@ from engine.domain.data.tokens import (
 )
 from engine.domain.models.color import Color, ColorCatalog
 from engine.domain.models.element import Element, Property
-from engine.domain.models.color_scheme import ColorSchemeModel, TonalPaletteModel
+from engine.domain.models.color_scheme import ColorScheme, TonalPalette
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.token import Token, TokenInventory
 
@@ -76,9 +76,9 @@ def _color_by_value(colors: tuple[Color, ...], value: str) -> Color | None:
 
 
 def _palette_by_id(
-    palettes: tuple[TonalPaletteModel, ...],
+    palettes: tuple[TonalPalette, ...],
     palette_id: str,
-) -> TonalPaletteModel | None:
+) -> TonalPalette | None:
     normalized = str(palette_id or "").strip()
     return next((palette for palette in palettes if palette.palette_id == normalized), None)
 
@@ -87,14 +87,11 @@ def _color_value_variants(value: str) -> tuple[str, ...]:
     return color_registry.variants(value)
 
 
-def _palette_segment(palette: TonalPaletteModel) -> str:
-    return _segment(
-        palette.display_name or palette.seed_display_name or palette.seed_name or palette.palette_id,
-        default="palette",
-    )
+def _palette_segment(palette: TonalPalette) -> str:
+    return _segment(palette.label or palette.palette_id, default="palette")
 
 
-def _foundation_path(palette: TonalPaletteModel, tone: int) -> tuple[str, ...]:
+def _foundation_path(palette: TonalPalette, tone: int) -> tuple[str, ...]:
     return (TOKEN_NAMESPACE, "color", _palette_segment(palette), str(int(tone)))
 
 
@@ -255,7 +252,7 @@ def resolve_value_label(
 
 def select_same_palette_tone(
     token: Token,
-    palettes: tuple[TonalPaletteModel, ...],
+    palettes: tuple[TonalPalette, ...],
     tokens: Iterable[Token],
     *,
     background_value: str,
@@ -325,15 +322,15 @@ def resolve_foundation_color(
     base_token_map: dict[tuple[str, int], Token],
     fallback_tokens: dict[str, Token],
 ) -> Token:
-    if color_entry.mapped_palette_id is not None and color_entry.mapped_tone is not None:
-        foundation = base_token_map.get((color_entry.mapped_palette_id, int(color_entry.mapped_tone)))
+    if color_entry.palette_id is not None and color_entry.tone is not None:
+        foundation = base_token_map.get((color_entry.palette_id, int(color_entry.tone)))
         if foundation is not None:
             return foundation
     return fallback_tokens.setdefault(color_entry.color_id, _fallback_foundation_token(color_entry))
 
 
 def _build_base_tokens(
-    color_scheme: ColorSchemeModel,
+    color_scheme: ColorScheme,
 ) -> tuple[tuple[Token, ...], dict[tuple[str, int], Token]]:
     tokens: list[Token] = []
     by_palette_tone: dict[tuple[str, int], Token] = {}
@@ -342,7 +339,7 @@ def _build_base_tokens(
             token = Token.foundation(
                 path=_foundation_path(palette, tone_stop.tone),
                 resolved_value=tone_stop.hex_value,
-                palette_name=palette.display_name or palette.seed_display_name or palette.seed_name,
+                palette_name=palette.label,
                 tone=int(tone_stop.tone),
                 source_palette_ids=(palette.palette_id,),
                 created_by_stage="set_tokens",
@@ -447,9 +444,9 @@ def _semantic_candidate(
             element_key = "composed" if element_key == "text" else element_key
 
     background = resolve_effective_background(entry, prototype_structure, colors)
-    background_value = background.value if background is not None else None
+    background_value = background.rgb_value if background is not None else None
     contrast = None
-    source_color_value = color_entry.value if color_entry is not None else property_model.value
+    source_color_value = color_entry.rgb_value if color_entry is not None else property_model.value
     if bool(property_rule.get("uses_contrast")) and background_value:
         contrast = resolve_initial_contrast(source_color_value, background_value)
 
@@ -472,7 +469,7 @@ def _semantic_candidate(
         resolved_value=(
             foundation.resolved_value
             if alias_to and foundation is not None
-            else (property_model.value or (color_entry.value if color_entry is not None else ""))
+            else (property_model.value or (color_entry.rgb_value if color_entry is not None else ""))
         ),
         element_key=element_key,
         property_id=property_name,
@@ -485,7 +482,7 @@ def _semantic_candidate(
         source_palette_ids=tuple(foundation.source_palette_ids if foundation is not None else ()),
         source_values=(
             property_model.value,
-            *(_color_value_variants(color_entry.value if color_entry is not None else "")),
+            *(_color_value_variants(color_entry.rgb_value if color_entry is not None else "")),
             *(_color_value_variants(color_entry.hex_value if color_entry is not None else "")),
             *(
                 _color_value_variants(
@@ -552,7 +549,7 @@ def _effect_candidate(
 def build_token_inventory(
     prototype_structure: PrototypeStructure,
     colors: Iterable[Color],
-    color_scheme: ColorSchemeModel,
+    color_scheme: ColorScheme,
 ) -> TokenInventory:
     base_tokens, base_token_map = _build_base_tokens(color_scheme)
     fallback_tokens: dict[str, Token] = {}
@@ -623,10 +620,7 @@ def apply_token_assignments(
         if color_entry is None:
             continue
         for token in color_tokens:
-            color_entry = color_entry.with_token_assignment(
-                token.token_id,
-                foundation=token.is_foundation,
-            )
+            color_entry = color_entry.set_token_assignment(token.token_id)
         updated_colors[color_id] = color_entry
 
     for element in prototype_structure:
@@ -662,9 +656,12 @@ def apply_token_assignments(
 
     return (
         PrototypeStructure.build(updated_nodes),
-        ColorCatalog.build(
-            updated_colors[color_id]
-            for color_id in color_entries_by_id
-            if color_id in updated_colors
+        ColorCatalog(
+            colors=tuple(
+                updated_colors[color_id]
+                for color_id in color_entries_by_id
+                if color_id in updated_colors
+            )
         ),
     )
+

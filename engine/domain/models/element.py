@@ -1,33 +1,83 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Iterable, Mapping, Self
 
+from engine.adapters.color_service import color_registry
 from engine.domain.enums.scope.css_properties import (
-    CssColorRole,
-    CssPropertyCategory,
-    CssPropertyId,
-    get_css_property,
+    CATEGORY,
+    ROLE,
+    CSS_PROPERTIES,
+    Category,
+    Role,
+    getColorSupportedProperties,
 )
 from engine.domain.enums.types.elements import PropertyClassification
 
+_HEX_COLOR_RE = re.compile(r"#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b")
+_FUNCTION_COLOR_RE = re.compile(r"(?:rgba?|hsla?)\([^)]+\)", re.IGNORECASE)
+_COMPOSITE_COLOR_PROPERTIES = frozenset(
+    {
+        "background",
+        "border",
+        "caret",
+        "column-rule",
+        "outline",
+        "text-decoration",
+        "text-emphasis",
+        "-webkit-text-stroke",
+    }
+)
+_EFFECT_COLOR_PROPERTIES = frozenset(
+    {
+        "background-image",
+        "backdrop-filter",
+        "border-image",
+        "border-image-source",
+        "box-shadow",
+        "filter",
+        "mask",
+        "mask-border",
+        "mask-border-source",
+        "mask-image",
+        "text-shadow",
+    }
+)
+_PURE_COLOR_PROPERTIES = frozenset(
+    property_name
+    for property_name in getColorSupportedProperties()
+    if property_name not in _COMPOSITE_COLOR_PROPERTIES
+    and property_name not in _EFFECT_COLOR_PROPERTIES
+)
+_COLOR_VALUE_PROPERTIES = _PURE_COLOR_PROPERTIES | _COMPOSITE_COLOR_PROPERTIES
 
-def _css_property_value(property_name: CssPropertyId | str | None) -> str:
-    return property_name.value if isinstance(property_name, CssPropertyId) else str(property_name or "")
+
+def _normalize_property_name(value: str | None) -> str:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return ""
+    if normalized.startswith("--"):
+        return normalized
+    return normalized.lower()
 
 
-def _coerce_css_property_id(value: CssPropertyId | str | None) -> CssPropertyId | str:
-    property_spec = get_css_property(value)
-    if property_spec is not None:
-        return property_spec
-    return str(value or "").strip().lower()
+def _property_data(property_name: str | None) -> Mapping[str, object] | None:
+    normalized_name = _normalize_property_name(property_name)
+    if not normalized_name:
+        return None
+    return CSS_PROPERTIES.get(normalized_name)
 
 
-def _coerce_optional_css_property_id(value: CssPropertyId | str | None) -> CssPropertyId | str | None:
+def _coerce_css_property_name(value: str | None) -> str:
+    return _normalize_property_name(value)
+
+
+def _coerce_optional_css_property_name(value: str | None) -> str | None:
     if value is None:
         return None
-    property_id = _coerce_css_property_id(value)
-    return property_id if _css_property_value(property_id) else None
+    property_name = _coerce_css_property_name(value)
+    return property_name or None
 
 
 def _coerce_property_classification(
@@ -42,15 +92,16 @@ def _coerce_property_classification(
         return PropertyClassification.OTHER
 
 
-def classify_property(property_name: CssPropertyId | str) -> PropertyClassification:
-    spec = get_css_property(property_name)
-    if spec is None:
-        return PropertyClassification.OTHER
-    if CssPropertyCategory.EFFECT in spec.categories:
+def classify_property(property_name: str) -> PropertyClassification:
+    normalized_name = _normalize_property_name(property_name)
+    property_data = _property_data(normalized_name)
+    if normalized_name in _EFFECT_COLOR_PROPERTIES:
         return PropertyClassification.EFFECT
-    if spec.color_role == CssColorRole.BACKGROUND:
+    if property_data is None:
+        return PropertyClassification.OTHER
+    if property_data[ROLE] == Role.BACKGROUND:
         return PropertyClassification.BACKGROUND
-    if spec.color_role == CssColorRole.FOREGROUND:
+    if property_data[ROLE] == Role.FOREGROUND:
         return PropertyClassification.FOREGROUND
     return PropertyClassification.OTHER
 
@@ -67,15 +118,17 @@ def classify_element(properties: tuple["Property", ...]) -> PropertyClassificati
             return candidate
     return PropertyClassification.OTHER
 
-@dataclass(frozen=True, slots=True)
+
+@dataclass(slots=True)
 class Property:
-    name: CssPropertyId | str
+    name: str
     value: str
     classification: PropertyClassification = PropertyClassification.OTHER
     color_id: str | None = None
+    color_ids: tuple[str, ...] = field(default_factory=tuple)
     style_id: str | None = None
     declaration_id: str | None = None
-    declared_property: CssPropertyId | str | None = None
+    declared_property: str | None = None
     inherited_from_element_id: str | None = None
     token_ids: tuple[str, ...] = field(default_factory=tuple)
     applied_token_id: str | None = None
@@ -83,7 +136,7 @@ class Property:
 
     @classmethod
     def build(cls, payload: Mapping[str, Any]) -> Self:
-        name = _coerce_css_property_id(payload.get("name"))
+        name = _coerce_css_property_name(payload.get("name"))
         value = str(payload.get("value") or "")
         raw_classification = payload.get("classification")
         return cls(
@@ -95,6 +148,18 @@ class Property:
                 else classify_property(name)
             ),
             color_id=str(payload["color_id"]) if payload.get("color_id") is not None else None,
+            color_ids=(
+                tuple(
+                    str(item).strip()
+                    for item in (payload.get("color_ids") or ())
+                    if str(item).strip()
+                )
+                or (
+                    (str(payload["color_id"]).strip(),)
+                    if payload.get("color_id") is not None and str(payload["color_id"]).strip()
+                    else ()
+                )
+            ),
             style_id=str(payload["style_id"]) if payload.get("style_id") is not None else None,
             declaration_id=(
                 str(payload["declaration_id"])
@@ -102,7 +167,7 @@ class Property:
                 else None
             ),
             declared_property=(
-                _coerce_optional_css_property_id(payload["declared_property"])
+                _coerce_optional_css_property_name(payload["declared_property"])
                 if payload.get("declared_property") is not None
                 else None
             ),
@@ -139,7 +204,7 @@ class Property:
         color_id: str | None = None,
         classification: PropertyClassification | str | None = None,
     ) -> Self:
-        normalized_name = _coerce_css_property_id(name)
+        normalized_name = _coerce_css_property_name(name)
         return cls(
             name=normalized_name,
             value=str(computed_style.get("computed_value") or ""),
@@ -160,7 +225,7 @@ class Property:
                 else None
             ),
             declared_property=(
-                _coerce_optional_css_property_id(computed_style["declared_property"])
+                _coerce_optional_css_property_name(computed_style["declared_property"])
                 if computed_style.get("declared_property") is not None
                 else None
             ),
@@ -188,20 +253,67 @@ class Property:
             token_alias_to=alias_to if alias_to is not None else self.token_alias_to,
         )
 
+    def set_color_id(self, color_id: str | None) -> Self:
+        normalized = str(color_id or "").strip()
+        self.color_id = normalized or None
+        self.color_ids = (normalized,) if normalized else ()
+        return self
+
+    def set_color_ids(self, color_ids: Iterable[str]) -> Self:
+        ordered = tuple(
+            dict.fromkeys(
+                str(item).strip()
+                for item in color_ids
+                if str(item).strip()
+            )
+        )
+        self.color_ids = ordered
+        self.color_id = ordered[0] if len(ordered) == 1 else None
+        return self
+
+    @property
+    def property_id(self) -> str | None:
+        property_name = _normalize_property_name(self.name)
+        return property_name if property_name in CSS_PROPERTIES else None
+
+    def color_values(self) -> tuple[str, ...]:
+        property_id = self.property_id
+        if property_id is None:
+            return ()
+        if property_id not in _COLOR_VALUE_PROPERTIES and property_id not in _EFFECT_COLOR_PROPERTIES:
+            return ()
+
+        if property_id in _PURE_COLOR_PROPERTIES:
+            normalized = color_registry.normalize_css_color_token(self.value)
+            return () if not normalized or normalized == "transparent" else (normalized,)
+
+        colors: list[str] = []
+        for token in _HEX_COLOR_RE.findall(self.value):
+            normalized = color_registry.normalize_css_color_token(token)
+            if normalized and normalized != "transparent" and normalized not in colors:
+                colors.append(normalized)
+        for token in _FUNCTION_COLOR_RE.findall(self.value):
+            normalized = color_registry.normalize_css_color_token(token)
+            if normalized and normalized != "transparent" and normalized not in colors:
+                colors.append(normalized)
+        return tuple(colors)
+
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
-            "name": _css_property_value(self.name),
+            "name": self.name,
             "value": self.value,
             "classification": self.classification.value,
         }
         if self.color_id is not None:
             payload["color_id"] = self.color_id
+        if self.color_ids:
+            payload["color_ids"] = list(self.color_ids)
         if self.style_id is not None:
             payload["style_id"] = self.style_id
         if self.declaration_id is not None:
             payload["declaration_id"] = self.declaration_id
         if self.declared_property is not None:
-            payload["declared_property"] = _css_property_value(self.declared_property)
+            payload["declared_property"] = self.declared_property
         if self.inherited_from_element_id is not None:
             payload["inherited_from_element_id"] = self.inherited_from_element_id
         if self.token_ids:
@@ -306,11 +418,11 @@ def resolve_property_winner(
 
 def resolve_element_computed_styles(
     *,
-    computed_styles: Mapping[CssPropertyId, str],
-    candidates_by_property: Mapping[CssPropertyId, Iterable[Mapping[str, Any]]],
+    computed_styles: Mapping[str, str],
+    candidates_by_property: Mapping[str, Iterable[Mapping[str, Any]]],
     mark_selector_used: Callable[[str, str | None], None] | None = None,
-) -> dict[CssPropertyId, dict[str, Any]]:
-    resolved: dict[CssPropertyId, dict[str, Any]] = {}
+) -> dict[str, dict[str, Any]]:
+    resolved: dict[str, dict[str, Any]] = {}
     for property_name, computed_value in computed_styles.items():
         resolved[property_name] = resolve_property_winner(
             computed_value=computed_value,
@@ -370,7 +482,7 @@ class Element:
                 if str(item).strip()
             ),
             document_order=int(payload.get("document_order") or 0),
-            tag_name=str(payload.get("tag_name") or "").strip().lower(),
+            tag_name=str(payload.get("tag_name") or "").strip(),
             node_name=str(payload.get("node_name") or "").strip(),
             html_id=str(payload["html_id"]) if payload.get("html_id") is not None else None,
             name=str(payload["name"]) if payload.get("name") is not None else None,

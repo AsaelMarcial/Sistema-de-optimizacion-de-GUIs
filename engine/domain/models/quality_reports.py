@@ -1,24 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Self
+from typing import Any, Iterable, Mapping, Self
 
-from engine.domain.enums.scope.css_properties import CssPropertyId, get_css_property
+from engine.domain.data.web_colors import get_web_color
+from engine.domain.enums.scope.css_properties import CATEGORY, CSS_PROPERTIES, Category
 from engine.domain.enums.types.quality import ContrastBackgroundValidation
-
-
-def _css_property_value(property_name: CssPropertyId | str | None) -> str:
-    return property_name.value if isinstance(property_name, CssPropertyId) else str(property_name or "")
-
-
-def _coerce_optional_css_property_id(value: CssPropertyId | str | None) -> CssPropertyId | str | None:
-    if value is None:
-        return None
-    property_spec = get_css_property(value)
-    if property_spec is not None:
-        return property_spec
-    normalized = str(value or "").strip().lower()
-    return normalized or None
+from engine.domain.models.color import Color
 
 
 def _coerce_background_validation(
@@ -42,10 +30,6 @@ class ContrastColorReference:
     alpha: float
     color_id: str | None = None
     element_id: str | None = None
-    style_id: str | None = None
-    declaration_id: str | None = None
-    property_name: CssPropertyId | str | None = None
-    declared_property: CssPropertyId | str | None = None
 
     @classmethod
     def build(cls, payload: Mapping[str, Any] | None = None) -> Self:
@@ -56,22 +40,6 @@ class ContrastColorReference:
             alpha=float(payload.get("alpha") or 0.0),
             color_id=str(payload["color_id"]) if payload.get("color_id") is not None else None,
             element_id=str(payload["element_id"]) if payload.get("element_id") is not None else None,
-            style_id=str(payload["style_id"]) if payload.get("style_id") is not None else None,
-            declaration_id=(
-                str(payload["declaration_id"])
-                if payload.get("declaration_id") is not None
-                else None
-            ),
-            property_name=(
-                _coerce_optional_css_property_id(payload["property_name"])
-                if payload.get("property_name") is not None
-                else None
-            ),
-            declared_property=(
-                _coerce_optional_css_property_id(payload["declared_property"])
-                if payload.get("declared_property") is not None
-                else None
-            ),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -84,14 +52,6 @@ class ContrastColorReference:
             payload["color_id"] = self.color_id
         if self.element_id is not None:
             payload["element_id"] = self.element_id
-        if self.style_id is not None:
-            payload["style_id"] = self.style_id
-        if self.declaration_id is not None:
-            payload["declaration_id"] = self.declaration_id
-        if self.property_name is not None:
-            payload["property_name"] = _css_property_value(self.property_name)
-        if self.declared_property is not None:
-            payload["declared_property"] = _css_property_value(self.declared_property)
         return payload
 
 
@@ -108,8 +68,12 @@ class ContrastIssue:
     font_size_px: float
     font_weight: int
     bounds: Mapping[str, Any] = field(default_factory=dict)
-    foreground: ContrastColorReference = field(default_factory=lambda: ContrastColorReference("", "", 0.0))
-    background: ContrastColorReference = field(default_factory=lambda: ContrastColorReference("", "", 0.0))
+    foreground: ContrastColorReference = field(
+        default_factory=lambda: ContrastColorReference("", "", 0.0)
+    )
+    background: ContrastColorReference = field(
+        default_factory=lambda: ContrastColorReference("", "", 0.0)
+    )
     background_validation: ContrastBackgroundValidation = ContrastBackgroundValidation.UNVALIDATED
 
     @classmethod
@@ -185,3 +149,103 @@ class ContrastReport:
             "count": len(self.issues),
             "issues": [issue.to_dict() for issue in self.issues],
         }
+
+
+@dataclass(slots=True)
+class ColorUsages:
+    background: tuple[str, ...] = field(default_factory=tuple)
+    border: tuple[str, ...] = field(default_factory=tuple)
+    decoration: tuple[str, ...] = field(default_factory=tuple)
+    typography: tuple[str, ...] = field(default_factory=tuple)
+    other: tuple[str, ...] = field(default_factory=tuple)
+
+    def add(
+        self,
+        *,
+        color_id: str,
+        property_name: str,
+        element_id: str,
+    ) -> Self:
+        del element_id
+        bucket_name = self._bucket_name(property_name)
+        normalized_color_id = str(color_id or "").strip()
+        if not normalized_color_id:
+            return self
+        bucket = getattr(self, bucket_name)
+        if normalized_color_id in bucket:
+            return self
+        setattr(self, bucket_name, (*bucket, normalized_color_id))
+        return self
+
+    def _bucket_name(self, property_name: str) -> str:
+        normalized_name = str(property_name or "").strip().lower()
+        if normalized_name == "color":
+            return "typography"
+        if normalized_name in {
+            "accent-color",
+            "fill",
+            "stroke",
+            "stop-color",
+            "flood-color",
+            "lighting-color",
+        }:
+            return "other"
+        property_data = CSS_PROPERTIES.get(normalized_name)
+        if property_data is None:
+            return "other"
+        if property_data[CATEGORY] == Category.BACKGROUND:
+            return "background"
+        if property_data[CATEGORY] == Category.BORDER:
+            return "border"
+        if property_data[CATEGORY] == Category.DECORATION:
+            return "decoration"
+        return "other"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "background": list(self.background),
+            "border": list(self.border),
+            "decoration": list(self.decoration),
+            "typography": list(self.typography),
+            "other": list(self.other),
+        }
+
+
+def build_named_color_breakdown(colors: Iterable[Color]) -> tuple[dict[str, Any], ...]:
+    color_entries = tuple(colors)
+    total_pixels = sum(entry.pixel_count for entry in color_entries)
+    use_pixel_weight = total_pixels > 0
+    breakdown: dict[str, dict[str, Any]] = {}
+    total_weight = 0
+
+    for entry in color_entries:
+        weight = entry.pixel_count if use_pixel_weight else entry.element_usage_count
+        if weight <= 0 or not entry.nearest_web_color:
+            continue
+        total_weight += weight
+        named_color = get_web_color(entry.nearest_web_color)
+        item = breakdown.setdefault(
+            entry.nearest_web_color,
+            {
+                "name": entry.nearest_web_color,
+                "display_name": named_color.display_name,
+                "family": named_color.wikipedia_family,
+                "hex_value": named_color.hex_value,
+                "count": 0,
+                "percentage": 0.0,
+            },
+        )
+        item["count"] += weight
+
+    if total_weight == 0:
+        return ()
+
+    normalized_items = [
+        {
+            **item,
+            "percentage": round((item["count"] / total_weight) * 100, 4),
+        }
+        for item in breakdown.values()
+    ]
+    normalized_items.sort(key=lambda item: (item["count"], item["name"]), reverse=True)
+    return tuple(normalized_items)

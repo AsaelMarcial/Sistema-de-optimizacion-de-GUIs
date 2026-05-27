@@ -61,21 +61,17 @@ def _text_color(background_hex: str) -> str:
 
 
 def _palette_title(palette: Mapping[str, Any], chromatic_index: int) -> str:
-    display_name = str(palette.get("display_name") or "").strip()
-    if display_name:
-        return display_name
+    label = str(palette.get("label") or "").strip()
+    if label:
+        return label
     if palette.get("palette_type") == "achromatic":
         return "Neutral"
-    seed_name = str(palette.get("seed_name") or "").strip()
-    return seed_name or f"Paleta cromatica {chromatic_index}"
+    return f"Paleta cromatica {chromatic_index}"
 
 
 def _palette_meta(palette: Mapping[str, Any]) -> str:
-    seed_hex = str(palette.get("seed_hex") or "").upper()
-    seed_family_name = str(palette.get("seed_family_name") or "").strip()
-    if palette.get("palette_type") == "chromatic" and seed_family_name:
-        return f"Seed {seed_hex} | {seed_family_name}" if seed_hex else seed_family_name
-    return f"Seed {seed_hex}" if seed_hex else "Seed"
+    source_color_id = str(palette.get("source_color_id") or "").strip()
+    return f"Source {source_color_id}" if source_color_id else "Base palette"
 
 
 def _row_width(palette: Mapping[str, Any]) -> int:
@@ -190,8 +186,7 @@ def render_palette_preview(palette_analysis: Mapping[str, Any], output_path: str
             {
                 "palette_id": "palette-empty",
                 "palette_type": "achromatic",
-                "display_name": "Neutral",
-                "seed_hex": "#ffffff",
+                "label": "Neutral",
                 "tones": (),
             }
         ]

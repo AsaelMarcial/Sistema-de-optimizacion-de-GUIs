@@ -7,7 +7,7 @@ from typing import Iterable
 from engine.adapters.color_service import color_registry
 from engine.domain.data.tokens import TRANSFORMATION_ORDER, TRANSFORMATION_RULES
 from engine.domain.models.color import Color
-from engine.domain.models.color_scheme import TonalPaletteModel
+from engine.domain.models.color_scheme import TonalPalette
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.token import (
     Token,
@@ -63,14 +63,14 @@ def _color_by_value(colors: tuple[Color, ...], value: str) -> Color | None:
 
 
 def _palette_by_id(
-    palettes: tuple[TonalPaletteModel, ...],
+    palettes: tuple[TonalPalette, ...],
     palette_id: str,
-) -> TonalPaletteModel | None:
+) -> TonalPalette | None:
     normalized = str(palette_id or "").strip()
     return next((palette for palette in palettes if palette.palette_id == normalized), None)
 
 
-def _achromatic_palette(palettes: tuple[TonalPaletteModel, ...]) -> TonalPaletteModel | None:
+def _achromatic_palette(palettes: tuple[TonalPalette, ...]) -> TonalPalette | None:
     return next(
         (palette for palette in palettes if palette.palette_type.value == "achromatic"),
         None,
@@ -78,7 +78,7 @@ def _achromatic_palette(palettes: tuple[TonalPaletteModel, ...]) -> TonalPalette
 
 
 def _foundation_for_tone_targets(
-    palettes: tuple[TonalPaletteModel, ...],
+    palettes: tuple[TonalPalette, ...],
     tokens: TokenInventory,
     tone_targets: tuple[int, ...],
 ) -> Token | None:
@@ -103,7 +103,7 @@ def _foundation_for_tone_targets(
 
 def _same_palette_foundation_for_tone_targets(
     token: Token,
-    palettes: tuple[TonalPaletteModel, ...],
+    palettes: tuple[TonalPalette, ...],
     tokens: TokenInventory,
     tone_targets: tuple[int, ...],
 ) -> Token | None:
@@ -143,12 +143,12 @@ def _same_palette_foundation_for_tone_targets(
 
 def _foundation_for_color_entry_tone_targets(
     color_entry: Color,
-    palettes: tuple[TonalPaletteModel, ...],
+    palettes: tuple[TonalPalette, ...],
     tokens: TokenInventory,
     tone_targets: tuple[int, ...],
 ) -> Token | None:
-    palette_id = color_entry.mapped_palette_id
-    current_tone = int(color_entry.mapped_tone or 50)
+    palette_id = color_entry.palette_id
+    current_tone = int(color_entry.tone or 50)
     allowed_tones = {int(tone) for tone in tone_targets}
     if palette_id:
         palette = _palette_by_id(palettes, palette_id)
@@ -183,7 +183,7 @@ def _foundation_for_color_entry_tone_targets(
 def _remap_effect_value(
     token: Token,
     colors: tuple[Color, ...],
-    palettes: tuple[TonalPaletteModel, ...],
+    palettes: tuple[TonalPalette, ...],
     tokens: TokenInventory,
     tone_targets: tuple[int, ...],
 ) -> str | None:
@@ -222,7 +222,7 @@ def _primary_background(
     for element_id in token.assigned_element_ids or token.source_element_ids:
         background = prototype_structure.effective_background_of(element_id, colors)
         if background is not None:
-            return background.value, background.color_id
+            return background.rgb_value, background.color_id
     return None, None
 
 
@@ -238,7 +238,7 @@ def _min_text_contrast(token: Token, prototype_structure: PrototypeStructure) ->
 
 def _apply_surface_alias(
     token: Token,
-    palettes: tuple[TonalPaletteModel, ...],
+    palettes: tuple[TonalPalette, ...],
     tokens: TokenInventory,
     *,
     rule_id: str,
@@ -284,7 +284,7 @@ def _apply_main_surface(
     token: Token,
     prototype_structure: PrototypeStructure,
     colors: tuple[Color, ...],
-    palettes: tuple[TonalPaletteModel, ...],
+    palettes: tuple[TonalPalette, ...],
     tokens: TokenInventory,
 ) -> Token:
     if token.property_id == "background-color":
@@ -336,7 +336,7 @@ def _apply_shadow_elevation(
     token: Token,
     prototype_structure: PrototypeStructure,
     colors: tuple[Color, ...],
-    palettes: tuple[TonalPaletteModel, ...],
+    palettes: tuple[TonalPalette, ...],
     tokens: TokenInventory,
 ) -> Token:
     if token.element_key in TRANSFORMATION_RULES["shadow_elevation"].get("prefer_none_for", ()):  # type: ignore[index]
@@ -376,7 +376,7 @@ def _apply_surface(
     token: Token,
     prototype_structure: PrototypeStructure,
     colors: tuple[Color, ...],
-    palettes: tuple[TonalPaletteModel, ...],
+    palettes: tuple[TonalPalette, ...],
     tokens: TokenInventory,
 ) -> Token:
     if token.property_id == "background-color":
@@ -428,7 +428,7 @@ def _apply_composed(
     token: Token,
     prototype_structure: PrototypeStructure,
     colors: tuple[Color, ...],
-    palettes: tuple[TonalPaletteModel, ...],
+    palettes: tuple[TonalPalette, ...],
     tokens: TokenInventory,
 ) -> Token:
     if token.property_id == "background-color":
@@ -512,7 +512,7 @@ def _apply_foreground_non_text(
     token: Token,
     prototype_structure: PrototypeStructure,
     colors: tuple[Color, ...],
-    palettes: tuple[TonalPaletteModel, ...],
+    palettes: tuple[TonalPalette, ...],
     tokens: TokenInventory,
 ) -> Token:
     background_value, background_color_id = _primary_background(token, prototype_structure, colors)
@@ -556,7 +556,7 @@ def _apply_text(
     token: Token,
     prototype_structure: PrototypeStructure,
     colors: tuple[Color, ...],
-    palettes: tuple[TonalPaletteModel, ...],
+    palettes: tuple[TonalPalette, ...],
     tokens: TokenInventory,
 ) -> Token:
     background_value, background_color_id = _primary_background(token, prototype_structure, colors)
@@ -657,7 +657,7 @@ def apply_token_rules(
     tokens: TokenInventory,
     prototype_structure: PrototypeStructure,
     colors: Iterable[Color],
-    palettes: tuple[TonalPaletteModel, ...],
+    palettes: tuple[TonalPalette, ...],
 ) -> TokenInventory:
     current_tokens = tokens
     color_entries = tuple(colors)
@@ -693,3 +693,4 @@ def apply_token_rules(
         )
         for token in current_tokens
     )
+

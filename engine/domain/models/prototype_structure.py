@@ -295,4 +295,4 @@ def _color_by_id(colors: tuple[Color, ...], color_id: str) -> Color | None:
 
 def _color_by_value(colors: tuple[Color, ...], value: str) -> Color | None:
     normalized = str(value or "").strip()
-    return next((entry for entry in colors if entry.value == normalized), None)
+    return next((entry for entry in colors if entry.rgb_value == normalized), None)

@@ -4,7 +4,7 @@ from typing import Any
 
 from engine.adapters.color_service import color_registry
 from engine.domain.models.color import Color, ColorCatalog
-from engine.domain.models.element import Element, Property
+from engine.domain.models.element import Element
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.quality_reports import (
     ContrastColorReference,
@@ -15,9 +15,6 @@ from engine.domain.enums.types.quality import ContrastBackgroundValidation
 from engine.pipeline.context import PipelineContext
 from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.pipeline.stage_contract import StageContract, context_value
-
-_FOREGROUND_PROPERTY_NAMES = ("color", "fill", "stroke", "text-decoration-color", "outline-color")
-_BACKGROUND_PROPERTY_NAMES = ("background-color", "background")
 
 
 CONTRACT = StageContract(
@@ -30,47 +27,49 @@ CONTRACT = StageContract(
 )
 
 
-def _resolve_color_source(
+def _nearest_visible_element(
     prototype_structure: PrototypeStructure,
-    *,
     element: Element,
-    color_entry: Color | None,
-    property_names: tuple[str, ...],
-) -> tuple[Element | None, Property | None]:
-    if color_entry is None:
-        return None, None
+    *,
+    fallback_to_self: bool = True,
+) -> Element | None:
+    if not element.is_text_node and element.is_visible:
+        return element
+    for candidate in prototype_structure.ancestors_of(element.node_id):
+        if candidate.is_visible and not candidate.is_text_node:
+            return candidate
+    return element if fallback_to_self else None
 
-    candidates = (element, *prototype_structure.ancestors_of(element.node_id))
-    for property_name in property_names:
-        for candidate in candidates:
-            for property_model in candidate.properties:
-                if property_model.color_id == color_entry.color_id and property_model.name == property_name:
-                    return candidate, property_model
 
-    for candidate in candidates:
-        for property_model in candidate.properties:
-            if property_model.color_id == color_entry.color_id:
-                return candidate, property_model
+def _has_visible_text_node_child(prototype_structure: PrototypeStructure, element: Element) -> bool:
+    return any(
+        child.is_text_node and child.is_visible and _text_sample(child)
+        for child in prototype_structure.children_of(element.node_id)
+    )
 
-    return None, None
+
+def _text_targets(prototype_structure: PrototypeStructure) -> tuple[Element, ...]:
+    targets: list[Element] = []
+    for element in prototype_structure.visible_nodes():
+        if not _text_sample(element):
+            continue
+        if not element.is_text_node and _has_visible_text_node_child(prototype_structure, element):
+            continue
+        targets.append(element)
+    return tuple(targets)
 
 
 def _build_color_reference(
     *,
-    color_entry: Color | None,
+    color_entry: Any,
     source_element: Element | None,
-    source_property: Property | None,
 ) -> ContrastColorReference:
     return ContrastColorReference(
-        css=color_entry.value if color_entry is not None else "",
+        css=color_entry.rgb_value if color_entry is not None else "",
         hex_value=color_entry.hex_value if color_entry is not None else "",
         alpha=color_entry.alpha if color_entry is not None else 0.0,
         color_id=color_entry.color_id if color_entry is not None else None,
         element_id=source_element.node_id if source_element is not None else None,
-        style_id=source_property.style_id if source_property is not None else None,
-        declaration_id=source_property.declaration_id if source_property is not None else None,
-        property_name=source_property.name if source_property is not None else None,
-        declared_property=source_property.declared_property if source_property is not None else None,
     )
 
 
@@ -104,10 +103,10 @@ def _font_weight(element: Element) -> int:
 
 def _contrast_ratio(foreground: Color, background: Color) -> float | None:
     try:
-        foreground_value: Any = foreground.value
+        foreground_value: Any = foreground.rgb_value
         if foreground.alpha < 1.0:
-            foreground_value = color_registry.composite_over(foreground.value, background.value)
-        return round(float(color_registry.contrast_ratio(foreground_value, background.value)), 4)
+            foreground_value = color_registry.composite_over(foreground.rgb_value, background.rgb_value)
+        return round(float(color_registry.contrast_ratio(foreground_value, background.rgb_value)), 4)
     except Exception:
         return None
 
@@ -131,47 +130,44 @@ def _build_report(
 ) -> ContrastReport:
     issues: list[ContrastIssue] = []
 
-    for element in prototype_structure.visible_nodes():
+    for element in _text_targets(prototype_structure):
         text_sample = _text_sample(element)
-        if not text_sample:
-            continue
+        style_element = _nearest_visible_element(prototype_structure, element) or element
 
         foreground_entry = prototype_structure.effective_color_of(
-            element.node_id,
+            style_element.node_id,
             colors_inventory,
         )
         background_entry = prototype_structure.effective_background_of(
             element.node_id,
             colors_inventory,
         )
+        background_source_element = element if element.effective_background else None
+        if background_entry is None and style_element.node_id != element.node_id:
+            background_entry = prototype_structure.effective_background_of(
+                style_element.node_id,
+                colors_inventory,
+            )
+            background_source_element = style_element if style_element.effective_background else None
         if foreground_entry is None or background_entry is None:
             continue
+        if background_source_element is None:
+            background_source_element = prototype_structure.surface_container_of(element.node_id)
+        if background_source_element is None and style_element.node_id != element.node_id:
+            background_source_element = prototype_structure.surface_container_of(style_element.node_id)
+        if background_source_element is None:
+            background_source_element = style_element
 
         ratio = _contrast_ratio(foreground_entry, background_entry)
         if ratio is None:
             continue
 
-        font_size_px = _font_size_px(element)
-        font_weight = _font_weight(element)
+        font_size_px = _font_size_px(style_element)
+        font_weight = _font_weight(style_element)
         large_text = font_size_px >= 24.0 or (font_size_px >= 18.667 and font_weight >= 700)
         required_ratio = 3.0 if large_text else 4.5
         if ratio >= required_ratio:
             continue
-
-        foreground_source_element, foreground_property = _resolve_color_source(
-            prototype_structure,
-            element=element,
-            color_entry=foreground_entry,
-            property_names=_FOREGROUND_PROPERTY_NAMES,
-        )
-        background_source_element, background_property = _resolve_color_source(
-            prototype_structure,
-            element=element,
-            color_entry=background_entry,
-            property_names=_BACKGROUND_PROPERTY_NAMES,
-        )
-        if background_source_element is None:
-            background_source_element = prototype_structure.surface_container_of(element.node_id)
 
         issues.append(
             ContrastIssue(
@@ -188,13 +184,11 @@ def _build_report(
                 bounds=_bounds(element),
                 foreground=_build_color_reference(
                     color_entry=foreground_entry,
-                    source_element=foreground_source_element,
-                    source_property=foreground_property,
+                    source_element=style_element,
                 ),
                 background=_build_color_reference(
                     color_entry=background_entry,
                     source_element=background_source_element,
-                    source_property=background_property,
                 ),
                 background_validation=ContrastBackgroundValidation.MODEL,
             )

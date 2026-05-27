@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from collections import Counter
-from dataclasses import dataclass, field, replace
-from typing import Any, Iterator, Mapping, Sequence, Self
+from dataclasses import dataclass, field
+from typing import Any, Iterable, Iterator, Sequence, Self
 
 from engine.adapters.color_service import color_registry
-from engine.domain.data.web_colors import get_web_color
-from engine.domain.enums.types.color import ColorFamilyType, PaletteRoleBias
+from engine.domain.enums.types.color import ColorFamilyType
+from engine.domain.models.color import Color
 
 _DEFAULT_ACHROMATIC_TONAL_STOPS: tuple[int, ...] = (
     0,
@@ -21,11 +20,9 @@ _DEFAULT_ACHROMATIC_TONAL_STOPS: tuple[int, ...] = (
     90,
     95,
     98,
-    99,
     100,
 )
 _DEFAULT_CHROMATIC_TONAL_STOPS: tuple[int, ...] = (10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 98)
-_ACHROMATIC_PALETTE_CHROMA = 6.0
 _MAX_PALETTES = 12
 
 
@@ -35,60 +32,19 @@ def _coerce_palette_type(value: ColorFamilyType | str) -> ColorFamilyType:
     return ColorFamilyType(str(value).strip().lower())
 
 
-def _coerce_role_bias(value: PaletteRoleBias | str) -> PaletteRoleBias:
-    if isinstance(value, PaletteRoleBias):
-        return value
-    return PaletteRoleBias(str(value).strip().lower())
-
-
 def _default_tonal_stops(palette_type: ColorFamilyType | str) -> tuple[int, ...]:
     if _coerce_palette_type(palette_type) == ColorFamilyType.CHROMATIC:
         return _DEFAULT_CHROMATIC_TONAL_STOPS
     return _DEFAULT_ACHROMATIC_TONAL_STOPS
 
 
-def _specific_palette_name(color_name: str | None) -> str | None:
-    if not color_name:
-        return None
-    try:
-        return get_web_color(color_name).display_name
-    except Exception:
-        return color_name.replace("_", " ").title()
-
-
-def _family_palette_name(
-    color_name: str | None,
-    *,
-    palette_type: ColorFamilyType | str,
-) -> str:
-    if _coerce_palette_type(palette_type) == ColorFamilyType.ACHROMATIC:
-        return "Neutral"
-    if not color_name:
-        return "Chromatic"
-    try:
-        return get_web_color(color_name).family_display_name
-    except Exception:
-        return color_name.replace("_", " ").title()
-
-
 @dataclass(frozen=True, slots=True)
-class ToneStopModel:
+class ToneStop:
     tone: int
     hex_value: str
     rgb: tuple[int, int, int]
     hct: tuple[float, float, float]
     token: str | None = None
-
-    @classmethod
-    def from_color(cls, tone: int, color_value: Any, *, token: str | None = None) -> Self:
-        normalized = color_registry.display_color(color_value)
-        return cls(
-            tone=tone,
-            hex_value=color_registry.format_color(normalized, "hex"),
-            rgb=color_registry.format_color(normalized, "rgb"),
-            hct=color_registry.hct_of(normalized),  # type: ignore[arg-type]
-            token=token,
-        )
 
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -103,79 +59,75 @@ class ToneStopModel:
 
 
 @dataclass(frozen=True, slots=True)
-class TonalPaletteModel:
+class TonalPalette:
     palette_id: str
     palette_type: ColorFamilyType
-    role_bias: PaletteRoleBias
-    seed_hex: str
-    seed_name: str | None = None
-    seed_color_id: str | None = None
-    display_name: str | None = None
-    seed_display_name: str | None = None
-    seed_family_name: str | None = None
-    tones: tuple[ToneStopModel, ...] = field(default_factory=tuple)
+    label: str
+    source_color_id: str | None = None
+    tones: tuple[ToneStop, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "palette_type", _coerce_palette_type(self.palette_type))
-        object.__setattr__(self, "role_bias", _coerce_role_bias(self.role_bias))
-        object.__setattr__(
-            self,
-            "seed_hex",
-            color_registry.format_color(color_registry.display_color(self.seed_hex), "hex"),
+
+    @classmethod
+    def from_color(
+        cls,
+        *,
+        palette_id: str,
+        color: Color,
+        label: str | None = None,
+        tones: Sequence[int] | None = None,
+    ) -> Self:
+        return cls.from_value(
+            palette_id=palette_id,
+            palette_type=color.family_type,
+            value=color.rgb,
+            label=label or color.palette_label,
+            source_color_id=color.color_id,
+            tones=tones,
         )
 
     @classmethod
-    def from_seed(
+    def from_value(
         cls,
         *,
         palette_id: str,
         palette_type: ColorFamilyType | str,
-        seed_hex: str,
-        role_bias: PaletteRoleBias | str,
-        seed_name: str | None = None,
-        seed_color_id: str | None = None,
+        value: Any,
+        label: str,
+        source_color_id: str | None = None,
         tones: Sequence[int] | None = None,
-        chroma_override: float | None = None,
-        semantic_weight: int | None = None,
-        pixel_count: int | None = None,
-        source_color_ids: Sequence[str] = (),
     ) -> Self:
-        del semantic_weight, pixel_count, source_color_ids
-        normalized_seed = color_registry.display_color(seed_hex)
-        palette_tones = tuple(int(value) for value in (tones or _default_tonal_stops(palette_type)))
-        tone_models = tuple(
-            ToneStopModel.from_color(
-                int(tone_value),
-                color_registry.tonal_color(
-                    normalized_seed,
-                    float(tone_value),
-                    chroma_override=chroma_override,
-                ),
-                token=f"{palette_id}:{int(tone_value)}",
-            )
-            for tone_value in palette_tones
-        )
+        palette_type_model = _coerce_palette_type(palette_type)
+        seed = color_registry.display_color(value)
         return cls(
             palette_id=palette_id,
-            palette_type=palette_type,
-            role_bias=role_bias,
-            seed_name=seed_name,
-            seed_color_id=seed_color_id,
-            seed_hex=color_registry.format_color(normalized_seed, "hex"),
-            tones=tone_models,
+            palette_type=palette_type_model,
+            label=label,
+            source_color_id=source_color_id,
+            tones=tuple(
+                cls._tone_stop(palette_id=palette_id, seed=seed, tone=int(tone))
+                for tone in (tones or _default_tonal_stops(palette_type_model))
+            ),
         )
 
-    def __iter__(self) -> Iterator[ToneStopModel]:
+    @staticmethod
+    def _tone_stop(*, palette_id: str, seed: Any, tone: int) -> ToneStop:
+        tonal = color_registry.tonal_color(seed, float(tone))
+        normalized = color_registry.display_color(tonal)
+        return ToneStop(
+            tone=tone,
+            hex_value=color_registry.format_color(normalized, "hex"),
+            rgb=color_registry.format_color(normalized, "rgb"),
+            hct=color_registry.hct_of(normalized),  # type: ignore[arg-type]
+            token=f"{palette_id}:{tone}",
+        )
+
+    def __iter__(self) -> Iterator[ToneStop]:
         return iter(self.tones)
 
-    def seed_rgb(self) -> tuple[int, int, int]:
-        return color_registry.format_color(self.seed_hex, "rgb")
-
-    def seed_tone(self) -> int:
-        return int(round(color_registry.hct_of(self.seed_hex)[2]))
-
-    def nearest_tone_to(self, rgb: tuple[int, int, int]) -> tuple[ToneStopModel | None, float | None]:
-        best_tone: ToneStopModel | None = None
+    def nearest_tone_to(self, rgb: tuple[int, int, int]) -> tuple[ToneStop | None, float | None]:
+        best_tone: ToneStop | None = None
         best_distance: float | None = None
         for tone_stop in self.tones:
             distance = color_registry.delta_e_distance(rgb, tone_stop.rgb, method="2000")
@@ -188,120 +140,126 @@ class TonalPaletteModel:
         return {
             "palette_id": self.palette_id,
             "palette_type": self.palette_type.value,
-            "role_bias": self.role_bias.value,
-            "seed_name": self.seed_name,
-            "seed_color_id": self.seed_color_id,
-            "seed_hex": self.seed_hex,
-            "display_name": self.display_name,
-            "seed_display_name": self.seed_display_name,
-            "seed_family_name": self.seed_family_name,
+            "label": self.label,
+            "source_color_id": self.source_color_id,
             "tones": [tone.to_dict() for tone in self.tones],
         }
 
 
 @dataclass(frozen=True, slots=True)
-class ColorSchemeModel:
-    palettes: tuple[TonalPaletteModel, ...] = field(default_factory=tuple)
+class ColorScheme:
+    palettes: tuple[TonalPalette, ...] = field(default_factory=tuple)
     max_palettes: int = _MAX_PALETTES
 
     def __post_init__(self) -> None:
         palettes = tuple(self.palettes)
         if not any(palette.palette_type == ColorFamilyType.ACHROMATIC for palette in palettes):
-            palettes = (self._fallback_achromatic_palette(), *palettes)
-        object.__setattr__(self, "palettes", self._annotate_names(palettes[: self.max_palettes]))
+            palettes = (self._base_palette(), *palettes)
+        object.__setattr__(self, "palettes", palettes[: self.max_palettes])
 
     @classmethod
     def build(
         cls,
+        colors: Iterable[Color],
         *,
-        achromatic_seed: Mapping[str, Any] | None = None,
-        chromatic_seeds: Sequence[Mapping[str, Any]] = (),
         max_palettes: int = _MAX_PALETTES,
     ) -> Self:
-        palettes: list[TonalPaletteModel] = []
-        if achromatic_seed is not None:
-            palettes.append(cls._palette_from_seed_spec(achromatic_seed, palette_index=1))
+        source_colors = tuple(colors)
+        palettes: list[TonalPalette] = []
+        achromatic_color = next(
+            (color for color in source_colors if color.family_type == ColorFamilyType.ACHROMATIC),
+            None,
+        )
+        if achromatic_color is not None:
+            palettes.append(
+                TonalPalette.from_color(
+                    palette_id="palette-achromatic-1",
+                    color=achromatic_color,
+                    label="Neutral",
+                )
+            )
+
+        chromatic_colors = (
+            color for color in source_colors if color.family_type == ColorFamilyType.CHROMATIC
+        )
         palettes.extend(
-            cls._palette_from_seed_spec(seed, palette_index=index)
-            for index, seed in enumerate(chromatic_seeds[: max(0, max_palettes - 1)], start=1)
+            TonalPalette.from_color(
+                palette_id=f"palette-chromatic-{index}",
+                color=color,
+            )
+            for index, color in enumerate(chromatic_colors, start=1)
         )
         return cls(palettes=tuple(palettes), max_palettes=max_palettes)
 
     @staticmethod
-    def _palette_from_seed_spec(seed: Mapping[str, Any], *, palette_index: int) -> TonalPaletteModel:
-        palette_type = _coerce_palette_type(seed.get("palette_type") or ColorFamilyType.CHROMATIC)
-        return TonalPaletteModel.from_seed(
-            palette_id=f"palette-{palette_type.value}-{palette_index}",
-            palette_type=palette_type,
-            seed_hex=str(seed.get("seed_hex") or "#ffffff"),
-            role_bias=seed.get("role_bias") or PaletteRoleBias.MIXED,
-            seed_name=seed.get("seed_name"),
-            seed_color_id=seed.get("seed_color_id"),
-            chroma_override=(
-                _ACHROMATIC_PALETTE_CHROMA
-                if palette_type == ColorFamilyType.ACHROMATIC
-                else None
-            ),
-        )
-
-    @staticmethod
-    def _fallback_achromatic_palette() -> TonalPaletteModel:
-        return TonalPaletteModel.from_seed(
+    def _base_palette() -> TonalPalette:
+        return TonalPalette.from_value(
             palette_id="palette-achromatic-1",
             palette_type=ColorFamilyType.ACHROMATIC,
-            seed_hex="#ffffff",
-            role_bias=PaletteRoleBias.BACKGROUND,
-            seed_name="white",
-            chroma_override=_ACHROMATIC_PALETTE_CHROMA,
+            value="#ffffff",
+            label="Neutral",
         )
 
-    @classmethod
-    def _annotate_names(cls, palettes: tuple[TonalPaletteModel, ...]) -> tuple[TonalPaletteModel, ...]:
-        family_names = [
-            _family_palette_name(palette.seed_name, palette_type=palette.palette_type)
-            for palette in palettes
-        ]
-        family_counts = Counter(family_names)
-        annotated: list[TonalPaletteModel] = []
-        for palette, family_name in zip(palettes, family_names):
-            specific_name = _specific_palette_name(palette.seed_name)
-            if palette.palette_type == ColorFamilyType.ACHROMATIC:
-                annotated.append(
-                    replace(
-                        palette,
-                        display_name="Neutral",
-                        seed_display_name=specific_name,
-                        seed_family_name="Neutral",
-                    )
-                )
-                continue
-            display_name = family_name if family_counts[family_name] <= 1 else (specific_name or family_name)
-            annotated.append(
-                replace(
-                    palette,
-                    display_name=display_name,
-                    seed_display_name=specific_name,
-                    seed_family_name=family_name,
-                )
-            )
-        return tuple(annotated)
-
     @property
-    def achromatic_palette(self) -> TonalPaletteModel | None:
+    def achromatic_palette(self) -> TonalPalette | None:
         return next(
             (palette for palette in self.palettes if palette.palette_type == ColorFamilyType.ACHROMATIC),
             None,
         )
 
     @property
-    def chromatic_palettes(self) -> tuple[TonalPaletteModel, ...]:
+    def chromatic_palettes(self) -> tuple[TonalPalette, ...]:
         return tuple(
             palette
             for palette in self.palettes
             if palette.palette_type == ColorFamilyType.CHROMATIC
         )
 
-    def __iter__(self) -> Iterator[TonalPaletteModel]:
+    def map_colors(self, colors: Sequence[Color]) -> tuple[Color, ...]:
+        return tuple(self._map_color(color) for color in colors)
+
+    def _map_color(self, color: Color) -> Color:
+        palette = self._source_palette_for(color) or self._nearest_palette_for(color)
+        if palette is None:
+            return color
+        tone_stop, distance = palette.nearest_tone_to(color.rgb)
+        if tone_stop is None or distance is None:
+            return color
+        return color.set_palette_mapping(
+            palette_id=palette.palette_id,
+            tone=tone_stop.tone,
+        )
+
+    def _source_palette_for(self, color: Color) -> TonalPalette | None:
+        return next(
+            (
+                palette
+                for palette in self.palettes
+                if palette.source_color_id is not None and palette.source_color_id == color.color_id
+            ),
+            None,
+        )
+
+    def _nearest_palette_for(self, color: Color) -> TonalPalette | None:
+        best_palette: TonalPalette | None = None
+        best_distance: float | None = None
+        for palette in self._candidate_palettes_for(color):
+            _, distance = palette.nearest_tone_to(color.rgb)
+            if distance is None:
+                continue
+            if best_distance is None or distance < best_distance:
+                best_palette = palette
+                best_distance = distance
+        return best_palette
+
+    def _candidate_palettes_for(self, color: Color) -> tuple[TonalPalette, ...]:
+        if color.family_type == ColorFamilyType.ACHROMATIC:
+            return (self.achromatic_palette,) if self.achromatic_palette else ()
+        return self.chromatic_palettes or (
+            (self.achromatic_palette,) if self.achromatic_palette else ()
+        )
+
+    def __iter__(self) -> Iterator[TonalPalette]:
         return iter(self.palettes)
 
     def to_dict(self) -> dict[str, Any]:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from engine.domain.models.color import Color, ColorCatalog
-from engine.domain.models.color_scheme import ColorSchemeModel
+from engine.domain.models.color_scheme import ColorScheme
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.token import TokenInventoryModel
 from engine.domain.utils.tokenization import apply_token_assignments, build_token_inventory
@@ -14,7 +14,7 @@ CONTRACT = StageContract(
     requires=(
         context_value(K.PROTOTYPE_STRUCTURE, PrototypeStructure),
         context_value(K.COLOR_CATALOG, ColorCatalog),
-        context_value(K.SCHEME_TONAL_PALETTES, ColorSchemeModel),
+        context_value(K.SCHEME_TONAL_PALETTES, ColorScheme),
     ),
     produces=(
         context_value(K.PROTOTYPE_STRUCTURE, PrototypeStructure),
@@ -46,8 +46,9 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         "complete",
         {
             "token_count": len(token_inventory),
-            "tokenized_color_count": len([color for color in colors if isinstance(color, Color) and color.token_ids]),
+            "tokenized_color_count": len([color for color in colors if isinstance(color, Color) and color.token]),
             "tokenized_element_count": len([element for element in prototype_structure if element.token_ids]),
         },
     )
     return context
+

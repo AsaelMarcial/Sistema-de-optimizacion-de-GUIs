@@ -9,7 +9,6 @@ from flask import (
 )
 from pathlib import Path
 
-from engine.domain.models.session import Session
 from engine.pipeline.pipeline import run_pipeline
 
 
@@ -28,14 +27,14 @@ def header():
 
 @main.route("/sessions/<session_id>/artifacts/<path:filename>")
 def session_artifact(session_id: str, filename: str):
-    artifacts_dir = Session(session_id=session_id).build_path("artifacts")
+    artifacts_dir = (Path("sessions") / session_id / "artifacts").resolve()
     return send_from_directory(artifacts_dir, filename)
 
 
-@main.route("/sessions/<session_id>/output/<path:filename>")
-def session_output(session_id: str, filename: str):
-    output_dir = Session(session_id=session_id).build_path("after")
-    return send_from_directory(output_dir, filename)
+@main.route("/sessions/<session_id>/after/<path:filename>")
+def session_after(session_id: str, filename: str):
+    after_dir = (Path("sessions") / session_id / "after").resolve()
+    return send_from_directory(after_dir, filename)
 
 
 @main.route("/results", methods=["POST"])
@@ -50,7 +49,7 @@ def results():
         results["download_url"] = url_for(
             "main.session_artifact",
             session_id=results["session_dirname"],
-            filename=Path(str(results["download_url"])).name,
+            filename=str(results["download_url"]).rsplit("/", 1)[-1],
         )
 
     return render_template("results.html", results=results)

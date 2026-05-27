@@ -6,8 +6,7 @@ from typing import Any
 
 from engine.adapters.color_service import color_registry
 from engine.adapters.browser.render_models import RenderSnapshot, SnapshotOptions
-from engine.domain.enums.scope.css_properties import CssPropertyCategory, get_css_property
-from engine.domain.models.color import ColorCatalog
+from engine.domain.enums.scope.css_properties import CATEGORY, CSS_PROPERTIES, Category
 from engine.domain.models.element import Element, Property
 
 _PURE_COLOR_PROPERTIES = {
@@ -40,7 +39,6 @@ def normalize_snapshot_nodes(
     raw_nodes: list[dict[str, Any]],
     style_traces: dict[int, dict[str, Any]],
     *,
-    colors_inventory: ColorCatalog,
     options: SnapshotOptions,
     base_path: str,
     document_metrics: dict[str, Any],
@@ -97,7 +95,7 @@ def normalize_snapshot_nodes(
         flags["has_siblings"] = bool(parent_id and len(children_map.get(parent_id, [])) > 1)
 
         properties = tuple(
-            _build_property(property_name, payload, colors_inventory)
+            _build_property(property_name, payload)
             for property_name, payload in sorted(computed_styles.items())
         )
 
@@ -163,24 +161,21 @@ def normalize_snapshot_nodes(
 def _build_property(
     property_name: str,
     payload: Any,
-    colors_inventory: ColorCatalog,
 ) -> Property:
     computed_style = payload if isinstance(payload, dict) else {}
-    color_entry = colors_inventory.entry_by_value(str(computed_style.get("computed_value") or ""))
     return Property.from_computed_style(
         name=property_name,
         computed_style=computed_style,
-        color_id=color_entry.color_id if color_entry is not None else None,
     )
 
 
 def _filter_computed_styles(computed_styles: dict[str, Any]) -> dict[str, Any]:
     filtered: dict[str, Any] = {}
     for property_name, payload in (computed_styles or {}).items():
-        property_spec = get_css_property(property_name)
-        if property_spec is None:
+        canonical_name = str(property_name or "").strip().lower()
+        property_data = CSS_PROPERTIES.get(canonical_name)
+        if property_data is None:
             continue
-        canonical_name = property_spec.value
         if isinstance(payload, dict):
             raw_payload = payload
         else:
@@ -199,7 +194,7 @@ def _filter_computed_styles(computed_styles: dict[str, Any]) -> dict[str, Any]:
         if (
             not has_authored_link
             and (
-                CssPropertyCategory.EFFECT not in property_spec.categories
+                property_data[CATEGORY] != Category.DECORATION
                 or canonical_name not in _UNRESOLVED_EFFECT_PROPERTIES
             )
         ):

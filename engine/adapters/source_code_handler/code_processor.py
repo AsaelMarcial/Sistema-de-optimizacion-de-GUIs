@@ -7,7 +7,6 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 
 from engine.adapters.color_service import color_registry
-from engine.domain.enums.scope.css_properties import get_css_property
 from engine.domain.data.tokens import PROPERTY_TOKEN_RULES
 from engine.domain.utils.color_utils import (
     extract_hex_colors,
@@ -15,7 +14,6 @@ from engine.domain.utils.color_utils import (
     reconstruct_inline_style,
 )
 from engine.domain.models.prototype_structure import PrototypeStructure
-from engine.domain.models.session import Session
 from engine.domain.models.style import StyleCatalog
 from engine.domain.models.token import TokenInventoryModel
 from engine.pipeline.debug_trace import DebugTrace
@@ -40,6 +38,30 @@ _COLOR_FRAGMENT_RE = re.compile(
     r"(#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]+\)|\b[a-zA-Z][a-zA-Z-]*\b)",
     re.IGNORECASE,
 )
+_LONGHAND_PARENTS = {
+    "background-attachment": "background",
+    "background-clip": "background",
+    "background-color": "background",
+    "background-image": "background",
+    "background-origin": "background",
+    "background-position": "background",
+    "background-repeat": "background",
+    "background-size": "background",
+    "border-block-end-color": "border-color",
+    "border-block-start-color": "border-color",
+    "border-bottom-color": "border-color",
+    "border-color": "border",
+    "border-inline-end-color": "border-color",
+    "border-inline-start-color": "border-color",
+    "border-left-color": "border-color",
+    "border-right-color": "border-color",
+    "border-top-color": "border-color",
+    "caret-color": "caret",
+    "column-rule-color": "column-rule",
+    "outline-color": "outline",
+    "text-decoration-color": "text-decoration",
+    "text-emphasis-color": "text-emphasis",
+}
 
 
 def load_transformed_html(transformed_html_path: str) -> tuple[str, str]:
@@ -210,10 +232,10 @@ def _property_chain(property_name: str) -> tuple[str, ...]:
     while current and current not in seen:
         seen.add(current)
         chain.append(current)
-        spec = get_css_property(current)
-        if spec is None or spec.longhand_of is None:
+        parent = _LONGHAND_PARENTS.get(current)
+        if not parent:
             break
-        current = spec.longhand_of.value
+        current = parent
     return tuple(chain)
 
 
@@ -892,15 +914,6 @@ def apply_tokens_to_project(
 
 
 def evaluate_and_apply_heuristics(html_content, output_path, base_path, session_id):
-
-    # 1) Preparación de salida por sesión
-    if session_id:
-        html_name = Path(output_path).name
-        output_dir = Session(session_id=session_id).build_path("after")
-        output_path = str(output_dir / html_name)
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-    # 2) Parseo HTML y contadores de evaluación
     soup = BeautifulSoup(html_content, "html.parser")
     resultados = []
     detalles_colores = []

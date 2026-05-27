@@ -6,12 +6,9 @@ from typing import Any, Mapping
 
 from engine.adapters.color_service import color_registry
 from engine.domain.enums.scope.css_properties import (
-    CSS_PROPERTY_SHORTHANDS,
-    CSS_PROPERTY_SPECS,
-    CssPropertyId,
-    get_css_property,
+    CSS_PROPERTIES,
+    getColorSupportedProperties,
 )
-from engine.domain.models.color import ColorCatalog
 from engine.domain.models.element import resolve_element_computed_styles
 from engine.domain.models.style import AtRuleContext, StyleCatalog
 from engine.domain.enums.types.style import (
@@ -19,8 +16,6 @@ from engine.domain.enums.types.style import (
     StyleSourceKind,
 )
 
-_HEX_COLOR_RE = re.compile(r"#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b")
-_FUNCTION_COLOR_RE = re.compile(r"(?:rgba?|hsla?)\([^)]+\)", re.IGNORECASE)
 _IMPORTANT_SUFFIX_RE = re.compile(r"\s*!important\s*$", re.IGNORECASE)
 _RESOLVE_VALUE_RE = re.compile(
     r"\b(?:var|calc|min|max|clamp|attr|color-mix)\(|currentColor\b",
@@ -29,39 +24,78 @@ _RESOLVE_VALUE_RE = re.compile(
 
 _COMPOSITE_COLOR_PROPERTIES = frozenset(
     {
-        CssPropertyId.BACKGROUND,
-        CssPropertyId.BORDER,
-        CssPropertyId.CARET,
-        CssPropertyId.COLUMN_RULE,
-        CssPropertyId.OUTLINE,
-        CssPropertyId.TEXT_DECORATION,
-        CssPropertyId.TEXT_EMPHASIS,
+        "-webkit-text-stroke",
+        "background",
+        "border",
+        "caret",
+        "column-rule",
+        "outline",
+        "text-decoration",
+        "text-emphasis",
+    }
+)
+_EFFECT_COLOR_PROPERTIES = frozenset(
+    {
+        "background-image",
+        "backdrop-filter",
+        "border-image",
+        "border-image-source",
+        "box-shadow",
+        "filter",
+        "mask",
+        "mask-border",
+        "mask-border-source",
+        "mask-image",
+        "text-shadow",
     }
 )
 _PURE_COLOR_PROPERTIES = frozenset(
-    property_id
-    for property_id in CSS_PROPERTY_SPECS
-    if property_id.color_role is not None and property_id not in _COMPOSITE_COLOR_PROPERTIES
+    property_name
+    for property_name in getColorSupportedProperties()
+    if property_name not in _COMPOSITE_COLOR_PROPERTIES
+    and property_name not in _EFFECT_COLOR_PROPERTIES
 )
-_COLOR_VALUE_PROPERTIES = _PURE_COLOR_PROPERTIES | _COMPOSITE_COLOR_PROPERTIES
 _INHERITED_SCOPE_PROPERTIES = frozenset(
     {
-        CssPropertyId.ACCENT_COLOR,
-        CssPropertyId.CARET_COLOR,
-        CssPropertyId.COLOR,
-        CssPropertyId.FILL,
-        CssPropertyId.FILL_OPACITY,
-        CssPropertyId.STROKE,
-        CssPropertyId.STROKE_OPACITY,
-        CssPropertyId.VISIBILITY,
+        "accent-color",
+        "caret-color",
+        "color",
+        "fill",
+        "fill-opacity",
+        "stroke",
+        "stroke-opacity",
+        "visibility",
+    }
+)
+_SHORTHAND_PROPERTIES = frozenset(
+    {
+        "-webkit-text-stroke",
+        "background",
+        "border",
+        "border-color",
+        "caret",
+        "column-rule",
+        "outline",
+        "text-decoration",
+        "text-emphasis",
     }
 )
 
 
-def _coerce_css_property_id(value: CssPropertyId | str | None) -> CssPropertyId | None:
-    if isinstance(value, CssPropertyId):
-        return value
-    return get_css_property(value)
+def _normalize_property_name(value: str | None) -> str:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return ""
+    if normalized.startswith("--"):
+        return normalized
+    return normalized.lower()
+
+
+def _coerce_property_name(value: str | None) -> str | None:
+    property_name = _normalize_property_name(value)
+    if not property_name:
+        return None
+    return property_name if property_name in CSS_PROPERTIES else None
 
 
 def register_stylesheet_headers(cdp: Any) -> dict[str, dict[str, Any]]:
@@ -88,9 +122,8 @@ def register_stylesheet_headers(cdp: Any) -> dict[str, dict[str, Any]]:
     return headers
 
 
-def _normalize_css_value(property_name: CssPropertyId | str, value: str) -> str:
-    property_id = _coerce_css_property_id(property_name)
-    if property_id in _PURE_COLOR_PROPERTIES:
+def _normalize_css_value(property_name: str, value: str) -> str:
+    if property_name in _PURE_COLOR_PROPERTIES:
         return _normalize_color_token(value)
     return str(value).strip()
 
@@ -101,7 +134,7 @@ def _normalize_color_token(value: str) -> str:
 
 def _extract_declarations(style_obj: dict[str, Any]) -> list[dict[str, Any]]:
     declarations: list[dict[str, Any]] = []
-    seen: set[tuple[CssPropertyId, str, bool, bool]] = set()
+    seen: set[tuple[str, str, bool, bool]] = set()
     raw_properties = style_obj.get("cssProperties", []) or []
     authored_properties = [
         prop
@@ -113,11 +146,11 @@ def _extract_declarations(style_obj: dict[str, Any]) -> list[dict[str, Any]]:
     for index, prop in enumerate(properties):
         name = prop.get("name")
         value = prop.get("value")
-        property_spec = get_css_property(name)
-        if not name or value in (None, "") or property_spec is None:
+        property_name = _coerce_property_name(name)
+        if not name or value in (None, "") or property_name is None:
             continue
 
-        canonical_name = property_spec
+        canonical_name = property_name
         raw_value = _strip_important_annotation(str(value))
         normalized_value = _normalize_css_value(canonical_name, raw_value)
         signature = (
@@ -138,9 +171,9 @@ def _extract_declarations(style_obj: dict[str, Any]) -> list[dict[str, Any]]:
                 "implicit": signature[3],
                 "declaration_order": index,
                 "longhand_properties": tuple(
-                    property_id
+                    longhand_name
                     for item in (prop.get("longhandProperties") or ())
-                    if (property_id := get_css_property(item)) is not None
+                    if (longhand_name := _coerce_property_name(item)) is not None
                 ),
             }
         )
@@ -368,8 +401,8 @@ def _build_inline_entry(
     owner_element_id: str,
     inherited_from_element_id: str | None,
     resolution_frontend_node_id: int,
-    source_computed_styles: Mapping[CssPropertyId, str],
-    source_parent_computed_styles: Mapping[CssPropertyId, str],
+    source_computed_styles: Mapping[str, str],
+    source_parent_computed_styles: Mapping[str, str],
     declaration_seed: int,
 ) -> dict[str, Any] | None:
     declarations = _extract_declarations(style_obj)
@@ -410,8 +443,8 @@ def _build_rule_entry(
     *,
     inherited_from_element_id: str | None,
     resolution_frontend_node_id: int,
-    source_computed_styles: Mapping[CssPropertyId, str],
-    source_parent_computed_styles: Mapping[CssPropertyId, str],
+    source_computed_styles: Mapping[str, str],
+    source_parent_computed_styles: Mapping[str, str],
     declaration_seed: int,
 ) -> dict[str, Any] | None:
     rule = rule_entry.get("rule", {})
@@ -433,7 +466,7 @@ def _build_rule_entry(
         "source_kind": (
             "user-agent"
             if origin == "user-agent"
-            else _authored_source_kind(source_url=source_url).value
+            else _authored_source_kind(source_url=source_url)
         ),
         "origin": origin,
         "style_sheet_id": style_sheet_id,
@@ -524,32 +557,39 @@ def _build_styles_inventory(
 ) -> tuple[
     StyleCatalog,
     dict[tuple[Any, ...], str],
-    dict[tuple[str, CssPropertyId, str, bool, bool], str],
+    dict[tuple[str, str, str, bool, bool], str],
     dict[tuple[tuple[Any, ...], int], str],
 ]:
     style_catalog = StyleCatalog()
     style_ids_by_key: dict[tuple[Any, ...], str] = {}
-    declaration_ids_by_signature: dict[tuple[str, CssPropertyId, str, bool, bool], str] = {}
+    declaration_ids_by_signature: dict[tuple[str, str, str, bool, bool], str] = {}
     selector_ids_by_key_and_index: dict[tuple[tuple[Any, ...], int], str] = {}
 
     for source_order, (inventory_key, entry) in enumerate(
         sorted(aggregate.items(), key=lambda item: item[1]["_sort_key"])
     ):
-        rule = style_catalog.add_rule(
+        source = style_catalog.add_source(
+            kind=entry["source_kind"],
+            source_order=source_order,
+            stylesheet_id=entry.get("style_sheet_id"),
+            href=entry.get("source_url"),
+            owner_node_id=entry.get("owner_element_id"),
+        )
+        rule = source.add_rule(
             rule_type=RuleType.STYLE,
-            source_kind=entry["source_kind"],
-            at_context=tuple(
+            at_rule_contexts=tuple(
                 AtRuleContext(
-                    rule_type=context["rule_type"],
-                    text=context["text"],
-                    source_range=context.get("source_range"),
+                    name=(
+                        context["rule_type"].value
+                        if hasattr(context["rule_type"], "value")
+                        else str(context["rule_type"])
+                    ),
+                    prelude=context["text"],
                 )
                 for context in entry.get("at_context", ())
             ),
             source_range=entry.get("source_range"),
             source_order=source_order,
-            source_url=entry.get("source_url"),
-            owner_element_id=entry.get("owner_element_id"),
         )
         for selector_payload in entry.get("selectors", ()):
             selector = rule.add_selector(
@@ -566,7 +606,7 @@ def _build_styles_inventory(
                 declaration_order=int(declaration_payload.get("declaration_order") or 0),
                 source_range=declaration_payload.get("source_range"),
                 covered_longhands=tuple(
-                    item.value if hasattr(item, "value") else str(item)
+                    str(item)
                     for item in declaration_payload.get("longhand_properties", ())
                 ),
             )
@@ -589,83 +629,17 @@ def _build_styles_inventory(
     )
 
 
-def _computed_style_map(raw_node: dict[str, Any]) -> dict[CssPropertyId, str]:
-    computed: dict[CssPropertyId, str] = {}
+def _computed_style_map(raw_node: dict[str, Any]) -> dict[str, str]:
+    computed: dict[str, str] = {}
     for raw_value in raw_node.get("styles", {}).get("computed", []):
         if ":" not in raw_value:
             continue
         name, value = raw_value.split(":", 1)
-        property_id = get_css_property(name)
-        if property_id is None:
+        property_name = _coerce_property_name(name)
+        if property_name is None:
             continue
-        computed[property_id] = _normalize_css_value(property_id, value)
+        computed[property_name] = _normalize_css_value(property_name, value)
     return computed
-
-
-def _extract_palette_colors(property_name: CssPropertyId | str, value: str) -> list[str]:
-    property_id = _coerce_css_property_id(property_name)
-    if property_id is None or property_id not in _COLOR_VALUE_PROPERTIES:
-        return []
-
-    if property_id in _PURE_COLOR_PROPERTIES:
-        normalized = _normalize_color_token(value)
-        return [] if not normalized or normalized == "transparent" else [normalized]
-
-    colors = []
-    for token in _HEX_COLOR_RE.findall(value):
-        normalized = _normalize_color_token(token)
-        if normalized and normalized != "transparent" and normalized not in colors:
-            colors.append(normalized)
-
-    for token in _FUNCTION_COLOR_RE.findall(value):
-        normalized = _normalize_color_token(token)
-        if normalized and normalized != "transparent" and normalized not in colors:
-            colors.append(normalized)
-
-    return colors
-
-
-def _resolve_palette_targets(
-    property_name: CssPropertyId,
-    computed_styles: Mapping[CssPropertyId, str],
-) -> list[tuple[CssPropertyId, str]]:
-    targets: list[tuple[CssPropertyId, str]] = []
-    if property_name in _COLOR_VALUE_PROPERTIES and property_name in computed_styles:
-        targets.append((property_name, computed_styles[property_name]))
-
-    return targets
-
-
-def _collect_palette_usage(
-    palette_usage: dict[str, dict[str, Any]],
-    raw_node: dict[str, Any],
-    computed_styles: Mapping[CssPropertyId, str],
-    direct_property_names: set[CssPropertyId],
-) -> None:
-    node_id = raw_node["node_id"]
-    tag_name = raw_node["identity"]["tag"]
-    seen_usages: set[tuple[str, str]] = set()
-
-    for property_name in sorted(direct_property_names):
-        for resolved_property, resolved_value in _resolve_palette_targets(property_name, computed_styles):
-            for color in _extract_palette_colors(resolved_property, resolved_value):
-                if color == "transparent":
-                    continue
-                signature = (resolved_property, color)
-                if signature in seen_usages:
-                    continue
-                seen_usages.add(signature)
-
-                entry = palette_usage.setdefault(
-                    color,
-                    {
-                        "value": color,
-                        "node_ids": set(),
-                        "usage": defaultdict(set),
-                    },
-                )
-                entry["node_ids"].add(node_id)
-                entry["usage"][(tag_name, resolved_property)].add(node_id)
 
 
 def _normalize_background_colors(background_payload: dict[str, Any] | None) -> tuple[list[str] | None, str | None]:
@@ -708,14 +682,14 @@ def _extract_resolved_values(payload: dict[str, Any]) -> list[str]:
 def _resolve_css_value(
     cdp: Any,
     frontend_node_id: int,
-    property_name: CssPropertyId | str,
+    property_name: str,
     value: str,
-    cache: dict[tuple[int, CssPropertyId, str], str | None],
+    cache: dict[tuple[int, str, str], str | None],
 ) -> str | None:
-    property_id = _coerce_css_property_id(property_name)
-    if property_id is None:
+    property_name = _coerce_property_name(property_name)
+    if property_name is None:
         return None
-    cache_key = (frontend_node_id, property_id, value)
+    cache_key = (frontend_node_id, property_name, value)
     if cache_key in cache:
         return cache[cache_key]
 
@@ -724,7 +698,7 @@ def _resolve_css_value(
             "CSS.resolveValues",
             {
                 "nodeId": frontend_node_id,
-                "propertyName": property_id.value,
+                "propertyName": property_name,
                 "values": [value],
             },
         )
@@ -741,24 +715,24 @@ def _resolve_css_value(
 def _expand_declaration_targets(
     cdp: Any,
     declaration: dict[str, Any],
-    cache: dict[tuple[CssPropertyId, str], list[tuple[CssPropertyId, str]]],
-) -> list[tuple[CssPropertyId, str]]:
-    property_name = declaration["name"]
+    cache: dict[tuple[str, str], list[tuple[str, str]]],
+) -> list[tuple[str, str]]:
+    property_name = str(declaration["name"])
     property_value = declaration["value"]
     cache_key = (property_name, property_value)
     if cache_key in cache:
         return cache[cache_key]
 
-    expanded: list[tuple[CssPropertyId, str]] = [(property_name, property_value)]
+    expanded: list[tuple[str, str]] = [(property_name, property_value)]
 
-    if property_name.value in CSS_PROPERTY_SHORTHANDS:
+    if property_name in _SHORTHAND_PROPERTIES:
         longhand_properties = list(declaration.get("longhand_properties") or [])
         if not longhand_properties:
             try:
                 payload = cdp.send(
                     "CSS.getLonghandProperties",
                     {
-                        "shorthandName": property_name.value,
+                        "shorthandName": property_name,
                         "value": property_value,
                     },
                 )
@@ -772,23 +746,25 @@ def _expand_declaration_targets(
                 or []
             )
         for property_payload in longhand_properties:
-            longhand_name = property_payload.get("name")
-            longhand_value = property_payload.get("value")
-            longhand_spec = get_css_property(longhand_name)
-            if not longhand_name or longhand_value in (None, "") or longhand_spec is None:
+            if isinstance(property_payload, str):
+                longhand_name = _coerce_property_name(property_payload)
+                longhand_value = None
+            else:
+                longhand_name = _coerce_property_name(property_payload.get("name"))
+                longhand_value = property_payload.get("value")
+            if not longhand_name or longhand_value in (None, ""):
                 continue
             if _is_implicit_longhand_value(str(longhand_value)):
                 continue
-            canonical_longhand_name = longhand_spec
             expanded.append(
                 (
-                    canonical_longhand_name,
-                    _normalize_css_value(canonical_longhand_name, str(longhand_value)),
+                    longhand_name,
+                    _normalize_css_value(longhand_name, str(longhand_value)),
                 )
             )
 
-    deduped: list[tuple[CssPropertyId, str]] = []
-    seen: set[tuple[CssPropertyId, str]] = set()
+    deduped: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
     for item in expanded:
         if item in seen:
             continue
@@ -813,17 +789,17 @@ def _resolve_candidate_value(
     cdp: Any,
     *,
     frontend_node_id: int,
-    property_name: CssPropertyId,
+    property_name: str,
     candidate_value: str,
-    source_computed_styles: Mapping[CssPropertyId, str],
-    source_parent_computed_styles: Mapping[CssPropertyId, str],
-    resolve_cache: dict[tuple[int, CssPropertyId, str], str | None],
+    source_computed_styles: Mapping[str, str],
+    source_parent_computed_styles: Mapping[str, str],
+    resolve_cache: dict[tuple[int, str, str], str | None],
 ) -> str | None:
     normalized_candidate = _normalize_css_value(property_name, candidate_value)
     lower_candidate = normalized_candidate.lower()
 
     if lower_candidate == "currentcolor":
-        return source_computed_styles.get(CssPropertyId.COLOR)
+        return source_computed_styles.get("color")
 
     if lower_candidate == "inherit":
         return source_parent_computed_styles.get(property_name)
@@ -847,14 +823,14 @@ def _resolve_candidate_value(
 def _property_candidates(
     cdp: Any,
     *,
-    target_property: CssPropertyId,
+    target_property: str,
     target_computed_value: str,
     style_entries: list[dict[str, Any]],
     style_ids_by_key: dict[tuple[Any, ...], str],
-    declaration_ids_by_signature: dict[tuple[str, CssPropertyId, str, bool, bool], str],
+    declaration_ids_by_signature: dict[tuple[str, str, str, bool, bool], str],
     selector_ids_by_key_and_index: Mapping[tuple[tuple[Any, ...], int], str],
-    expansion_cache: dict[tuple[CssPropertyId, str], list[tuple[CssPropertyId, str]]],
-    resolve_cache: dict[tuple[int, CssPropertyId, str], str | None],
+    expansion_cache: dict[tuple[str, str], list[tuple[str, str]]],
+    resolve_cache: dict[tuple[int, str, str], str | None],
 ) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
 
@@ -930,16 +906,16 @@ def _property_candidates(
 def _candidate_map_for_element(
     cdp: Any,
     *,
-    computed_styles: Mapping[CssPropertyId, str],
+    computed_styles: Mapping[str, str],
     style_entries: list[dict[str, Any]],
     style_ids_by_key: dict[tuple[Any, ...], str],
-    declaration_ids_by_signature: dict[tuple[str, CssPropertyId, str, bool, bool], str],
+    declaration_ids_by_signature: dict[tuple[str, str, str, bool, bool], str],
     selector_ids_by_key_and_index: Mapping[tuple[tuple[Any, ...], int], str],
-    expansion_cache: dict[tuple[CssPropertyId, str], list[tuple[CssPropertyId, str]]],
-    resolve_cache: dict[tuple[int, CssPropertyId, str], str | None],
-) -> dict[CssPropertyId, list[dict[str, Any]]]:
-    candidates_by_property: dict[CssPropertyId, list[dict[str, Any]]] = {}
-    candidate_property_names: set[CssPropertyId] = set()
+    expansion_cache: dict[tuple[str, str], list[tuple[str, str]]],
+    resolve_cache: dict[tuple[int, str, str], str | None],
+) -> dict[str, list[dict[str, Any]]]:
+    candidates_by_property: dict[str, list[dict[str, Any]]] = {}
+    candidate_property_names: set[str] = set()
 
     for entry in style_entries:
         for declaration in entry["declarations"]:
@@ -974,9 +950,9 @@ def collect_style_information(
     stylesheet_headers: dict[str, dict[str, Any]],
     *,
     include_user_agent_rules: bool,
-) -> tuple[dict[int, dict[str, Any]], StyleCatalog, ColorCatalog]:
+) -> tuple[dict[int, dict[str, Any]], StyleCatalog]:
     if not raw_nodes:
-        return {}, StyleCatalog(), ColorCatalog()
+        return {}, StyleCatalog()
 
     backend_node_ids = [node["backend_node_id"] for node in raw_nodes]
     backend_to_node_id = {node["backend_node_id"]: node["node_id"] for node in raw_nodes}
@@ -998,12 +974,11 @@ def collect_style_information(
     }
 
     aggregate_styles: dict[tuple[Any, ...], dict[str, Any]] = {}
-    palette_usage: dict[str, dict[str, Any]] = {}
     node_style_entries: dict[int, list[dict[str, Any]]] = defaultdict(list)
     node_backgrounds: dict[int, tuple[list[str] | None, str | None]] = {}
     declaration_seed = 0
-    expansion_cache: dict[tuple[CssPropertyId, str], list[tuple[CssPropertyId, str]]] = {}
-    resolve_cache: dict[tuple[int, CssPropertyId, str], str | None] = {}
+    expansion_cache: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    resolve_cache: dict[tuple[int, str, str], str | None] = {}
 
     for backend_node_id in backend_node_ids:
         frontend_node_id = backend_to_frontend_node_id.get(backend_node_id)
@@ -1166,27 +1141,12 @@ def collect_style_information(
             background_payload = None
         node_backgrounds[backend_node_id] = _normalize_background_colors(background_payload)
 
-        direct_property_names = {
-            declaration["name"]
-            for entry in node_style_entries[backend_node_id]
-            if not entry.get("_inherited_from_element_id") and entry.get("origin") == "author"
-            for declaration in entry["declarations"]
-            if declaration["name"] in _COLOR_VALUE_PROPERTIES
-        }
-        _collect_palette_usage(
-            palette_usage,
-            raw_node,
-            computed_styles,
-            direct_property_names,
-        )
-
     (
         styles_inventory,
         style_ids_by_key,
         declaration_ids_by_signature,
         selector_ids_by_key_and_index,
     ) = _build_styles_inventory(aggregate_styles)
-    color_inventory = ColorCatalog.build_from_usage_map(palette_usage)
 
     def _mark_selector_used(style_id: str, selector_id: str | None) -> None:
         if not style_id:
@@ -1228,4 +1188,4 @@ def collect_style_information(
             "effective_background": effective_background,
         }
 
-    return element_traces, styles_inventory, color_inventory
+    return element_traces, styles_inventory

@@ -1,23 +1,24 @@
 from __future__ import annotations
 
-from engine.adapters.browser.css_overview import build_css_overview_from_models
 from engine.adapters.browser.page_builder import PageBuilder
 from engine.domain.models.color import ColorCatalog
 from engine.domain.models.prototype_structure import PrototypeStructure
-from engine.domain.models.session import BEFORE_SCREENSHOT, Session
+from engine.domain.models.quality_reports import ColorUsages
+from pathlib import Path
+
+from engine.domain.models.session import Session
 from engine.domain.models.style import StyleCatalog
-from engine.domain.utils.color_usage import build_color_usage_catalog
 from engine.pipeline.context import PipelineContext
 from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.pipeline.stage_contract import StageContract, context_value
-from engine.validators.project_uploaded import single_html_file
 from engine.validators.snapshot_validators import has_snapshot_structure
 
 
 def _session_ready_for_capture(session: Session) -> bool:
     try:
-        return session.build_path("before", single_html_file(session.file_paths)).exists()
-    except Exception:
+        candidates = session.find_by_suffix("before", ("html",))
+        return len(candidates) == 1 and candidates[0].exists()
+    except (FileNotFoundError, RuntimeError, ValueError, OSError):
         return False
 
 
@@ -31,7 +32,7 @@ CONTRACT = StageContract(
         context_value(K.PROTOTYPE_STRUCTURE, PrototypeStructure),
         context_value(K.STYLE_CATALOG, StyleCatalog),
         context_value(K.COLOR_CATALOG, ColorCatalog),
-        context_value(K.DERIVED_RAW_CSS_OVERVIEW, dict),
+        context_value(K.DERIVED_COLOR_USAGES, ColorUsages),
         context_value(K.DERIVED_RAW_SNAPSHOT_METADATA, dict),
     ),
 )
@@ -46,34 +47,40 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         CONTRACT.name,
         "start",
         {
-            "base_path": str(session.build_path("before", session.project_root_file_path())),
-            "output_image": str(session.build_path("artifacts", BEFORE_SCREENSHOT)),
+            "base_path": str(session.find_by_suffix("before", ("html",))[0].parent),
+            "output_image": str(session.get_path("before.png", "artifacts", "png")),
         },
     )
     page_builder = context.get(K.PAGE_BUILDER)
+    before_screenshot = session.get_path("before.png", "artifacts", "png")
     screenshot_path = page_builder.capture_full_page_screenshot(
-        output_path=session.build_path("artifacts", BEFORE_SCREENSHOT),
+        output_path=before_screenshot,
     )
-    snapshot, styles_inventory, seed_inventory = page_builder.capture_snapshot_models()
+    snapshot, styles_inventory = page_builder.capture_snapshot_models()
     if not has_snapshot_structure(snapshot):
         return context.set_error("Render capture bundle does not contain a valid snapshot structure.")
 
-    seed_inventory = ColorCatalog.build(seed_inventory)
     prototype_structure = PrototypeStructure.build(snapshot.nodes)
-    colors_inventory = build_color_usage_catalog(
-        prototype_structure,
-        existing_inventory=seed_inventory,
-    )
-    css_overview = build_css_overview_from_models(
-        prototype_structure,
-        styles_inventory,
-        colors_inventory,
-    )
+    colors_inventory = ColorCatalog()
+    color_usages = ColorUsages()
+    for element in prototype_structure:
+        for property_model in element.properties:
+            property_id = property_model.property_id or property_model.name
+            color_ids: list[str] = []
+            for color_value in property_model.color_values():
+                color_id = colors_inventory.add_color(color_value)
+                color_ids.append(color_id)
+                color_usages.add(
+                    color_id=color_id,
+                    property_name=property_id,
+                    element_id=element.node_id,
+            )
+            property_model.set_color_ids(color_ids)
 
     context.set(K.PROTOTYPE_STRUCTURE, prototype_structure)
     context.set(K.STYLE_CATALOG, styles_inventory)
     context.set(K.COLOR_CATALOG, colors_inventory)
-    context.set(K.DERIVED_RAW_CSS_OVERVIEW, css_overview)
+    context.set(K.DERIVED_COLOR_USAGES, color_usages)
     context.set(K.DERIVED_RAW_SNAPSHOT_METADATA, dict(snapshot.metadata))
 
     context.trace.add_step(

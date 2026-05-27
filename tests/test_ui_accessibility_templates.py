@@ -85,6 +85,10 @@ class UIAccessibilityTemplatesTest(unittest.TestCase):
     def test_contrast_card_uses_compact_card_layout(self) -> None:
         self.assertIn(".contrast-card", self.css)
         self.assertIn("align-self: start;", self.css)
+        self.assertIn("contrast_group_count = results.view.contrast_rows | length", self.results)
+        self.assertIn("'grupo' if contrast_group_count == 1 else 'grupos'", self.results)
+        self.assertIn('class="contrast-item__count"', self.results)
+        self.assertIn(".contrast-item__count", self.css)
         self.assertNotIn("padding: 0;\n  border: 0;\n  background: none;", self.css)
 
     def test_css_accessibility_contracts(self) -> None:

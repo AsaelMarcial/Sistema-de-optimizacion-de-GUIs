@@ -12,14 +12,14 @@ from engine.domain.models.token import TokenInventoryModel
 from engine.pipeline.context import PipelineContext
 from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.pipeline.stage_contract import StageContract, context_value
-from engine.validators.project_uploaded import single_html_file
 
 
 def _session_ready_for_transform(session: Session) -> bool:
     try:
-        html_file = single_html_file(session.file_paths)
-        return session.build_path("before", html_file).exists() and session.build_path("after", html_file).exists()
-    except Exception:
+        before_html = session.find_by_suffix("before", ("html",))
+        after_html = session.find_by_suffix("after", ("html",))
+        return len(before_html) == 1 and len(after_html) == 1 and before_html[0].exists() and after_html[0].exists()
+    except (FileNotFoundError, RuntimeError, ValueError, OSError):
         return False
 
 
@@ -43,18 +43,19 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         return context
 
     session = context.get(K.SESSION)
-    html_file = single_html_file(session.file_paths)
-    project_root = session.project_root_file_path()
-    before_html_path = session.build_path("before", html_file)
-    after_html_path = session.build_path("after", html_file)
+    before_html = session.find_by_suffix("before", ("html",))[0]
+    after_html = session.find_by_suffix("after", ("html",))[0]
+    before_html_path = before_html
+    after_html_path = after_html
     html_content = read_text(before_html_path)
-    after_dir = session.build_path("after")
+    after_dir = session.get_area_root("after")
+    after_project_root = session.get_area_root("after")
     context.trace.add_stage_event(CONTRACT.name, "start", {"after_dir": str(after_dir)})
 
     token_results = apply_tokens_to_project(
         html_content,
         after_html_path,
-        session.build_path("after", project_root),
+        after_project_root,
         context.get(K.TOKEN_INVENTORY),
         context.get(K.PROTOTYPE_STRUCTURE),
         context.get(K.STYLE_CATALOG),
@@ -65,7 +66,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         heuristics_results = evaluate_and_apply_heuristics(
             html_content,
             after_html_path,
-            session.build_path("after", project_root),
+            after_project_root,
             None,
         )
     context.set(K.TRANSFORMATION_HEURISTICS, heuristics_results)

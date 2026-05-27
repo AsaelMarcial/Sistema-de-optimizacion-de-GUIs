@@ -13,15 +13,14 @@ from engine.domain.models.environmental_assessment.assessment import (
     EnvironmentalAssessmentModel,
     EnvironmentalSavingsModel,
 )
-from engine.domain.models.color_scheme import ColorSchemeModel
+from engine.domain.models.color_scheme import ColorScheme
 from engine.domain.models.prototype_structure import PrototypeStructure
-from engine.domain.models.session import AFTER_SCREENSHOT, BEFORE_SCREENSHOT, FilePath, Session
+from engine.domain.models.session import Session
 from engine.domain.models.token import TokenInventoryModel
 from engine.adapters.color_service import color_registry
 from engine.pipeline.context import PipelineContext, RecommendationsPayload
 from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.pipeline.stage_contract import StageContract, context_value
-from engine.validators.project_uploaded import has_single_html, single_html_file
 
 _TONE_STOPS = (0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 98, 99, 100)
 _EFFECT_COLOR_PROPERTIES = (
@@ -35,7 +34,7 @@ _FUNCTION_COLOR_RE = re.compile(r"(?:rgba?|hsla?)\([^)]+\)", re.IGNORECASE)
 
 
 def _session_ready_for_results(session: Session) -> bool:
-    return bool(session.session_id.strip()) and has_single_html(session.file_paths)
+    return bool(session.session_id.strip()) and len(session.find_by_suffix("after", ("html",))) == 1
 
 CONTRACT = StageContract(
     name="assemble_results",
@@ -45,7 +44,7 @@ CONTRACT = StageContract(
         context_value(K.ENVIRONMENTAL_SAVINGS, EnvironmentalSavingsModel),
         context_value(K.COLOR_CATALOG, ColorCatalog),
         context_value(K.SCHEME_NAMED_COLOR_BREAKDOWN, tuple),
-        context_value(K.SCHEME_TONAL_PALETTES, ColorSchemeModel),
+        context_value(K.SCHEME_TONAL_PALETTES, ColorScheme),
         context_value(K.ENVIRONMENTAL_BEFORE_COLOR_HISTOGRAM, list),
         context_value(K.PROTOTYPE_STRUCTURE, PrototypeStructure),
         context_value(K.DERIVED_RAW_SNAPSHOT_METADATA, dict),
@@ -86,15 +85,15 @@ def _token_runtime_summary(
     color_ids = {
         str(getattr(color, "color_id", "")).strip()
         for color in color_entries
-        if getattr(color, "token_ids", ()) or getattr(color, "foundation_token_id", None)
+        if getattr(color, "token", None)
         if str(getattr(color, "color_id", "")).strip()
     }
     palette_tones = {
-        f"{str(getattr(color, 'mapped_palette_id')).strip()}:{int(getattr(color, 'mapped_tone'))}"
+        f"{str(getattr(color, 'palette_id')).strip()}:{int(getattr(color, 'tone'))}"
         for color in color_entries
-        if (getattr(color, "token_ids", ()) or getattr(color, "foundation_token_id", None))
-        and getattr(color, "mapped_palette_id", None) is not None
-        and getattr(color, "mapped_tone", None) is not None
+        if getattr(color, "token", None)
+        and getattr(color, "palette_id", None) is not None
+        and getattr(color, "tone", None) is not None
     }
     return {
         "tokenized_element_count": len(assigned_element_ids),
@@ -306,8 +305,11 @@ def _build_dominant_rows(color_processing: Mapping[str, object]) -> list[dict[st
     achromatic_palette = _as_mapping(core_palettes.get("achromatic_palette"))
     if achromatic_palette:
         rows_by_family["Neutral"] = {
-            "label": str(achromatic_palette.get("display_name") or "Neutral"),
-            "hex": str(achromatic_palette.get("seed_hex") or "#86919f"),
+            "label": str(achromatic_palette.get("label") or "Neutral"),
+            "hex": str(
+                _as_mapping((achromatic_palette.get("tones") or [{}])[-1]).get("hex_value")
+                or "#86919f"
+            ),
             "percentage": 0.0,
         }
 
@@ -315,18 +317,12 @@ def _build_dominant_rows(color_processing: Mapping[str, object]) -> list[dict[st
         entry = _as_mapping(palette)
         if not entry:
             continue
-        family_name = str(
-            entry.get("seed_family_name")
-            or entry.get("display_name")
-            or entry.get("seed_display_name")
-            or entry.get("seed_name")
-            or "Color"
-        )
+        family_name = str(entry.get("label") or "Color")
         rows_by_family.setdefault(
             family_name,
             {
                 "label": family_name,
-                "hex": str(entry.get("seed_hex") or "#86919f"),
+                "hex": str(_as_mapping((entry.get("tones") or [{}])[-1]).get("hex_value") or "#86919f"),
                 "percentage": 0.0,
             },
         )
@@ -343,7 +339,7 @@ def _build_palette_rows(color_processing: Mapping[str, object]) -> list[dict[str
         palette_rows.append(
             {
                 "family_type": "achromatic",
-                "label": achromatic_palette.get("display_name") or "Neutral",
+                "label": achromatic_palette.get("label") or "Neutral",
                 "tone_count": len(achromatic_palette.get("tones") or []),
                 "tones": achromatic_palette.get("tones") or [],
             }
@@ -356,7 +352,7 @@ def _build_palette_rows(color_processing: Mapping[str, object]) -> list[dict[str
         palette_rows.append(
             {
                 "family_type": "chromatic",
-                "label": entry.get("display_name") or entry.get("seed_display_name") or entry.get("seed_name"),
+                "label": entry.get("label") or "Chromatic",
                 "tone_count": len(entry.get("tones") or []),
                 "tones": entry.get("tones") or [],
             }
@@ -373,7 +369,7 @@ def _build_palette_label_map(color_processing: Mapping[str, object]) -> dict[str
     achromatic_id = str(achromatic_palette.get("palette_id") or "").strip()
     if achromatic_id:
         palette_labels[achromatic_id] = str(
-            achromatic_palette.get("display_name") or "Neutral"
+            achromatic_palette.get("label") or "Neutral"
         )
 
     for palette in core_palettes.get("chromatic_palettes") or []:
@@ -382,10 +378,7 @@ def _build_palette_label_map(color_processing: Mapping[str, object]) -> dict[str
         if not palette_id:
             continue
         palette_labels[palette_id] = str(
-            entry.get("display_name")
-            or entry.get("seed_display_name")
-            or entry.get("seed_name")
-            or "Chromatic"
+            entry.get("label") or "Chromatic"
         )
 
     return palette_labels
@@ -422,8 +415,8 @@ def _tone_label_from_entry(
     *,
     palette_labels: Mapping[str, str],
 ) -> str | None:
-    palette_id = getattr(entry, "mapped_palette_id", None)
-    mapped_tone = getattr(entry, "mapped_tone", None)
+    palette_id = getattr(entry, "palette_id", None)
+    mapped_tone = getattr(entry, "tone", None)
     if palette_id is None or mapped_tone is None:
         return None
     return f"{palette_labels.get(str(palette_id), _fallback_palette_label(str(palette_id)))} {int(mapped_tone)}"
@@ -439,8 +432,8 @@ def _nearest_mapped_inventory_entry(raw_value: str, entries: tuple[object, ...])
     best_distance: int | None = None
 
     for entry in entries:
-        palette_id = getattr(entry, "mapped_palette_id", None)
-        mapped_tone = getattr(entry, "mapped_tone", None)
+        palette_id = getattr(entry, "palette_id", None)
+        mapped_tone = getattr(entry, "tone", None)
         candidate_rgb = getattr(entry, "rgb", None)
         if palette_id is None or mapped_tone is None or not candidate_rgb:
             continue
@@ -521,16 +514,16 @@ def _build_contrast_rows(
         _normalize_color_value(candidate_value): entry
         for entry in inventory_entries
         for candidate_value in (
-            getattr(entry, "value", None),
+            getattr(entry, "rgb_value", None),
             getattr(entry, "hex_value", None),
         )
         if _normalize_color_value(candidate_value)
-        and getattr(entry, "mapped_palette_id", None) is not None
-        and getattr(entry, "mapped_tone", None) is not None
+        and getattr(entry, "palette_id", None) is not None
+        and getattr(entry, "tone", None) is not None
     }
     tone_label_cache: dict[str, str] = {}
     contrast = _as_mapping(_as_mapping(results.get("accessibility")).get("contrast"))
-    rows: list[dict[str, object]] = []
+    rows_by_key: dict[tuple[object, ...], dict[str, object]] = {}
 
     for item in contrast.get("issues") or []:
         issue = _as_mapping(item)
@@ -566,23 +559,50 @@ def _build_contrast_rows(
                 inventory_entries=inventory_entries,
             )
 
-        rows.append(
-            {
-                "selector": str(issue.get("selector") or "Unmapped selector"),
-                "contrast_ratio": float(issue.get("contrast_ratio") or 0.0),
-                "required_ratio": float(issue.get("required_ratio") or 0.0),
-                "foreground_hex": str(
-                    foreground.get("hex") or foreground.get("hex_value") or "#ffffff"
-                ),
-                "background_hex": str(
-                    background.get("hex") or background.get("hex_value") or "#000000"
-                ),
-                "foreground_tone_label": tone_label_cache[foreground_value],
-                "background_tone_label": tone_label_cache[background_value],
-            }
+        foreground_hex = str(foreground.get("hex") or foreground.get("hex_value") or "#ffffff")
+        background_hex = str(background.get("hex") or background.get("hex_value") or "#000000")
+        contrast_ratio = float(issue.get("contrast_ratio") or 0.0)
+        required_ratio = float(issue.get("required_ratio") or 0.0)
+        foreground_tone_label = tone_label_cache[foreground_value]
+        background_tone_label = tone_label_cache[background_value]
+        key = (
+            foreground_hex.lower(),
+            background_hex.lower(),
+            round(contrast_ratio, 4),
+            round(required_ratio, 4),
+            foreground_tone_label,
+            background_tone_label,
         )
+        selector = str(issue.get("selector") or "Unmapped selector")
+        row = rows_by_key.setdefault(
+            key,
+            {
+                "selector": selector,
+                "sample_selectors": [],
+                "count": 0,
+                "contrast_ratio": contrast_ratio,
+                "required_ratio": required_ratio,
+                "foreground_hex": foreground_hex,
+                "background_hex": background_hex,
+                "foreground_tone_label": foreground_tone_label,
+                "background_tone_label": background_tone_label,
+            },
+        )
+        row["count"] = int(row.get("count") or 0) + 1
+        sample_selectors = list(row.get("sample_selectors") or [])
+        if selector and selector not in sample_selectors and len(sample_selectors) < 3:
+            sample_selectors.append(selector)
+        row["sample_selectors"] = sample_selectors
 
-    return rows
+    return sorted(
+        rows_by_key.values(),
+        key=lambda row: (
+            float(row.get("contrast_ratio") or 0.0),
+            str(row.get("background_tone_label") or ""),
+            str(row.get("foreground_tone_label") or ""),
+            str(row.get("selector") or ""),
+        ),
+    )
 
 
 def _build_change_history_groups(heuristics: object) -> list[dict[str, object]]:
@@ -677,15 +697,25 @@ def run_stage(context: PipelineContext) -> PipelineContext:
 
     context.trace.add_stage_event(CONTRACT.name, "start")
     session = context.get(K.SESSION)
-    output_dir = session.build_path("after")
-    artifacts_dir = session.build_path("artifacts")
-    session_dirname = artifacts_dir.parent.name
-    html_file = single_html_file(session.file_paths)
-    project_root = session.project_root_file_path()
-    bundle_file = FilePath(
-        f"{project_root.name}.zip" if project_root.name else f"{html_file.relative_path.stem}.zip",
-    )
-    bundle_name = bundle_file.name
+    output_dir = session.get_area_root("after")
+    artifacts_dir = session.get_area_root("artifacts")
+    session_dirname = session.session_dir.name
+    html_file = session.find_by_suffix("after", ("html",))[0]
+    project_root = output_dir
+    top_level_dirs: set[str] = set()
+    for path in session._after["paths"]:
+        relative_path = path.relative_to(output_dir)
+        if len(relative_path.parts) == 1:
+            project_root = output_dir
+            break
+        top_level_dirs.add(relative_path.parts[0])
+    else:
+        if len(top_level_dirs) == 1:
+            candidate = output_dir / next(iter(top_level_dirs))
+            if candidate.is_dir():
+                project_root = candidate.resolve()
+    bundle_stem = project_root.name if project_root != output_dir else html_file.stem
+    bundle_name = f"{bundle_stem}.zip"
     zip_output_path, zip_filename = create_output_bundle(
         source_dir=output_dir,
         bundle_dir=artifacts_dir,
@@ -707,14 +737,19 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     token_inventory = context.get(K.TOKEN_INVENTORY)
     token_runtime = _token_runtime_summary(prototype_structure, color_entries)
     before_snapshot_metadata = dict(context.get(K.DERIVED_RAW_SNAPSHOT_METADATA) or {})
-    before_screenshot = BEFORE_SCREENSHOT.name
-    after_screenshot = AFTER_SCREENSHOT.name
+    before_screenshot = "before.png"
+    after_screenshot = "after.png"
     contrast_report = (
         context.get(K.DERIVED_CONTRAST_REPORT)
         if context.has(K.DERIVED_CONTRAST_REPORT)
         else None
     )
     contrast_payload = contrast_report.to_dict() if contrast_report is not None else {"count": 0, "issues": []}
+    color_usages = (
+        context.get(K.DERIVED_COLOR_USAGES)
+        if context.has(K.DERIVED_COLOR_USAGES)
+        else None
+    )
     effect_color_payload = _effect_colors_payload(prototype_structure, colors_inventory)
 
     results = {
@@ -751,6 +786,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             ),
             "named_color_breakdown": named_color_breakdown,
             "core_palettes": tonal_palettes.to_dict(),
+            "color_usages": color_usages.to_dict() if color_usages is not None else {},
         },
         "token_processing": {
             "token_count": len(token_inventory or ()),
@@ -813,3 +849,4 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         },
     )
     return context
+

@@ -1,52 +1,48 @@
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from playwright.sync_api import sync_playwright
 
 from engine.adapters.browser.layout_snapshot import build_layout_nodes, capture_layout_snapshot
-from engine.adapters.browser.render_io import remove_temp_render_html, write_temp_render_html
 from engine.adapters.browser.render_models import RenderSnapshot, SnapshotOptions
 from engine.adapters.browser.style_trace import collect_style_information, register_stylesheet_headers
 from engine.adapters.file_system.file_manager import ensure_parent_dir
-from engine.domain.enums.scope.css_properties import get_in_scope_css_properties
-from engine.domain.models.color import ColorCatalog
+from engine.domain.enums.scope.css_properties import getAllPropertyNames
 from engine.domain.models.style import StyleCatalog
 from engine.domain.utils.parsers import normalize_snapshot_nodes
 
 
 @dataclass(slots=True)
 class PageBuilder:
-    html_content: str
-    base_path: str
+    html_path: Path
     options: SnapshotOptions = field(default_factory=SnapshotOptions)
     playwright: Any = field(init=False, repr=False)
     browser: Any = field(init=False, repr=False)
     page: Any = field(init=False, repr=False)
     cdp_session: Any = field(init=False, repr=False)
-    temp_html_path: str = field(init=False)
+    base_path: Path = field(init=False)
 
     @classmethod
-    def new(
+    def new_from_file(
         cls,
-        html_content: str,
-        base_path: str,
+        html_path: str | Path,
         *,
         options: SnapshotOptions | None = None,
         existing: "PageBuilder | None" = None,
     ) -> "PageBuilder":
         if existing is not None and existing.is_open:
             raise ValueError("Ya existe una instancia activa de PageBuilder.")
-        return cls(
-            html_content=html_content,
-            base_path=base_path,
-            options=options or SnapshotOptions(),
-        )
+        return cls(html_path=Path(html_path), options=options or SnapshotOptions())
 
     def __post_init__(self) -> None:
-        self.temp_html_path = write_temp_render_html(self.html_content, self.base_path)
+        self.html_path = Path(self.html_path).resolve()
+        self.base_path = self.html_path.parent
+        if not self.html_path.is_file():
+            raise FileNotFoundError(f"HTML no encontrado: {self.html_path}")
+
         playwright = None
         browser = None
         try:
@@ -60,25 +56,16 @@ class PageBuilder:
             )
             page.set_default_timeout(30000)
             page.set_default_navigation_timeout(30000)
-            page.goto(f"file://{self.temp_html_path}", wait_until="load")
             self.playwright = playwright
             self.browser = browser
             self.page = page
             self.cdp_session = page.context.new_cdp_session(page)
-            self._register_close_handlers()
-            self.wait_for_render_ready()
+            self.load_file(self.html_path)
         except Exception:
             if browser is not None:
-                try:
-                    browser.close()
-                except Exception:
-                    pass
+                browser.close()
             if playwright is not None:
-                try:
-                    playwright.stop()
-                except Exception:
-                    pass
-            remove_temp_render_html(self.temp_html_path)
+                playwright.stop()
             raise
 
     @property
@@ -97,49 +84,25 @@ class PageBuilder:
         if not self.is_open:
             raise RuntimeError("PageBuilder esta cerrado.")
 
-    def _register_close_handlers(self) -> None:
-        def _handle_close(*_args: Any) -> None:
-            remove_temp_render_html(self.temp_html_path)
-
-        for target in (self.cdp_session, self.page, self.browser):
-            on = getattr(target, "on", None)
-            if callable(on):
-                try:
-                    on("close", _handle_close)
-                except Exception:
-                    pass
-        on = getattr(self.browser, "on", None)
-        if callable(on):
-            try:
-                on("disconnected", _handle_close)
-            except Exception:
-                pass
-
     def close(self) -> None:
         if not self.is_open:
-            remove_temp_render_html(self.temp_html_path)
             return
+        detach = getattr(self.cdp_session, "detach", None)
+        if callable(detach):
+            detach()
         try:
-            detach = getattr(self.cdp_session, "detach", None)
-            if callable(detach):
-                try:
-                    detach()
-                except Exception:
-                    pass
             self.browser.close()
         finally:
-            try:
-                self.playwright.stop()
-            finally:
-                remove_temp_render_html(self.temp_html_path)
+            self.playwright.stop()
 
-    def load(self, html_content: str, base_path: str) -> None:
+    def load_file(self, html_path: str | Path) -> None:
         self._ensure_open()
-        remove_temp_render_html(self.temp_html_path)
-        self.html_content = html_content
-        self.temp_html_path = write_temp_render_html(html_content, base_path)
-        self.base_path = base_path
-        self.page.goto(f"file://{self.temp_html_path}", wait_until="load")
+        target = Path(html_path).resolve()
+        if not target.is_file():
+            raise FileNotFoundError(f"HTML no encontrado: {target}")
+        self.html_path = target
+        self.base_path = target.parent
+        self.page.goto(target.as_uri(), wait_until="domcontentloaded")
         self.wait_for_render_ready()
 
     def wait_for_render_ready(self) -> None:
@@ -225,31 +188,28 @@ class PageBuilder:
     def capture_full_page_screenshot(
         self,
         *,
-        output_path: str,
+        output_path: str | Path,
     ) -> str | None:
         self._ensure_open()
         if not self.options.capture_screenshot:
             return None
 
-        output_image_path = str(output_path or "").strip()
-        if not output_image_path:
-            raise ValueError("La ruta del screenshot no puede estar vacia.")
-
+        output_image_path = Path(output_path).resolve()
         ensure_parent_dir(output_image_path)
-        self.page.screenshot(path=output_image_path, full_page=True, caret="initial")
-        return output_image_path
+        self.page.screenshot(path=str(output_image_path), full_page=True, caret="initial")
+        return str(output_image_path)
 
-    def capture_snapshot_models(self) -> tuple[RenderSnapshot, StyleCatalog, ColorCatalog]:
+    def capture_snapshot_models(self) -> tuple[RenderSnapshot, StyleCatalog]:
         self._ensure_open()
         cdp = self.cdp_session
         stylesheet_headers = register_stylesheet_headers(cdp)
-        computed_style_whitelist = [spec.value for spec in get_in_scope_css_properties()]
+        computed_style_whitelist = list(getAllPropertyNames())
         layout_snapshot_payload = capture_layout_snapshot(cdp, self.page, computed_style_whitelist)
         raw_nodes, document_metrics = build_layout_nodes(layout_snapshot_payload)
         for raw_node in raw_nodes:
             raw_node["node_id"] = str(raw_node["backend_node_id"])
 
-        style_traces, style_catalog, colors_inventory = collect_style_information(
+        style_traces, style_catalog = collect_style_information(
             cdp,
             raw_nodes,
             stylesheet_headers,
@@ -258,9 +218,8 @@ class PageBuilder:
         snapshot = normalize_snapshot_nodes(
             raw_nodes,
             style_traces,
-            colors_inventory=colors_inventory,
             options=self.options,
-            base_path=os.path.abspath(self.base_path),
+            base_path=str(self.base_path.resolve()),
             document_metrics=document_metrics,
         )
-        return snapshot, style_catalog, colors_inventory
+        return snapshot, style_catalog

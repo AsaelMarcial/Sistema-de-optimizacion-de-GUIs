@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from engine.adapters.browser.page_builder import PageBuilder
-from engine.adapters.file_system.file_manager import read_text
 from engine.adapters.utils.pixel import build_color_histograms
 from engine.domain.models.environmental_assessment.assessment import (
     EnvironmentalAssessmentModel,
@@ -12,7 +13,7 @@ from engine.domain.models.environmental_assessment.carbon_footprint import (
     assess_interface,
 )
 from engine.domain.models.environmental_assessment.energy_consumption import EnergyModel
-from engine.domain.models.session import AFTER_SCREENSHOT, Session
+from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
 from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.pipeline.stage_contract import StageContract, context_value
@@ -67,21 +68,18 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         return context
 
     session = context.get(K.SESSION)
-    output_base_path = session.build_path("after", session.project_root_file_path())
-    screenshot_path = session.build_path("artifacts", AFTER_SCREENSHOT)
+    transformed_html_path = Path(context.get(K.TRANSFORMATION_OUTPUT_HTML_PATH)).resolve()
+    screenshot_path = session.get_path("after.png", "artifacts", "png")
     context.trace.add_stage_event(
         CONTRACT.name,
         "start",
         {
-            "base_path": str(output_base_path),
+            "base_path": str(transformed_html_path.parent),
             "output_image": str(screenshot_path),
         },
     )
     page_builder = context.get(K.PAGE_BUILDER)
-    page_builder.load(
-        read_text(context.get(K.TRANSFORMATION_OUTPUT_HTML_PATH)),
-        output_base_path,
-    )
+    page_builder.load_file(transformed_html_path)
     screenshot_output_path = page_builder.capture_full_page_screenshot(
         output_path=screenshot_path,
     )

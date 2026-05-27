@@ -237,8 +237,9 @@
             <div class="contrast-summary">
               <h3>Contraste <span class="sr-only">Contrast report</span></h3>
 
+              {% set contrast_group_count = results.view.contrast_rows | length %}
               <p class="text-tertiary">
-                {{ results.accessibility.contrast.issue_count }} señales de contraste delicadas
+                {{ results.accessibility.contrast.issue_count }} señales en {{ contrast_group_count }} {{ 'grupo' if contrast_group_count == 1 else 'grupos' }}
               </p>
             </div>
 
@@ -250,6 +251,9 @@
                   <span class="contrast-item__ratio">
                     {{ issue.contrast_ratio | round(2) }} / {{ issue.required_ratio | round(1) }}
                   </span>
+                  {% if issue.count > 1 %}
+                  <span class="contrast-item__count">×{{ issue.count }}</span>
+                  {% endif %}
                 </div>
 
                 <div class="contrast-preview" style="background: {{ issue.background_hex }};">
@@ -261,7 +265,12 @@
                   <span>Texto {{ issue.foreground_tone_label }}</span>
                 </div>
 
-                <span class="contrast-item__selector">{{ issue.selector }}</span>
+                <span class="contrast-item__selector">
+                  {{ issue.selector }}
+                  {% if issue.count > 1 %}
+                  <small>{{ issue.count }} instancias detectadas</small>
+                  {% endif %}
+                </span>
               </article>
               {% endfor %}
             </div>
