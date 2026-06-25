@@ -74,13 +74,13 @@ function formatEnergyMetric(wh) {
   if (Math.abs(wh) >= 1000) {
     return {
       value: formatAdaptiveMetric(wh / 1000),
-      unit: "kWh consumed",
+      unit: "kWh",
     };
   }
 
   return {
     value: formatAdaptiveMetric(wh),
-    unit: "Wh consumed",
+    unit: "Wh",
   };
 }
 
@@ -127,16 +127,16 @@ function updateImpact() {
     totalCarbon !== 0 ? (reduction / totalCarbon) * 100 : 0;
   const formattedEnergy = formatEnergyMetric(totalEnergy);
 
-  const lead = reduction >= 0 ? "could emit" : "currently emits";
-  const tail = reduction >= 0 ? "kg less CO₂eq" : "kg more CO₂eq";
+  const lead = reduction >= 0 ? "podría emitir" : "emite";
+  const tail = reduction >= 0 ? "kg menos de CO₂eq" : "kg más de CO₂eq";
   const pill =
     reduction >= 0
-      ? `↓ ${formatAdaptiveMetric(Math.abs(improvementPercent))}% improvement potential`
-      : `↑ ${formatAdaptiveMetric(Math.abs(improvementPercent))}% footprint increase`;
+      ? `↓ ${formatAdaptiveMetric(Math.abs(improvementPercent))}% potencial de mejora`
+      : `↑ ${formatAdaptiveMetric(Math.abs(improvementPercent))}% aumento de huella de carbomo`;
   const support =
     reduction >= 0
-      ? "The optimized variant reduces carbon mostly by redistributing luminance, lowering bright structural surfaces, and cleaning up emphasis."
-      : "In this run the optimized variant slightly increases the footprint, so the next pass should focus on lowering bright area before tuning accents.";
+      ? "Al adoptar un esquema de colores más sostenible, tu diseño reduciría la huella de carbono principalmente al redistribuir la luminancia, disminuir el brillo de las superficies estructurales y optimizar el uso del énfasis visual."
+      : "En esta ejecución, la variante optimizada aumenta ligeramente la huella de carbono, por lo que la siguiente iteración debería centrarse en reducir las áreas brillantes antes de ajustar los colores de acento.";
 
   setText("heroReductionLead", lead);
   setText("heroReductionValue", formatAdaptiveMetric(reductionAbsolute));
@@ -144,7 +144,7 @@ function updateImpact() {
   setText("heroImprovementPill", pill);
   setText("heroSupportCopy", support);
   setText("summaryCarbonValue", formatAdaptiveMetric(totalCarbon));
-  setText("summaryCarbonUnit", "kg CO₂eq generated");
+  setText("summaryCarbonUnit", "kg CO₂eq");
   setText("summaryEnergyValue", formattedEnergy.value);
   setText("summaryEnergyUnit", formattedEnergy.unit);
   setText("summaryUsers", String(users));

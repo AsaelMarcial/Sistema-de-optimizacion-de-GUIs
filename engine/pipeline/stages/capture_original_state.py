@@ -191,11 +191,6 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         for property_model in element.properties:
             property_model.has_color = _register_colors(property_model.value, color_scheme)
 
-    page_builder.set_effective_value(root.node_id, "background-color", "rgb(0, 0, 0)")
-    page_builder.set_color_scheme()
-    after_screenshot = session.get_path("after.png", "artifacts", "png")
-    after_screenshot_path = page_builder.capture_fullpage_screenshot(output_path=after_screenshot)
-
     context.set(K.DOM_TREE, root)
     context.set(K.COLOR_SCHEME, color_scheme)
 
@@ -203,7 +198,6 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         "dom.capture_done",
         {
             "screenshot_path": screenshot_path,
-            "after_screenshot_path": after_screenshot_path,
             "observed_color_count": len(color_scheme.get_colors()),
         },
     )

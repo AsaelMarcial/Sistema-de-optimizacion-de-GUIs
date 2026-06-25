@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#050505" />
-    <title>Resultados</title>
+    <title>Resultados de optimización | GLOW</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -46,46 +46,46 @@
       <section id="impact" aria-labelledby="impact-title">
         <span class="eyebrow">
           <span class="eyebrow__dot"></span>
-          <span>Lectura sostenible de la interfaz</span>
+          <span>Diagnóstico de sostenibilidad visual</span>
         </span>
 
         <div class="flex-row">
           <article class="card card--glow hero-panel">
             <div class="hero-copy">
               <h1 id="impact-title">
-                Tu interfaz
-                <span id="heroReductionLead">podría emitir</span>
+                Tu interfaz puede
+                <span id="heroReductionLead">reducir su impacto hasta en</span>
                 <span class="title__inline">
                   <strong id="heroReductionValue">{{ results.view.initial_reduction | round(4) }}</strong>
-                  <em id="heroReductionTail">kg menos de CO₂eq</em>
+                  <em id="heroReductionTail">kg de CO₂eq</em>
                 </span>
               </h1>
 
               <p class="text-secondary" id="heroSupportCopy">
-                Una parte importante del impacto no viene del contenido, sino de las superficies luminosas y la jerarquía visual que sostiene la interfaz.
+                El impacto de una interfaz no depende solo de lo que comunica, sino también de cuánta luz emiten sus superficies, cómo distribuye el color y dónde concentra la atención.
               </p>
             </div>
 
             <div class="hero-note">
-              <span class="pill pill--accent" id="heroImprovementPill">Potencial de mejora en lectura e impacto</span>
+              <span class="pill pill--accent" id="heroImprovementPill">Oportunidad de optimización visual y energética</span>
 
               <p class="text-tertiary">
-                La interfaz actual ya tiene intención y estructura, pero todavía depende demasiado de rellenos brillantes, énfasis decorativo y contenedores de alta luminancia.
+                La propuesta conserva una estructura sólida, pero puede comunicar con mayor claridad al reducir superficies muy luminosas, moderar los acentos decorativos y dirigir mejor la atención.
               </p>
             </div>
           </article>
 
           <div class="impact-panel">
             <article id="carbon_card" class="card card--soft metric">
-              <span class="metric__label">Huella de carbono</span>
+              <span class="metric__label">Huella de carbono estimada</span>
               <div class="metric__value" id="summaryCarbonValue">{{ results.carbon_footprint | round(4) }}</div>
-              <div class="metric__text" id="summaryCarbonUnit">kg CO₂eq emitidos</div>
+              <div class="metric__text" id="summaryCarbonUnit">kg de CO₂eq generados</div>
             </article>
 
             <article id="energy_card" class="card card--soft metric">
-              <span class="metric__label">Consumo energético</span>
+              <span class="metric__label">Consumo energético estimado</span>
               <div class="metric__value" id="summaryEnergyValue">{{ results.energy_wh | round(2) }}</div>
-              <div class="metric__text" id="summaryEnergyUnit">Wh consumidos</div>
+              <div class="metric__text" id="summaryEnergyUnit">Wh de energía consumida</div>
             </article>
 
             <form class="card card--soft impact-controls" id="impact-controls">
@@ -104,7 +104,7 @@
               </div>
 
               <div class="field">
-                <label for="usage_hours">Horas</label>
+                <label for="usage_hours">Horas de uso</label>
                 <input
                   type="number"
                   id="usage_hours"
@@ -122,7 +122,7 @@
               </button>
 
               <p class="metric__text">
-                <strong>Contexto de uso.</strong> Este cálculo considera
+                <strong>Escenario analizado.</strong> La estimación considera
                 <span id="summaryUsers">100</span> usuarios y
                 <span id="summaryHours">24</span> horas de uso.
               </p>
@@ -136,7 +136,7 @@
         {% set color_distribution = color_distribution_overview.data if color_distribution_overview else none %}
         <span class="eyebrow">
           <span class="eyebrow__dot"></span>
-          <span>Perfil de carga visual</span>
+          <span>Distribución del color</span>
         </span>
 
         <div class="flex-row">
@@ -161,12 +161,12 @@
           <article class="card card--glow visual-highlight">
             <div class="visual-highlight__copy">
               <h2 id="visual-load-title">
-                Gran parte del peso visual se concentra en
+                La identidad visual se concentra en
                 <span>{{ color_distribution | length }} tonos dominantes</span>
               </h2>
 
               <p class="text-secondary">
-                sobre todo en superficies estructurales de alta luminancia.
+                Estos colores ocupan las superficies con mayor presencia y explican buena parte del consumo visual y energético de la interfaz.
               </p>
             </div>
           </article>
@@ -176,15 +176,15 @@
       <section aria-labelledby="palette-contrast-title">
         <span class="eyebrow">
           <span class="eyebrow__dot"></span>
-          <span>Paletas y contraste</span>
+          <span>Sistema cromático y legibilidad</span>
         </span>
         <h2 id="palette-contrast-title">
-          Paletas tonales y
-          <span>contraste</span>
+          Un sistema de color más coherente y
+          <span>fácil de leer</span>
         </h2>
 
         <p class="text-secondary">
-          Aquí se ve qué familias sostienen la interfaz y dónde la legibilidad empieza a volverse frágil.
+          Explora las familias tonales que construyen la interfaz e identifica las combinaciones que podrían dificultar la lectura.
         </p>
 
         <div class="flex-row">
@@ -213,8 +213,8 @@
                         data-copy-color="{{ tone.hex_value | upper }}"
                         data-copy-label="{{ palette_label }} {{ tone.tone }}"
                         data-copy-message="{{ tone.hex_value | upper }}"
-                        title="{{ palette_label }} tono {{ tone.tone }} · {{ tone.hex_value | upper }} · Click para copiar"
-                        aria-label="{{ palette_label }} tono {{ tone.tone }}, {{ tone.hex_value | upper }}, click para copiar"
+                        title="{{ palette_label }} tono {{ tone.tone }} · {{ tone.hex_value | upper }} · Haz clic para copiar"
+                        aria-label="{{ palette_label }} tono {{ tone.tone }}, {{ tone.hex_value | upper }}, haz clic para copiar"
                       ></button>
                     </li>
                     {% endfor %}
@@ -231,9 +231,9 @@
           <article class="card card--soft">
             {% set contrast_issues = summary.contrast_issues() if summary else [] %}
             <div class="contrast-summary">
-              <h3>Problemas de contraste</h3>
+              <h3>Legibilidad del contraste</h3>
               <p class="text-tertiary">
-                {{ contrast_issues | length }} problemas de contraste encontrados
+                {{ contrast_issues | length }} {{ 'combinación requiere atención' if contrast_issues | length == 1 else 'combinaciones requieren atención' }}
               </p>
             </div>
 
@@ -247,9 +247,9 @@
             </div>
             {% else %}
             <article class="contrast-empty">
-              <strong>No se detectaron problemas de contraste en la vista analizada.</strong>
+              <strong>La vista analizada mantiene un contraste adecuado.</strong>
               <p class="text-tertiary">
-                El reporte se conserva en Summary.contrast_issues para trazabilidad.
+                Las combinaciones evaluadas conservan una lectura clara en los elementos visibles.
               </p>
             </article>
             {% endif %}
@@ -260,21 +260,21 @@
       <section id="preview" aria-labelledby="changes-title">
         <span class="eyebrow">
           <span class="eyebrow__dot"></span>
-          <span>Qué cambia en la interfaz</span>
+          <span>Comparación de resultados</span>
         </span>
         <h2 id="changes-title">
-          La interfaz conserva su carácter y
-          <span>redistribuye el énfasis</span>
+          La interfaz conserva su identidad y
+          <span>comunica con mayor intención</span>
         </h2>
 
         <p class="text-secondary">
-          La comparación mantiene la intención general, pero afina jerarquías, brillo y contraste para comunicar mejor con menos carga visual.
+          La versión ajustada respeta la propuesta original y mejora el uso del brillo, el contraste y la jerarquía para ofrecer una experiencia más clara y eficiente.
         </p>
 
         <div class="flex-column">
           <div class="flex-row">
             <article class="preview-window card card--soft" aria-labelledby="preview-original-title">
-              <h3 class="sr-only" id="preview-original-title">Original HTML preview</h3>
+              <h3 class="sr-only" id="preview-original-title">Vista previa del HTML original</h3>
 
               <div class="preview-window__bar">
                 <div class="preview-window__dots" aria-hidden="true">
@@ -295,7 +295,7 @@
             </article>
 
             <article class="preview-window card card--glow" aria-labelledby="preview-adjusted-title">
-              <h3 class="sr-only" id="preview-adjusted-title">Adjusted HTML preview</h3>
+              <h3 class="sr-only" id="preview-adjusted-title">Vista previa del HTML ajustado</h3>
 
               <div class="preview-window__bar">
                 <div class="preview-window__dots" aria-hidden="true">
@@ -318,9 +318,9 @@
 
           {% if results.view.change_history_groups %}
           <div id="history" class="results-subheading">
-            <h3>Rastro de cambios</h3>
+            <h3>Historial de optimización</h3>
             <p class="text-secondary">
-              Cada ajuste queda agrupado para que el resultado sea claro, explicable y fácil de revisar.
+              Consulta cada ajuste realizado, su efecto visual y el ahorro estimado para validar el resultado con total claridad.
             </p>
           </div>
 
@@ -374,20 +374,20 @@
         </div>
       </section>
 
-      {# Effect color evidence intentionally removed from the visible UI. #}
+      {# La evidencia de colores de efectos se eliminó intencionalmente de la interfaz visible. #}
       {% if results.heuristics %}
       <section aria-labelledby="heuristics-title">
         <span class="eyebrow">
           <span class="eyebrow__dot"></span>
-          <span>Heurísticas aplicadas</span>
+          <span>Criterios de evaluación</span>
         </span>
         <h2 id="heuristics-title">
-          Criterios que guiaron
-          <span>la lectura</span>
+          Principios que guiaron
+          <span>la optimización</span>
         </h2>
 
         <p class="text-secondary">
-          Las reglas quedan separadas del rastro de cambios para entender qué motivó cada ajuste y cómo se sostiene.
+          Cada criterio explica por qué se realizó un ajuste y cómo contribuye a una interfaz más legible, consistente y eficiente.
         </p>
 
         <div class="heuristics">
@@ -421,17 +421,17 @@
       <section id="download" aria-labelledby="export-title">
         <span class="eyebrow">
           <span class="eyebrow__dot"></span>
-          <span>Paquete de salida</span>
+          <span>Archivos listos para implementar</span>
         </span>
 
         <article class="card card--glow flex-row">
           <div class="export-copy">
             <h2 id="export-title">
-              Descarga la versión ajustada y conserva su trazabilidad
+              Lleva la versión optimizada a tu siguiente etapa de trabajo
             </h2>
 
             <p class="text-secondary">
-              Descarga el HTML resultante, la paleta tonal y el historial de cambios juntos para compartir una lectura clara con diseño o desarrollo.
+              Obtén el HTML optimizado junto con su paleta tonal y el historial de cambios para revisarlo, compartirlo o integrarlo con diseño y desarrollo.
             </p>
           </div>
 
@@ -441,7 +441,7 @@
               download
               class="button button--primary"
             >
-              Descargar versión ajustada
+              Descargar diseño
             </a>
           </div>
         </article>

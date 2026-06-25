@@ -20,10 +20,13 @@ from engine.pipeline.stages.prepare_project_session import CONTRACT as PREPARE_P
 from engine.pipeline.stages.prepare_project_session import run_stage as run_prepare_project_session_stage
 from engine.pipeline.stages.start_page_builder import CONTRACT as START_PAGE_BUILDER_CONTRACT
 from engine.pipeline.stages.start_page_builder import run_stage as run_start_page_builder_stage
+from engine.pipeline.stages.transform_design import CONTRACT as TRANSFORM_DESIGN_CONTRACT
+from engine.pipeline.stages.transform_design import run_stage as run_transform_design_stage
 _STAGES: tuple[tuple[StageContract, Any], ...] = (
     (START_PAGE_BUILDER_CONTRACT, run_start_page_builder_stage),
     (CAPTURE_ORIGINAL_STATE_CONTRACT, run_capture_original_state_stage),
     (DATA_PROCESSOR_CONTRACT, run_data_processor_stage),
+    (TRANSFORM_DESIGN_CONTRACT, run_transform_design_stage),
     (ASSESS_ENVIROMENTAL_IMPACT_CONTRACT, run_assess_enviromental_impact_stage),
     (CLOSE_PAGE_BUILDER_CONTRACT, run_close_page_builder_stage),
 )
@@ -60,6 +63,61 @@ def _palette_rows(color_scheme: Any) -> list[dict[str, Any]]:
     return rows
 
 
+def _color_css(color: Any) -> str:
+    try:
+        srgb = color.convert("srgb").fit("srgb")
+        alpha = float(srgb.alpha(nans=False))
+        return srgb.to_string(comma=True, alpha=alpha < 0.999)
+    except Exception:
+        return "rgb(0, 0, 0)"
+
+
+def _color_rgb(color: Any) -> str:
+    try:
+        srgb = color.convert("srgb").fit("srgb")
+        red, green, blue = srgb.coords(nans=False)
+        return f"{round(float(red) * 255)}, {round(float(green) * 255)}, {round(float(blue) * 255)}"
+    except Exception:
+        return "0, 0, 0"
+
+
+def _change_history_groups(summary: Any) -> list[dict[str, Any]]:
+    if summary is None:
+        return []
+
+    iter_changes = getattr(summary, "iter_changes", None)
+    changes_source = iter_changes() if callable(iter_changes) else getattr(summary, "changes", ())
+    changes: list[dict[str, Any]] = []
+
+    for change in changes_source or ():
+        before_color = getattr(change, "before_color", None)
+        after_color = getattr(change, "after_color", None)
+        changes.append(
+            {
+                "name": f"Ajuste {getattr(change, 'change_id', len(changes) + 1)}",
+                "savings_label": "",
+                "before_css": _color_css(before_color),
+                "after_css": _color_css(after_color),
+                "before_rgb": _color_rgb(before_color),
+                "after_rgb": _color_rgb(after_color),
+                "before_code": getattr(change, "before_code", ""),
+                "after_code": getattr(change, "after_code", ""),
+            }
+        )
+
+    if not changes:
+        return []
+
+    return [
+        {
+            "title": "Transformacion de color",
+            "summary": "Cambios registrados desde Summary durante transform_design.",
+            "change_count": len(changes),
+            "changes": changes,
+        }
+    ]
+
+
 # DEBUG TEMPORAL: imprime Summary en results.html para validar data_processor.
 # Eliminar cuando assemble_results vuelva a consultar Summary directamente.
 def _debug_summary_text(summary: Any) -> str:
@@ -90,10 +148,25 @@ def _debug_summary_text(summary: Any) -> str:
             }
         )
 
+    changes: list[dict[str, Any]] = []
+    iter_changes = getattr(summary, "iter_changes", None)
+    summary_changes = iter_changes() if callable(iter_changes) else getattr(summary, "changes", ())
+    for change in summary_changes or ():
+        changes.append(
+            {
+                "change_id": getattr(change, "change_id", None),
+                "before_code": getattr(change, "before_code", None),
+                "after_code": getattr(change, "after_code", None),
+                "before_color": _debug_value(getattr(change, "before_color", None)),
+                "after_color": _debug_value(getattr(change, "after_color", None)),
+            }
+        )
+
     return pformat(
         {
             "overviews": overviews,
             "contrast_issues": contrast_issues,
+            "changes": changes,
         },
         sort_dicts=False,
         width=120,
@@ -277,7 +350,7 @@ def _fallback_template_payload(context: PipelineContext) -> dict[str, Any] | Non
             "top_three_percentage": 0,
             "palette_rows": palette_rows,
             "contrast_rows": [],
-            "change_history_groups": [],
+            "change_history_groups": _change_history_groups(summary),
         },
     }
     return {
