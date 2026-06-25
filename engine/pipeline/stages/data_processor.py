@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from engine.adapters.browser.page_builder import PageBuilder
+from engine.adapters.utils.palette_preview import render_palette_preview
 from engine.adapters.utils.pixel import build_histogram, image_to_array
 from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.domain.models.color_scheme import Color, ColorScheme
@@ -23,6 +24,12 @@ _MEDIA_TAGS = {
     "object",
     "embed",
 }
+_PREDOMINANT_COLOR_LIMIT = 12
+_FAMILY_COMPARISON_TONE = 60
+_FAMILY_HUE_DELTA_THRESHOLD = 12.0
+_FAMILY_CHROMA_DELTA_THRESHOLD = 30.0
+_FAMILY_NORMALIZED_DELTA_E_THRESHOLD = 10.0
+_FAMILY_FALLBACK_DELTA_E_THRESHOLD = 6.0
 
 
 def _summary_ready(summary: Summary) -> bool:
@@ -31,12 +38,16 @@ def _summary_ready(summary: Summary) -> bool:
             "environmental_color_histogram",
             "design_color_histogram",
             "colors_distribution",
+            "predominant_colors",
         )
-        return all(
-            summary.overview(name) is not None
-            and isinstance(summary.overview(name).data, dict)
-            for name in required_overviews
-        )
+        return all(summary.overview(name) is not None for name in required_overviews) and all(
+            isinstance(summary.overview(name).data, dict)
+            for name in (
+                "environmental_color_histogram",
+                "design_color_histogram",
+                "colors_distribution",
+            )
+        ) and isinstance(summary.overview("predominant_colors").data, tuple)
     except (AttributeError, RuntimeError, TypeError, ValueError):
         return False
 
@@ -49,7 +60,10 @@ CONTRACT = StageContract(
         context_value(K.DOM_TREE, Element),
         context_value(K.COLOR_SCHEME, ColorScheme),
     ),
-    produces=(context_value(K.SUMMARY, Summary, validator=_summary_ready),),
+    produces=(
+        context_value(K.COLOR_SCHEME, ColorScheme),
+        context_value(K.SUMMARY, Summary, validator=_summary_ready),
+    ),
 )
 
 
@@ -73,6 +87,9 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         pixel_matrix,
         excluded_quads,
     )
+    colors_distribution = _colors_distribution(color_scheme, design_histogram)
+    predominant_colors = _predominant_colors(colors_distribution)
+    _build_tonal_palettes(color_scheme, predominant_colors)
 
     summary.add_overview(
         "environmental_color_histogram",
@@ -84,15 +101,26 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     )
     summary.add_overview(
         "colors_distribution",
-        _colors_distribution(color_scheme, design_histogram),
+        colors_distribution,
+    )
+    summary.add_overview(
+        "predominant_colors",
+        predominant_colors,
+    )
+    render_palette_preview(
+        color_scheme.get_palettes(),
+        session.get_path("palette_preview.png", "artifacts", "png"),
     )
 
+    context.set(K.COLOR_SCHEME, color_scheme)
     context.set(K.SUMMARY, summary)
     context.trace.add_stage_event(
         CONTRACT.name,
         "complete",
         {
-            _summary_ready(summary)
+            "summary_ready": _summary_ready(summary),
+            "predominant_color_count": len(predominant_colors),
+            "palette_count": len(color_scheme.get_palettes()),
         },
     )
     return context
@@ -124,6 +152,92 @@ def _colors_distribution(
             reverse=True,
         )
     )
+
+
+def _predominant_colors(
+    colors_distribution: dict[Color, float],
+) -> tuple[Color, ...]:
+    chromatic_families: list[tuple[Color, float]] = []
+
+    for color, _percentage in sorted(
+        colors_distribution.items(),
+        key=lambda item: item[1],
+        reverse=True,
+    ):
+        try:
+            if color.is_achromatic():
+                continue
+        except Exception:
+            continue
+
+        percentage = float(_percentage)
+        matched_index = next(
+            (
+                index
+                for index, (seed_color, _family_percentage) in enumerate(chromatic_families)
+                if _same_chromatic_family(seed_color, color)
+            ),
+            None,
+        )
+        if matched_index is None:
+            chromatic_families.append((color, percentage))
+            continue
+
+        seed_color, family_percentage = chromatic_families[matched_index]
+        chromatic_families[matched_index] = (
+            seed_color,
+            round(family_percentage + percentage, 4),
+        )
+
+    chromatic_families.sort(key=lambda item: item[1], reverse=True)
+    return tuple(
+        color
+        for color, _percentage in chromatic_families[:_PREDOMINANT_COLOR_LIMIT]
+    )
+
+
+def _build_tonal_palettes(
+    color_scheme: ColorScheme,
+    predominant_colors: tuple[Color, ...],
+) -> ColorScheme:
+    for color_index, color in enumerate(predominant_colors, start=1):
+        color_scheme.add_palette(f"Color {color_index}", color)
+    return color_scheme
+
+
+def _same_chromatic_family(seed_color: Color, candidate_color: Color) -> bool:
+    try:
+        seed_normalized = _comparison_color(seed_color)
+        candidate_normalized = _comparison_color(candidate_color)
+        seed_hue, seed_chroma, _seed_tone = seed_normalized.convert("hct").coords(nans=False)
+        candidate_hue, candidate_chroma, _candidate_tone = candidate_normalized.convert("hct").coords(nans=False)
+
+        if (
+            _hue_distance(float(seed_hue), float(candidate_hue)) <= _FAMILY_HUE_DELTA_THRESHOLD
+            and abs(float(seed_chroma) - float(candidate_chroma)) <= _FAMILY_CHROMA_DELTA_THRESHOLD
+            and seed_normalized.delta_e(candidate_normalized) <= _FAMILY_NORMALIZED_DELTA_E_THRESHOLD
+        ):
+            return True
+
+        return seed_color.delta_e(candidate_color) <= _FAMILY_FALLBACK_DELTA_E_THRESHOLD
+    except Exception:
+        return False
+
+
+def _comparison_color(color: Color) -> Color:
+    return (
+        color
+        .convert("hct")
+        .clone()
+        .set("tone", _FAMILY_COMPARISON_TONE)
+        .fit("srgb", method="raytrace", pspace="hct")
+        .convert("srgb")
+    )
+
+
+def _hue_distance(left_hue: float, right_hue: float) -> float:
+    distance = abs(left_hue - right_hue) % 360.0
+    return min(distance, 360.0 - distance)
 
 
 def _build_contrast_issues(

@@ -43,11 +43,6 @@
       <pre>{{ results.color_scheme_debug }}</pre>
       {% endif %}
 
-      {# DEBUG TEMPORAL: muestra Histogramas. Eliminar despues de validar capture_original_state. #}
-      {% if results.debug_summary_text %}
-      <pre>{{ results.debug_summary_text }}</pre>
-      {% endif %}
-
       <section id="impact" aria-labelledby="impact-title">
         <span class="eyebrow">
           <span class="eyebrow__dot"></span>
@@ -245,26 +240,8 @@
             {% if contrast_issues %}
             <div class="contrast-list">
               {% for issue_id in contrast_issues %}
-              <article class="contrast-item">
-                <div class="contrast-item__meta">
-                  <span class="contrast-item__ratio">
-                    {{ contrast_issues[issue_id].contrast_ratio | round(2) }} / {{ contrast_issues[issue_id].required_ratio | round(1) }}
-                  </span>
-                  <span class="contrast-item__count">{{ contrast_issues | length }}</span>
-                </div>
-
-                <div class="contrast-preview" style="background: {{ contrast_issues[issue_id].background }};">
+              <article class="contrast-preview" style="background: {{ contrast_issues[issue_id].background }};">
                   <span class="contrast-preview__text" style="color: {{ contrast_issues[issue_id].foreground }};">Texto</span>
-                </div>
-
-                <div class="contrast-tones">
-                  <span>Fondo {{ contrast_issues[issue_id].background | upper }}</span>
-                  <span>Texto {{ contrast_issues[issue_id].foreground | upper }}</span>
-                </div>
-
-                <span class="contrast-item__selector">
-                  Nodo {{ contrast_issues[issue_id].backend_node_id }}
-                </span>
               </article>
               {% endfor %}
             </div>

@@ -164,6 +164,44 @@ class PageBuilder:
                 f"No se pudo resolver el backendNodeId: {exc}"
             ) from exc
 
+    def set_effective_value(self, node_id: int, property_name: str, value: str) -> any:
+        self._ensure_open()
+        assert self._cdp is not None
+        if not node_id:
+            return False
+        try:
+            if not self._document_loaded:
+                self.get_full_document_node()
+            response = self._cdp.send(
+                "CSS.setEffectivePropertyValueForNode",
+                {"nodeId": int(node_id), "propertyName": property_name, "value": value},
+            )
+            return True
+        except (PlaywrightError, TypeError, ValueError) as exc:
+            raise RuntimeError(
+                f"No se pudo cambiar el valor: {exc}"
+            ) from exc
+
+    def set_color_scheme(self) -> None:
+        self._ensure_open()
+        assert self._page is not None
+        try:
+            self._page.evaluate("""
+                () => {
+                    // 1. Validar que no exista ya para no duplicar
+                    if (!document.querySelector('meta[name="color-scheme"]')) {
+                        const meta = document.createElement('meta');
+                        meta.name = 'color-scheme';
+                        meta.content = 'dark';
+                        document.head.appendChild(meta);
+                    }
+                }
+            """)
+        except PlaywrightError as exc:
+            raise RuntimeError(
+                f"No se pudo inyectar color_scheme: {exc}"
+            ) from exc
+
     def get_background_colors(self, node_id: int) -> dict[str, Any]:
         """Retrieve the computed background colors and text metrics for a node.
 

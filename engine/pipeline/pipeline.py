@@ -10,6 +10,8 @@ from engine.pipeline.result import PipelineResult
 from engine.pipeline.stage_contract import PipelineContractError, StageContract, validate_produces, validate_requires
 from engine.pipeline.stages.capture_original_state import CONTRACT as CAPTURE_ORIGINAL_STATE_CONTRACT
 from engine.pipeline.stages.capture_original_state import run_stage as run_capture_original_state_stage
+from engine.pipeline.stages.assess_enviromental_impact import CONTRACT as ASSESS_ENVIROMENTAL_IMPACT_CONTRACT
+from engine.pipeline.stages.assess_enviromental_impact import run_stage as run_assess_enviromental_impact_stage
 from engine.pipeline.stages.close_page_builder import CONTRACT as CLOSE_PAGE_BUILDER_CONTRACT
 from engine.pipeline.stages.close_page_builder import run_stage as run_close_page_builder_stage
 from engine.pipeline.stages.data_processor import CONTRACT as DATA_PROCESSOR_CONTRACT
@@ -22,6 +24,7 @@ _STAGES: tuple[tuple[StageContract, Any], ...] = (
     (START_PAGE_BUILDER_CONTRACT, run_start_page_builder_stage),
     (CAPTURE_ORIGINAL_STATE_CONTRACT, run_capture_original_state_stage),
     (DATA_PROCESSOR_CONTRACT, run_data_processor_stage),
+    (ASSESS_ENVIROMENTAL_IMPACT_CONTRACT, run_assess_enviromental_impact_stage),
     (CLOSE_PAGE_BUILDER_CONTRACT, run_close_page_builder_stage),
 )
 
@@ -64,11 +67,17 @@ def _debug_summary_text(summary: Any) -> str:
         return ""
 
     overviews: dict[str, Any] = {}
-    for overview in getattr(summary, "overviews", ()) or ():
+    summary_overviews = getattr(summary, "overviews", ())
+    if callable(summary_overviews):
+        summary_overviews = summary_overviews().values()
+    for overview in summary_overviews or ():
         overviews[getattr(overview, "name", "")] = _debug_value(getattr(overview, "data", None))
 
     contrast_issues: list[dict[str, Any]] = []
-    for issue in getattr(summary, "contrast_issues", ()) or ():
+    summary_contrast_issues = getattr(summary, "contrast_issues", ())
+    if callable(summary_contrast_issues):
+        summary_contrast_issues = summary_contrast_issues().values()
+    for issue in summary_contrast_issues or ():
         contrast_issues.append(
             {
                 "issue_id": getattr(issue, "issue_id", None),
@@ -182,16 +191,31 @@ def _fallback_template_payload(context: PipelineContext) -> dict[str, Any] | Non
     html_name = html_candidates[0].name if html_candidates else ""
     palette_rows = _palette_rows(color_scheme)
     summary = context.get(K.SUMMARY) if context.has(K.SUMMARY) else None
+    before_assessment = (
+        context.get(K.ENVIRONMENTAL_BEFORE_ASSESSMENT)
+        if context.has(K.ENVIRONMENTAL_BEFORE_ASSESSMENT)
+        else None
+    )
+    after_assessment = (
+        context.get(K.ENVIRONMENTAL_AFTER_ASSESSMENT)
+        if context.has(K.ENVIRONMENTAL_AFTER_ASSESSMENT)
+        else None
+    )
+    environmental_savings = (
+        context.get(K.ENVIRONMENTAL_SAVINGS)
+        if context.has(K.ENVIRONMENTAL_SAVINGS)
+        else None
+    )
     snapshot_debug = context.get("derived.snapshot_debug", "")
     dom_tree_debug = _debug_dom_tree_text(context.get(K.DOM_TREE))
     color_scheme_debug = _debug_color_scheme_text(color_scheme)
 
     results = {
-        "total_current": 0,
-        "carbon_footprint": 0,
-        "energy_wh": 0,
-        "environmental_energy_wh": 0,
-        "environmental_co2eq_per_use": 0,
+        "total_current": float(getattr(before_assessment, "current_a", 0.0) or 0.0),
+        "carbon_footprint": float(getattr(before_assessment, "co2eq_per_use", 0.0) or 0.0),
+        "energy_wh": float(getattr(before_assessment, "energy_wh", 0.0) or 0.0),
+        "environmental_energy_wh": float(getattr(after_assessment, "energy_wh", 0.0) or 0.0),
+        "environmental_co2eq_per_use": float(getattr(after_assessment, "co2eq_per_use", 0.0) or 0.0),
         "session_id": session.session_id,
         "session_dirname": session_dirname,
         "html_name": html_name,
@@ -199,15 +223,15 @@ def _fallback_template_payload(context: PipelineContext) -> dict[str, Any] | Non
         "debug": context.trace.to_dict() if context.trace else None,
         "debug_screenshots": {
             "before": "before.png",
-            "after": "before.png",
+            "after": "after.png",
         },
         "debug_summary_text": _debug_summary_text(summary),
         "recommendations": {"items": [], "summary": None},
         "download_url": "",
         "environmental_assessment": {
-            "before": {},
-            "after": {},
-            "savings": {},
+            "before": before_assessment.to_dict() if before_assessment is not None else {},
+            "after": after_assessment.to_dict() if after_assessment is not None else {},
+            "savings": environmental_savings.to_dict() if environmental_savings is not None else {},
         },
         "render_snapshot": {
             "node_count": len(list(context.get(K.DOM_TREE).iter_dfs())) if context.has(K.DOM_TREE) else 0,
@@ -247,7 +271,7 @@ def _fallback_template_payload(context: PipelineContext) -> dict[str, Any] | Non
         "dom_tree_debug": dom_tree_debug,
         "color_scheme_debug": color_scheme_debug,
         "view": {
-            "initial_reduction": 0,
+            "initial_reduction": float(getattr(environmental_savings, "co2eq_per_use", 0.0) or 0.0),
             "dominant_rows": [],
             "dominant_color_count": 0,
             "top_three_percentage": 0,

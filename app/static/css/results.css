@@ -1453,36 +1453,6 @@ main {
   gap: 10px;
 }
 
-.contrast-item__selector {
-  display: grid;
-  gap: 4px;
-  color: var(--text-caption);
-  word-break: break-word;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 11px;
-  line-height: 1.45;
-}
-
-.contrast-item__selector small {
-  color: var(--text-secondary);
-  font-family: inherit;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.contrast-item__meta {
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.contrast-item__ratio {
-  color: var(--text-caption);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .contrast-item__count {
   flex: 0 0 auto;
   padding: 3px 8px;
@@ -1499,9 +1469,7 @@ main {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
   min-height: 42px;
-  padding: 0 18px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 6px;
   box-shadow:
