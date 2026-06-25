@@ -751,6 +751,9 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         else None
     )
     effect_color_payload = _effect_colors_payload(prototype_structure, colors_inventory)
+    # DEBUG TEMPORAL: expone snapshot_debug en results.html para validar capture_original_state.
+    # Eliminar cuando la depuracion del DOMSnapshot termine.
+    snapshot_debug = context.get("derived.snapshot_debug")
 
     results = {
         "total_current": before.current_a,
@@ -834,6 +837,9 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             "properties": effect_color_payload.get("by_property") or [],
         },
     }
+    if snapshot_debug:
+        results["snapshot_debug"] = snapshot_debug
+
     results["view"] = _build_results_view(
         results,
         color_inventory=colors_inventory,

@@ -2,7 +2,13 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.mypy_cache/
 
-# Runtime/session artifacts
+# Virtual environments
+.venv/
+venv/
+
+# Runtime/session/temp artifacts
+tmp/
 workspace/sessions/*
 !workspace/sessions/.gitkeep

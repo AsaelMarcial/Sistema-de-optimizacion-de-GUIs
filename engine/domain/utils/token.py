@@ -16,7 +16,6 @@ from engine.domain.data.tokens import (
 from engine.domain.models.color import Color, ColorCatalog
 from engine.domain.models.element import Element, Property
 from engine.domain.models.color_scheme import ColorScheme, TonalPalette
-from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.token import Token, TokenInventory
 
 _SEGMENT_RE = re.compile(r"[^a-z0-9]+")

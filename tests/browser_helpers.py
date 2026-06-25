@@ -91,7 +91,7 @@ def capture_prototype_state_artifacts(
     try:
         screenshot_path = None
         if artifacts_dir and screenshot_filename:
-            screenshot_path = builder.capture_full_page_screenshot(
+            screenshot_path = builder.capture_fullpage_screenshot(
                 output_path=str(Path(artifacts_dir) / Path(screenshot_filename).name),
             )
         snapshot, style_catalog = builder.capture_snapshot_models()

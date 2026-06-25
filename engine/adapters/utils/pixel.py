@@ -1,278 +1,83 @@
 from __future__ import annotations
 
-from os import PathLike
-from typing import Any, Iterable, Mapping, TypeAlias
-
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
+from pathlib import Path
 
-from engine.adapters.color_service import color_registry
+def image_to_array(image_source: str | Path) -> np.ndarray:
+    """Load an image from a path and convert it into a clean RGB NumPy array.
 
-ColorHistogram: TypeAlias = list[dict[str, Any]]
-_Box: TypeAlias = tuple[int, int, int, int]
+    Args:
+        image_source: File path or path-like object pointing to the image.
 
+    Returns:
+        A 3D NumPy array representing the RGB pixel matrix.
 
-def load_image_array(image_source: Any) -> np.ndarray:
-    if isinstance(image_source, (str, PathLike)):
+    Raises:
+        RuntimeError: If the image cannot be read, found, or processed.
+    """
+    try:
         with open(image_source, "rb") as image_file:
             with Image.open(image_file) as image:
-                converted = image.convert("RGB")
-                try:
-                    return np.array(converted)
-                finally:
-                    converted.close()
+                return np.array(image.convert("RGB"))
+    except (FileNotFoundError, PermissionError) as exc:
+        raise RuntimeError(
+            f"Error de acceso al archivo de imagen '{image_source}': {exc}"
+        ) from exc
+    except Exception as exc:
+        raise RuntimeError(
+            f"No se pudo procesar o decodificar la imagen '{image_source}': {exc}"
+        ) from exc
 
-    if isinstance(image_source, Image.Image):
-        converted = image_source.convert("RGB")
-        try:
-            return np.array(converted)
-        finally:
-            converted.close()
+def build_histogram(
+    image_rgb: np.ndarray,
+    excluded_quads: list[list[tuple[float, float]]] | None = None
+) -> dict[str, int]:
+    """Calculate the frequency of unique RGB colors from an image matrix.
 
-    return _drop_alpha_channel(np.asarray(image_source))
+    Args:
+        image_rgb: A 3D NumPy array representing the RGB pixel matrix.
+        excluded_quads: Optional list of structured quads, where each quad 
+          contains 4 coordinate tuples [(x1,y1), (x2,y2), (x3,y3), (x4,y4)].
 
+    Returns:
+        A dictionary mapping color strings to their pixel counts, 
+        ordered from highest to lowest frequency.
+    """
+    height, width = image_rgb.shape[:2]
 
-def build_color_histograms(
-    image_source: Any,
-    *,
-    prototype_structure: Any = None,
-    cluster_distance: float = 6.0,
-) -> dict[str, ColorHistogram]:
-    image = load_image_array(image_source)
-    environmental_histogram = _color_histogram_from_array(image)
-    scheme_histogram = environmental_histogram
+    # 1. Set the default fallback mask (include all pixels)
+    mask = np.ones((height, width), dtype=bool)
 
-    if prototype_structure is not None:
-        excluded_boxes = tuple(prototype_structure.excluded_pixel_boxes())
-        if excluded_boxes:
-            excluded_histogram = _color_histogram_from_boxes(image, excluded_boxes)
-            scheme_histogram = _subtract_color_histograms(
-                environmental_histogram,
-                excluded_histogram,
-            )
+    # 2. Apply exclusions geometrically if quads are provided
+    if excluded_quads:
+        mask_image = Image.new("1", (width, height), 1)
+        draw = ImageDraw.Draw(mask_image)
 
-    return {
-        "environmental": environmental_histogram,
-        "scheme": cluster_color_histogram(
-            scheme_histogram,
-            cluster_distance=cluster_distance,
-        ),
-    }
+        for points in excluded_quads:
+            if len(points) != 4:
+                continue
+            draw.polygon(points, fill=0)
 
+        mask = np.asarray(mask_image, dtype=bool)
 
-def cluster_color_histogram(
-    color_histogram: Iterable[Mapping[str, Any]],
-    *,
-    cluster_distance: float = 6.0,
-) -> ColorHistogram:
-    clustered: ColorHistogram = []
-    for row in sorted(
-        (_color_histogram_row(item) for item in color_histogram),
-        key=lambda item: int(item["count"]),
-        reverse=True,
-    ):
-        row_color = _color_key(row["color"])
-        matched_index: int | None = None
-        matched_distance: float | None = None
-        for index, candidate in enumerate(clustered):
-            distance = color_registry.delta_e_distance(
-                row_color,
-                _color_key(candidate["color"]),
-                method="2000",
-            )
-            if distance <= cluster_distance and (
-                matched_distance is None or distance < matched_distance
-            ):
-                matched_index = index
-                matched_distance = distance
+    # 3. Extract only the layout pixels matching the 'True' zones of the mask
+    valid_pixels = image_rgb[mask]
 
-        if matched_index is None:
-            clustered.append(row)
-            continue
+    # 4. Group exact identical colors and extract their absolute occurrence count
+    unique_colors, counts = np.unique(valid_pixels, axis=0, return_counts=True)
 
-        clustered[matched_index] = {
-            "color": list(clustered[matched_index]["color"]),
-            "count": int(clustered[matched_index]["count"]) + int(row["count"]),
-        }
-    return clustered
+    # 5. Zip and sort the raw arrays directly before allocating Python objects
+    # Esto es mucho más eficiente que meter todo a listas y luego ordenarlas
+    sorted_indices = np.argsort(-counts)  # El signo menos fuerza orden descendente
+    
+    unique_colors = unique_colors[sorted_indices]
+    counts = counts[sorted_indices]
 
+    # 6. Build the final dictionary in a single pass
+    color_frequencies = {}
+    for color, count in zip(unique_colors, counts):
+        rgb_string = f"rgb({color[0]}, {color[1]}, {color[2]})"
+        color_frequencies[rgb_string] = int(count)
 
-def get_color_count(
-    color_histogram: Iterable[Mapping[str, Any]],
-    r: int,
-    g: int,
-    b: int,
-    *,
-    distance_threshold: float = 6.0,
-) -> dict[str, Any]:
-    target = (int(r), int(g), int(b))
-    best_row: dict[str, Any] | None = None
-    best_distance: float | None = None
-
-    for item in color_histogram:
-        row = _color_histogram_row(item)
-        row_color = _color_key(row["color"])
-        if row_color == target:
-            return row
-
-        distance = color_registry.delta_e_distance(
-            target,
-            row_color,
-            method="2000",
-        )
-        if distance > distance_threshold:
-            continue
-        if best_distance is None or distance < best_distance:
-            best_row = row
-            best_distance = distance
-
-    return best_row or {"color": list(target), "count": 0}
-
-
-def color_histogram_total(color_histogram: Iterable[Mapping[str, Any]]) -> int:
-    return sum(int(item.get("count") or 0) for item in color_histogram)
-
-
-def dominant_color_percentages(
-    color_histogram: Iterable[Mapping[str, Any]],
-    *,
-    limit: int = 10,
-) -> list[dict[str, Any]]:
-    rows = sorted(
-        (_color_histogram_row(item) for item in color_histogram),
-        key=lambda item: int(item["count"]),
-        reverse=True,
-    )
-    total = color_histogram_total(rows)
-    if total <= 0:
-        return []
-
-    return [
-        {
-            "color": list(row["color"]),
-            "count": int(row["count"]),
-            "percentage": round((int(row["count"]) / total) * 100, 4),
-        }
-        for row in rows[: max(int(limit), 0)]
-    ]
-
-
-def _drop_alpha_channel(array: np.ndarray) -> np.ndarray:
-    if array.ndim == 3 and array.shape[2] == 4:
-        return array[:, :, :3]
-    return array
-
-
-def _color_histogram_from_array(array: np.ndarray) -> ColorHistogram:
-    pixels = _drop_alpha_channel(np.asarray(array))
-    if pixels.ndim == 3 and pixels.shape[2] == 3:
-        pixels = pixels.reshape(-1, 3)
-    elif pixels.ndim == 2 and pixels.shape[1] == 3:
-        pixels = pixels
-    elif pixels.ndim == 1 and pixels.size % 3 == 0:
-        pixels = pixels.reshape(-1, 3)
-    else:
-        raise ValueError(f"Formato de imagen no soportado: shape={pixels.shape}")
-
-    if pixels.size == 0:
-        return []
-
-    colors, first_seen, counts = np.unique(
-        pixels,
-        axis=0,
-        return_counts=True,
-        return_index=True,
-    )
-    order = np.lexsort((first_seen, -counts))
-    return [
-        {"color": [int(channel) for channel in colors[index]], "count": int(counts[index])}
-        for index in order
-    ]
-
-
-def _color_histogram_from_boxes(
-    image: np.ndarray,
-    boxes: Iterable[_Box],
-) -> ColorHistogram:
-    image = _drop_alpha_channel(np.asarray(image))
-    if image.ndim != 3 or image.shape[2] != 3:
-        raise ValueError(f"Formato de imagen no soportado: shape={image.shape}")
-
-    image_height, image_width = image.shape[:2]
-    mask = np.zeros((image_height, image_width), dtype=bool)
-    for box in boxes:
-        clipped_box = _clip_box(
-            box,
-            image_width=image_width,
-            image_height=image_height,
-        )
-        if clipped_box is None:
-            continue
-        left, top, right, bottom = clipped_box
-        mask[top:bottom, left:right] = True
-
-    if not mask.any():
-        return []
-    return _color_histogram_from_array(image[mask])
-
-
-def _subtract_color_histograms(
-    base_histogram: Iterable[Mapping[str, Any]],
-    removed_histogram: Iterable[Mapping[str, Any]],
-) -> ColorHistogram:
-    counts = _counts_by_color(base_histogram)
-    for color, removed_count in _counts_by_color(removed_histogram).items():
-        remaining_count = counts.get(color, 0) - removed_count
-        if remaining_count > 0:
-            counts[color] = remaining_count
-        else:
-            counts.pop(color, None)
-
-    return [
-        {"color": list(color), "count": count}
-        for color, count in sorted(
-            counts.items(),
-            key=lambda item: (-item[1], item[0]),
-        )
-    ]
-
-
-def _counts_by_color(color_histogram: Iterable[Mapping[str, Any]]) -> dict[tuple[int, int, int], int]:
-    counts: dict[tuple[int, int, int], int] = {}
-    for item in color_histogram:
-        row = _color_histogram_row(item)
-        color = _color_key(row["color"])
-        counts[color] = counts.get(color, 0) + int(row["count"])
-    return counts
-
-
-def _color_histogram_row(item: Mapping[str, Any]) -> dict[str, Any]:
-    return {"color": list(_color_key(item.get("color"))), "count": int(item.get("count") or 0)}
-
-
-def _color_key(color: object) -> tuple[int, int, int]:
-    if color is None or isinstance(color, (str, bytes)):
-        raise ValueError(f"Color invalido: {color!r}")
-    try:
-        rgb = tuple(int(channel) for channel in color)  # type: ignore[union-attr]
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"Color invalido: {color!r}") from exc
-    if len(rgb) != 3:
-        raise ValueError(f"Color invalido: {color!r}")
-    return rgb
-
-
-def _clip_box(
-    box: _Box,
-    *,
-    image_width: int,
-    image_height: int,
-) -> _Box | None:
-    left, top, right, bottom = box
-    left = max(0, min(int(left), image_width))
-    right = max(0, min(int(right), image_width))
-    top = max(0, min(int(top), image_height))
-    bottom = max(0, min(int(bottom), image_height))
-    if right <= left or bottom <= top:
-        return None
-    return left, top, right, bottom
+    return color_frequencies

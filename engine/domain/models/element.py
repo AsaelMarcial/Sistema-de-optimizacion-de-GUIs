@@ -1,72 +1,46 @@
 from __future__ import annotations
 
-import re
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable
+from typing import Callable, Iterable
 
-from engine.domain.models.color import Color, unique_colors
-
-_HEX_COLOR_RE = re.compile(r"#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b")
-_FUNCTION_COLOR_RE = re.compile(r"rgba?\([^)]+\)", re.IGNORECASE)
-
+@dataclass(slots=True)
+class Attribute:
+    name: str
+    value: str
 
 @dataclass(slots=True)
 class Property:
     name: str
     value: str
-    colors: tuple[Color, ...] = field(default_factory=tuple)
+    has_color: bool = False
     style_id: str | None = None
-
-    def __post_init__(self) -> None:
-        self.name = str(self.name or "").strip()
-        self.value = str(self.value or "").strip()
-        if not self.colors:
-            self.colors = extract_colors(self.value)
-
-    def to_dict(self) -> dict[str, Any]:
-        payload: dict[str, Any] = {
-            "name": self.name,
-            "value": self.value,
-        }
-        if self.colors:
-            payload["colors"] = [color.to_dict() for color in self.colors]
-        if self.style_id is not None:
-            payload["style_id"] = self.style_id
-        return payload
-
 
 @dataclass(slots=True)
 class Element:
     backend_node_id: int
-    node_id: int
+    node_id: int | None
     tag_name: str
     node_type: int
-    x: float | None = None
+    parent_backend_node_id: int = -1
+    x: float | None = None 
     y: float | None = None
     width: float | None = None
     height: float | None = None
-    is_text_node: bool = False
     role: str | None = None
-    font_size: str | None = None
-    font_weight: str | None = None
+    attributes: list[Attribute] = field(default_factory=list)
     properties: list[Property] = field(default_factory=list)
     children: list["Element"] = field(default_factory=list, repr=False)
-    parent: "Element | None" = field(default=None, init=False, repr=False)
 
-    def __post_init__(self) -> None:
-        self.backend_node_id = int(self.backend_node_id)
-        self.node_id = int(self.node_id)
-        self.node_type = int(self.node_type)
-        self.tag_name = str(self.tag_name or "").strip().lower()
+    @property
+    def is_text_node(self) -> bool:
+        return self.tag_name == "#text" and not self.children
 
     def add_child(self, child: "Element") -> None:
-        if not isinstance(child, Element):
-            raise TypeError("child must be an Element instance.")
         if child is self:
             raise ValueError("An Element cannot be a child of itself.")
         if child not in self.children:
-            child.parent = self
+            child.parent_backend_node_id = self.backend_node_id
             self.children.append(child)
 
     def iter_dfs(self):
@@ -87,39 +61,26 @@ class Element:
                 return element
         return None
 
-    def filter(self, condition: Callable[["Element"], bool]) -> tuple["Element", ...]:
-        return tuple(element for element in self.iter_dfs() if condition(element))
+    def find_by_backend_node_id(self, backend_node_id: int) -> "Element | None":
+        return self.find(lambda element: element.backend_node_id == backend_node_id)
 
-    @property
-    def all_colors(self) -> tuple[Color, ...]:
-        return unique_colors(color for prop in self.properties for color in prop.colors)
+    def attribute(self, name: str) -> Attribute | None:
+        normalized = str(name).strip()
+        return next((attr for attr in self.attributes if attr.name == normalized), None)
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "backend_node_id": self.backend_node_id,
-            "node_id": self.node_id,
-            "tag_name": self.tag_name,
-            "node_type": self.node_type,
-            "x": self.x,
-            "y": self.y,
-            "width": self.width,
-            "height": self.height,
-            "is_text_node": self.is_text_node,
-            "role": self.role,
-            "font_size": self.font_size,
-            "font_weight": self.font_weight,
-            "properties": [prop.to_dict() for prop in self.properties],
-            "children": [child.to_dict() for child in self.children],
-        }
+    def property(self, name: str) -> Property | None:
+        normalized = str(name).strip()
+        return next((prop for prop in self.properties if prop.name == normalized), None)
 
+    def remove_property(self, name: str) -> None:
+        normalized = str(name).strip()
+        self.properties[:] = [
+            prop for prop in self.properties if prop.name != normalized
+        ]
 
-def extract_colors(value: str) -> tuple[Color, ...]:
-    colors: list[Color] = []
-    for token in (*_HEX_COLOR_RE.findall(value), *_FUNCTION_COLOR_RE.findall(value)):
-        color = Color.from_css(token)
-        if color is not None and color not in colors:
-            colors.append(color)
-    return tuple(colors)
+    def has_tag(self, *names: str) -> bool:
+        normalized = {str(name).strip().lower() for name in names}
+        return self.tag_name.lower() in normalized
 
 
 def iter_elements(root: Element | None) -> Iterable[Element]:

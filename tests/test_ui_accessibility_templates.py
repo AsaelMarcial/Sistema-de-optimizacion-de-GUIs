@@ -24,7 +24,7 @@ class UIAccessibilityTemplatesTest(unittest.TestCase):
         self.assertIn('aria-label="Navegación principal"', self.header)
         self.assertIn('width="296"', self.header)
         self.assertIn('height="68"', self.header)
-        self.assertIn("results is defined and results.view.change_history_groups", self.header)
+        self.assertIn("results and results.view.change_history_groups", self.header)
 
     def test_main_content_targets_exist_for_skip_link(self) -> None:
         self.assertIn('<main id="main-content" class="landing-page">', self.index)
@@ -85,7 +85,7 @@ class UIAccessibilityTemplatesTest(unittest.TestCase):
     def test_contrast_card_uses_compact_card_layout(self) -> None:
         self.assertIn(".contrast-card", self.css)
         self.assertIn("align-self: start;", self.css)
-        self.assertIn("contrast_group_count = results.view.contrast_rows | length", self.results)
+        self.assertIn("contrast_group_count = contrast_groups.keys | length", self.results)
         self.assertIn("'grupo' if contrast_group_count == 1 else 'grupos'", self.results)
         self.assertIn('class="contrast-item__count"', self.results)
         self.assertIn(".contrast-item__count", self.css)

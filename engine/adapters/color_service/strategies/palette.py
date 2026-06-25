@@ -41,7 +41,7 @@ class HCTPaletteStrategy:
         if chroma_override is not None:
             tonal.set("chroma", float(chroma_override))
         tonal.set("tone", float(tone))
-        return tonal.fit(space="srgb", method=self.fit_method, pspace=self.perceptual_space)
+        return tonal.fit(space="srgb", method=self.fit_method, pspace=self.perceptual_space).convert("srgb")
 
 
 class _PaletteRegistryProtocol(Protocol):

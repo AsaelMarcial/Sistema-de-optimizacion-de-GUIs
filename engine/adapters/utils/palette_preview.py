@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Iterable, Mapping
 
 from PIL import Image, ImageDraw, ImageFont
 
-from engine.adapters.color_service import color_registry
+from engine.domain.models.color_scheme import Color, Palette, Tone
 
 _CANVAS_BACKGROUND = "#050608"
 _ROW_BACKGROUND = "#101318"
@@ -39,43 +39,28 @@ def _load_font(size: int, *, mono: bool = False) -> ImageFont.ImageFont | ImageF
     return ImageFont.load_default()
 
 
-def _palette_rows(palette_analysis: Mapping[str, Any]) -> list[Mapping[str, Any]]:
-    core_palettes = dict(palette_analysis.get("core_palettes") or {})
-    rows: list[Mapping[str, Any]] = []
-
-    achromatic = core_palettes.get("achromatic_palette")
-    if isinstance(achromatic, Mapping):
-        rows.append(achromatic)
-
-    for palette in core_palettes.get("chromatic_palettes") or ():
-        if isinstance(palette, Mapping):
-            rows.append(palette)
-
-    return rows
+def _palette_rows(palettes: Mapping[str, Palette] | Iterable[Palette]) -> list[Palette]:
+    if isinstance(palettes, Mapping):
+        return list(palettes.values())
+    return list(palettes)
 
 
 def _text_color(background_hex: str) -> str:
-    white_contrast = color_registry.contrast_ratio("#ffffff", background_hex)
-    dark_contrast = color_registry.contrast_ratio("#08090b", background_hex)
+    white_contrast = Color("#ffffff").contrast(background_hex)
+    dark_contrast = Color("#08090b").contrast(background_hex)
     return "#ffffff" if white_contrast >= dark_contrast else "#08090b"
 
 
-def _palette_title(palette: Mapping[str, Any], chromatic_index: int) -> str:
-    label = str(palette.get("label") or "").strip()
-    if label:
-        return label
-    if palette.get("palette_type") == "achromatic":
-        return "Neutral"
-    return f"Paleta cromatica {chromatic_index}"
+def _palette_title(palette: Palette, chromatic_index: int) -> str:
+    return palette.name
 
 
-def _palette_meta(palette: Mapping[str, Any]) -> str:
-    source_color_id = str(palette.get("source_color_id") or "").strip()
-    return f"Source {source_color_id}" if source_color_id else "Base palette"
+def _palette_meta(palette: Palette) -> str:
+    return palette.source_color.convert("srgb").to_string(comma=True, alpha=True)
 
 
-def _row_width(palette: Mapping[str, Any]) -> int:
-    tones = tuple(palette.get("tones") or ())
+def _row_width(palette: Palette) -> int:
+    tones = tuple(palette.tones or ())
     swatch_count = max(1, len(tones))
     swatch_span = (swatch_count * _SWATCH_WIDTH) + (max(0, swatch_count - 1) * _SWATCH_GAP)
     return (_ROW_PADDING_X * 2) + _INFO_WIDTH + _INFO_GAP + swatch_span
@@ -98,7 +83,7 @@ def _draw_text(
 
 def _draw_palette_row(
     draw: ImageDraw.ImageDraw,
-    palette: Mapping[str, Any],
+    palette: Palette,
     *,
     left: int,
     top: int,
@@ -112,7 +97,7 @@ def _draw_palette_row(
     height = _row_height()
     right = left + width
     bottom = top + height
-    tones = tuple(palette.get("tones") or ())
+    tones = tuple(palette.tones or ())
 
     draw.rounded_rectangle(
         (left, top, right, bottom),
@@ -146,9 +131,9 @@ def _draw_palette_row(
         return height
 
     for tone_index, tone_stop in enumerate(tones):
-        background_hex = str(tone_stop.get("hex_value") or "#ffffff")
+        background_hex = _tone_hex(tone_stop)
         hex_value = background_hex.upper()
-        tone_label = str(tone_stop.get("tone") or "")
+        tone_label = str(tone_stop.value)
         text_fill = _text_color(background_hex)
         block_left = swatch_left + (tone_index * (_SWATCH_WIDTH + _SWATCH_GAP))
         block_top = swatch_top
@@ -179,16 +164,18 @@ def _draw_palette_row(
     return height
 
 
-def render_palette_preview(palette_analysis: Mapping[str, Any], output_path: str) -> None:
-    rows = _palette_rows(palette_analysis)
+def _tone_hex(tone: Tone) -> str:
+    return tone.color.convert("srgb").to_string(hex=True)
+
+
+def render_palette_preview(
+    palettes: Mapping[str, Palette] | Iterable[Palette],
+    output_path: str,
+) -> None:
+    rows = _palette_rows(palettes)
     if not rows:
         rows = [
-            {
-                "palette_id": "palette-empty",
-                "palette_type": "achromatic",
-                "label": "Neutral",
-                "tones": (),
-            }
+            Palette(name="Neutral", source_color=Color("black"), tones=())
         ]
 
     title_font = _load_font(24)
@@ -207,7 +194,7 @@ def render_palette_preview(palette_analysis: Mapping[str, Any], output_path: str
     top = _PADDING
     chromatic_index = 0
     for palette in rows:
-        if palette.get("palette_type") == "chromatic":
+        if palette.name != "Neutral":
             chromatic_index += 1
         row_height = _draw_palette_row(
             draw,

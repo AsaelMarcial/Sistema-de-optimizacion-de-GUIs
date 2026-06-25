@@ -10,9 +10,11 @@ class AreaStructure(TypedDict):
 
 
 class Session:
+    SESSIONS_ROOT: Path = Path(__file__).resolve().parents[3] / "workspace" / "sessions"
+
     def __init__(self) -> None:
         self.session_id: str = uuid.uuid4().hex
-        self.session_dir: Path = Path(f"./sessions/session_{self.session_id}").resolve()
+        self.session_dir: Path = (self.SESSIONS_ROOT / f"session_{self.session_id}").resolve()
 
         # Explicitly type each dictionary using the AreaStructure template
         self._before: AreaStructure = {

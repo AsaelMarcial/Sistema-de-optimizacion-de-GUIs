@@ -34,6 +34,8 @@ class Role(StrEnum):
 CATEGORY = "category"
 SUPPORTS_COLOR = "supportsColor"
 ROLE = "role"
+DEFAULT_VALUE = "defaultValue"
+SHORTHAND = "shorthand"
 
 
 # =============================================================================
@@ -46,12 +48,18 @@ def _propertyData(
     category: Category,
     supportsColor: bool,
     role: Role,
+    defaultValue: str | tuple[str, ...] = (),
+    shorthand: str = "",
 ) -> MappingProxyType:
+    default_values = (defaultValue,) if isinstance(
+        defaultValue, str) else tuple(defaultValue)
     return MappingProxyType(
         {
             CATEGORY: category,
             SUPPORTS_COLOR: supportsColor,
             ROLE: role,
+            DEFAULT_VALUE: default_values,
+            SHORTHAND: shorthand,
         }
     )
 
@@ -63,428 +71,248 @@ def _propertyData(
 
 CSS_PROPERTIES = MappingProxyType(
     {
-        # =====================================================================
-        # BACKGROUND
-        # =====================================================================
+        "accent-color": _propertyData(
+            category=Category.DECORATION,
+            supportsColor=True,
+            role=Role.FOREGROUND,
+            defaultValue="auto",
+        ),
         "background": _propertyData(
             category=Category.BACKGROUND,
             supportsColor=True,
             role=Role.BACKGROUND,
+            defaultValue=("none"),
         ),
         "background-color": _propertyData(
             category=Category.BACKGROUND,
             supportsColor=True,
             role=Role.BACKGROUND,
+            defaultValue=(),
+            shorthand="background",
         ),
         "background-image": _propertyData(
             category=Category.BACKGROUND,
             supportsColor=True,
             role=Role.BACKGROUND,
+            defaultValue="none",
+            shorthand="background",
         ),
-        # =====================================================================
-        # BORDER
-        # =====================================================================
         "border": _propertyData(
             category=Category.BORDER,
             supportsColor=True,
             role=Role.FOREGROUND,
+            defaultValue=("0px", "none"),
         ),
         "border-color": _propertyData(
             category=Category.BORDER,
             supportsColor=True,
             role=Role.FOREGROUND,
-        ),
-        "border-top-color": _propertyData(
-            category=Category.BORDER,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        "border-right-color": _propertyData(
-            category=Category.BORDER,
-            supportsColor=True,
-            role=Role.FOREGROUND,
+            defaultValue=(),
+            shorthand="border",
         ),
         "border-bottom-color": _propertyData(
             category=Category.BORDER,
             supportsColor=True,
             role=Role.FOREGROUND,
+            defaultValue=(),
+            shorthand="border-color",
         ),
         "border-left-color": _propertyData(
             category=Category.BORDER,
             supportsColor=True,
             role=Role.FOREGROUND,
+            defaultValue=(),
+            shorthand="border-color",
+        ),
+        "border-right-color": _propertyData(
+            category=Category.BORDER,
+            supportsColor=True,
+            role=Role.FOREGROUND,
+            defaultValue=(),
+            shorthand="border-color",
+        ),
+        "border-top-color": _propertyData(
+            category=Category.BORDER,
+            supportsColor=True,
+            role=Role.FOREGROUND,
+            defaultValue=(),
+            shorthand="border-color",
+        ),
+        "border-block": _propertyData(
+            category=Category.BORDER,
+            supportsColor=True,
+            role=Role.FOREGROUND,
+            defaultValue=("0px", "none"),
         ),
         "border-block-color": _propertyData(
             category=Category.BORDER,
             supportsColor=True,
             role=Role.FOREGROUND,
-        ),
-        "border-inline-color": _propertyData(
-            category=Category.BORDER,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        "border-block-start-color": _propertyData(
-            category=Category.BORDER,
-            supportsColor=True,
-            role=Role.FOREGROUND,
+            defaultValue=(),
+            shorthand="border-block",
         ),
         "border-block-end-color": _propertyData(
             category=Category.BORDER,
             supportsColor=True,
             role=Role.FOREGROUND,
+            defaultValue=(),
+            shorthand="border-block-color",
         ),
-        "border-inline-start-color": _propertyData(
+        "border-block-start-color": _propertyData(
             category=Category.BORDER,
             supportsColor=True,
             role=Role.FOREGROUND,
-        ),
-        "border-inline-end-color": _propertyData(
-            category=Category.BORDER,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        "outline": _propertyData(
-            category=Category.BORDER,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        "outline-color": _propertyData(
-            category=Category.BORDER,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        "column-rule": _propertyData(
-            category=Category.BORDER,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        "column-rule-color": _propertyData(
-            category=Category.BORDER,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        # =====================================================================
-        # DECORATION
-        # =====================================================================
-        "box-shadow": _propertyData(
-            category=Category.DECORATION,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        "text-shadow": _propertyData(
-            category=Category.DECORATION,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        "filter": _propertyData(
-            category=Category.DECORATION,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        "backdrop-filter": _propertyData(
-            category=Category.DECORATION,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        "mask": _propertyData(
-            category=Category.DECORATION,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        "mask-image": _propertyData(
-            category=Category.DECORATION,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        "mask-border": _propertyData(
-            category=Category.DECORATION,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        "mask-border-source": _propertyData(
-            category=Category.DECORATION,
-            supportsColor=True,
-            role=Role.FOREGROUND,
+            defaultValue=(),
+            shorthand="border-block-color",
         ),
         "border-image": _propertyData(
             category=Category.DECORATION,
             supportsColor=True,
             role=Role.FOREGROUND,
+            defaultValue="none",
         ),
         "border-image-source": _propertyData(
             category=Category.DECORATION,
             supportsColor=True,
             role=Role.FOREGROUND,
+            defaultValue="none",
+            shorthand="border-image",
         ),
-        "text-decoration": _propertyData(
+        "border-inline": _propertyData(
+            category=Category.BORDER,
+            supportsColor=True,
+            role=Role.FOREGROUND,
+            defaultValue=("0px", "none"),
+        ),
+        "border-inline-color": _propertyData(
+            category=Category.BORDER,
+            supportsColor=True,
+            role=Role.FOREGROUND,
+            defaultValue=(),
+            shorthand="border-inline",
+        ),
+        "border-inline-end-color": _propertyData(
+            category=Category.BORDER,
+            supportsColor=True,
+            role=Role.FOREGROUND,
+            defaultValue=(),
+            shorthand="border-inline-color",
+        ),
+        "border-inline-start-color": _propertyData(
+            category=Category.BORDER,
+            supportsColor=True,
+            role=Role.FOREGROUND,
+            defaultValue=(),
+            shorthand="border-inline-color",
+        ),
+        "box-shadow": _propertyData(
             category=Category.DECORATION,
             supportsColor=True,
             role=Role.FOREGROUND,
+            defaultValue="none",
         ),
-        "text-decoration-color": _propertyData(
-            category=Category.DECORATION,
+        "color": _propertyData(
+            category=Category.TYPOGRAPHY,
             supportsColor=True,
             role=Role.FOREGROUND,
+            defaultValue=(),
         ),
-        "text-emphasis": _propertyData(
-            category=Category.DECORATION,
+        "column-rule": _propertyData(
+            category=Category.BORDER,
             supportsColor=True,
             role=Role.FOREGROUND,
+            defaultValue=("0px", "none"),
         ),
-        "text-emphasis-color": _propertyData(
-            category=Category.DECORATION,
+        "column-rule-color": _propertyData(
+            category=Category.BORDER,
             supportsColor=True,
             role=Role.FOREGROUND,
-        ),
-        "accent-color": _propertyData(
-            category=Category.DECORATION,
-            supportsColor=True,
-            role=Role.FOREGROUND,
+            defaultValue=(),
+            shorthand="column-rule",
         ),
         "fill": _propertyData(
             category=Category.DECORATION,
             supportsColor=True,
             role=Role.FOREGROUND,
-        ),
-        "stroke": _propertyData(
-            category=Category.DECORATION,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        "stop-color": _propertyData(
-            category=Category.DECORATION,
-            supportsColor=True,
-            role=Role.FOREGROUND,
+            defaultValue=(),
         ),
         "flood-color": _propertyData(
             category=Category.DECORATION,
             supportsColor=True,
             role=Role.FOREGROUND,
+            defaultValue=(),
         ),
         "lighting-color": _propertyData(
             category=Category.DECORATION,
             supportsColor=True,
             role=Role.FOREGROUND,
+            defaultValue=(),
         ),
-        # =====================================================================
-        # TYPOGRAPHY
-        # =====================================================================
-        "color": _propertyData(
+        "list-style-image": _propertyData(
+            category=Category.DECORATION,
+            supportsColor=True,
+            role=Role.FOREGROUND,
+            defaultValue="none",
+        ),
+        "outline": _propertyData(
+            category=Category.BORDER,
+            supportsColor=True,
+            role=Role.FOREGROUND,
+            defaultValue=("0px", "none"),
+        ),
+        "outline-color": _propertyData(
+            category=Category.BORDER,
+            supportsColor=True,
+            role=Role.FOREGROUND,
+            defaultValue=(),
+            shorthand="outline",
+        ),
+        "stop-color": _propertyData(
+            category=Category.DECORATION,
+            supportsColor=True,
+            role=Role.FOREGROUND,
+            defaultValue=(),
+        ),
+        "stroke": _propertyData(
+            category=Category.BORDER,
+            supportsColor=True,
+            role=Role.FOREGROUND,
+            defaultValue="none",
+        ),
+        "text-decoration": _propertyData(
             category=Category.TYPOGRAPHY,
             supportsColor=True,
             role=Role.FOREGROUND,
+            defaultValue="none",
         ),
-        "caret": _propertyData(
+        "text-decoration-color": _propertyData(
             category=Category.TYPOGRAPHY,
             supportsColor=True,
             role=Role.FOREGROUND,
+            defaultValue=(),
+            shorthand="text-decoration",
         ),
-        "caret-color": _propertyData(
+        "text-emphasis": _propertyData(
             category=Category.TYPOGRAPHY,
             supportsColor=True,
             role=Role.FOREGROUND,
+            defaultValue="none",
         ),
-        "-webkit-text-fill-color": _propertyData(
+        "text-emphasis-color": _propertyData(
             category=Category.TYPOGRAPHY,
             supportsColor=True,
             role=Role.FOREGROUND,
+            defaultValue=(),
+            shorthand="text-emphasis",
         ),
-        "-webkit-text-stroke": _propertyData(
+        "text-shadow": _propertyData(
             category=Category.TYPOGRAPHY,
             supportsColor=True,
             role=Role.FOREGROUND,
-        ),
-        "-webkit-text-stroke-color": _propertyData(
-            category=Category.TYPOGRAPHY,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        "text-fill-color": _propertyData(
-            category=Category.TYPOGRAPHY,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        "text-stroke-color": _propertyData(
-            category=Category.TYPOGRAPHY,
-            supportsColor=True,
-            role=Role.FOREGROUND,
-        ),
-        # =====================================================================
-        # OTHER
-        # =====================================================================
-        "appearance": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "background-attachment": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "background-blend-mode": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "background-clip": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "background-origin": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "background-position": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "background-repeat": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "background-size": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "border-radius": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "display": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "fill-opacity": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "fill-rule": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "font-family": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "font-size": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "font-style": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "font-weight": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "height": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "letter-spacing": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "line-height": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "object-fit": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "object-position": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "opacity": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "outline-offset": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "position": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "stroke-opacity": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "text-decoration-line": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "text-decoration-style": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "text-decoration-thickness": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "text-rendering": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "visibility": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "width": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "word-spacing": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
-        ),
-        "z-index": _propertyData(
-            category=Category.OTHER,
-            supportsColor=False,
-            role=Role.OTHER,
+            defaultValue="none",
         ),
     }
 )
-
-
-# =============================================================================
-# PRECOMPUTED INDEXES
-# =============================================================================
 
 
 ALL_PROPERTY_NAMES = tuple(CSS_PROPERTIES.keys())

@@ -56,7 +56,6 @@
 
 html {
   background-color: var(--bg);
-  scroll-padding-top: 110px;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -122,40 +121,13 @@ body::after {
   background: radial-gradient(circle, var(--glow-green-floating-2), transparent 68%);
 }
 
-.card,
-.preview-window {
-  overflow: hidden;
-}
-
 body > header {
   position: relative;
   z-index: 5;
 }
 
-.skip-link {
-  position: absolute;
-  top: 12px;
-  left: 16px;
-  z-index: 100;
-  padding: 10px 14px;
-  border: 1px solid var(--accent-line);
-  border-radius: var(--radius-1);
-  background: #071009;
-  color: var(--text);
-  font-weight: 700;
-  text-decoration: none;
-  transform: translateY(-160%);
-}
-
-.skip-link:focus-visible {
-  outline: 3px solid rgba(39, 184, 90, 0.62);
-  outline-offset: 3px;
-  transform: translateY(0);
-}
-
 main {
   display: grid;
-  gap: var(--section-gap);
   width: auto;
   max-width: none !important;
   margin: var(--page-top) var(--page-inline) var(--page-bottom);
@@ -165,7 +137,6 @@ main {
 
 main > section {
   display: grid;
-  gap: var(--space-5);
   min-width: 0;
 }
 
@@ -194,9 +165,12 @@ main > section > .flex-column > .flex-row > * {
   align-items: stretch;
 }
 
-.flex-column > *,
-.flex-row > * {
-  min-width: 0;
+main > section:nth-child(odd) > span {
+  justify-self: start;
+}
+
+main > section:nth-child(even) > span {
+  justify-self: end;
 }
 
 .card {
@@ -211,6 +185,7 @@ main > section > .flex-column > .flex-row > * {
   backdrop-filter: blur(var(--surface-glass-blur));
   -webkit-backdrop-filter: blur(var(--surface-glass-blur));
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .card--soft {
@@ -289,12 +264,10 @@ main > section > .flex-column > .flex-row > * {
 }
 
 main :is(h1, h2, h3, h4) {
-  width: 100%;
   margin: 0;
   color: var(--text);
   font-family: var(--font-ui);
   letter-spacing: 0;
-  text-wrap: balance;
 }
 
 main {
@@ -354,7 +327,6 @@ main {
 .metric__text {
   color: var(--text-tertiary);
   font-size: 14px;
-  line-height: 1.65;
 }
 
 .text-caption {
@@ -533,18 +505,12 @@ main {
 .hero-panel,
 .visual-panel,
 .palette-card,
-.contrast-card,
 .results-subheading,
 .change-group__copy,
 .export-copy {
   display: grid;
   gap: var(--stack-gap);
 }
-
-.contrast-card {
-  align-self: start;
-}
-
 
 .impact-panel {
   display: flex;
@@ -963,14 +929,14 @@ main {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: auto;
   padding: 8px 24px;
   border-radius: 999px;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 16px;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  box-shadow: none;
+  margin-top: var(--space-5);
+  margin-bottom: var(--space-5);
 }
 
 .eyebrow__dot {
@@ -1449,7 +1415,7 @@ main {
 .change-item__meta,
 .change-item__colors {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
 }

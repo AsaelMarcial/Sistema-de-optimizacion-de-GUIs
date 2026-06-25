@@ -15,13 +15,6 @@ class RecommendationsPayload:
     items: tuple[dict[str, Any], ...] = field(default_factory=tuple)
     summary: str | None = None
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "items": list(self.items),
-            "summary": self.summary,
-        }
-
-
 class MissingContextKeysError(ValueError):
     pass
 
@@ -84,8 +77,6 @@ class PipelineContext:
         if isinstance(current, dict):
             current.pop(parts[-1], None)
 
-    def snapshot(self) -> dict[str, Any]:
-        return self._clone(self._state)
 
     def set_error(self, message: str) -> "PipelineContext":
         self.error = message
@@ -99,12 +90,3 @@ class PipelineContext:
             raise ValueError("La clave del contexto no puede estar vacia.")
         return normalized
 
-    @classmethod
-    def _clone(cls, value: Any) -> Any:
-        if isinstance(value, dict):
-            return {key: cls._clone(item) for key, item in value.items()}
-        if isinstance(value, list):
-            return [cls._clone(item) for item in value]
-        if isinstance(value, tuple):
-            return tuple(cls._clone(item) for item in value)
-        return value

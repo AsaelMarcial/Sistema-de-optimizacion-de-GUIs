@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable
 
-_HEX_PATTERN = re.compile(r"#(?:[0-9a-fA-F]{3}){1,2}")
+from engine.adapters.color_service import color_registry
 
 
 def parse_inline_styles(style_str: str) -> dict[str, str]:
@@ -20,4 +19,7 @@ def reconstruct_inline_style(styles_dict: dict[str, str]) -> str:
 
 
 def extract_hex_colors(text: str) -> Iterable[str]:
-    return _HEX_PATTERN.findall(text)
+    return tuple(
+        color_registry.format_color(token, "hex")
+        for _start, _end, token in color_registry.find_matches(text)
+    )

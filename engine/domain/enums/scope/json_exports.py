@@ -3,7 +3,9 @@ from pathlib import Path
 
 from engine.domain.enums.scope.css_properties import (
     CATEGORY,
+    DEFAULT_VALUE,
     ROLE,
+    SHORTHAND,
     SUPPORTS_COLOR,
     CSS_PROPERTIES,
 )
@@ -23,6 +25,8 @@ def build_scope_properties_payload() -> dict[str, list[dict[str, object]]]:
                 "category": property_data[CATEGORY].value,
                 "supportsColor": bool(property_data[SUPPORTS_COLOR]),
                 "role": property_data[ROLE].value,
+                "defaultValue": list(property_data[DEFAULT_VALUE]),
+                "shorthand": property_data[SHORTHAND],
             }
             for property_name, property_data in CSS_PROPERTIES.items()
         ]

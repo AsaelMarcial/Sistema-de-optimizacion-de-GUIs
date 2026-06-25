@@ -80,7 +80,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     )
     page_builder = context.get(K.PAGE_BUILDER)
     page_builder.load_file(transformed_html_path)
-    screenshot_output_path = page_builder.capture_full_page_screenshot(
+    screenshot_output_path = page_builder.capture_fullpage_screenshot(
         output_path=screenshot_path,
     )
     color_histograms = build_color_histograms(screenshot_output_path or screenshot_path)

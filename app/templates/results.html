@@ -28,10 +28,26 @@
     <main
       id="main-content"
       data-page="results"
+      summary="summary"
       data-energy-wh="{{ results.energy_wh | round(4) }}"
       data-carbon-footprint="{{ results.carbon_footprint | round(6) }}"
       data-environmental-carbon-footprint="{{ results.environmental_co2eq_per_use | round(6) }}"
     >
+      {# DEBUG TEMPORAL: muestra DOM_TREE producido por capture_original_state. Eliminar cuando assemble_results consuma DOM_TREE directamente. #}
+      {% if results.dom_tree_debug %}
+      <pre>{{ results.dom_tree_debug }}</pre>
+      {% endif %}
+
+      {# DEBUG TEMPORAL: muestra ColorScheme.colors producido por capture_original_state. Eliminar cuando assemble_results consuma ColorScheme directamente. #}
+      {% if results.color_scheme_debug %}
+      <pre>{{ results.color_scheme_debug }}</pre>
+      {% endif %}
+
+      {# DEBUG TEMPORAL: muestra Histogramas. Eliminar despues de validar capture_original_state. #}
+      {% if results.debug_summary_text %}
+      <pre>{{ results.debug_summary_text }}</pre>
+      {% endif %}
+
       <section id="impact" aria-labelledby="impact-title">
         <span class="eyebrow">
           <span class="eyebrow__dot"></span>
@@ -121,6 +137,8 @@
       </section>
 
       <section id="drivers" aria-labelledby="visual-load-title">
+        {% set color_distribution_overview = summary.overview('colors_distribution') if summary else none %}
+        {% set color_distribution = color_distribution_overview.data if color_distribution_overview else none %}
         <span class="eyebrow">
           <span class="eyebrow__dot"></span>
           <span>Perfil de carga visual</span>
@@ -129,37 +147,19 @@
         <div class="flex-row">
           <article class="card card--soft visual-panel">
             <div class="graph-list">
-              {% for item in results.view.dominant_rows[:6] %}
+              {% for color in color_distribution %}
+              {% set percentage = color_distribution[color] %}
               <div class="graph-row">
                 <div class="graph-label">
-                  <span class="graph-dot" style="background: {{ item.hex }};"></span>
-                  <span>{{ item.label }}</span>
+                  <span class="graph-dot" style="background: {{ color }};"></span>
+                  <span>{{ color | upper }}</span>
                 </div>
                 <div class="graph-track">
-                  <span class="graph-fill" style="width: {{ item.percentage }}%; background: {{ item.hex }};"></span>
+                  <span class="graph-fill" style="width: {{ percentage }}%; background: {{ color }};"></span>
                 </div>
-                <strong class="graph-value">{{ item.percentage | round(2) }}%</strong>
+                <strong class="graph-value">{{ percentage | round(2) }}%</strong>
               </div>
               {% endfor %}
-            </div>
-
-            <div class="visual-summary">
-              <span class="label-chip">
-                <span class="label-chip__dot"></span>
-                <span>Distribución tonal</span>
-              </span>
-
-              <div class="distribution-track">
-                {% for item in results.view.dominant_rows[:6] %}
-                <span class="distribution-track__segment" style="width: {{ item.percentage }}%; background: {{ item.hex }};"></span>
-                {% endfor %}
-              </div>
-
-              <p class="text-tertiary">
-                Los tres tonos principales concentran
-                <strong>{{ results.view.top_three_percentage | round(2) }}%</strong>
-                del peso cromático visible identificado en la interfaz analizada.
-              </p>
             </div>
           </article>
 
@@ -167,7 +167,7 @@
             <div class="visual-highlight__copy">
               <h2 id="visual-load-title">
                 Gran parte del peso visual se concentra en
-                <span>{{ results.view.dominant_color_count }} tonos dominantes</span>
+                <span>{{ color_distribution | length }} tonos dominantes</span>
               </h2>
 
               <p class="text-secondary">
@@ -233,43 +233,37 @@
           </article>
           {% endif %}
 
-          <article class="card card--soft contrast-card">
+          <article class="card card--soft">
+            {% set contrast_issues = summary.contrast_issues() if summary else [] %}
             <div class="contrast-summary">
-              <h3>Contraste <span class="sr-only">Contrast report</span></h3>
-
-              {% set contrast_group_count = results.view.contrast_rows | length %}
+              <h3>Problemas de contraste</h3>
               <p class="text-tertiary">
-                {{ results.accessibility.contrast.issue_count }} señales en {{ contrast_group_count }} {{ 'grupo' if contrast_group_count == 1 else 'grupos' }}
+                {{ contrast_issues | length }} problemas de contraste encontrados
               </p>
             </div>
 
-            {% if results.view.contrast_rows %}
+            {% if contrast_issues %}
             <div class="contrast-list">
-              {% for issue in results.view.contrast_rows[:8] %}
+              {% for issue_id in contrast_issues %}
               <article class="contrast-item">
                 <div class="contrast-item__meta">
                   <span class="contrast-item__ratio">
-                    {{ issue.contrast_ratio | round(2) }} / {{ issue.required_ratio | round(1) }}
+                    {{ contrast_issues[issue_id].contrast_ratio | round(2) }} / {{ contrast_issues[issue_id].required_ratio | round(1) }}
                   </span>
-                  {% if issue.count > 1 %}
-                  <span class="contrast-item__count">×{{ issue.count }}</span>
-                  {% endif %}
+                  <span class="contrast-item__count">{{ contrast_issues | length }}</span>
                 </div>
 
-                <div class="contrast-preview" style="background: {{ issue.background_hex }};">
-                  <span class="contrast-preview__text" style="color: {{ issue.foreground_hex }};">Texto</span>
+                <div class="contrast-preview" style="background: {{ contrast_issues[issue_id].background }};">
+                  <span class="contrast-preview__text" style="color: {{ contrast_issues[issue_id].foreground }};">Texto</span>
                 </div>
 
                 <div class="contrast-tones">
-                  <span>Fondo {{ issue.background_tone_label }}</span>
-                  <span>Texto {{ issue.foreground_tone_label }}</span>
+                  <span>Fondo {{ contrast_issues[issue_id].background | upper }}</span>
+                  <span>Texto {{ contrast_issues[issue_id].foreground | upper }}</span>
                 </div>
 
                 <span class="contrast-item__selector">
-                  {{ issue.selector }}
-                  {% if issue.count > 1 %}
-                  <small>{{ issue.count }} instancias detectadas</small>
-                  {% endif %}
+                  Nodo {{ contrast_issues[issue_id].backend_node_id }}
                 </span>
               </article>
               {% endfor %}
@@ -278,7 +272,7 @@
             <article class="contrast-empty">
               <strong>No se detectaron problemas de contraste en la vista analizada.</strong>
               <p class="text-tertiary">
-                El artefacto sigue generándose y se conserva para trazabilidad como {{ results.accessibility.contrast.artifact }}.
+                El reporte se conserva en Summary.contrast_issues para trazabilidad.
               </p>
             </article>
             {% endif %}

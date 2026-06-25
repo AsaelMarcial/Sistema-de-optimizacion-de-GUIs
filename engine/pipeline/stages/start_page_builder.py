@@ -14,12 +14,26 @@ def _session_ready_for_page_builder(session: Session) -> bool:
     except (FileNotFoundError, RuntimeError, ValueError, OSError):
         return False
 
+
+def _page_builder_ready(page_builder: PageBuilder) -> bool:
+    try:
+        return (
+            page_builder.is_open
+            and page_builder.html_path is not None
+            and page_builder.html_path.exists()
+            and page_builder.base_path is not None
+            and page_builder.base_path.exists()
+        )
+    except (AttributeError, RuntimeError, OSError):
+        return False
+
+
 CONTRACT = StageContract(
     name="start_page_builder",
     requires=(
         context_value(K.SESSION, Session, validator=_session_ready_for_page_builder),
     ),
-    produces=(context_value(K.PAGE_BUILDER, PageBuilder),),
+    produces=(context_value(K.PAGE_BUILDER, PageBuilder, validator=_page_builder_ready),),
 )
 
 
@@ -30,10 +44,11 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     session = context.get(K.SESSION)
     html_file = session.find_by_suffix("before", ("html",))[0]
     context.trace.add_stage_event(CONTRACT.name, "start")
-    page_builder = PageBuilder.new_from_file(
-        html_file,
-        existing=context.get(K.PAGE_BUILDER),
-    )
+    existing = context.get(K.PAGE_BUILDER)
+    if existing is not None and existing.is_open:
+        raise ValueError("Ya existe una instancia activa de PageBuilder.")
+    page_builder = PageBuilder()
+    page_builder.load_page(html_file)
     context.set(K.PAGE_BUILDER, page_builder)
     context.trace.add_stage_event(
         CONTRACT.name,
