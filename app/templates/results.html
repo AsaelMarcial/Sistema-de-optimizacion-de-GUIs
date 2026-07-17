@@ -326,48 +326,48 @@
 
           <div class="change-history">
             {% for group in results.view.change_history_groups %}
-            <article class="card card--soft change-group">
-              <div class="change-group__head">
-                <div class="change-group__copy">
-                  <h3>{{ group.title }}</h3>
-                  {% if group.summary %}
-                  <p class="text-tertiary">{{ group.summary }}</p>
-                  {% endif %}
-                </div>
+            <details class="card card--soft change-group">
+              <summary class="change-group__head">
+                <span class="change-group__title">
+                  <span class="change-group__toggle" aria-hidden="true">+</span>
+                  <span>{{ group.title | upper }}</span>
+                </span>
                 {% if group.change_count %}
-                <span class="pill pill--neutral">{{ group.change_count }} ajustes</span>
+                <span class="pill pill--neutral">{{ group.change_count }} {{ 'cambio' if group.change_count == 1 else 'cambios' }}</span>
                 {% endif %}
-              </div>
+              </summary>
 
               {% if group.changes %}
-              <div class="change-list">
+              <div class="change-list change-group__body">
                 {% for change in group.changes %}
                 <div class="change-item">
-                  <div class="change-item__meta">
-                    <strong>{{ change.name }}</strong>
-                    {% if change.savings_label %}
-                    <span class="pill pill--accent">{{ change.savings_label }}</span>
-                    {% endif %}
-                  </div>
-
-                  <div class="change-item__colors">
-                    <span class="change-swatch" style="background: {{ change.before_css }};"></span>
-                    <span class="text-caption">RGB({{ change.before_rgb }})</span>
+                  <div class="change-item__line">
+                    <strong>{{ change.property_name }}:</strong>
+                    <span
+                      class="change-swatch"
+                      style="background: {{ change.before_css }};"
+                      title="{{ change.before_value }}"
+                    ></span>
+                    <span class="text-caption change-value">{{ change.before_label }}</span>
                     <span class="change-arrow" aria-hidden="true">→</span>
-                    <span class="change-swatch" style="background: {{ change.after_css }};"></span>
-                    <span class="text-caption">RGB({{ change.after_rgb }})</span>
+                    <span
+                      class="change-swatch"
+                      style="background: {{ change.after_css }};"
+                      title="{{ change.after_value }}"
+                    ></span>
+                    <span class="text-caption change-value">{{ change.after_label }}</span>
                   </div>
                 </div>
                 {% endfor %}
               </div>
               {% elif group.notes %}
-              <ul class="change-notes">
+              <ul class="change-notes change-group__body">
                 {% for note in group.notes %}
                 <li>{{ note }}</li>
                 {% endfor %}
               </ul>
               {% endif %}
-            </article>
+            </details>
             {% endfor %}
           </div>
           {% endif %}

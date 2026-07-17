@@ -14,7 +14,6 @@ class CSSDATA:
     longhands: Tuple[str, ...] | None
     default_value: Tuple[str, ...] | None
 
-print("¡ALERTA! Cargando datos en la memoria RAM por única vez...")
 CSSPROPERTIES = MappingProxyType({
         "accent-color": CSSDATA(
             role="foreground",
@@ -129,8 +128,22 @@ CSSPROPERTIES = MappingProxyType({
             default_value=None,
         ),
         "fill": CSSDATA(
-            role="foreground",
+            role="background",
             categories=["decoration"],
+            shorthand=None,
+            longhands=None,
+            default_value=None,
+        ),
+        "font-size": CSSDATA(
+            role="other",
+            categories=["typography"],
+            shorthand=None,
+            longhands=None,
+            default_value=None,
+        ),
+        "font-weight": CSSDATA(
+            role="other",
+            categories=["typography"],
             shorthand=None,
             longhands=None,
             default_value=None,

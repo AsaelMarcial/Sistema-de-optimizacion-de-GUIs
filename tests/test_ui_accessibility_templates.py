@@ -1,6 +1,10 @@
 from pathlib import Path
 import unittest
 
+from engine.domain.models.element import Element, Property
+from engine.pipeline.pipeline import _change_history_groups
+from engine.pipeline.stages.transform_design import _transform_property
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -70,6 +74,16 @@ class UIAccessibilityTemplatesTest(unittest.TestCase):
         self.assertIn("height: auto;", self.css)
         self.assertNotIn("height: clamp(280px, 32.5rem, 520px);", self.css)
 
+    def test_change_history_uses_element_accordions(self) -> None:
+        self.assertIn('<details class="card card--soft change-group">', self.results)
+        self.assertIn('class="change-group__toggle"', self.results)
+        self.assertIn("{{ group.title | upper }}", self.results)
+        self.assertIn("{{ group.change_count }} {{ 'cambio' if group.change_count == 1 else 'cambios' }}", self.results)
+        self.assertIn("class=\"change-swatch\"", self.results)
+        self.assertIn("{{ change.before_label }}", self.results)
+        self.assertIn(".change-group__head::-webkit-details-marker", self.css)
+        self.assertIn("grid-template-columns: 1fr;", self.css)
+
     def test_palette_rows_fit_available_space_and_show_copy_feedback(self) -> None:
         self.assertNotIn("palette-meta__count", self.results)
         self.assertNotIn("swatch__tone", self.results)
@@ -109,6 +123,134 @@ class UIAccessibilityTemplatesTest(unittest.TestCase):
         self.assertNotIn("object-fit: cover;", self.css)
         self.assertNotIn("letter-spacing: -", self.css)
         self.assertNotRegex(self.css, r"font-size:\s*clamp\([^;]*vw")
+
+    def test_property_has_changed_uses_after_value(self) -> None:
+        unchanged = Property(
+            name="color",
+            before_value="rgb(255, 255, 255)",
+        )
+        same_value = Property(
+            name="color",
+            before_value="rgb(255, 255, 255)",
+            after_value="rgb(255, 255, 255)",
+        )
+        changed = Property(
+            name="background-color",
+            before_value="rgb(255, 255, 255)",
+            after_value="rgb(0, 0, 0)",
+        )
+
+        self.assertFalse(unchanged.has_changed)
+        self.assertFalse(same_value.has_changed)
+        self.assertTrue(changed.has_changed)
+
+    def test_change_history_groups_are_grouped_by_element_instance(self) -> None:
+        root = Element(
+            backend_node_id=10,
+            node_id=100,
+            tag_name="body",
+            node_type=1,
+            properties=[
+                Property("background-color", "white", "black"),
+                Property("color", "black", "white"),
+                Property("border-color", "red"),
+            ],
+        )
+        second_body = Element(
+            backend_node_id=20,
+            node_id=200,
+            tag_name="body",
+            node_type=1,
+            properties=[
+                Property("background-color", "red", "blue"),
+            ],
+        )
+        root.add_child(second_body)
+
+        groups = _change_history_groups(root)
+
+        self.assertEqual(2, len(groups))
+        self.assertEqual("Body", groups[0]["title"])
+        self.assertEqual(10, groups[0]["backend_node_id"])
+        self.assertEqual(2, groups[0]["change_count"])
+        self.assertEqual(
+            ("background-color", "color"),
+            tuple(change["property_name"] for change in groups[0]["changes"]),
+        )
+        self.assertEqual("white", groups[0]["changes"][0]["before_value"])
+        self.assertEqual("black", groups[0]["changes"][0]["after_value"])
+        self.assertEqual("white", groups[0]["changes"][0]["before_css"])
+        self.assertEqual("black", groups[0]["changes"][0]["after_css"])
+        self.assertEqual("Body", groups[1]["title"])
+        self.assertEqual(20, groups[1]["backend_node_id"])
+
+    def test_transform_property_applies_and_records_element_change(self) -> None:
+        class FakePageBuilder:
+            def __init__(self) -> None:
+                self.calls = []
+
+            def set_effective_value(
+                self,
+                node_id: int,
+                property_name: str,
+                value: str,
+            ) -> None:
+                self.calls.append((node_id, property_name, value))
+
+        page_builder = FakePageBuilder()
+        element = Element(
+            backend_node_id=20,
+            node_id=200,
+            tag_name="button",
+            node_type=1,
+            properties=[
+                Property(
+                    name="background-color",
+                    before_value="rgb(255, 255, 255)",
+                ),
+                Property(
+                    name="color",
+                    before_value="rgb(0, 0, 0)",
+                ),
+            ],
+        )
+
+        _transform_property(
+            page_builder,
+            element,
+            "background-color",
+            "rgb(0, 0, 0)",
+        )
+        _transform_property(
+            page_builder,
+            element,
+            "color",
+            "rgb(0, 0, 0)",
+        )
+        _transform_property(
+            page_builder,
+            element,
+            "border-color",
+            "rgb(20, 20, 20)",
+        )
+
+        self.assertEqual(
+            [
+                (200, "background-color", "rgb(0, 0, 0)"),
+                (200, "border-color", "rgb(20, 20, 20)"),
+            ],
+            page_builder.calls,
+        )
+        self.assertEqual(
+            "rgb(0, 0, 0)",
+            element.property("background-color").after_value,
+        )
+        self.assertIsNone(element.property("color").after_value)
+        self.assertEqual("", element.property("border-color").before_value)
+        self.assertEqual(
+            "rgb(20, 20, 20)",
+            element.property("border-color").after_value,
+        )
 
 
 if __name__ == "__main__":

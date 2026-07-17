@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from engine.adapters.browser.page_builder import PageBuilder
 from engine.adapters.utils.palette_preview import render_palette_preview
 from engine.adapters.utils.pixel import build_histogram, image_to_array
@@ -10,9 +8,10 @@ from engine.domain.models.color_scheme import Color, ColorScheme
 from engine.domain.models.element import Element
 from engine.domain.models.session import Session
 from engine.domain.models.summary import Summary
+from engine.domain.utils.parsers import is_gradient
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
-from engine.domain.utils.parsers import is_gradient
+from engine.domain.data.scope_html_elements import get_html_element_category
 
 _MEDIA_TAGS = {
     "img",
@@ -25,11 +24,8 @@ _MEDIA_TAGS = {
     "embed",
 }
 _PREDOMINANT_COLOR_LIMIT = 13
-_FAMILY_COMPARISON_TONE = 60
-_FAMILY_HUE_DELTA_THRESHOLD = 12.0
-_FAMILY_CHROMA_DELTA_THRESHOLD = 30.0
-_FAMILY_NORMALIZED_DELTA_E_THRESHOLD = 10.0
-_FAMILY_FALLBACK_DELTA_E_THRESHOLD = 6.0
+_FAMILY_HUE_DELTA_THRESHOLD = 25
+_FAMILY_CHROMA_DELTA_THRESHOLD = 50
 
 
 def _summary_ready(summary: Summary) -> bool:
@@ -40,14 +36,20 @@ def _summary_ready(summary: Summary) -> bool:
             "colors_distribution",
             "predominant_colors",
         )
-        return all(summary.overview(name) is not None for name in required_overviews) and all(
+        return all(
+            summary.overview(name) is not None
+            for name in required_overviews
+        ) and all(
             isinstance(summary.overview(name).data, dict)
             for name in (
                 "environmental_color_histogram",
                 "design_color_histogram",
                 "colors_distribution",
             )
-        ) and isinstance(summary.overview("predominant_colors").data, tuple)
+        ) and isinstance(
+            summary.overview("predominant_colors").data,
+            tuple,
+        )
     except (AttributeError, RuntimeError, TypeError, ValueError):
         return False
 
@@ -81,13 +83,16 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     context.trace.add_stage_event(CONTRACT.name, "start")
 
     pixel_matrix = image_to_array(screenshot_path)
-    excluded_quads = _build_contrast_issues(summary, page_builder, dom_tree)
+    excluded_pixels = _process_tree(summary, page_builder, dom_tree)
     environmental_histogram = build_histogram(pixel_matrix)
     design_histogram = build_histogram(
         pixel_matrix,
-        excluded_quads,
+        excluded_pixels,
     )
-    colors_distribution = _colors_distribution(color_scheme, design_histogram)
+    colors_distribution = _colors_distribution(
+        color_scheme,
+        design_histogram,
+    )
     predominant_colors = _predominant_colors(colors_distribution)
     _build_tonal_palettes(color_scheme, predominant_colors)
 
@@ -130,21 +135,23 @@ def _colors_distribution(
     color_scheme: ColorScheme,
     design_histogram: dict[str, int],
 ) -> dict[Color, float]:
-
     total = sum(design_histogram.values())
     if total <= 0:
         return {}
 
     colors_distribution: dict[Color, float] = {}
+
     for color, count in design_histogram.items():
         closest = color_scheme.find_closest(color, "colors")
         if closest is None:
             continue
-        percent = round((count / total) * 100, 4)
+
+        percentage = round((count / total) * 100, 4)
         colors_distribution[closest] = round(
-            colors_distribution.get(closest, 0.0) + percent,
+            colors_distribution.get(closest, 0.0) + percentage,
             4,
         )
+
     return dict(
         sorted(
             colors_distribution.items(),
@@ -157,42 +164,102 @@ def _colors_distribution(
 def _predominant_colors(
     colors_distribution: dict[Color, float],
 ) -> tuple[Color, ...]:
-    chromatic_families: list[tuple[Color, float]] = []
+    chromatic_families: list[
+        tuple[Color, float, float, float]
+    ] = []
 
-    for color, _percentage in sorted(
-        colors_distribution.items(),
-        key=lambda item: item[1],
-        reverse=True,
-    ):
+    # colors_distribution ya llega ordenado de mayor a menor popularidad.
+    for color, percentage in colors_distribution.items():
         try:
             if color.is_achromatic():
                 continue
+
+            hue, chroma, _tone = (
+                color
+                .convert("hct")
+                .coords(nans=False)
+            )
+
+            hue = float(hue)
+            chroma = float(chroma)
+            matched_index: int | None = None
+            closest_distance = float("inf")
+
+            for index, (
+                _seed_color,
+                _family_percentage,
+                seed_hue,
+                seed_chroma,
+            ) in enumerate(chromatic_families):
+                hue_delta = abs(hue - seed_hue) % 360.0
+                hue_delta = min(
+                    hue_delta,
+                    360.0 - hue_delta,
+                )
+                chroma_delta = abs(
+                    chroma - seed_chroma
+                )
+
+                if (
+                    hue_delta > _FAMILY_HUE_DELTA_THRESHOLD
+                    or chroma_delta > _FAMILY_CHROMA_DELTA_THRESHOLD
+                ):
+                    continue
+
+                distance = (
+                    hue_delta / _FAMILY_HUE_DELTA_THRESHOLD
+                    + chroma_delta / _FAMILY_CHROMA_DELTA_THRESHOLD
+                )
+
+                if distance < closest_distance:
+                    closest_distance = distance
+                    matched_index = index
+
+            if matched_index is None:
+                chromatic_families.append(
+                    (
+                        color,
+                        float(percentage),
+                        hue,
+                        chroma,
+                    )
+                )
+                continue
+
+            (
+                seed_color,
+                family_percentage,
+                seed_hue,
+                seed_chroma,
+            ) = chromatic_families[matched_index]
+
+            chromatic_families[matched_index] = (
+                seed_color,
+                round(
+                    family_percentage + float(percentage),
+                    4,
+                ),
+                seed_hue,
+                seed_chroma,
+            )
         except Exception:
             continue
 
-        percentage = float(_percentage)
-        matched_index = next(
-            (
-                index
-                for index, (seed_color, _family_percentage) in enumerate(chromatic_families)
-                if _same_chromatic_family(seed_color, color)
-            ),
-            None,
-        )
-        if matched_index is None:
-            chromatic_families.append((color, percentage))
-            continue
+    chromatic_families.sort(
+        key=lambda family: family[1],
+        reverse=True,
+    )
 
-        seed_color, family_percentage = chromatic_families[matched_index]
-        chromatic_families[matched_index] = (
-            seed_color,
-            round(family_percentage + percentage, 4),
-        )
-
-    chromatic_families.sort(key=lambda item: item[1], reverse=True)
     return tuple(
-        color
-        for color, _percentage in chromatic_families[:_PREDOMINANT_COLOR_LIMIT]
+        seed_color
+        for (
+            seed_color,
+            _percentage,
+            _hue,
+            _chroma,
+        ) in chromatic_families[
+            :_PREDOMINANT_COLOR_LIMIT
+        ]
     )
 
 
@@ -200,149 +267,73 @@ def _build_tonal_palettes(
     color_scheme: ColorScheme,
     predominant_colors: tuple[Color, ...],
 ) -> ColorScheme:
-    for color_index, color in enumerate(predominant_colors, start=1):
-        color_scheme.add_palette(f"Color {color_index}", color)
+    for color_index, color in enumerate(
+        predominant_colors,
+        start=1,
+    ):
+        color_scheme.add_palette(
+            f"Color {color_index}",
+            color,
+        )
+
     return color_scheme
 
 
-def _same_chromatic_family(seed_color: Color, candidate_color: Color) -> bool:
-    try:
-        seed_normalized = _comparison_color(seed_color)
-        candidate_normalized = _comparison_color(candidate_color)
-        seed_hue, seed_chroma, _seed_tone = seed_normalized.convert("hct").coords(nans=False)
-        candidate_hue, candidate_chroma, _candidate_tone = candidate_normalized.convert("hct").coords(nans=False)
-
-        if (
-            _hue_distance(float(seed_hue), float(candidate_hue)) <= _FAMILY_HUE_DELTA_THRESHOLD
-            and abs(float(seed_chroma) - float(candidate_chroma)) <= _FAMILY_CHROMA_DELTA_THRESHOLD
-            and seed_normalized.delta_e(candidate_normalized) <= _FAMILY_NORMALIZED_DELTA_E_THRESHOLD
-        ):
-            return True
-
-        return seed_color.delta_e(candidate_color) <= _FAMILY_FALLBACK_DELTA_E_THRESHOLD
-    except Exception:
-        return False
-
-
-def _comparison_color(color: Color) -> Color:
-    return (
-        color
-        .convert("hct")
-        .clone()
-        .set("tone", _FAMILY_COMPARISON_TONE)
-        .fit("srgb", method="raytrace", pspace="hct")
-        .convert("srgb")
-    )
-
-
-def _hue_distance(left_hue: float, right_hue: float) -> float:
-    distance = abs(left_hue - right_hue) % 360.0
-    return min(distance, 360.0 - distance)
-
-
-def _build_contrast_issues(
+def _process_tree(
     summary: Summary,
     page_builder: PageBuilder,
     root: Element,
 ) -> list[list[tuple[float, float]]]:
     issue_id = 1
     quads: list[list[tuple[float, float]]] = []
-    elements = tuple(root.iter_dfs())
 
-    for element in elements:
-        if element.has_tag(*_MEDIA_TAGS) or element.property("background-image") is not None and not is_gradient(element.property("background-image").value):
-            try:
+    for element in root.iter_dfs():
+        try:
+            background_image = element.property("background-image")
+            excluded_pixels = get_html_element_category(element.tag_name) == "media" or (
+                background_image is not None
+                and not is_gradient(background_image.before_value)
+            )
+
+            if excluded_pixels:
                 quad = page_builder.get_box_model(element.backend_node_id)
-            except RuntimeError:
+                if quad:
+                    quads.append(quad)
+
+            if not element.has_text or element.node_id is None:
                 continue
-            if quad:
-                quads.append(quad)
+
+            background_data = page_builder.get_background_colors(element.node_id)
+            contrast = element.get_text_contrast(
+                background_colors=background_data.get("background_colors", ()),
+                font_size=background_data.get("font_size"),
+                font_weight=background_data.get("font_weight"),
+            )
+            if contrast is None:
+                continue
+
+            (
+                foreground,
+                background,
+                contrast_ratio,
+                required_ratio,
+                is_large_text,
+            ) = contrast
+
+            if contrast_ratio >= required_ratio:
+                continue
+
+            summary.add_contrast_issue(
+                issue_id=issue_id,
+                backend_node_id=element.backend_node_id,
+                contrast_ratio=contrast_ratio,
+                required_ratio=required_ratio,
+                is_large_text=is_large_text,
+                foreground=foreground.convert("srgb").to_string(hex=True),
+                background=background.convert("srgb").to_string(hex=True),
+            )
+            issue_id += 1
+        except Exception:
             continue
 
-        if element.tag_name != "#text":
-            continue
-
-        container = root.find_by_backend_node_id(element.parent_backend_node_id)
-        target_node_id = container.node_id
-
-        foreground = container.property("color").value
-
-        background_data = page_builder.get_background_colors(target_node_id)
-        background_colors = background_data.get("background_colors")
-        if not background_colors:
-            continue
-
-        worst_background = _worst_background(foreground, background_colors)
-        if not worst_background:
-            continue
-
-        worst_color, lowest_contrast = worst_background
-        font_size = _css_number(background_data.get("font_size"))
-        font_weight = _css_font_weight(background_data.get("font_weight"))
-        is_large_text = font_size >= 18 or (font_size >= 14 and font_weight >= 700)
-        required_ratio = 3.1 if is_large_text else 4.5
-        if lowest_contrast >= required_ratio:
-            continue
-
-        summary.add_contrast_issue(
-            issue_id=issue_id,
-            backend_node_id=container.backend_node_id,
-            contrast_ratio=lowest_contrast,
-            required_ratio=required_ratio,
-            is_large_text=is_large_text,
-            foreground=Color(foreground).convert('srgb').to_string(hex=True),
-            background=worst_color.convert('srgb').to_string(hex=True),
-        )
-        issue_id += 1
     return quads
-
-
-def _worst_background(foreground: str, backgrounds: list[str]) -> tuple[Any, float] | None:
-    """Encuentra el color de fondo con el menor contraste respecto al texto."""
-    try:
-        fg_color = Color(foreground)
-        
-        # Creamos una lista de tuplas (objeto_color, valor_contraste)
-        candidates = [
-            (bg_obj := Color(bg), fg_color.contrast(bg_obj))
-            for bg in backgrounds
-        ]
-        
-        if not candidates:
-            return None
-
-        # min() compara automáticamente basándose en el segundo elemento de la tupla (el contraste)
-        return min(candidates, key=lambda item: item[1])
-
-    except Exception:
-        return None
-
-
-def _css_number(value: object) -> float:
-    normalized = str(value or "").strip().lower()
-    if normalized.endswith("px"):
-        normalized = normalized[:-2]
-    try:
-        return float(normalized)
-    except ValueError:
-        return 0.0
-
-
-def _css_font_weight(value: object) -> int:
-    normalized = str(value or "").strip().lower()
-    keyword_weights = {
-        "normal": 400,
-        "bold": 700,
-        "lighter": 300,
-        "bolder": 700,
-        "initial": 400,
-        "inherit": 400,
-        "unset": 400,
-        "revert": 400,
-    }
-    if normalized in keyword_weights:
-        return keyword_weights[normalized]
-    try:
-        return int(float(normalized))
-    except ValueError:
-        return 400

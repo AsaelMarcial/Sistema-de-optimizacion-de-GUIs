@@ -135,35 +135,6 @@ class Warning:
 
 
 # =============================================================================
-# CHANGE HISTORY
-# =============================================================================
-
-
-# Represents a color transformation applied to the prototype.
-#
-# Each entry stores:
-# - the original code fragment,
-# - the transformed code fragment,
-# - the original color,
-# - the resulting color.
-#
-# These records allow users to understand, audit and track
-# modifications performed by the optimization process. 
-
-@dataclass(frozen=True, slots=True)
-class ChangeHistory:
-
-    change_id: int = field(init=True)
-
-    before_code: str = field(init=True)
-
-    after_code: str = field(init=True)
-
-    before_color: Color = field(init=True)
-
-    after_color: Color = field(init=True)
-
-# =============================================================================
 # SUMMARY
 # =============================================================================
 
@@ -177,8 +148,7 @@ class ChangeHistory:
 # - environmental metrics,
 # - overview statistics,
 # - contrast issues,
-# - processing warnings,
-# - transformation history.
+# - processing warnings.
 #
 # This class owns the lifecycle of all contained objects and
 # guarantees uniqueness through its add_* methods.
@@ -194,8 +164,6 @@ class Summary:
         self.__contrast_issues: dict[int, ContrastIssue] = {}
 
         self.__warnings: dict[int, Warning] = {}
-
-        self.__changes: dict[int, ChangeHistory] = {}
 
     # =========================================================================
     # ENVIRONMENTAL REVIEW
@@ -307,34 +275,6 @@ class Summary:
         return issue
 
     # =========================================================================
-    # CHANGE HISTORY
-    # =========================================================================
-
-    def add_change(
-        self,
-        change_id: int,
-        before_code: str,
-        after_code: str,
-        before_color: Color,
-        after_color: Color,
-    ) -> ChangeHistory:
-
-        if change_id in self.__changes:
-            return self.__changes[change_id]
-
-        change = ChangeHistory(
-            change_id=change_id,
-            before_code=before_code,
-            after_code=after_code,
-            before_color=before_color,
-            after_color=after_color,
-        )
-
-        self.__changes[change_id] = change
-
-        return change
-
-    # =========================================================================
     # GETTERS
     # =========================================================================
 
@@ -370,13 +310,6 @@ class Summary:
 
         return tuple(self.__warnings.values())
 
-    @property
-    def changes(
-        self,
-    ) -> tuple[ChangeHistory, ...]:
-
-        return tuple(self.__changes.values())
-
     # =========================================================================
     # ITERATORS
     # =========================================================================
@@ -398,9 +331,3 @@ class Summary:
     ) -> Iterator[Warning]:
 
         yield from self.__warnings.values()
-
-    def iter_changes(
-        self,
-    ) -> Iterator[ChangeHistory]:
-
-        yield from self.__changes.values()

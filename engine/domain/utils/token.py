@@ -445,7 +445,7 @@ def _semantic_candidate(
     background = resolve_effective_background(entry, prototype_structure, colors)
     background_value = background.rgb_value if background is not None else None
     contrast = None
-    source_color_value = color_entry.rgb_value if color_entry is not None else property_model.value
+    source_color_value = color_entry.rgb_value if color_entry is not None else property_model.before_value
     if bool(property_rule.get("uses_contrast")) and background_value:
         contrast = resolve_initial_contrast(source_color_value, background_value)
 
@@ -454,7 +454,7 @@ def _semantic_candidate(
         contrast,
         source_color_value,
         background_value,
-        property_model.value,
+        property_model.before_value,
     )
     foundation = resolve_foundation_color(color_entry, base_token_map, fallback_tokens) if color_entry is not None else None
     alias_to = (
@@ -468,7 +468,7 @@ def _semantic_candidate(
         resolved_value=(
             foundation.resolved_value
             if alias_to and foundation is not None
-            else (property_model.value or (color_entry.rgb_value if color_entry is not None else ""))
+            else (property_model.before_value or (color_entry.rgb_value if color_entry is not None else ""))
         ),
         element_key=element_key,
         property_id=property_name,
@@ -480,7 +480,7 @@ def _semantic_candidate(
         source_style_ids=((property_model.style_id,) if property_model.style_id else ()),
         source_palette_ids=tuple(foundation.source_palette_ids if foundation is not None else ()),
         source_values=(
-            property_model.value,
+            property_model.before_value,
             *(_color_value_variants(color_entry.rgb_value if color_entry is not None else "")),
             *(_color_value_variants(color_entry.hex_value if color_entry is not None else "")),
             *(
@@ -509,7 +509,7 @@ def _effect_candidate(
     if allowed_elements and element_key not in allowed_elements:
         return None
 
-    resolved_value = str(property_model.value or "").strip()
+    resolved_value = str(property_model.before_value or "").strip()
     if not resolved_value:
         return None
 
@@ -567,7 +567,7 @@ def build_token_inventory(
                 color_entry = (
                     _color_by_id(color_entries, property_model.color_id)
                     if property_model.color_id
-                    else _color_by_value(color_entries, property_model.value)
+                    else _color_by_value(color_entries, property_model.before_value)
                 )
                 token = _semantic_candidate(
                     entry,
@@ -663,4 +663,3 @@ def apply_token_assignments(
             )
         ),
     )
-

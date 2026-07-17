@@ -176,7 +176,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                 element.properties.append(
                     Property(
                         name=property_name,
-                        value=property_value,
+                        before_value=property_value,
                     )
                 )
 
@@ -186,10 +186,13 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     root.parent_backend_node_id = -1
     _attach_children(root, siblings, created_elements)
 
+    depth_by_backend_node_id: dict[int, int] = {-1: -1}
     for element in root.iter_dfs():
-        _filter_properties(element, root)
+        element.depth = depth_by_backend_node_id.get(element.parent_backend_node_id, -1) + 1
+        depth_by_backend_node_id[element.backend_node_id] = element.depth
+        _filter_properties(element)
         for property_model in element.properties:
-            property_model.has_color = _register_colors(property_model.value, color_scheme)
+            property_model.has_color = _register_colors(property_model.before_value, color_scheme)
 
     context.set(K.DOM_TREE, root)
     context.set(K.COLOR_SCHEME, color_scheme)
@@ -221,86 +224,103 @@ def _attach_children(
         _attach_children(child, siblings, elements)
 
 SVG_PAINT_TAGS = {"svg", "circle", "rect", "ellipse", "line", "polyline", "polygon", "path"}
-SVG_SHAPE_TAGS = SVG_PAINT_TAGS - {"svg"}
 
+def _filter_properties(element: Element) -> None:
+    # 1. Eliminar valores predeterminados y propiedades redundantes.
+    for css_property in tuple(element.properties):
+        property_name = css_property.name
+        current_property = element.property(property_name)
 
-def _filter_properties(element: Element, root: Element) -> None:
-    for property_model in tuple(element.properties):
-        if element.property(property_model.name) is None:
+        if current_property is None:
             continue
 
-        property_data = CSSPROPERTIES[property_model.name]
+        property_data = CSSPROPERTIES[property_name]
+
         if _matches_default_value(
-            property_model.value,
+            current_property.before_value,
             property_data.default_value,
         ):
-            element.remove_property(property_model.name)
-            for longhand in collect_longhands(property_model.name):
-                element.remove_property(longhand)
+            element.remove_property(property_name)
+
+            for longhand_name in collect_longhands(property_name):
+                element.remove_property(longhand_name)
+
             continue
 
-        if get_shorthand(property_model.name) is not None or property_data.longhands is None:
+        # Solo se procesan shorthands de nivel superior.
+        if (
+            property_data.longhands is None
+            or get_shorthand(property_name) is not None
+        ):
             continue
 
-        element.remove_property(property_model.name)
+        element.remove_property(property_name)
+
         for intermediate_name in property_data.longhands:
             intermediate = element.property(intermediate_name)
+
             if intermediate is None:
                 continue
-            for longhand_name in CSSPROPERTIES[intermediate.name].longhands or ():
+
+            for longhand_name in CSSPROPERTIES[intermediate_name].longhands or ():
                 longhand = element.property(longhand_name)
-                if longhand is not None and longhand.value == intermediate.value:
-                    element.remove_property(longhand.name)
 
-    if element.property("list-style-image") is not None:
-        for descendant in element.iter_dfs():
-            if descendant.property("list-style-image") is not None and descendant != element and descendant.property("list-style-image").value == element.property("list-style-image").value:
-                descendant.remove_property("list-style-image")
+                if (
+                    longhand is not None
+                    and longhand.before_value == intermediate.before_value
+                ):
+                    element.remove_property(longhand_name)
 
+    # 2. Eliminar propiedades SVG que no aplican al elemento.
     if element.tag_name not in SVG_PAINT_TAGS:
-        element.remove_property("fill")
-        element.remove_property("stroke")
+        for property_name in ("fill", "stroke"):
+            element.remove_property(property_name)
 
-    if element.tag_name == "svg":
-        stroke = element.property("stroke")
-        fill = element.property("fill")
-        if stroke is not None or fill is not None:
-            for descendant in element.iter_dfs():
-                if descendant is element or descendant.tag_name not in SVG_SHAPE_TAGS:
-                    continue
-
-                descendant_stroke = descendant.property("stroke")
-                if stroke is not None and descendant_stroke is not None and descendant_stroke.value == stroke.value:
-                    descendant.remove_property("stroke")
-
-                descendant_fill = descendant.property("fill")
-                if fill is not None and descendant_fill is not None and descendant_fill.value == fill.value:
-                    descendant.remove_property("fill")
-
-    if not any(child.tag_name == "#text" for child in element.children):
-        element.remove_property("color")
-
+    # 3. Eliminar colores reemplazados por imágenes.
     if element.property("background-image") is not None:
         element.remove_property("background-color")
 
     if element.property("border-image-source") is not None:
-        element.remove_property("border")
-        element.remove_property("border-color")
-        element.remove_property("border-bottom-color")
-        element.remove_property("border-left-color")
-        element.remove_property("border-right-color")
-        element.remove_property("border-top-color")
+        for property_name in (
+            "border",
+            "border-color",
+            "border-top-color",
+            "border-right-color",
+            "border-bottom-color",
+            "border-left-color",
+        ):
+            element.remove_property(property_name)
 
-    if element.property("border-color") is not None and has_multiplevalues(element.property("border-color").value):
+    # 4. Conservar los lados individuales cuando border-color
+    # contiene varios valores.
+    border_color = element.property("border-color")
+
+    if (
+        border_color is not None
+        and has_multiplevalues(border_color.before_value)
+    ):
         element.remove_property("border-color")
 
-    if element.tag_name == "#text":
-        parent = root.find_by_backend_node_id(element.parent_backend_node_id)
-        if parent is not None:
-            for property_model in tuple(element.properties):
-                parent_property = parent.property(property_model.name)
-                if parent_property is not None and parent_property.value == property_model.value:
-                    element.remove_property(property_model.name)
+    # 5. Eliminar de los hijos de texto las propiedades repetidas
+    # respecto al elemento que las contiene.
+    if element.has_text:
+        for child in element.children:
+            if child.tag_name != "#text":
+                continue
+
+            for text_property in tuple(child.properties):
+                element_property = element.property(text_property.name)
+
+                if (
+                    element_property is not None
+                    and element_property.before_value == text_property.before_value
+                ):
+                    child.remove_property(text_property.name)
+
+    # 6. Eliminar propiedades tipográficas de elementos sin texto.
+    if not element.has_text:
+        for property_name in ("font-size", "font-weight"):
+            element.remove_property(property_name)
 
 def _matches_default_value(property_value: str, default_value: object) -> bool:
     if default_value is None:

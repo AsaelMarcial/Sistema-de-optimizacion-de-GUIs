@@ -133,7 +133,7 @@ def _effect_colors_payload(
             ):
                 continue
 
-            effect_colors = _extract_effect_color_tokens(property_model.value)
+            effect_colors = _extract_effect_color_tokens(property_model.before_value)
             if not effect_colors:
                 continue
 
@@ -170,7 +170,7 @@ def _effect_colors_payload(
                 "element_id": element.node_id,
                 "tag_name": element.tag_name,
                 "property_name": str(property_model.name),
-                "resolved_value": property_model.value,
+                "resolved_value": property_model.before_value,
                 "colors": color_rows,
             }
             if element.selector is not None:

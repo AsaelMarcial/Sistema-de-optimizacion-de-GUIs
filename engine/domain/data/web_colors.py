@@ -1115,7 +1115,7 @@ class WebColor(MultiValueEnum):
         'fuchsia',
         ('Fuchsia', 'fuchsia', 'Magenta', 'magenta', 'Fuchsia / Magenta', 'fuchsia / magenta', 'FF00FF', 'ff00ff', '#FF00FF', '#ff00ff', (255, 0, 255)),
         ('Fuchsia', 'Magenta'),
-        WebColorGroup.COLORES_VIOLETAS_Y_PURPURAS,
+        WebColorGroup.COLORES_ROSAS,
         'FF00FF',
         (255, 0, 255),
         (300, 100, 50),

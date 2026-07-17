@@ -350,9 +350,9 @@ def _token_source_spec(
                 continue
             if allowed_style_ids and property_model.style_id and property_model.style_id not in allowed_style_ids:
                 continue
-            if property_model.value:
-                exact_values.add(str(property_model.value).strip().lower())
-                source_color_variants.update(_parseable_color_variants(property_model.value))
+            if property_model.before_value:
+                exact_values.add(str(property_model.before_value).strip().lower())
+                source_color_variants.update(_parseable_color_variants(property_model.before_value))
             declared_candidates = _candidate_declared_properties(
                 normalized_property,
                 property_model.declared_property,
@@ -570,7 +570,7 @@ def _build_token_replacement_specs(
             source_values = {
                 str(item).strip().lower()
                 for item in (
-                    property_model.value,
+                    property_model.before_value,
                     lookup.authored_value_for(property_model),
                 )
                 if str(item or "").strip()

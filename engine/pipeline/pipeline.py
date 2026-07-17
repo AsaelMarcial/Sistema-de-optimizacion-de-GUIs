@@ -63,59 +63,68 @@ def _palette_rows(color_scheme: Any) -> list[dict[str, Any]]:
     return rows
 
 
-def _color_css(color: Any) -> str:
-    try:
-        srgb = color.convert("srgb").fit("srgb")
-        alpha = float(srgb.alpha(nans=False))
-        return srgb.to_string(comma=True, alpha=alpha < 0.999)
-    except Exception:
-        return "rgb(0, 0, 0)"
-
-
-def _color_rgb(color: Any) -> str:
-    try:
-        srgb = color.convert("srgb").fit("srgb")
-        red, green, blue = srgb.coords(nans=False)
-        return f"{round(float(red) * 255)}, {round(float(green) * 255)}, {round(float(blue) * 255)}"
-    except Exception:
-        return "0, 0, 0"
-
-
-def _change_history_groups(summary: Any) -> list[dict[str, Any]]:
-    if summary is None:
+def _change_history_groups(root: Any) -> list[dict[str, Any]]:
+    if root is None:
         return []
 
-    iter_changes = getattr(summary, "iter_changes", None)
-    changes_source = iter_changes() if callable(iter_changes) else getattr(summary, "changes", ())
-    changes: list[dict[str, Any]] = []
+    groups: list[dict[str, Any]] = []
 
-    for change in changes_source or ():
-        before_color = getattr(change, "before_color", None)
-        after_color = getattr(change, "after_color", None)
-        changes.append(
+    for element in getattr(root, "iter_dfs", lambda: ())():
+        backend_node_id = getattr(element, "backend_node_id", None)
+        if backend_node_id is None:
+            continue
+
+        changes: list[dict[str, Any]] = []
+        for property_model in getattr(element, "properties", ()) or ():
+            if not getattr(property_model, "has_changed", False):
+                continue
+
+            before_value = getattr(property_model, "before_value", "")
+            after_value = getattr(property_model, "after_value", "")
+            changes.append(
+                {
+                    "property_name": getattr(property_model, "name", ""),
+                    "before_value": before_value,
+                    "after_value": after_value,
+                    "before_css": _change_value_css(before_value),
+                    "after_css": _change_value_css(after_value),
+                    "before_label": _change_value_label(before_value),
+                    "after_label": _change_value_label(after_value),
+                }
+            )
+
+        if not changes:
+            continue
+
+        tag_name = str(getattr(element, "tag_name", "") or "element").strip()
+        groups.append(
             {
-                "name": f"Ajuste {getattr(change, 'change_id', len(changes) + 1)}",
-                "savings_label": "",
-                "before_css": _color_css(before_color),
-                "after_css": _color_css(after_color),
-                "before_rgb": _color_rgb(before_color),
-                "after_rgb": _color_rgb(after_color),
-                "before_code": getattr(change, "before_code", ""),
-                "after_code": getattr(change, "after_code", ""),
+                "title": tag_name.capitalize(),
+                "summary": "",
+                "backend_node_id": int(backend_node_id),
+                "node_id": getattr(element, "node_id", None),
+                "change_count": len(changes),
+                "changes": changes,
             }
         )
 
-    if not changes:
-        return []
+    return groups
 
-    return [
-        {
-            "title": "Transformacion de color",
-            "summary": "Cambios registrados desde Summary durante transform_design.",
-            "change_count": len(changes),
-            "changes": changes,
-        }
-    ]
+
+def _change_value_css(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text or "url(" in text.lower():
+        return "transparent"
+    return text
+
+
+def _change_value_label(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return "sin valor"
+    if text.lower().startswith(("rgb(", "rgba(")):
+        return text.upper()
+    return text
 
 
 # DEBUG TEMPORAL: imprime Summary en results.html para validar data_processor.
@@ -148,25 +157,10 @@ def _debug_summary_text(summary: Any) -> str:
             }
         )
 
-    changes: list[dict[str, Any]] = []
-    iter_changes = getattr(summary, "iter_changes", None)
-    summary_changes = iter_changes() if callable(iter_changes) else getattr(summary, "changes", ())
-    for change in summary_changes or ():
-        changes.append(
-            {
-                "change_id": getattr(change, "change_id", None),
-                "before_code": getattr(change, "before_code", None),
-                "after_code": getattr(change, "after_code", None),
-                "before_color": _debug_value(getattr(change, "before_color", None)),
-                "after_color": _debug_value(getattr(change, "after_color", None)),
-            }
-        )
-
     return pformat(
         {
             "overviews": overviews,
             "contrast_issues": contrast_issues,
-            "changes": changes,
         },
         sort_dicts=False,
         width=120,
@@ -186,6 +180,7 @@ def _debug_dom_tree_text(root: Any) -> str:
                 "tag_name": getattr(element, "tag_name", None),
                 "backend_node_id": getattr(element, "backend_node_id", None),
                 "node_id": getattr(element, "node_id", None),
+                "depth": getattr(element, "depth", None),
                 "parent_backend_node_id": getattr(element, "parent_backend_node_id", None),
                 "node_type": getattr(element, "node_type", None),
                 "is_text_node": getattr(element, "is_text_node", None),
@@ -205,7 +200,9 @@ def _debug_dom_tree_text(root: Any) -> str:
                 "properties": [
                     {
                         "name": getattr(prop, "name", None),
-                        "value": getattr(prop, "value", None),
+                        "before_value": getattr(prop, "before_value", None),
+                        "after_value": getattr(prop, "after_value", None),
+                        "has_changed": getattr(prop, "has_changed", None),
                         "has_color": getattr(prop, "has_color", None),
                     }
                     for prop in getattr(element, "properties", ()) or ()
@@ -280,7 +277,8 @@ def _fallback_template_payload(context: PipelineContext) -> dict[str, Any] | Non
         else None
     )
     snapshot_debug = context.get("derived.snapshot_debug", "")
-    dom_tree_debug = _debug_dom_tree_text(context.get(K.DOM_TREE))
+    dom_tree = context.get(K.DOM_TREE) if context.has(K.DOM_TREE) else None
+    dom_tree_debug = _debug_dom_tree_text(dom_tree)
     color_scheme_debug = _debug_color_scheme_text(color_scheme)
 
     results = {
@@ -307,7 +305,7 @@ def _fallback_template_payload(context: PipelineContext) -> dict[str, Any] | Non
             "savings": environmental_savings.to_dict() if environmental_savings is not None else {},
         },
         "render_snapshot": {
-            "node_count": len(list(context.get(K.DOM_TREE).iter_dfs())) if context.has(K.DOM_TREE) else 0,
+            "node_count": len(list(dom_tree.iter_dfs())) if dom_tree is not None else 0,
             "palette_color_count": len(color_scheme.get_colors()) if color_scheme else 0,
         },
         "color_processing": {
@@ -350,7 +348,7 @@ def _fallback_template_payload(context: PipelineContext) -> dict[str, Any] | Non
             "top_three_percentage": 0,
             "palette_rows": palette_rows,
             "contrast_rows": [],
-            "change_history_groups": _change_history_groups(summary),
+            "change_history_groups": _change_history_groups(dom_tree),
         },
     }
     return {

@@ -182,6 +182,24 @@ class PageBuilder:
                 f"No se pudo cambiar el valor: {exc}"
             ) from exc
 
+    def clean_property_value(self, node_id: int, property_name: str) -> any:
+        self._ensure_open()
+        assert self._cdp is not None
+        if not node_id:
+            return False
+        try:
+            if not self._document_loaded:
+                self.get_full_document_node()
+            response = self._cdp.send(
+                "CSS.setEffectivePropertyValueForNode",
+                {"nodeId": int(node_id), "propertyName": property_name, "value": ""},
+            )
+            return True
+        except (PlaywrightError, TypeError, ValueError) as exc:
+            raise RuntimeError(
+                f"No se pudo cambiar el valor: {exc}"
+            ) from exc
+
     def set_color_scheme(self) -> None:
         self._ensure_open()
         assert self._page is not None
