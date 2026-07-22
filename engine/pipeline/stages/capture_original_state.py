@@ -4,13 +4,13 @@ from collections import defaultdict
 
 from engine.adapters.browser.page_builder import PageBuilder
 from engine.domain.enums.scope.context_keys import ContextKey as K
-from engine.domain.data.scope_css import CSSPROPERTIES, collect_longhands, get_shorthand
+from engine.domain.data.scope_css import CSSPROPERTIES, collect_longhands
 from engine.domain.models.color_scheme import Color, ColorScheme
 from engine.domain.models.element import Attribute, Element, Property
 from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
-from engine.domain.utils.parsers import has_multiplevalues
+from engine.domain.utils.parsers import has_multiplevalues, matches_default_value
 
 _IMAGE_ATTRIBUTES = {
     "src",
@@ -166,11 +166,18 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             )
 
         if i in layout_styles_map:
-            computed_style_values = {
-                property_name: str(strings[string_idx])
-                for property_name, string_idx in zip(whitelist_styles, layout_styles_map[i])
-                if string_idx is not None
-            }
+            computed_style_values: dict[str, str] = {}
+            for property_name, string_idx in zip(whitelist_styles, layout_styles_map[i]):
+                if string_idx is None:
+                    continue
+
+                try:
+                    string_position = int(string_idx)
+                except (TypeError, ValueError):
+                    continue
+
+                if 0 <= string_position < len(strings):
+                    computed_style_values[property_name] = str(strings[string_position])
 
             for property_name, property_value in computed_style_values.items():
                 element.properties.append(
@@ -236,7 +243,7 @@ def _filter_properties(element: Element) -> None:
 
         property_data = CSSPROPERTIES[property_name]
 
-        if _matches_default_value(
+        if matches_default_value(
             current_property.before_value,
             property_data.default_value,
         ):
@@ -247,29 +254,28 @@ def _filter_properties(element: Element) -> None:
 
             continue
 
-        # Solo se procesan shorthands de nivel superior.
-        if (
-            property_data.longhands is None
-            or get_shorthand(property_name) is not None
-        ):
+        if property_data.longhands is None:
             continue
 
-        element.remove_property(property_name)
+        longhands = tuple(
+            longhand_name
+            for longhand_name in property_data.longhands
+            if element.property(longhand_name) is not None
+        )
 
-        for intermediate_name in property_data.longhands:
-            intermediate = element.property(intermediate_name)
+        if not longhands:
+            continue
 
-            if intermediate is None:
-                continue
+        if len(longhands) == 1:
+            element.remove_property(property_name)
+            continue
 
-            for longhand_name in CSSPROPERTIES[intermediate_name].longhands or ():
-                longhand = element.property(longhand_name)
-
-                if (
-                    longhand is not None
-                    and longhand.before_value == intermediate.before_value
-                ):
-                    element.remove_property(longhand_name)
+        if has_multiplevalues(current_property.before_value):
+            element.remove_property(property_name)
+            continue
+        else:
+            for longhand_name in longhands:
+                element.remove_property(longhand_name)
 
     # 2. Eliminar propiedades SVG que no aplican al elemento.
     if element.tag_name not in SVG_PAINT_TAGS:
@@ -284,22 +290,18 @@ def _filter_properties(element: Element) -> None:
         for property_name in (
             "border",
             "border-color",
+            "border-block-color",
+            "border-inline-color",
             "border-top-color",
             "border-right-color",
             "border-bottom-color",
             "border-left-color",
+            "border-block-start-color",
+            "border-block-end-color",
+            "border-inline-start-color",
+            "border-inline-end-color",
         ):
             element.remove_property(property_name)
-
-    # 4. Conservar los lados individuales cuando border-color
-    # contiene varios valores.
-    border_color = element.property("border-color")
-
-    if (
-        border_color is not None
-        and has_multiplevalues(border_color.before_value)
-    ):
-        element.remove_property("border-color")
 
     # 5. Eliminar de los hijos de texto las propiedades repetidas
     # respecto al elemento que las contiene.
@@ -312,8 +314,8 @@ def _filter_properties(element: Element) -> None:
                 element_property = element.property(text_property.name)
 
                 if (
-                    element_property is not None
-                    and element_property.before_value == text_property.before_value
+                    element_property is None
+                    or element_property.before_value == text_property.before_value
                 ):
                     child.remove_property(text_property.name)
 
@@ -321,18 +323,6 @@ def _filter_properties(element: Element) -> None:
     if not element.has_text:
         for property_name in ("font-size", "font-weight"):
             element.remove_property(property_name)
-
-def _matches_default_value(property_value: str, default_value: object) -> bool:
-    if default_value is None:
-        return False
-
-    default_values = (default_value,) if isinstance(default_value, str) else tuple(default_value)
-    normalized_property_value = " ".join(str(property_value).lower().split())
-    return any(
-        normalized_default in normalized_property_value
-        for value in default_values
-        if value is not None and (normalized_default := " ".join(str(value).lower().split()))
-    )
 
 def _register_colors(value: str, color_scheme: ColorScheme) -> bool:
     found_color = False

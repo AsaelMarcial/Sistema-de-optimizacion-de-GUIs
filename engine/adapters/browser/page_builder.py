@@ -200,21 +200,27 @@ class PageBuilder:
                 f"No se pudo cambiar el valor: {exc}"
             ) from exc
 
-    def set_color_scheme(self) -> None:
+    def set_color_scheme(self) -> bool:
         self._ensure_open()
         assert self._page is not None
         try:
-            self._page.evaluate("""
+            content = self._page.evaluate("""
                 () => {
-                    // 1. Validar que no exista ya para no duplicar
-                    if (!document.querySelector('meta[name="color-scheme"]')) {
-                        const meta = document.createElement('meta');
+                    let meta = document.querySelector('meta[name="color-scheme"]');
+                    if (meta && meta.content == "dark"){
+                        return meta.content;
+                    }
+                    if (!meta) {
+                        meta = document.createElement('meta');
                         meta.name = 'color-scheme';
-                        meta.content = 'dark';
                         document.head.appendChild(meta);
                     }
+                    meta.content = 'dark';
+                    return meta.content;
                 }
             """)
+            
+            return content == "dark"
         except PlaywrightError as exc:
             raise RuntimeError(
                 f"No se pudo inyectar color_scheme: {exc}"

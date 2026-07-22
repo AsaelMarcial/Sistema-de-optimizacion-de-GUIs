@@ -15,7 +15,7 @@ class HTMLDATA:
 # scope-css.py, aunque en el esquema visual aparezca como "Image".
 HTMLELEMENTS = MappingProxyType(
     {
-        "a": HTMLDATA(category="composed"),
+        "a": HTMLDATA(category="typography"),
         "abbr": HTMLDATA(category="typography"),
         "address": HTMLDATA(category="composed"),
         "article": HTMLDATA(category="container"),

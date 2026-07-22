@@ -289,11 +289,7 @@ def _process_tree(
 
     for element in root.iter_dfs():
         try:
-            background_image = element.property("background-image")
-            excluded_pixels = get_html_element_category(element.tag_name) == "media" or (
-                background_image is not None
-                and not is_gradient(background_image.before_value)
-            )
+            excluded_pixels = get_html_element_category(element.tag_name) == "media" or element.has_image or get_html_element_category(element.tag_name) == "input"
 
             if excluded_pixels:
                 quad = page_builder.get_box_model(element.backend_node_id)

@@ -5,7 +5,7 @@ from typing import Iterable, Optional
 from coloraide.everything import ColorAll
 
 TONAL_STEPS: tuple[int, ...] = (10, 20, 30, 40, 50, 60, 70, 80, 90, 95)
-NEUTRAL_TONAL_STEPS: tuple[int, ...] = (0, *TONAL_STEPS, 100)
+NEUTRAL_TONAL_STEPS: tuple[int, ...] = (0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 100)
 
 class Color(ColorAll):
     """
@@ -414,13 +414,15 @@ class Tone:
     name: str
     value: int
     color: Color
-
-
+    
 @dataclass(frozen=True, slots=True)
 class Palette:
     name: str
     source_color: Color
     tones: tuple[Tone, ...] = field(default_factory=tuple)
+
+    def tone(self, value: int) -> Tone | None:
+        return next((tone for tone in self.tones if tone.value == value), None)
 
 
 @dataclass(slots=True)
@@ -546,6 +548,22 @@ class ColorScheme:
                     unique_colors.append(tone.color)
         return unique_colors
 
+    def get_palette_colors(self, palette_name: str) -> list[Color]:
+        """
+        Extrae en una sola lista plana todas las referencias a los objetos Color
+        almacenados en una paleta específica.
+        Evita duplicados y operaciones redundantes.
+        """
+        unique_colors: list[Color] = []
+        palette = self.get_palette(palette_name)
+        if palette is None:
+            return unique_colors
+
+        for tone in palette.tones:
+            if tone.color not in unique_colors:
+                unique_colors.append(tone.color)
+        return unique_colors
+
     def resolve_color_location(self, color: Color) -> tuple[Palette, Tone] | tuple[None, None]:
         """
         Identifica a qué Palette y a qué Tone pertenece exactamente una instancia de Color dada,
@@ -566,11 +584,15 @@ class ColorScheme:
 
         try:
             target = target_color if isinstance(target_color, Color) else Color(target_color)
-            match color_pool.strip().lower():
+            palette_name = color_pool.strip()
+            if self.get_palette(palette_name) is not None:
+                return target.closest(self.get_palette_colors(palette_name))
+
+            match palette_name.lower():
                 case "colors":
-                    closest_color = target.closest(list(self.get_colors().values()))
+                    closest_color = target.closest(list(self.get_colors().values()), method="2000")
                 case "palettes":
-                    closest_color = target.closest(self.get_all_palette_colors())
+                    closest_color = target.closest(self.get_all_palette_colors(), method="2000")
                 case _:
                     raise ValueError(
                     f"Invalid color pool: '{color_pool}'. Choose 'colors' or 'palettes'."
@@ -587,48 +609,43 @@ class ColorScheme:
         steps: Iterable[int] = TONAL_STEPS
     ) -> Palette | None:
         """
-        Generates and registers a tonal HCT palette.
+        Generates and registers a tonal cam02-jmh palette.
 
-        Uses ColorAide's HCT tonal palette strategy:
-        clone -> set tone -> fit to sRGB with raytrace using HCT as perceptual space.
+        Uses ColorAide's cam02-jmh tonal palette strategy:
         """
 
-        if palette_name in self.palettes:
-            return self.palettes[palette_name]
-
-        try:
-            source_color = (
-                source_color_input
-                if isinstance(source_color_input, Color)
-                else Color(source_color_input)
-            )
-
-            hct_color = source_color.convert("hct")
-
-            tones = tuple(
-                Tone(
-                    name=f"{palette_name}-{int(step)}",
-                    value=int(step),
-                    color=(
-                        hct_color
-                        .clone()
-                        .set("tone", int(step))
-                        .fit("srgb", method="raytrace", pspace="hct")
-                        .convert("srgb")
-                    )
-                )
-                for step in steps
-            )
-
-        except Exception:
-            return None
-
-        palette = Palette(
-            name=palette_name,
-            source_color=source_color,
-            tones=tones
+        source_color = Color(source_color_input).convert("hct")
+        source_color_key = self._get_color_key(source_color)
+        existing_palette = next(
+            (
+                palette
+                for palette in self.palettes.values()
+                if self._get_color_key(palette.source_color) == source_color_key
+            ),
+            None,
         )
 
-        self.palettes[palette_name] = palette
+        if existing_palette is None:
+            generated_colors = [source_color.clone().set('tone', step) for step in steps]
+            tones = tuple(
+                Tone(
+                    name=f"{palette_name}-{step}",
+                    value=step,
+                    color=color,
+                )
+                for color, step in zip(generated_colors, steps)
+            )
 
-        return self.palettes[palette_name]
+            palette = Palette(
+                name=palette_name,
+                source_color=source_color,
+                tones=tones
+            )
+
+            self.palettes[palette_name] = palette
+
+            return self.palettes[palette_name]
+        else:
+            return existing_palette      
+
+

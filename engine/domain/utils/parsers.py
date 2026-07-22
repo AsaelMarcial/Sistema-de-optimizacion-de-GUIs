@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from tinycss2 import parse_one_component_value, parse_component_value_list, serialize
 from copy import deepcopy
+from urllib.parse import urlsplit
+
+from engine.domain.models.color_scheme import Color
 
 GRADIENT_FUNCTIONS = {
     "linear-gradient",
@@ -11,6 +14,20 @@ GRADIENT_FUNCTIONS = {
     "repeating-radial-gradient",
     "repeating-conic-gradient",
 }
+
+
+
+_IMAGE_EXTENSIONS = (
+    ".avif",
+    ".bmp",
+    ".gif",
+    ".ico",
+    ".jpeg",
+    ".jpg",
+    ".png",
+    ".svg",
+    ".webp",
+)
 
 def is_gradient(property_value: str) -> bool:
     if not isinstance(property_value, str) or not property_value.strip():
@@ -42,35 +59,41 @@ def is_gradient(property_value: str) -> bool:
         )
     )
 
-
 def is_url_image(property_value: str) -> bool:
     if not isinstance(property_value, str) or not property_value.strip():
         return False
 
-    value = parse_one_component_value(
-        property_value,
+    raw_value = property_value.strip()
+    parsed_value = parse_one_component_value(
+        raw_value,
         skip_comments=True,
     )
 
-    # URL sin comillas: url(imagenes/icono.svg)
-    if value.type == "url":
-        return bool(value.value.strip())
+    if parsed_value.type == "url":
+        image_url = parsed_value.value.strip()
 
-    # URL con comillas: url("imagenes/icono.svg")
-    if value.type != "function" or value.lower_name != "url":
+    elif parsed_value.type == "function" and parsed_value.lower_name == "url":
+        arguments = [
+            token
+            for token in parsed_value.arguments
+            if token.type not in {"whitespace", "comment"}
+        ]
+
+        if len(arguments) != 1 or arguments[0].type != "string":
+            return False
+
+        image_url = arguments[0].value.strip()
+
+    else:
+        # Ruta o URL directa, sin url(...)
+        image_url = raw_value.strip("\"'")
+
+    if not image_url:
         return False
 
-    arguments = [
-        token
-        for token in value.arguments
-        if token.type not in {"whitespace", "comment"}
-    ]
+    image_path = urlsplit(image_url).path.lower()
 
-    return (
-        len(arguments) == 1
-        and arguments[0].type == "string"
-        and bool(arguments[0].value.strip())
-    )
+    return image_path.endswith(_IMAGE_EXTENSIONS)
 
 def has_multiplevalues(property_value: str) -> bool:
     if not isinstance(property_value, str) or not property_value.strip():
@@ -95,6 +118,32 @@ def has_multiplevalues(property_value: str) -> bool:
     ]
 
     return len(values) > 1
+
+def get_colors(value: str) -> list[tuple[str, Color]] | None:
+    if not isinstance(value, str) or not value:
+        return None
+
+    colors: list[tuple[str, Color]] = []
+    start = 0
+
+    while start < len(value):
+        match = Color.match(value, start=start, fullmatch=False)
+
+        if match is None:
+            start += 1
+            continue
+
+        if match.color:
+            colors.append(
+                (
+                    value[match.start:match.end],
+                    match.color.set("alpha", 1),
+                )
+            )
+
+        start = max(match.end, start + 1)
+
+    return colors or None
 
 def replace_property_values(
     property_value: str,
@@ -190,3 +239,50 @@ def replace_property_values(
                 index += 1
 
     return serialize(tokens)
+
+def matches_default_value(
+    property_value: str,
+    default_values: list[str | None] | str | None,
+) -> bool:
+    if default_values is None:
+        return False
+
+    if isinstance(default_values, str):
+        default_values = [default_values]
+
+    property_tokens = {
+        serialize([token]).strip().casefold()
+        for token in parse_component_value_list(
+            property_value,
+            skip_comments=True,
+        )
+        if token.type != "whitespace"
+    }
+
+    for default_value in default_values:
+        if default_value is None:
+            continue
+
+        default_tokens = [
+            token
+            for token in parse_component_value_list(
+                default_value,
+                skip_comments=True,
+            )
+            if token.type != "whitespace"
+        ]
+
+        # Cada miembro de default_values debe representar un solo token.
+        if len(default_tokens) != 1:
+            continue
+
+        normalized_default = (
+            serialize([default_tokens[0]])
+            .strip()
+            .casefold()
+        )
+
+        if normalized_default in property_tokens:
+            return True
+
+    return False

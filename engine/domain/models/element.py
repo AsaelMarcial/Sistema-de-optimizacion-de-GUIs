@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import builtins
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Callable, Iterable
+
+from engine.domain.utils.parsers import get_colors, is_url_image
 
 from engine.domain.models.color_scheme import Color
 
@@ -24,30 +27,6 @@ class Property:
     def has_changed(self) -> bool:
         return self.after_value is not None and self.before_value != self.after_value
 
-    def get_colors(self) -> list[tuple[str, Color]]:
-        colors = []
-        start = 0
-
-        while start < len(self.before_value):
-            match = Color.match(self.before_value, start=start, fullmatch=False)
-
-            if match is None:
-                start += 1
-                continue
-
-            if match.color.alpha(nans=False) > 0:
-                colors.append(
-                    (
-                        self.before_value[match.start:match.end],
-                        match.color,
-                    )
-                )
-
-            start = max(match.end, start + 1)
-
-        return colors
-
-
 @dataclass(slots=True)
 class Element:
     backend_node_id: int
@@ -67,6 +46,16 @@ class Element:
     @property
     def has_text(self) -> bool:
         return any(child.tag_name == "#text" for child in self.children)
+    
+    @property
+    def has_image(self) -> bool:
+        return any(
+            is_url_image(property.before_value)
+            for property in self.properties
+        ) or any(
+            is_url_image(attribute.value)
+            for attribute in self.attributes
+        )
 
     def add_child(self, child: "Element") -> None:
         if child is self:
@@ -155,8 +144,13 @@ class Element:
         if color_property is None:
             return None
 
-        foreground_colors = color_property.get_colors()
-        if not foreground_colors or not background_colors:
+        color_value = (
+            color_property.after_value
+            if color_property.has_changed
+            else color_property.before_value
+        )
+        foreground_colors = get_colors(color_value)
+        if not foreground_colors or background_colors is None:
             return None
 
         foreground = foreground_colors[0][1]
@@ -183,6 +177,40 @@ class Element:
             is_large_text,
         )
 
+
+    @builtins.property
+    def effective_background(self) -> Property | None:
+        """
+        La propiedad de fondo
+        del elemento.
+        """
+        for property_name in ("background-color", "background-image", "fill"):
+            css_property = self.property(property_name)
+
+            if css_property is not None:
+                return css_property
+
+        return None
+
+    def get_effective_parent_background(
+        self,
+        root: "Element",
+    ) -> "Element | None":
+        """
+        Devuelve el ancestro más cercano que tenga al menos un color de
+        fondo válido.
+
+        Los ancestros se recorren desde el parent directo hasta el más
+        lejano. Devuelve None si ninguno tiene un color de fondo.
+        """
+
+        for ancestor in root.ancestors_of(self):
+            if ancestor.tag_name == "body":
+                return ancestor
+            if ancestor.effective_background is not None:
+                return ancestor
+
+        return None
 
 def iter_elements(root: Element | None) -> Iterable[Element]:
     return () if root is None else root.iter_dfs()
