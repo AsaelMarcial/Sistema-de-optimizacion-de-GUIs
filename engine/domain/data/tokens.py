@@ -461,3 +461,27 @@ QUERY_NAMES: tuple[str, ...] = (
     "select_same_palette_tone",
     "promote_to_component_if_conflict",
 )
+
+CHROMATIC_THEMETOKEN_VARIANTS = {
+    ".subtlest": {"target_tone": 10, "inversed_tone": 95},
+    ".subtler": {"target_tone": 20, "inversed_tone": 90},
+    ".subtle": {"target_tone": 30, "inversed_tone": 80},
+    ".bold": {"target_tone": 40, "inversed_tone": 70},
+    ".base": {"target_tone": 50, "inversed_tone": 60},
+}
+
+ACHROMATIC_THEMETOKEN_VARIANTS = {
+    ".subtlest": {"target_tone": 0, "inversed_tone": 100},
+    ".subtler": {"target_tone": 10, "inversed_tone": 95},
+    ".subtle": {"target_tone": 20, "inversed_tone": 90},
+    ".bold": {"target_tone": 30, "inversed_tone": 80},
+    ".bolder": {"target_tone": 40, "inversed_tone": 70},
+    ".base": {"target_tone": 50, "inversed_tone": 60},
+}
+
+THEMETOKEN_DEFAULTS = [
+    {"name": "surface.base", "target_tone": 0},
+    {"name": "surface.elevation-1", "target_tone": 10},
+    {"name": "surface.elevation-2", "target_tone": 20},
+    {"name": "text-primary", "target_tone": 100},
+]

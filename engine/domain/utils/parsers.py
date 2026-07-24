@@ -286,3 +286,7 @@ def matches_default_value(
             return True
 
     return False
+
+def separate_token_terms(value: str) -> list:
+    """Función auxiliar para limpiar los guiones y separar por puntos."""
+    return value.removeprefix("--").split(".")
