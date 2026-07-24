@@ -201,7 +201,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                         continue
 
                     surface_depth = max(element.depth or 1, 1)
-
+                    print(str(root.ancestors_of(element)))
                     for surface_ancestor in root.ancestors_of(element):
                         if surface_ancestor.tag_name == "body":
                             break

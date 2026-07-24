@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Iterable
 
 from engine.domain.utils.parsers import get_colors, is_url_image
+from engine.domain.data.scope_css import get_font_weight
 
 from engine.domain.models.color_scheme import Color
 
@@ -85,22 +86,14 @@ class Element:
     def find_by_backend_node_id(self, backend_node_id: int) -> "Element | None":
         return self.find(lambda element: element.backend_node_id == backend_node_id)
 
-    def ancestors_of(self, node: "Element | int") -> tuple["Element", ...]:
-        target = (
-            node
-            if isinstance(node, Element)
-            else self.find_by_backend_node_id(int(node))
-        )
-        if target is None:
-            return ()
-
+    def ancestors_of(self, node: Element) -> list[Element]:
         elements_by_backend_node_id = {
             element.backend_node_id: element
             for element in self.iter_dfs()
         }
         ancestors: list[Element] = []
-        parent_backend_node_id = target.parent_backend_node_id
-        visited_backend_node_ids: set[int] = {target.backend_node_id}
+        parent_backend_node_id = node.parent_backend_node_id
+        visited_backend_node_ids: set[int] = {node.backend_node_id}
 
         while parent_backend_node_id != -1:
             if parent_backend_node_id in visited_backend_node_ids:
@@ -114,7 +107,7 @@ class Element:
             visited_backend_node_ids.add(parent.backend_node_id)
             parent_backend_node_id = parent.parent_backend_node_id
 
-        return tuple(ancestors)
+        return ancestors
 
     def attribute(self, name: str) -> Attribute | None:
         normalized = str(name).strip()
@@ -149,20 +142,20 @@ class Element:
             if color_property.has_changed
             else color_property.before_value
         )
-        foreground_colors = get_colors(color_value)
-        if not foreground_colors or background_colors is None:
+        text_color = get_colors(color_value)[0][1]
+        if not text_color or background_colors is None:
             return None
 
-        foreground = foreground_colors[0][1]
         background, contrast_ratio = min(
             (
-                (background := Color(value), foreground.contrast(background))
+                (background := Color(value), text_color.contrast(background))
                 for value in background_colors
             ),
             key=lambda item: item[1],
         )
+        
         font_size = float(str(font_size).removesuffix("px"))
-        font_weight = int(font_weight)
+        font_weight = get_font_weight(str(font_weight))
         is_large_text = (
             font_size >= 24
             or font_size >= 56 / 3 and font_weight >= 700
@@ -170,7 +163,7 @@ class Element:
         required_ratio = 3.0 if is_large_text else 4.5
 
         return (
-            foreground,
+            text_color,
             background,
             float(contrast_ratio),
             required_ratio,

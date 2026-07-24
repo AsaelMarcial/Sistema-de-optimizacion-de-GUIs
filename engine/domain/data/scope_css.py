@@ -284,3 +284,27 @@ def collect_longhands(property_name: str) -> set[str]:
 
 def get_shorthand(property_name: str) -> str | None:
     return CSSPROPERTIES[property_name].shorthand
+
+FONT_WEIGHT_CHOICES = {
+    100: ["Thin", "Hairline", "100"],
+    200: ["Extra Light", "Ultra Light", "200"],
+    300: ["Light", "300"],
+    400: ["Normal", "Regular", "400"],
+    500: ["Medium", "500"],
+    600: ["Semi Bold", "Demi Bold", "600"],
+    700: ["Bold", "700"],
+    800: ["Extra Bold", "Ultra Bold", "800"],
+    900: ["Black", "Heavy", "900"],
+}
+
+def get_font_weight(value: str) -> int | None:
+    # Clean whitespace and convert to lowercase for accurate matching
+    target_value = value.strip().lower()
+    
+    # Iterate through the dictionary to check the name lists
+    for weight_int, names in FONT_WEIGHT_CHOICES.items():
+        # Compare lowercase versions of each name in the list
+        if any(name.lower() == target_value for name in names):
+            return weight_int
+            
+    return None

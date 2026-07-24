@@ -36,14 +36,11 @@ def _dom_tree_ready(root: Element) -> bool:
             root.tag_name == "body"
             and bool(elements)
             and root.parent_backend_node_id == -1
-            and isinstance(root.backend_node_id, int)
-            and root.backend_node_id != 0
             and all(element.tag_name for element in elements)
             and all(isinstance(element.backend_node_id, int) for element in elements)
             and all(element.backend_node_id != 0 for element in elements)
             and all(isinstance(element.node_id, int) for element in elements)
-            and all(element.node_id > 0 for element in elements)
-            and len({element.node_id for element in elements}) == len(elements)
+            and all(element.node_id >= 0 for element in elements)
         )
     except (AttributeError, RuntimeError, TypeError, ValueError):
         return False
@@ -78,14 +75,6 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     whitelist_styles = list(CSSPROPERTIES.keys())
     before_screenshot = session.get_path("before.png", "artifacts", "png")
     screenshot_path = page_builder.capture_fullpage_screenshot(output_path=before_screenshot)
-  
-    context.trace.add_stage_event(
-        CONTRACT.name,
-        "start",
-        {
-            "computed_style_count": len(whitelist_styles),
-        },
-    )
     
     color_scheme = ColorScheme()
     snapshot = page_builder.extract_raw_snapshot(whitelist_styles)
@@ -96,101 +85,60 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     nodes = document.get("nodes", {})
     layout = document.get("layout", {})
 
-    node_names = nodes.get("nodeName", [])
-    node_types = nodes.get("nodeType", [])
-    backend_node_ids = nodes.get("backendNodeId", [])
-    parent_indices = nodes.get("parentIndex", [])
-    node_values = nodes.get("nodeValue", [])
-    node_attributes = nodes.get("attributes", [])
-    total_nodes = len(backend_node_ids)
-
-    layout_node_indices = layout.get("nodeIndex", [])
-    layout_bounds = layout.get("bounds", [])
-    layout_styles = layout.get("styles", [])
-
-    layout_map = dict(zip(layout_node_indices, layout_bounds))
-    layout_styles_map = dict(zip(layout_node_indices, layout_styles))
-
     created_elements: dict[int, Element] = {}
     siblings: dict[int, list[int]] = defaultdict(list)
     root: Element | None = None
 
-    for i in range(total_nodes):
+    for i in range(len(nodes["backendNodeId"])):
         
-        node_type = node_types[i] if i < len(node_types) else -1
-        if node_type not in (1, 3):
+        if nodes["nodeType"][i] not in (1, 3) or nodes["backendNodeId"][i] is None:
             continue
 
-        if node_type == 3 and not str(strings[node_values[i]]).strip():
-            continue
-
-        backend_node_id = int(backend_node_ids[i]) if i < len(backend_node_ids) else None
-        node_id = None
-        parent_index = parent_indices[i]
-        parent_backend_node_id = int(backend_node_ids[parent_index]) if parent_index >= 0 else -1
-        tag_name = "#text" if node_type == 3 else str(strings[node_names[i]]).lower()
-
-        if backend_node_id is not None:
-            node = page_builder.resolve_backend_node_id(backend_node_id)
-            node_id = node.get("nodeId")
+        node = page_builder.resolve_backend_node_id(nodes["backendNodeId"][i]) 
+        node_id = node.get("nodeId")
 
         element = Element(
-            backend_node_id=backend_node_id,
+            backend_node_id=nodes["backendNodeId"][i],
             node_id=node_id,
-            tag_name=tag_name,
-            node_type=node_type,
-            parent_backend_node_id=parent_backend_node_id,
+            tag_name=str(strings[nodes["nodeName"][i]]).lower(),
+            node_type=nodes["nodeType"][i],
+            parent_backend_node_id=nodes["backendNodeId"][nodes["parentIndex"][i]] if str(strings[nodes["nodeName"][i]]).lower() != "body" else -1,
         )
 
-        for name_idx, value_idx in zip(node_attributes[i][::2], node_attributes[i][1::2]):
-            if str(strings[name_idx]) in _IMAGE_ATTRIBUTES:
+        for name, value in zip(nodes["attributes"][i][::2], nodes["attributes"][i][1::2]):
+            if str(strings[name]) in _IMAGE_ATTRIBUTES:
+
                 element.attributes.append(
                     Attribute(
-                        name=str(strings[name_idx]),
-                        value=str(strings[value_idx]),
+                        name=str(strings[name]),
+                        value=str(strings[value]),
                     )
                 )
-
+        
         if element.tag_name == "body":
             root = element
-        created_elements[backend_node_id] = element
-        siblings[parent_backend_node_id].append(backend_node_id)
 
-        if i in layout_map:
-            bounds = layout_map[i]
-            element.x, element.y, element.width, element.height = (
-                float(bounds[0]),
-                float(bounds[1]),
-                float(bounds[2]),
-                float(bounds[3]),
-            )
+        created_elements[element.backend_node_id] = element
+        siblings[element.parent_backend_node_id].append(element.backend_node_id)
 
-        if i in layout_styles_map:
-            computed_style_values: dict[str, str] = {}
-            for property_name, string_idx in zip(whitelist_styles, layout_styles_map[i]):
-                if string_idx is None:
+        if i in layout["nodeIndex"]:
+            layout_index = layout["nodeIndex"].index(i)
+            element.x, element.y, element.width, element.height = layout["bounds"][layout_index]
+
+            for name, value in zip(whitelist_styles, layout["styles"][layout_index]):
+                if value is None:
                     continue
 
-                try:
-                    string_position = int(string_idx)
-                except (TypeError, ValueError):
-                    continue
-
-                if 0 <= string_position < len(strings):
-                    computed_style_values[property_name] = str(strings[string_position])
-
-            for property_name, property_value in computed_style_values.items():
                 element.properties.append(
                     Property(
-                        name=property_name,
-                        before_value=property_value,
+                        name=name,
+                        before_value=str(strings[value]),
                     )
                 )
 
     if root is None:
         return context.set_error("DOMSnapshot no contiene un nodo body valido.")
 
-    root.parent_backend_node_id = -1
     _attach_children(root, siblings, created_elements)
 
     depth_by_backend_node_id: dict[int, int] = {-1: -1}
