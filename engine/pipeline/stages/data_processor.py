@@ -10,18 +10,7 @@ from engine.domain.models.summary import Summary
 from engine.domain.data.web_colors import nearest_web_color
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
-from engine.domain.data.scope_html_elements import get_html_element_category
 
-_MEDIA_TAGS = {
-    "img",
-    "picture",
-    "source",
-    "video",
-    "image",
-    "canvas",
-    "object",
-    "embed",
-}
 _PREDOMINANT_COLOR_LIMIT = 13
 _HUE_BUCKET_SIZE = 30
 _HSL_DISTANCE_THRESHOLD = 40
@@ -335,7 +324,7 @@ def _process_tree(
 
     for element in root.iter_dfs():
         try:
-            excluded_pixels = get_html_element_category(element.tag_name) == "media" or element.has_image or get_html_element_category(element.tag_name) == "input"
+            excluded_pixels = element.category == "media" or element.has_image or element.category == "input"
 
             if excluded_pixels:
                 quad = page_builder.get_box_model(element.backend_node_id)

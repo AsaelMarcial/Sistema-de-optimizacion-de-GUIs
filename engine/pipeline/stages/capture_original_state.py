@@ -10,7 +10,8 @@ from engine.domain.models.element import Attribute, Element, Property
 from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
-from engine.domain.utils.parsers import has_multiplevalues, matches_default_value
+from engine.domain.utils.parsers import matches_default_value, get_colors
+from engine.domain.data.scope_html_elements import get_html_element_category
 
 _IMAGE_ATTRIBUTES = {
     "src",
@@ -67,16 +68,16 @@ CONTRACT = StageContract(
 
 
 def run_stage(context: PipelineContext) -> PipelineContext:
-    session = context.get(K.SESSION)
     if context.error or context.has(K.DOM_TREE):
         return context
-
+    
+    session = context.get(K.SESSION)
     page_builder = context.get(K.PAGE_BUILDER)
+    color_scheme = ColorScheme()
     whitelist_styles = list(CSSPROPERTIES.keys())
     before_screenshot = session.get_path("before.png", "artifacts", "png")
     screenshot_path = page_builder.capture_fullpage_screenshot(output_path=before_screenshot)
     
-    color_scheme = ColorScheme()
     snapshot = page_builder.extract_raw_snapshot(whitelist_styles)
 
     strings = snapshot.get("strings", [])
@@ -94,15 +95,18 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         if nodes["nodeType"][i] not in (1, 3) or nodes["backendNodeId"][i] is None:
             continue
 
-        node = page_builder.resolve_backend_node_id(nodes["backendNodeId"][i]) 
-        node_id = node.get("nodeId")
+        node = page_builder.resolve_backend_node_id(nodes["backendNodeId"][i])  
+
+        if node is None:
+            continue
 
         element = Element(
-            backend_node_id=nodes["backendNodeId"][i],
-            node_id=node_id,
-            tag_name=str(strings[nodes["nodeName"][i]]).lower(),
-            node_type=nodes["nodeType"][i],
-            parent_backend_node_id=nodes["backendNodeId"][nodes["parentIndex"][i]] if str(strings[nodes["nodeName"][i]]).lower() != "body" else -1,
+            backend_node_id=node.get("backendNodeId"),
+            node_id=node.get("nodeId"),
+            tag_name=node.get("nodeName").lower(),
+            node_type=node.get("nodeType"),
+            parent_backend_node_id=node.get("parentId") if node.get("nodeName").lower() != "body" else -1,
+            category=get_html_element_category(node.get("nodeName").lower())
         )
 
         if element.tag_name == "body":

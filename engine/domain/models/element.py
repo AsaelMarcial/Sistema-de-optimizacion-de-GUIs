@@ -20,8 +20,9 @@ class Attribute:
 @dataclass(slots=True)
 class Property:
     name: str
-    before_value: str
+    before_value: str| None = field(default="")
     after_value: str | None = field(default=None)
+    token_value: str | None = field(default=None)
     has_color: bool = False
 
     @property
@@ -33,6 +34,7 @@ class Element:
     backend_node_id: int
     node_id: int | None
     tag_name: str
+    category: str | None
     node_type: int
     parent_backend_node_id: int = -1
     x: float | None = None

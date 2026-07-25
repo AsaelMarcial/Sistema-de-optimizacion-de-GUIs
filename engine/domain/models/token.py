@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from engine.domain.models.color_scheme import Color, Palette
+from engine.domain.models.element import Element, Property
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,6 +133,21 @@ class TokenInventory:
                 self.create_root_token(tone.name, tone.color)
         
         return self.root_tokens
+
+    def generate_property_tokens(self, root: Element) -> dict[str, PropertyToken]:
+        for element in root.iter_bfs():
+            for property in element.properties:
+                if property.name is not None and property.has_color and element.tag_name != "#text":
+                    if property.after_value is None:
+                        self.create_property_token(element.category, property.name, property.before_value, property.before_value)
+                    elif property.before_value is None:
+                        self.create_property_token(element.category, property.name, property.after_value, property.after_value)
+                    elif property.before_value is not None and property.after_value is not None:
+                        self.create_property_token(element.category, property.name, property.after_value, property.before_value)
+                else:
+                    continue
+        
+        return self.property_tokens
 
     # ==========================================================
     # GET

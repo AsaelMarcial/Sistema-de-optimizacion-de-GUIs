@@ -248,6 +248,13 @@ class CoreDomAndColorTests(unittest.TestCase):
         self.assertFalse(context.has("derived.raw_snapshot_metadata"))
 
     def test_build_artifacts_renders_palette_preview(self) -> None:
+        class FakePageBuilder:
+            def set_data_theme(self) -> bool:
+                return True
+
+            def set_theme_link(self) -> bool:
+                return True
+
         context = PipelineContext()
         session = _session_with_html()
         color_scheme = ColorScheme()
@@ -256,9 +263,20 @@ class CoreDomAndColorTests(unittest.TestCase):
             token_id="--cyan-20",
             value="rgb(0, 255, 255)",
         )
+        root = Element(backend_node_id=1, node_id=1, tag_name="body", node_type=1)
+        root.properties.append(
+            Property(
+                name="background-color",
+                before_value="rgb(255, 255, 255)",
+                after_value="rgb(0, 0, 0)",
+                has_color=True,
+            )
+        )
         context.set(ContextKey.SESSION, session)
         context.set(ContextKey.COLOR_SCHEME, color_scheme)
         context.set(ContextKey.TOKEN_INVENTORY, token_inventory)
+        context.set(ContextKey.DOM_TREE, root)
+        context.set(ContextKey.PAGE_BUILDER, FakePageBuilder())
 
         run_build_artifacts_stage(context)
         validate_produces(context, BUILD_ARTIFACTS_CONTRACT)
@@ -269,7 +287,20 @@ class CoreDomAndColorTests(unittest.TestCase):
         css_path = session.get_path("glow.css", "artifacts", "css")
         self.assertEqual(
             css_path.read_text(encoding="utf-8"),
-            ":root {\n  --cyan-20: rgb(0, 255, 255);\n}\n",
+            (
+                ":root {\n"
+                "  color-scheme: dark;\n"
+                "  --cyan-20: rgb(0, 255, 255);\n"
+                "}\n"
+                "\n"
+                "[data-theme=\"glow\"] {\n"
+                "  --main-surface-background-color-1: rgb(0, 0, 0);\n"
+                "}\n"
+                "\n"
+                "[data-theme=\"original\"] {\n"
+                "  --main-surface-background-color-1: rgb(255, 255, 255);\n"
+                "}\n"
+            ),
         )
 
     def test_generate_root_css_uses_root_tokens_as_is(self) -> None:
@@ -277,13 +308,29 @@ class CoreDomAndColorTests(unittest.TestCase):
             "--cyan-20": RootToken("--cyan-20", "rgb(0, 255, 255)"),
             "--neutral-100": RootToken("--neutral-100", "rgb(255, 255, 255)"),
         }
+        token_inventory = TokenInventory()
+        property_token = token_inventory.create_property_token(
+            "container",
+            "background-color",
+            "rgb(0, 0, 0)",
+            "rgb(255, 255, 255)",
+        )
 
         self.assertEqual(
-            generate_root_css(root_tokens),
+            generate_root_css(root_tokens, {property_token.token_id: property_token}),
             (
                 ":root {\n"
+                "  color-scheme: dark;\n"
                 "  --cyan-20: rgb(0, 255, 255);\n"
                 "  --neutral-100: rgb(255, 255, 255);\n"
+                "}\n"
+                "\n"
+                "[data-theme=\"glow\"] {\n"
+                "  --container-background-color-1: rgb(0, 0, 0);\n"
+                "}\n"
+                "\n"
+                "[data-theme=\"original\"] {\n"
+                "  --container-background-color-1: rgb(255, 255, 255);\n"
                 "}\n"
             ),
         )
@@ -391,6 +438,8 @@ class CoreDomAndColorTests(unittest.TestCase):
             "get_background_colors",
             "get_box_model",
             "get_computed_styles_for_node",
+            "set_data_theme",
+            "set_theme_link",
             "capture_fullpage_screenshot",
             "close",
         ):

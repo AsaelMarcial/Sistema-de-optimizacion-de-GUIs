@@ -194,8 +194,9 @@ class UIAccessibilityTemplatesTest(unittest.TestCase):
                 node_id: int,
                 property_name: str,
                 value: str,
-            ) -> None:
+            ) -> str:
                 self.calls.append((node_id, property_name, value))
+                return value
 
         page_builder = FakePageBuilder()
         element = Element(

@@ -146,7 +146,7 @@ class PageBuilder:
         self._document_loaded = True
         return dict(response.get("root") or {})
 
-    def resolve_backend_node_id(self, backend_node_id: int) -> int:
+    def resolve_backend_node_id(self, backend_node_id: int) -> int | None:
         self._ensure_open()
         assert self._cdp is not None
         if not backend_node_id:
@@ -164,37 +164,67 @@ class PageBuilder:
                 f"No se pudo resolver el backendNodeId: {exc}"
             ) from exc
 
-    def set_effective_value(self, node_id: int, property_name: str, value: str) -> any:
+    def set_effective_value(self, node_id: int, property_name: str, value: str) -> str | None:
         self._ensure_open()
         assert self._cdp is not None
         if not node_id:
-            return False
+            return None
         try:
             if not self._document_loaded:
                 self.get_full_document_node()
-            response = self._cdp.send(
+            self._cdp.send(
                 "CSS.setEffectivePropertyValueForNode",
                 {"nodeId": int(node_id), "propertyName": property_name, "value": value},
             )
-            return True
+            return self._current_property_value(int(node_id), property_name)
         except (PlaywrightError, TypeError, ValueError) as exc:
             raise RuntimeError(
                 f"No se pudo cambiar el valor: {exc}"
             ) from exc
 
-    def clean_property_value(self, node_id: int, property_name: str) -> any:
+    def clean_property_value(self, node_id: int, property_name: str) -> str | None:
         self._ensure_open()
         assert self._cdp is not None
         if not node_id:
-            return False
+            return None
         try:
             if not self._document_loaded:
                 self.get_full_document_node()
-            response = self._cdp.send(
+            self._cdp.send(
                 "CSS.setEffectivePropertyValueForNode",
                 {"nodeId": int(node_id), "propertyName": property_name, "value": ""},
             )
-            return True
+            return self._current_property_value(int(node_id), property_name)
+        except (PlaywrightError, TypeError, ValueError) as exc:
+            raise RuntimeError(
+                f"No se pudo cambiar el valor: {exc}"
+            ) from exc
+
+    def _current_property_value(self, node_id: int, property_name: str) -> str | None:
+        assert self._cdp is not None
+        try:
+            resolved = self._cdp.send(
+                "DOM.resolveNode",
+                {"nodeId": int(node_id)},
+            )
+            object_id = resolved.get("object", {}).get("objectId")
+            if not object_id:
+                return None
+            response = self._cdp.send(
+                "Runtime.callFunctionOn",
+                {
+                    "objectId": object_id,
+                    "functionDeclaration": """
+                        function(prop) {
+                            return this[prop]
+                                || window.getComputedStyle(this).getPropertyValue(prop);
+                        }
+                    """,
+                    "arguments": [{"value": property_name}],
+                    "returnByValue": True,
+                },
+            )
+            return response.get("result", {}).get("value")
         except (PlaywrightError, TypeError, ValueError) as exc:
             raise RuntimeError(
                 f"No se pudo cambiar el valor: {exc}"
@@ -224,6 +254,80 @@ class PageBuilder:
         except PlaywrightError as exc:
             raise RuntimeError(
                 f"No se pudo inyectar color_scheme: {exc}"
+            ) from exc
+
+    def set_data_theme(self) -> bool:
+        self._ensure_open()
+        assert self._page is not None
+        try:
+            theme = self._page.evaluate("""
+                () => new Promise((resolve) => {
+                    const root = document.documentElement;
+                    let settled = false;
+                    const finish = () => {
+                        if (settled) return;
+                        settled = true;
+                        resolve(root.getAttribute('data-theme'));
+                    };
+
+                    if (root.getAttribute('data-theme') !== 'glow') {
+                        root.setAttribute('data-theme', 'glow');
+                    }
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(finish);
+                    });
+                    window.setTimeout(finish, 1000);
+                })
+            """)
+            return theme == "glow"
+        except PlaywrightError as exc:
+            raise RuntimeError(
+                f"No se pudo inyectar data-theme: {exc}"
+            ) from exc
+
+    def set_theme_link(self) -> bool:
+        self._ensure_open()
+        assert self._page is not None
+        try:
+            href = self._page.evaluate("""
+                () => new Promise((resolve) => {
+                    const href = 'glow.css';
+                    let link = Array
+                        .from(document.querySelectorAll('link[rel~="stylesheet"]'))
+                        .find((candidate) => {
+                            const rawHref = candidate.getAttribute('href') || '';
+                            return candidate.dataset.glowTheme === 'true'
+                                || rawHref === href
+                                || rawHref.endsWith('/glow.css')
+                                || candidate.href.endsWith('/glow.css');
+                        });
+                    if (!link) {
+                        link = document.createElement('link');
+                    }
+
+                    let settled = false;
+                    const finish = () => {
+                        if (settled) return;
+                        settled = true;
+                        resolve(link.getAttribute('href'));
+                    };
+
+                    link.rel = 'stylesheet';
+                    link.dataset.glowTheme = 'true';
+                    link.addEventListener('load', finish, { once: true });
+                    link.addEventListener('error', finish, { once: true });
+                    link.href = href;
+                    document.head.appendChild(link);
+                    if (link.sheet) {
+                        finish();
+                    }
+                    window.setTimeout(finish, 1000);
+                })
+            """)
+            return href == "glow.css"
+        except PlaywrightError as exc:
+            raise RuntimeError(
+                f"No se pudo inyectar el link del theme: {exc}"
             ) from exc
 
     def get_background_colors(self, node_id: int) -> dict[str, Any]:

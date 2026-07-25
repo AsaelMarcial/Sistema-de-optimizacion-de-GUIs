@@ -465,12 +465,8 @@ class ColorScheme:
         Returns the stored Color object so other entities can reference it.
         Returns None if the input is not a valid color.
         """
-
-        try:
-            new_color = color if isinstance(color, Color) else Color(color)
-            unique_key = self._get_color_key(new_color)
-        except Exception:
-            return None
+        new_color = color if isinstance(color, Color) else Color(color)
+        unique_key = self.serialize_color(new_color)
 
         if unique_key not in self.colors:
             self.colors[unique_key] = new_color
@@ -485,19 +481,12 @@ class ColorScheme:
         It only creates a temporary Color to calculate the same search key.
         """
 
-        try:
-            search_key = self._get_color_key(Color(color_string))
+        search_key = self.serialize_color(Color(color_string))
 
-            if search_key in self.colors:
-                return self.colors[search_key]
-
-            return None
-
-        except Exception:
-            return None
+        return self.colors[search_key] if search_key in self.colors else None
 
     @staticmethod
-    def _get_color_key(color: Color) -> str:
+    def serialize_color(color: Color) -> str:
         """
         Creates a standardized sRGB key.
 
@@ -509,9 +498,8 @@ class ColorScheme:
         return (
             color
             .convert("srgb")
-            .normalize(nans=False)
             .to_string(comma=True, alpha=True, rounding="decimal", precision=0)
-        )
+        ) 
 
     def get_colors(self) -> dict[str, Color]:
         """Devuelve la instancia directa del catálogo de colores."""
@@ -524,15 +512,7 @@ class ColorScheme:
         It does not register anything.
         """
 
-        try:
-
-            if palette_name in self.palettes:
-                return self.palettes[palette_name]
-
-            return None
-
-        except Exception:
-            return None
+        return self.palettes[palette_name] if palette_name in self.palettes else None
 
     def get_palettes(self) -> dict[str, Palette]:
         """Devuelve la instancia directa del catálogo de paletas."""
@@ -621,12 +601,12 @@ class ColorScheme:
         """
 
         source_color = Color(source_color_input).convert("hct")
-        source_color_key = self._get_color_key(source_color)
+        source_color_key = self.serialize_color(source_color)
         existing_palette = next(
             (
                 palette
                 for palette in self.palettes.values()
-                if self._get_color_key(palette.source_color) == source_color_key
+                if self.serialize_color(palette.source_color) == source_color_key
             ),
             None,
         )

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from engine.adapters.browser.page_builder import PageBuilder
 from engine.domain.data.scope_css import CSSPROPERTIES
-from engine.domain.data.scope_html_elements import get_html_element_category
 from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.domain.models.color_scheme import (
     Color,
@@ -84,10 +83,8 @@ def run_stage(context: PipelineContext) -> PipelineContext:
 
         _update_properties(page_builder, element)
 
-        category = get_html_element_category(element.tag_name)
-
         parent_background = None
-        if category != "main-surface":
+        if element.category != "main-surface":
             effective_parent = element.get_effective_parent_background(root)
             parent_background = (
                 effective_parent.effective_background
@@ -120,20 +117,14 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             if property_data is None:
                 continue
 
-            role = property_data.role
-
-            match category, role:
+            match element.category, property_data.role:
                 case "main-surface", "background":
-
                     if css_property.name == "background-image":
                         _clean_property(
                             page_builder,
                             element,
                             "background-image"
                         )
-
-                    if css_property.name == "background-color" and css_property.before_value == "rgb(0, 0, 0)":
-                        continue
 
                     _transform_property(
                         page_builder,
@@ -145,15 +136,13 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                 case "container", "background":
                     if element.has_image:
                         continue
-                    
-                    if css_property.name == "background-image":
+                    elif css_property.name == "background-image":
                         _clean_property(
                             page_builder,
                             element,
                             "background-image",
                         )
-
-                    if element.tag_name == "footer" or element.tag_name == "header":
+                    elif element.tag_name == "footer" or element.tag_name == "header":
                         _clean_property(
                             page_builder,
                             element,
@@ -336,7 +325,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                     if css_property.has_color:
                         colors = get_colors(css_property.before_value)
 
-                    if category == "main-surface" and css_property.name == "color" and css_property.before_value != "rgb(255, 255, 255)":
+                    if element.category == "main-surface" and css_property.name == "color" and css_property.before_value != "rgb(255, 255, 255)":
                         _transform_property(
                             page_builder,
                             element,
@@ -557,7 +546,6 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                 after_value,
             )
 
-        _update_properties(page_builder, element)
     after_screenshot = session.get_path(
         "after.png",
         "artifacts",
@@ -571,7 +559,9 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     context.trace.add_stage_event(
         CONTRACT.name,
         "complete",
-        {"after_screenshot_path": after_screenshot_path},
+        {
+            "after_screenshot_path": after_screenshot_path,
+        },
     )
     return context
 
@@ -586,36 +576,34 @@ def _transform_property(
         return
 
     property_model = element.property(property_name)
-    before_value = property_model.before_value if property_model is not None else ""
+    if property_model is None:
+        property_model = Property(
+            name=property_name,
+            before_value="",
+            has_color=bool(get_colors(after_value)),
+        )
+        element.properties.append(property_model)
+
     current_value = (
         property_model.after_value
-        if property_model is not None and property_model.has_changed
-        else before_value
+        if property_model.has_changed
+        else property_model.before_value
     )
-
     if current_value == after_value:
         return
 
-    page_builder.set_effective_value(
+    changed_value = page_builder.set_effective_value(
         element.node_id,
         property_name,
         after_value,
     )
 
-    if property_model is None:
-        element.properties.append(
-            Property(
-                name=property_name,
-                before_value="",
-                after_value=after_value,
-                has_color=bool(get_colors(after_value)),
-            )
-        )
-        return
+    if element.tag_name == "body":
+        print(str(changed_value))
 
-    property_model.after_value = after_value
+    property_model.after_value = changed_value if changed_value is not None else after_value
     property_model.has_color = property_model.has_color or bool(
-        get_colors(after_value)
+        property_model.after_value and get_colors(property_model.after_value)
     )
 
 def _clean_property(
@@ -628,14 +616,20 @@ def _clean_property(
 
     property_model = element.property(property_name)
     if property_model is None:
-        return
+        property_model = Property(name=property_name)
+        element.properties.append(property_model)
 
-    page_builder.clean_property_value(
+    changed_value = page_builder.clean_property_value(
         element.node_id,
         property_name,
     )
 
-    property_model.after_value = None
+    property_model.after_value = (
+        changed_value
+        if changed_value != property_model.before_value
+        else None
+    )
+    property_model.has_color = False if property_model.after_value is None else bool(get_colors(property_model.after_value))
 
 def _update_properties(
     page_builder: PageBuilder,
