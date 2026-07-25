@@ -32,7 +32,7 @@ class Session:
         self._register_fixed_artifacts()
 
     def _register_fixed_artifacts(self) -> None:
-        for filename in ("before.png", "after.png", "palette_preview.png"):
+        for filename in ("before.png", "after.png", "palette_preview.png", "glow.css"):
             self.save_in_artifacts(self.get_area_root("artifacts") / filename)
 
     def get_area_root(self, area: str) -> Path:

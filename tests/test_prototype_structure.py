@@ -21,6 +21,8 @@ from engine.domain.models.color_scheme import Color, ColorScheme
 from engine.domain.models.element import Element, Property
 from engine.domain.models.summary import ContrastIssue, Summary
 from engine.domain.models.session import Session
+from engine.domain.models.token import RootToken, TokenInventory
+from engine.domain.utils.css_generator import generate_root_css
 from engine.domain.utils.parsers import (
     attr_equals,
     flatten_list,
@@ -249,8 +251,14 @@ class CoreDomAndColorTests(unittest.TestCase):
         context = PipelineContext()
         session = _session_with_html()
         color_scheme = ColorScheme()
+        token_inventory = TokenInventory()
+        token_inventory.root_tokens["--cyan-20"] = RootToken(
+            token_id="--cyan-20",
+            value="rgb(0, 255, 255)",
+        )
         context.set(ContextKey.SESSION, session)
         context.set(ContextKey.COLOR_SCHEME, color_scheme)
+        context.set(ContextKey.TOKEN_INVENTORY, token_inventory)
 
         run_build_artifacts_stage(context)
         validate_produces(context, BUILD_ARTIFACTS_CONTRACT)
@@ -258,6 +266,27 @@ class CoreDomAndColorTests(unittest.TestCase):
         output_path = session.get_path("palette_preview.png", "artifacts", "png")
         self.assertTrue(output_path.is_file())
         self.assertGreater(output_path.stat().st_size, 0)
+        css_path = session.get_path("glow.css", "artifacts", "css")
+        self.assertEqual(
+            css_path.read_text(encoding="utf-8"),
+            ":root {\n  --cyan-20: rgb(0, 255, 255);\n}\n",
+        )
+
+    def test_generate_root_css_uses_root_tokens_as_is(self) -> None:
+        root_tokens = {
+            "--cyan-20": RootToken("--cyan-20", "rgb(0, 255, 255)"),
+            "--neutral-100": RootToken("--neutral-100", "rgb(255, 255, 255)"),
+        }
+
+        self.assertEqual(
+            generate_root_css(root_tokens),
+            (
+                ":root {\n"
+                "  --cyan-20: rgb(0, 255, 255);\n"
+                "  --neutral-100: rgb(255, 255, 255);\n"
+                "}\n"
+            ),
+        )
 
     def test_data_processor_builds_summary_overviews_and_contrast_issues(self) -> None:
         class FakePageBuilder:
