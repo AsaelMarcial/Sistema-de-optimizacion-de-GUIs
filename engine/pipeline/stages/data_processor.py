@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from engine.adapters.browser.page_builder import PageBuilder
-from engine.adapters.utils.palette_preview import render_palette_preview
 from engine.adapters.utils.pixel import build_histogram, image_to_array
 from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.domain.models.color_scheme import Color, ColorScheme
 from engine.domain.models.element import Element
 from engine.domain.models.session import Session
 from engine.domain.models.summary import Summary
-from engine.domain.utils.parsers import is_gradient
+from engine.domain.data.web_colors import nearest_web_color
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
 from engine.domain.data.scope_html_elements import get_html_element_category
@@ -24,8 +23,8 @@ _MEDIA_TAGS = {
     "embed",
 }
 _PREDOMINANT_COLOR_LIMIT = 13
-_FAMILY_HUE_DELTA_THRESHOLD = 25
-_FAMILY_CHROMA_DELTA_THRESHOLD = 50
+_HUE_BUCKET_SIZE = 30
+_HSL_DISTANCE_THRESHOLD = 40
 
 
 def _summary_ready(summary: Summary) -> bool:
@@ -112,10 +111,6 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         "predominant_colors",
         predominant_colors,
     )
-    render_palette_preview(
-        color_scheme.get_palettes(),
-        session.get_path("palette_preview.png", "artifacts", "png"),
-    )
 
     context.set(K.COLOR_SCHEME, color_scheme)
     context.set(K.SUMMARY, summary)
@@ -143,6 +138,7 @@ def _colors_distribution(
 
     for color, count in design_histogram.items():
         closest = color_scheme.find_closest(color, "colors")
+
         if closest is None:
             continue
 
@@ -152,9 +148,34 @@ def _colors_distribution(
             4,
         )
 
+    merged_distribution: dict[Color, float] = {}
+
+    for color, percentage in sorted(
+        colors_distribution.items(),
+        key=lambda item: item[1],
+        reverse=True,
+    ):
+        winner = next(
+            (
+                existing_color
+                for existing_color in merged_distribution
+                if color.delta_e(existing_color, method="2000") <= 12
+            ),
+            None,
+        )
+
+        if winner is None:
+            merged_distribution[color] = percentage
+            continue
+
+        merged_distribution[winner] = round(
+            merged_distribution[winner] + percentage,
+            4,
+        )
+    
     return dict(
         sorted(
-            colors_distribution.items(),
+            merged_distribution.items(),
             key=lambda item: item[1],
             reverse=True,
         )
@@ -164,9 +185,7 @@ def _colors_distribution(
 def _predominant_colors(
     colors_distribution: dict[Color, float],
 ) -> tuple[Color, ...]:
-    chromatic_families: list[
-        tuple[Color, float, float, float]
-    ] = []
+    hue_buckets: dict[int, tuple[Color, float, float]] = {}
 
     # colors_distribution ya llega ordenado de mayor a menor popularidad.
     for color, percentage in colors_distribution.items():
@@ -174,79 +193,106 @@ def _predominant_colors(
             if color.is_achromatic():
                 continue
 
-            hue, chroma, _tone = (
+            hue, _saturation, _lightness = (
                 color
-                .convert("hct")
+                .convert("hsl")
                 .coords(nans=False)
             )
 
             hue = float(hue)
-            chroma = float(chroma)
-            matched_index: int | None = None
-            closest_distance = float("inf")
+            hue_bucket = (
+                int(hue // _HUE_BUCKET_SIZE)
+                * _HUE_BUCKET_SIZE
+            ) % 360
+            percentage = float(percentage)
 
-            for index, (
-                _seed_color,
-                _family_percentage,
-                seed_hue,
-                seed_chroma,
-            ) in enumerate(chromatic_families):
-                hue_delta = abs(hue - seed_hue) % 360.0
-                hue_delta = min(
-                    hue_delta,
-                    360.0 - hue_delta,
-                )
-                chroma_delta = abs(
-                    chroma - seed_chroma
-                )
-
-                if (
-                    hue_delta > _FAMILY_HUE_DELTA_THRESHOLD
-                    or chroma_delta > _FAMILY_CHROMA_DELTA_THRESHOLD
-                ):
-                    continue
-
-                distance = (
-                    hue_delta / _FAMILY_HUE_DELTA_THRESHOLD
-                    + chroma_delta / _FAMILY_CHROMA_DELTA_THRESHOLD
-                )
-
-                if distance < closest_distance:
-                    closest_distance = distance
-                    matched_index = index
-
-            if matched_index is None:
-                chromatic_families.append(
-                    (
-                        color,
-                        float(percentage),
-                        hue,
-                        chroma,
-                    )
+            if hue_bucket not in hue_buckets:
+                hue_buckets[hue_bucket] = (
+                    color,
+                    percentage,
+                    percentage,
                 )
                 continue
 
             (
                 seed_color,
-                family_percentage,
-                seed_hue,
-                seed_chroma,
-            ) = chromatic_families[matched_index]
+                seed_percentage,
+                bucket_percentage,
+            ) = hue_buckets[hue_bucket]
 
-            chromatic_families[matched_index] = (
+            if percentage > seed_percentage:
+                seed_color = color
+                seed_percentage = percentage
+
+            hue_buckets[hue_bucket] = (
                 seed_color,
+                seed_percentage,
                 round(
-                    family_percentage + float(percentage),
+                    bucket_percentage + percentage,
                     4,
                 ),
-                seed_hue,
-                seed_chroma,
             )
         except Exception:
             continue
 
-    chromatic_families.sort(
-        key=lambda family: family[1],
+    hsl_groups: list[tuple[Color, float, float]] = []
+
+    for color, seed_percentage, bucket_percentage in hue_buckets.values():
+        try:
+            normalized_color = color.convert("hsl").clone()
+            normalized_color["l"] = 0.5
+
+            matched_index: int | None = None
+            for index, (
+                group_color,
+                _group_seed_percentage,
+                _group_percentage,
+            ) in enumerate(hsl_groups):
+                normalized_group_color = group_color.convert("hsl").clone()
+                normalized_group_color["l"] = 0.5
+
+                if (
+                    normalized_color.distance(
+                        normalized_group_color,
+                        space="hsl",
+                    )
+                    * 100
+                    <= _HSL_DISTANCE_THRESHOLD
+                ):
+                    matched_index = index
+                    break
+
+            if matched_index is None:
+                hsl_groups.append(
+                    (
+                        color,
+                        seed_percentage,
+                        bucket_percentage,
+                    )
+                )
+                continue
+
+            (
+                group_color,
+                group_seed_percentage,
+                group_percentage,
+            ) = hsl_groups[matched_index]
+
+            if seed_percentage > group_seed_percentage:
+                group_color = color
+                group_seed_percentage = seed_percentage
+
+            hsl_groups[matched_index] = (
+                group_color,
+                group_seed_percentage,
+                round(group_percentage + bucket_percentage, 4),
+            )
+        except Exception:
+            continue
+
+    predominant_groups = sorted(
+        hsl_groups,
+        key=lambda bucket: bucket[2],
         reverse=True,
     )
 
@@ -254,10 +300,9 @@ def _predominant_colors(
         seed_color
         for (
             seed_color,
-            _percentage,
-            _hue,
-            _chroma,
-        ) in chromatic_families[
+            _seed_percentage,
+            _bucket_percentage,
+        ) in predominant_groups[
             :_PREDOMINANT_COLOR_LIMIT
         ]
     )
@@ -271,8 +316,9 @@ def _build_tonal_palettes(
         predominant_colors,
         start=1,
     ):
+        name = nearest_web_color(color)
         color_scheme.add_palette(
-            f"Color {color_index}",
+            name,
             color,
         )
 

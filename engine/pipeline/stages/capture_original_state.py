@@ -90,7 +90,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     root: Element | None = None
 
     for i in range(len(nodes["backendNodeId"])):
-        
+
         if nodes["nodeType"][i] not in (1, 3) or nodes["backendNodeId"][i] is None:
             continue
 
@@ -105,18 +105,17 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             parent_backend_node_id=nodes["backendNodeId"][nodes["parentIndex"][i]] if str(strings[nodes["nodeName"][i]]).lower() != "body" else -1,
         )
 
+        if element.tag_name == "body":
+            root = element
+
         for name, value in zip(nodes["attributes"][i][::2], nodes["attributes"][i][1::2]):
             if str(strings[name]) in _IMAGE_ATTRIBUTES:
-
                 element.attributes.append(
                     Attribute(
                         name=str(strings[name]),
                         value=str(strings[value]),
                     )
                 )
-        
-        if element.tag_name == "body":
-            root = element
 
         created_elements[element.backend_node_id] = element
         siblings[element.parent_backend_node_id].append(element.backend_node_id)
@@ -175,6 +174,8 @@ def _attach_children(
 ) -> None:
     for child_backend_node_id in siblings.get(parent.backend_node_id, ()):
         child = elements[child_backend_node_id]
+        if child.x is None or child.y is None or child.height is None or child.width is None:
+            continue
         parent.add_child(child)
         _attach_children(child, siblings, elements)
 
@@ -218,13 +219,6 @@ def _filter_properties(element: Element) -> None:
             element.remove_property(property_name)
             continue
 
-        if has_multiplevalues(current_property.before_value):
-            element.remove_property(property_name)
-            continue
-        else:
-            for longhand_name in longhands:
-                element.remove_property(longhand_name)
-
     # 2. Eliminar propiedades SVG que no aplican al elemento.
     if element.tag_name not in SVG_PAINT_TAGS:
         for property_name in ("fill", "stroke"):
@@ -240,14 +234,6 @@ def _filter_properties(element: Element) -> None:
             "border-color",
             "border-block-color",
             "border-inline-color",
-            "border-top-color",
-            "border-right-color",
-            "border-bottom-color",
-            "border-left-color",
-            "border-block-start-color",
-            "border-block-end-color",
-            "border-inline-start-color",
-            "border-inline-end-color",
         ):
             element.remove_property(property_name)
 
@@ -282,8 +268,9 @@ def _register_colors(value: str, color_scheme: ColorScheme) -> bool:
             continue
 
         if match.color.alpha(nans=False) > 0:
-            stored_color = color_scheme.add_color(match.color)
-            found_color = stored_color is not None or found_color
+            found_color = True
+            color_scheme.add_color(match.color)
+            
         end = int(getattr(match, "end", start + 1))
         start = max(end, start + 1)
     return found_color

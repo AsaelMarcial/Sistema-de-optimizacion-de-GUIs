@@ -15,13 +15,6 @@ class CSSDATA:
     default_value: Tuple[str, ...] | None
 
 CSSPROPERTIES = MappingProxyType({
-        "accent-color": CSSDATA(
-            role="foreground",
-            categories=["input"],
-            shorthand=None,
-            longhands=None,
-            default_value=["auto"],
-        ),
         "background-color": CSSDATA(
             role="background",
             categories=["main-surface", "container", "media", "composed", "input", "typography", "other"],
@@ -35,6 +28,20 @@ CSSPROPERTIES = MappingProxyType({
             shorthand= "background",
             longhands= None,
             default_value=["none"],
+        ),        
+        "fill": CSSDATA(
+            role="background",
+            categories=["decoration"],
+            shorthand=None,
+            longhands=None,
+            default_value=None,
+        ),
+        "accent-color": CSSDATA(
+            role="foreground",
+            categories=["input"],
+            shorthand=None,
+            longhands=None,
+            default_value=["auto"],
         ),
         "border": CSSDATA(
             role="foreground",
@@ -54,20 +61,6 @@ CSSPROPERTIES = MappingProxyType({
             role="foreground",
             categories=["main-surface", "container", "media", "composed", "input", "typography", "other"],
             shorthand="border-block",
-            longhands=["border-block-end-color", "border-block-start-color"],
-            default_value=None,
-        ),
-        "border-block-end-color": CSSDATA(
-            role="foreground",
-            categories=["main-surface", "container", "media", "composed", "input", "typography", "other"],
-            shorthand="border-block-color",
-            longhands=None,
-            default_value=None,
-        ),
-        "border-block-start-color": CSSDATA(
-            role="foreground",
-            categories=["main-surface", "container", "media", "composed", "input", "typography", "other"],
-            shorthand="border-block-color",
             longhands=None,
             default_value=None,
         ),
@@ -75,39 +68,6 @@ CSSPROPERTIES = MappingProxyType({
             role="foreground",
             categories=["main-surface", "container", "media", "composed", "input", "typography", "other"],
             shorthand="border",
-            longhands=[
-                "border-bottom-color",
-                "border-left-color",
-                "border-right-color",
-                "border-top-color",
-            ],
-            default_value=None,
-        ),
-        "border-bottom-color": CSSDATA(
-            role="foreground",
-            categories=["main-surface", "container", "media", "composed", "input", "typography", "other"],
-            shorthand="border-color",
-            longhands=None,
-            default_value=None,
-        ),
-        "border-left-color": CSSDATA(
-            role="foreground",
-            categories=["main-surface", "container", "media", "composed", "input", "typography", "other"],
-            shorthand="border-color",
-            longhands=None,
-            default_value=None,
-        ),
-        "border-right-color": CSSDATA(
-            role="foreground",
-            categories=["main-surface", "container", "media", "composed", "input", "typography", "other"],
-            shorthand="border-color",
-            longhands=None,
-            default_value=None,
-        ),
-        "border-top-color": CSSDATA(
-            role="foreground",
-            categories=["main-surface", "container", "media", "composed", "input", "typography", "other"],
-            shorthand="border-color",
             longhands=None,
             default_value=None,
         ),
@@ -136,20 +96,6 @@ CSSPROPERTIES = MappingProxyType({
             role="foreground",
             categories=["main-surface", "container", "media", "composed", "input", "typography", "other"],
             shorthand="border-inline",
-            longhands=["border-inline-end-color", "border-inline-start-color"],
-            default_value=None,
-        ),
-        "border-inline-end-color": CSSDATA(
-            role="foreground",
-            categories=["main-surface", "container", "media", "composed", "input", "typography", "other"],
-            shorthand="border-inline-color",
-            longhands=None,
-            default_value=None,
-        ),
-        "border-inline-start-color": CSSDATA(
-            role="foreground",
-            categories=["main-surface", "container", "media", "composed", "input", "typography", "other"],
-            shorthand="border-inline-color",
             longhands=None,
             default_value=None,
         ),
@@ -181,13 +127,7 @@ CSSPROPERTIES = MappingProxyType({
             longhands=None,
             default_value=None,
         ),
-        "fill": CSSDATA(
-            role="background",
-            categories=["decoration"],
-            shorthand=None,
-            longhands=None,
-            default_value=None,
-        ),
+
         "font-size": CSSDATA(
             role="other",
             categories=["typography"],

@@ -32,9 +32,11 @@ from engine.domain.utils.parsers import (
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stages.capture_original_state import _collapse_redundant_border_colors
 from engine.pipeline.stages.capture_original_state import _collapse_redundant_color_longhands
-from engine.pipeline.stages.build_color_scheme import run_stage as run_build_color_scheme_stage
+from engine.pipeline.stages.build_artifacts import CONTRACT as BUILD_ARTIFACTS_CONTRACT
+from engine.pipeline.stages.build_artifacts import run_stage as run_build_artifacts_stage
 from engine.pipeline.stages.capture_original_state import run_stage
 from engine.pipeline.stages.data_processor import run_stage as run_data_processor_stage
+from engine.pipeline.stage_contract import validate_produces
 
 
 def _session_with_html() -> Session:
@@ -243,36 +245,19 @@ class CoreDomAndColorTests(unittest.TestCase):
         self.assertFalse(context.has("prototype_structure"))
         self.assertFalse(context.has("derived.raw_snapshot_metadata"))
 
-    def test_build_color_scheme_reads_public_dom_properties(self) -> None:
-        root = Element(backend_node_id=1, node_id=1, tag_name="body", node_type=1)
-        root.properties.append(
-            Property(
-                name="background-color",
-                value="rgb(255, 255, 255)",
-                has_color=True,
-            )
-        )
-
+    def test_build_artifacts_renders_palette_preview(self) -> None:
         context = PipelineContext()
         session = _session_with_html()
         color_scheme = ColorScheme()
-        color_scheme.add_color("rgb(255, 255, 255)")
         context.set(ContextKey.SESSION, session)
-        context.set(ContextKey.DOM_TREE, root)
         context.set(ContextKey.COLOR_SCHEME, color_scheme)
 
-        with patch(
-            "engine.pipeline.stages.build_color_scheme.build_color_histograms",
-            return_value={
-                "environmental": [{"color": [255, 255, 255], "count": 1}],
-                "scheme": [{"color": [255, 255, 255], "count": 1}],
-            },
-        ), patch("engine.pipeline.stages.build_color_scheme.render_palette_preview"):
-            run_build_color_scheme_stage(context)
+        run_build_artifacts_stage(context)
+        validate_produces(context, BUILD_ARTIFACTS_CONTRACT)
 
-        self.assertEqual(len(context.get(ContextKey.COLOR_SCHEME).get_colors()), 1)
-        self.assertGreaterEqual(len(context.get(ContextKey.COLOR_SCHEME).get_palettes()), 1)
-        self.assertEqual(context.get(ContextKey.SCHEME_COLOR_HISTOGRAM), [{"color": [255, 255, 255], "count": 1}])
+        output_path = session.get_path("palette_preview.png", "artifacts", "png")
+        self.assertTrue(output_path.is_file())
+        self.assertGreater(output_path.stat().st_size, 0)
 
     def test_data_processor_builds_summary_overviews_and_contrast_issues(self) -> None:
         class FakePageBuilder:

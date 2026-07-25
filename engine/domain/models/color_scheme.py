@@ -422,7 +422,10 @@ class Palette:
     tones: tuple[Tone, ...] = field(default_factory=tuple)
 
     def tone(self, value: int) -> Tone | None:
-        return next((tone for tone in self.tones if tone.value == value), None)
+        return next((tone for tone in self.tones if int(tone.value) == int(value)), None)
+
+    def next_tone(self, value: int) -> Tone | None:
+        return next((tone for tone in self.tones if int(tone.value) == int(value) + 10), None)
 
 
 @dataclass(slots=True)
@@ -451,7 +454,7 @@ class ColorScheme:
 
         self.add_palette(
             palette_name="Neutral",
-            source_color_input="black",
+            source_color_input="rgb(0, 0, 0)",
             steps=NEUTRAL_TONAL_STEPS
         )
 
@@ -507,7 +510,7 @@ class ColorScheme:
             color
             .convert("srgb")
             .normalize(nans=False)
-            .to_string(comma=True, alpha=True)
+            .to_string(comma=True, alpha=True, rounding="decimal", precision=0)
         )
 
     def get_colors(self) -> dict[str, Color]:
@@ -585,6 +588,9 @@ class ColorScheme:
         try:
             target = target_color if isinstance(target_color, Color) else Color(target_color)
             palette_name = color_pool.strip()
+
+            if len(self.colors) == 0:
+                return None
             if self.get_palette(palette_name) is not None:
                 return target.closest(self.get_palette_colors(palette_name))
 
@@ -626,14 +632,15 @@ class ColorScheme:
         )
 
         if existing_palette is None:
-            generated_colors = [source_color.clone().set('tone', step) for step in steps]
+            step_values = tuple(int(step) for step in steps)
+            generated_colors = [source_color.clone().set('tone', step).fit('srgb', method='raytrace', pspace='hct') for step in step_values]
             tones = tuple(
                 Tone(
                     name=f"{palette_name}-{step}",
-                    value=step,
+                    value=int(step),
                     color=color,
                 )
-                for color, step in zip(generated_colors, steps)
+                for color, step in zip(generated_colors, step_values)
             )
 
             palette = Palette(

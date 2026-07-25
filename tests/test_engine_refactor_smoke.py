@@ -374,13 +374,13 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             "prepare_project_session.py": "run_stage",
             "start_page_builder.py": "run_stage",
             "capture_original_state.py": "run_stage",
-            "build_color_scheme.py": "run_stage",
+            "data_processor.py": "run_stage",
+            "transform_design.py": "run_stage",
+            "build_artifacts.py": "run_stage",
+            "assess_enviromental_impact.py": "run_stage",
             "close_page_builder.py": "run_stage",
-            "assess_original_environmental_impact.py": "run_stage",
             "set_tokens.py": "run_stage",
             "check_tokens.py": "run_stage",
-            "transform_source_project.py": "run_stage",
-            "assess_transformed_environmental_impact.py": "run_stage",
             "assemble_results.py": "run_stage",
         }
         for module_name, function_name in expected_public_functions.items():

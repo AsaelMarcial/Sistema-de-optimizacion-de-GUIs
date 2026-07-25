@@ -8,6 +8,8 @@ from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.pipeline.debug_trace import DebugTrace
 from engine.pipeline.result import PipelineResult
 from engine.pipeline.stage_contract import PipelineContractError, StageContract, validate_produces, validate_requires
+from engine.pipeline.stages.build_artifacts import CONTRACT as BUILD_ARTIFACTS_CONTRACT
+from engine.pipeline.stages.build_artifacts import run_stage as run_build_artifacts_stage
 from engine.pipeline.stages.capture_original_state import CONTRACT as CAPTURE_ORIGINAL_STATE_CONTRACT
 from engine.pipeline.stages.capture_original_state import run_stage as run_capture_original_state_stage
 from engine.pipeline.stages.assess_enviromental_impact import CONTRACT as ASSESS_ENVIROMENTAL_IMPACT_CONTRACT
@@ -27,6 +29,7 @@ _STAGES: tuple[tuple[StageContract, Any], ...] = (
     (CAPTURE_ORIGINAL_STATE_CONTRACT, run_capture_original_state_stage),
     (DATA_PROCESSOR_CONTRACT, run_data_processor_stage),
     (TRANSFORM_DESIGN_CONTRACT, run_transform_design_stage),
+    (BUILD_ARTIFACTS_CONTRACT, run_build_artifacts_stage),
     (ASSESS_ENVIROMENTAL_IMPACT_CONTRACT, run_assess_enviromental_impact_stage),
     (CLOSE_PAGE_BUILDER_CONTRACT, run_close_page_builder_stage),
 )
@@ -127,46 +130,6 @@ def _change_value_label(value: Any) -> str:
     return text
 
 
-# DEBUG TEMPORAL: imprime Summary en results.html para validar data_processor.
-# Eliminar cuando assemble_results vuelva a consultar Summary directamente.
-def _debug_summary_text(summary: Any) -> str:
-    if summary is None:
-        return ""
-
-    overviews: dict[str, Any] = {}
-    summary_overviews = getattr(summary, "overviews", ())
-    if callable(summary_overviews):
-        summary_overviews = summary_overviews().values()
-    for overview in summary_overviews or ():
-        overviews[getattr(overview, "name", "")] = _debug_value(getattr(overview, "data", None))
-
-    contrast_issues: list[dict[str, Any]] = []
-    summary_contrast_issues = getattr(summary, "contrast_issues", ())
-    if callable(summary_contrast_issues):
-        summary_contrast_issues = summary_contrast_issues().values()
-    for issue in summary_contrast_issues or ():
-        contrast_issues.append(
-            {
-                "issue_id": getattr(issue, "issue_id", None),
-                "backend_node_id": getattr(issue, "backend_node_id", None),
-                "contrast_ratio": getattr(issue, "contrast_ratio", None),
-                "required_ratio": getattr(issue, "required_ratio", None),
-                "is_large_text": getattr(issue, "is_large_text", None),
-                "foreground": _debug_value(getattr(issue, "foreground", None)),
-                "background": _debug_value(getattr(issue, "background", None)),
-            }
-        )
-
-    return pformat(
-        {
-            "overviews": overviews,
-            "contrast_issues": contrast_issues,
-        },
-        sort_dicts=False,
-        width=120,
-    )
-
-
 # DEBUG TEMPORAL: imprime DOM_TREE en results.html para validar capture_original_state.
 # Eliminar cuando assemble_results vuelva a consultar DOM_TREE directamente.
 def _debug_dom_tree_text(root: Any) -> str:
@@ -210,23 +173,6 @@ def _debug_dom_tree_text(root: Any) -> str:
             }
         )
     return pformat(rows, sort_dicts=False, width=120)
-
-
-# DEBUG TEMPORAL: imprime ColorScheme.colors en results.html para validar capture_original_state.
-# Eliminar cuando assemble_results vuelva a consultar ColorScheme directamente.
-def _debug_color_scheme_text(color_scheme: Any) -> str:
-    if color_scheme is None:
-        return ""
-
-    colors = getattr(color_scheme, "get_colors", lambda: {})() or {}
-    return pformat(
-        {
-            key: _debug_value(color)
-            for key, color in colors.items()
-        },
-        sort_dicts=False,
-        width=120,
-    )
 
 
 # DEBUG TEMPORAL: normaliza objetos de dominio para imprimirlos como texto plano.
@@ -276,10 +222,7 @@ def _fallback_template_payload(context: PipelineContext) -> dict[str, Any] | Non
         if context.has(K.ENVIRONMENTAL_SAVINGS)
         else None
     )
-    snapshot_debug = context.get("derived.snapshot_debug", "")
     dom_tree = context.get(K.DOM_TREE) if context.has(K.DOM_TREE) else None
-    dom_tree_debug = _debug_dom_tree_text(dom_tree)
-    color_scheme_debug = _debug_color_scheme_text(color_scheme)
 
     results = {
         "total_current": float(getattr(before_assessment, "current_a", 0.0) or 0.0),
@@ -296,7 +239,7 @@ def _fallback_template_payload(context: PipelineContext) -> dict[str, Any] | Non
             "before": "before.png",
             "after": "after.png",
         },
-        "debug_summary_text": _debug_summary_text(summary),
+        "debug_summary_text": "",
         "recommendations": {"items": [], "summary": None},
         "download_url": "",
         "environmental_assessment": {
@@ -338,9 +281,9 @@ def _fallback_template_payload(context: PipelineContext) -> dict[str, Any] | Non
             "entries": [],
             "properties": [],
         },
-        "snapshot_debug": snapshot_debug,
-        "dom_tree_debug": dom_tree_debug,
-        "color_scheme_debug": color_scheme_debug,
+        "snapshot_debug": "",
+        "dom_tree_debug": "",
+        "color_scheme_debug": "",
         "view": {
             "initial_reduction": float(getattr(environmental_savings, "co2eq_per_use", 0.0) or 0.0),
             "dominant_rows": [],

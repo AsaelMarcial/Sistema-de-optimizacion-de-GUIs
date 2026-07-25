@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from logging import root
 from engine.domain.models.color_scheme import Color, Palette
-from engine.domain.data.tokens import THEMETOKEN_DEFAULTS, ACHROMATIC_THEMETOKEN_VARIANTS, CHROMATIC_THEMETOKEN_VARIANTS
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,14 +17,14 @@ class RootToken:
     value: Color
 
     @property
-    def palette(self) -> bool:
+    def palette(self) -> str:
         """Indica el nombre de la paleta a la que pertenece."""
-        return self.rsplit("-", 1)[0]
+        return self.token_id.rsplit("-", 1)[0]
 
     @property
-    def tone(self) -> bool:
+    def tone(self) -> str:
         """Indica el tone_value del Tone al que pertenece."""
-        return self.rsplit("-", 1)[1]
+        return self.token_id.rsplit("-", 1)[1]
 
 @dataclass(slots=True)
 class PropertyToken:
@@ -48,6 +46,7 @@ class TokenInventory:
     # CREATE
     # ==========================================================
     
+    @staticmethod
     def create_token_name(terms: list[str]) -> str:
         normalized_terms = [
             term.strip()
@@ -56,7 +55,7 @@ class TokenInventory:
         ]
 
         if not normalized_terms:
-            "El token debe contener al menos un término válido."
+            raise ValueError("El token debe contener al menos un término válido.")
 
         return f"--{'-'.join(normalized_terms)}"
 
@@ -68,26 +67,32 @@ class TokenInventory:
         """
         # .values() accede directamente a los objetos PropertyToken
         # default=0 evita errores si el diccionario está vacíoseparate_token_terms(self.name)[0]
-        return max(
-            (int(token.token_id.split()[-1]) 
-            for token in self.property_tokens.values() 
-            if token.token_id.rsplit("-", 1)[0] == name), 
-            default=0
-        ) + 1
+        variant = 0
+        for token in self.property_tokens.values():
+            token_name, _, token_variant = token.token_id.rpartition("-")
+            if token_name != name:
+                continue
+
+            try:
+                variant = max(variant, int(token_variant))
+            except ValueError:
+                continue
+
+        return variant + 1
 
     def create_root_token(
         self,
         tone_name: str,
         value: Color,
     ) -> RootToken:
-        name = self.create_property_token(tone_name)
+        name = self.create_token_name([tone_name])
         # Buscar si ya existe uno idéntico.
         if self.root_token(name) is not None:
             return self.root_token(name)
 
         self.root_tokens[name] = RootToken(
             token_id= name,
-            value=value,
+            value=value.convert("srgb").to_string(comma=True, alpha=True, rounding="decimal", precision=0),
         )
 
         return self.root_tokens[name]
@@ -104,16 +109,16 @@ class TokenInventory:
             if (token.glow_theme_value == glow_theme_value or token.original_theme_value == original_theme_value):
                 return token
 
-        name = self.create_token_name(category, property_name)
+        name = self.create_token_name([category, property_name])
         variant= self._generate_property_token_variant(name)
         
         token = PropertyToken(
-            token_id = "-".join(name, variant),
+            token_id = f"{name}-{variant}",
             glow_theme_value = glow_theme_value,
             original_theme_value = original_theme_value
         )
 
-        self.root_tokens[token.token_id] = token
+        self.property_tokens[token.token_id] = token
 
         return token
 
@@ -121,8 +126,8 @@ class TokenInventory:
     # DEFAULT TOKENS GENERATORS
     # ==========================================================
 
-    def generate_root_tokens(self, palettes: list[Palette]) -> dict[str, RootToken]:
-        for palette in palettes:
+    def generate_root_tokens(self, palettes: dict[str, Palette]) -> dict[str, RootToken]:
+        for palette in palettes.values():
             for tone in palette.tones:
                 self.create_root_token(tone.name, tone.color)
         
@@ -133,7 +138,7 @@ class TokenInventory:
     # ==========================================================
 
     def root_token(self, token_id: str) -> RootToken | None:
-        return self.root_tokens_tokens.get(token_id) or None
+        return self.root_tokens.get(token_id) or None
 
     def property_token(self, token_id: str) -> PropertyToken | None:
         return self.property_tokens.get(token_id) or None

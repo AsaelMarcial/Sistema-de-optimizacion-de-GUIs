@@ -33,16 +33,6 @@
       data-carbon-footprint="{{ results.carbon_footprint | round(6) }}"
       data-environmental-carbon-footprint="{{ results.environmental_co2eq_per_use | round(6) }}"
     >
-      {# DEBUG TEMPORAL: muestra DOM_TREE producido por capture_original_state. Eliminar cuando assemble_results consuma DOM_TREE directamente. #}
-      {% if results.dom_tree_debug %}
-      <pre>{{ results.dom_tree_debug }}</pre>
-      {% endif %}
-
-      {# DEBUG TEMPORAL: muestra ColorScheme.colors producido por capture_original_state. Eliminar cuando assemble_results consuma ColorScheme directamente. #}
-      {% if results.color_scheme_debug %}
-      <pre>{{ results.color_scheme_debug }}</pre>
-      {% endif %}
-
       <section id="impact" aria-labelledby="impact-title">
         <span class="eyebrow">
           <span class="eyebrow__dot"></span>
