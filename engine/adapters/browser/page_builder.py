@@ -330,6 +330,73 @@ class PageBuilder:
                 f"No se pudo inyectar el link del theme: {exc}"
             ) from exc
 
+    def get_runtime_html(self) -> str:
+        self._ensure_open()
+        assert self._page is not None
+        try:
+            return self._page.evaluate("""
+                () => {
+                    const doctype = document.doctype
+                        ? '<!DOCTYPE '
+                            + document.doctype.name
+                            + (document.doctype.publicId
+                                ? ' PUBLIC "' + document.doctype.publicId + '"'
+                                : '')
+                            + (document.doctype.systemId
+                                ? ' "' + document.doctype.systemId + '"'
+                                : '')
+                            + '>'
+                        : '';
+                    return (doctype ? doctype + '\\n' : '')
+                        + document.documentElement.outerHTML;
+                }
+            """)
+        except PlaywrightError as exc:
+            raise RuntimeError(
+                f"No se pudo recuperar el HTML en runtime: {exc}"
+            ) from exc
+
+    def get_runtime_stylesheets(self) -> dict[str, str]:
+        self._ensure_open()
+        assert self._page is not None
+        try:
+            stylesheets = self._page.evaluate("""
+                () => {
+                    const result = {};
+                    const pageUrl = new URL(window.location.href);
+
+                    for (const sheet of Array.from(document.styleSheets)) {
+                        if (!sheet.href) {
+                            continue;
+                        }
+
+                        const sheetUrl = new URL(sheet.href);
+                        if (sheetUrl.origin !== pageUrl.origin) {
+                            continue;
+                        }
+
+                        try {
+                            const relativePath = decodeURIComponent(
+                                sheetUrl.pathname.replace(/^\\/+/, '')
+                            );
+                            result[relativePath] = Array
+                                .from(sheet.cssRules)
+                                .map((rule) => rule.cssText)
+                                .join('\\n');
+                        } catch (_error) {
+                            continue;
+                        }
+                    }
+
+                    return result;
+                }
+            """)
+            return dict(stylesheets or {})
+        except PlaywrightError as exc:
+            raise RuntimeError(
+                f"No se pudieron recuperar los CSS en runtime: {exc}"
+            ) from exc
+
     def get_background_colors(self, node_id: int) -> dict[str, Any]:
         """Retrieve the computed background colors and text metrics for a node.
 
@@ -467,6 +534,48 @@ class PageBuilder:
             # Propagar el fallo con un mensaje contextualizado
             raise RuntimeError(
                 f"Error al capturar pantalla en {path_obj}: {exc}"
+            ) from exc
+
+    def get_matched_styles (self, node_id: int) -> dict[str, Any]:
+        """Retrieve the matched styles for a node.
+
+        Args:
+            node_id: The active protocol identifier for the target DOM node.
+
+        Returns:
+            A dictionary containing:
+                - "inlineStyle": List of colors found (e.g., ["#ffffff"]).
+                - "attributesStyle": Computed font size string or empty if text absent.
+                - "matchedCSSRules": Computed font weight string or empty if text absent.
+                - "pseudoElements": List of colors found (e.g., ["#ffffff"]).
+                - "inherited": Computed font size string or empty if text absent.
+                - "cssPropertyRules": Computed font weight string or empty if text absent.
+                - "cssAtRules": Computed font weight string or empty if text absent.
+        """
+        self._ensure_open()
+        assert self._cdp is not None
+
+        try:
+            # Execute the native Chrome DevTools Protocol CSS command
+            response = self._cdp.send(
+                "CSS.getMatchedStylesForNode",
+                {"nodeId": int(node_id)},
+            )
+
+            # Deconstruct the native payload into a clean Python dictionary
+            return {
+                "inlineStyle": response.get("inlineStyle"),
+                "attributesStyle": response.get("attributesStyle",),
+                "matchedCSSRules": response.get("matchedCSSRules",),
+                "pseudoElements": response.get("pseudoElements"),
+                "inherited": response.get("inherited"),
+                "cssPropertyRules": response.get("cssPropertyRules"),
+                "cssAtRules": response.get("cssAtRules"),
+            }
+
+        except PlaywrightError as exc:
+            raise RuntimeError(
+                f"No se pudo obtener CSS.getMatchedStylesForNode: {exc}"
             ) from exc
 
     def close(self) -> None:

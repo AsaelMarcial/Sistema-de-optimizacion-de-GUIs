@@ -54,11 +54,11 @@ CONTRACT = StageContract(
         context_value(K.PAGE_BUILDER, PageBuilder),
         context_value(K.DOM_TREE, Element),
         context_value(K.COLOR_SCHEME, ColorScheme),
+        context_value(K.TOKEN_INVENTORY, TokenInventory),
     ),
     produces=(
         context_value(K.PAGE_BUILDER, PageBuilder, validator=_color_scheme_ready),
         context_value(K.DOM_TREE, Element),
-        context_value(K.TOKEN_INVENTORY, TokenInventory),
     ),
 )
 
@@ -68,12 +68,9 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     page_builder = context.get(K.PAGE_BUILDER)
     root = context.get(K.DOM_TREE)
     color_scheme = context.get(K.COLOR_SCHEME)
+    token_inventory = context.get(K.TOKEN_INVENTORY)
 
     context.trace.add_stage_event(CONTRACT.name, "start")
-    token_inventory = TokenInventory()
-    context.set(K.TOKEN_INVENTORY, token_inventory) 
-
-    token_inventory.generate_root_tokens(color_scheme.palettes)
 
     page_builder.set_color_scheme()
 
@@ -114,8 +111,10 @@ def run_stage(context: PipelineContext) -> PipelineContext:
 
         for css_property in tuple(element.properties):
             property_data = CSSPROPERTIES.get(css_property.name)
-            if property_data is None:
+            if property_data is None or css_property.has_color is False:
                 continue
+
+            before_colors = get_colors(css_property.before_value)
 
             match element.category, property_data.role:
                 case "main-surface", "background":
@@ -131,6 +130,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                         element,
                         "background-color",
                         "rgb(0, 0, 0)",
+                        "var(--Neutral-0)"
                     )
 
                 case "container", "background":
@@ -142,96 +142,73 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                             element,
                             "background-image",
                         )
-                    elif element.tag_name == "footer" or element.tag_name == "header":
-                        _clean_property(
-                            page_builder,
-                            element,
-                            "background-color",
-                        )
-                        continue
 
                     neutral_palette = color_scheme.get_palette("Neutral")
-                    before_colors = get_colors(css_property.before_value)
-                    if neutral_palette is None or not before_colors:
-                        continue
-
-                    neutral_40 = neutral_palette.tone(40)
-                    if neutral_palette is None or neutral_40 is None or not before_colors:
-                        continue
-
-                    tone_color = neutral_40.color
-
                     before_color = before_colors[0][1].convert("hct")
-                        
-                    if before_color["t"] <= tone_color["t"] and before_colors[0][1].is_achromatic() and not is_gradient(css_property.before_value) :
-                        continue
 
-                    if (
-                        parent_background_colors
-                        and _serialize_color(parent_background_colors[0][1].convert("hct")) == _serialize_color(before_color)
-                    ):
+                    if (element.tag_name == "footer" or element.tag_name == "header") or (parent_background_colors and _serialize_color(parent_background_colors[0][1].convert("hct")) == _serialize_color(before_color)):
                         _clean_property(
                             page_builder,
                             element,
                             "background-color",
                         )
                         continue
-
-                    if element.tag_name == "nav":
-                        before_color["c"] = 0
-                        closest = color_scheme.find_closest(before_color, "Neutral")
-                        _, tone = color_scheme.resolve_color_location(closest)
-                        if closest is None or tone is None:
-                            continue
-
-                        target_color = tone.color
-                        if before_color["t"] >= tone_color["t"]:
-                            tone_index = NEUTRAL_TONAL_STEPS.index(int(tone.value))
-                            opposite_index = len(NEUTRAL_TONAL_STEPS) - tone_index - 1
-                            reversed_tone = neutral_palette.tone(NEUTRAL_TONAL_STEPS[opposite_index])
-                            target_color = reversed_tone.color
-
-                        _transform_property(
-                            page_builder,
-                            element,
-                            "background-color",
-                            _serialize_color(target_color),
-                        )
+                        
+                    if before_color["t"] <= 40 and before_colors[0][1].is_achromatic() and not is_gradient(css_property.before_value) :
                         continue
 
-                    surface_depth = max(element.depth or 1, 1)
-                    for surface_ancestor in root.ancestors_of(element):
-                        if surface_ancestor.tag_name == "body":
-                            break
-                        
-                        if surface_ancestor.effective_background is not None and Color(surface_ancestor.effective_background.before_value)["alpha"] >= 0.1:
-                            break
+                    target_tone = None
 
-                        surface_depth -= 1
+                    if element.tag_name == "nav":
+                        closest = color_scheme.find_closest(before_color, "Neutral")
+                        _, tone = color_scheme.resolve_color_location(closest)
 
-                    elevation_tones = tuple(
-                        tone
-                        for tone in (NEUTRAL_TONAL_STEPS)
-                        if 10 <= int(tone) <= 50
-                    )
+                        target_tone = tone
 
-                    target_tone = elevation_tones[
-                        min(
-                            max(surface_depth, 1) - 1,
-                            len(elevation_tones) - 1,
+                        if before_color["t"] >= 40:
+                            tone_index = NEUTRAL_TONAL_STEPS.index(int(tone.value))
+                            opposite_index = len(NEUTRAL_TONAL_STEPS) - tone_index - 1
+                            target_tone = neutral_palette.tone(NEUTRAL_TONAL_STEPS[opposite_index])
+                    else:
+                        surface_depth = max(element.depth or 1, 1)
+                        for surface_ancestor in root.ancestors_of(element):
+                            if surface_ancestor.tag_name == "body":
+                                break
+                            
+                            if surface_ancestor.effective_background is not None and Color(surface_ancestor.effective_background.before_value)["alpha"] >= 0.1:
+                                break
+
+                            surface_depth -= 1
+
+                        elevation_tones = tuple(
+                            tone
+                            for tone in (NEUTRAL_TONAL_STEPS)
+                            if 10 <= int(tone) <= 50
                         )
-                    ]
 
-                    best_tone = neutral_palette.tone(int(target_tone))
-                    
-                    if best_tone is None:
+                        best_tone = elevation_tones[
+                            min(
+                                max(surface_depth, 1) - 1,
+                                len(elevation_tones) - 1,
+                            )
+                        ]
+
+                        target_tone = neutral_palette.tone(best_tone)
+
+                    if target_tone is None:
+                        continue
+
+                    token_value = token_inventory.root_token_key(target_tone.name)
+
+                    if token_value is None:
                         continue
 
                     _transform_property(
                         page_builder,
                         element,
                         "background-color",
-                        _serialize_color(best_tone.color),
+                        _serialize_color(target_tone.color),
+                        _serialize_token(token_value)
                     )
 
                 case "input", "foreground" | "background" :
@@ -245,11 +222,6 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                     if element.has_image:
                         continue
 
-                    colors = get_colors(css_property.before_value)
-
-                    if not colors:
-                        continue
-
                     actual_parent_colors = (
                         get_colors(parent_background.after_value)
                         if parent_background is not None and parent_background.after_value
@@ -260,26 +232,27 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                         continue
 
                     target_colors = []
-                    for _value, color in colors:
+                    target_token_values = []
+                    
+                    for _value, color in before_colors:
                         closest = color_scheme.find_closest(color, "palettes")
                         palette, tone = color_scheme.resolve_color_location(closest)
                         if closest is None or palette is None or tone is None:
                             target_colors.append(_serialize_color(color))
+                            target_token_values.append(_serialize_color(color))
                             continue
 
                         if palette.name == "Neutral":
                             if closest["t"] >= 40:
                                 tone_index = NEUTRAL_TONAL_STEPS.index(int(tone.value))
                                 opposite_index = (len(NEUTRAL_TONAL_STEPS) - 1) - tone_index
-                                reversed_tone = palette.tone(NEUTRAL_TONAL_STEPS[opposite_index])
-                                target_color = reversed_tone.color
+                                target_tone = palette.tone(NEUTRAL_TONAL_STEPS[opposite_index])
+                                target_color = target_tone.color
                             else:
-                                target_color = closest
+                                target_tone = tone
+                                target_color = tone.color
                             target_colors.append(_serialize_color(target_color))
-                            continue
-
-                        if palette is None:
-                            target_colors.append(_serialize_color(color))
+                            target_token_values.append(_serialize_token(token_inventory.root_token_key(target_tone.name)))
                             continue
 
                         differences = []
@@ -302,16 +275,24 @@ def run_stage(context: PipelineContext) -> PipelineContext:
 
                         if not differences:
                             target_colors.append(_serialize_color(color))
+                            target_token_values.append(_serialize_color(color))
                             continue
 
                         differences.sort(key=lambda item: item[0])
                         target_tone = differences[1][1]
                         target_colors.append(_serialize_color(target_tone.color))
+                        target_token_values.append(_serialize_token(token_inventory.root_token_key(target_tone.name)))
 
                     after_value = replace_property_values(
                         css_property.before_value,
-                        [value for value, _color in colors],
+                        [value for value, _color in before_colors],
                         target_colors,
+                    )
+
+                    token_value = replace_property_values(
+                        css_property.before_value,
+                        [value for value, _color in before_colors],
+                        target_token_values,
                     )
 
                     _transform_property(
@@ -319,24 +300,23 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                         element,
                         css_property.name,
                         after_value,
+                        token_value
                     )
 
                 case "main-surface" | "container" | "composed" | "typography" | "decoration" | "media" , "foreground":
-                    if css_property.has_color:
-                        colors = get_colors(css_property.before_value)
-
                     if element.category == "main-surface" and css_property.name == "color" and css_property.before_value != "rgb(255, 255, 255)":
                         _transform_property(
                             page_builder,
                             element,
                             "color",
                             "rgb(255, 255, 255)",
+                            "var(--Neutral-100)"
                         )
                         continue
 
                     if (
                         css_property.name in ("text-shadow", "box-shadow")
-                        and _should_clean_shadow(colors)
+                        and _should_clean_shadow(before_colors)
                     ):
                         _clean_property(
                             page_builder,
@@ -349,34 +329,48 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                         continue
 
                     target_colors = []
+                    target_token_values = []
 
-                    for _value, color in colors:
+                    for _value, color in before_colors:
                         closest = color_scheme.find_closest(color, "palettes")
                         palette, tone = color_scheme.resolve_color_location(closest)
                         if closest is None or palette is None or tone is None:
                             target_colors.append(_serialize_color(color))
+                            target_token_values.append(_serialize_color(color))
                             continue
 
                         steps = NEUTRAL_TONAL_STEPS if palette.name == "Neutral" else TONAL_STEPS
 
                         counter = 3
                         next_tone = tone
-                        if len(colors) == 1 and palette.name == "Neutral":
+                        if len(before_colors) == 1 and palette.name == "Neutral":
                             target_color= Color("rgb(255, 255, 255)")
+                            target_token_value= "var(--Neutral-100)"
                         elif int(tone.value) < 50:
                             while counter >= 1:
                                 next_tone = palette.next_tone(int(next_tone.value))
                                 tone_index = steps.index(int(next_tone.value))
                                 target_tone = palette.tone(steps[tone_index])
                                 target_color = target_tone.color
+                                target_token_value = _serialize_token(token_inventory.root_token_key(target_tone.name))
                                 counter -= 1                           
                         else:
-                            target_color = closest
+                            target_color = tone.color
+                            target_token_value = _serialize_token(token_inventory.root_token_key(target_tone.name))
+
                         target_colors.append(_serialize_color(target_color))
+                        target_token_values.append(target_token_value)
+
                     after_value = replace_property_values(
                         css_property.before_value,
-                        [value for value, _color in colors],
+                        [value for value, _color in before_colors],
                         target_colors,
+                    )
+
+                    token_value = replace_property_values(
+                        css_property.before_value,
+                        [value for value, _color in before_colors],
+                        target_token_values,
                     )
 
                     _transform_property(
@@ -384,6 +378,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                         element,
                         css_property.name,
                         after_value,
+                        token_value
                     )
 
                 case _,_:
@@ -396,16 +391,8 @@ def run_stage(context: PipelineContext) -> PipelineContext:
 
             contrast_data = element.get_text_contrast(
                 background_data.get("background_colors") or None,
-                background_data.get("font_size") or (
-                    element.property("font-size").after_value
-                    if element.property("font-size").has_changed
-                    else element.property("font-size").before_value
-                ),
-                background_data.get("font_weight") or (
-                    element.property("font-weight").after_value
-                    if element.property("font-weight").has_changed
-                    else element.property("font-weight").before_value
-                ),
+                background_data.get("font_size") or element.property("font-size").before_value,
+                background_data.get("font_weight") or element.property("font-weight").before_value,
             )
 
 
@@ -444,9 +431,8 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             target_colors = []
             for value, color in colors:
                 if color.is_achromatic():
-                    palette = color_scheme.get_palette("Neutral")
                     closest = color_scheme.find_closest(color, "Neutral")
-                    _palette, tone = color_scheme.resolve_color_location(closest)
+                    palette, tone = color_scheme.resolve_color_location(closest)
 
                     tone_index = NEUTRAL_TONAL_STEPS.index(int(tone.value))
                     target_index = len(NEUTRAL_TONAL_STEPS) - tone_index - 1
@@ -544,6 +530,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                 element,
                 "color",
                 after_value,
+                ""
             )
 
     after_screenshot = session.get_path(
@@ -554,6 +541,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     after_screenshot_path = page_builder.capture_fullpage_screenshot(
         output_path=after_screenshot
     )
+    after_html_path = _persist_runtime_html(session, page_builder)
 
     context.set(K.DOM_TREE, root)
     context.trace.add_stage_event(
@@ -561,9 +549,25 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         "complete",
         {
             "after_screenshot_path": after_screenshot_path,
+            "after_html_path": str(after_html_path),
         },
     )
     return context
+
+
+def _persist_runtime_html(session: Session, page_builder: PageBuilder):
+    before_html = session.find_by_suffix("before", ("html",))[0]
+    after_html = session.get_path(
+        before_html.name,
+        "after",
+        before_html.suffix,
+    )
+    after_html.write_text(
+        page_builder.get_runtime_html(),
+        encoding="utf-8",
+    )
+    session.save_in_after(after_html)
+    return after_html
 
 
 def _transform_property(
@@ -571,6 +575,7 @@ def _transform_property(
     element: Element,
     property_name: str,
     after_value: str,
+    token_value: str | None
 ) -> None:
     if not element.node_id:
         return
@@ -580,7 +585,6 @@ def _transform_property(
         property_model = Property(
             name=property_name,
             before_value="",
-            has_color=bool(get_colors(after_value)),
         )
         element.properties.append(property_model)
 
@@ -601,8 +605,11 @@ def _transform_property(
     if element.tag_name == "body":
         print(str(changed_value))
 
-    property_model.after_value = changed_value if changed_value is not None else after_value
-    property_model.has_color = property_model.has_color or bool(
+    property_model.after_value = changed_value if changed_value is not None else None
+    property_model.token_value = token_value if changed_value is not None else None
+    property_model.has_color = bool(
+        property_model.before_value and get_colors(property_model.before_value)
+    ) or bool(
         property_model.after_value and get_colors(property_model.after_value)
     )
 
@@ -674,6 +681,9 @@ def _serialize_color(color: Color) -> str:
         rounding="decimal",
         precision=0
     )
+
+def _serialize_token(token_name: str) -> str:
+    return f"var({token_name})"
 
 def _get_maximum_contrast(
     foreground_colors: tuple[tuple[str, Color], ...],

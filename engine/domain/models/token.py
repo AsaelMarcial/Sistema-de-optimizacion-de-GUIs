@@ -138,6 +138,8 @@ class TokenInventory:
         for element in root.iter_bfs():
             for property in element.properties:
                 if property.name is not None and property.has_color and element.tag_name != "#text":
+                    #print(element.tag_name + " -> " + property.name + " -> " + str(property.before_value) + " -> " + str(property.after_value) + " -> " + str(property.token_value))
+
                     if property.after_value is None:
                         self.create_property_token(element.category, property.name, property.before_value, property.before_value)
                     elif property.before_value is None:
@@ -155,6 +157,11 @@ class TokenInventory:
 
     def root_token(self, token_id: str) -> RootToken | None:
         return self.root_tokens.get(token_id) or None
+
+    def root_token_key(self, token_id: str) -> RootToken | None:
+        token_id = self.create_token_name([token_id])
+        token_found = self.root_tokens.get(token_id)
+        return token_found.token_id or None
 
     def property_token(self, token_id: str) -> PropertyToken | None:
         return self.property_tokens.get(token_id) or None

@@ -9,7 +9,7 @@ from engine.pipeline.stage_contract import StageContract, context_value
 
 def _session_ready_for_page_builder(session: Session) -> bool:
     try:
-        candidates = session.find_by_suffix("after", ("html",))
+        candidates = session.find_by_suffix("before", ("html",))
         return len(candidates) == 1 and candidates[0].exists()
     except (FileNotFoundError, RuntimeError, ValueError, OSError):
         return False
@@ -42,7 +42,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         return context
 
     session = context.get(K.SESSION)
-    html_file = session.find_by_suffix("after", ("html",))[0]
+    html_file = session.find_by_suffix("before", ("html",))[0]
     context.trace.add_stage_event(CONTRACT.name, "start")
     existing = context.get(K.PAGE_BUILDER)
     if existing is not None and existing.is_open:

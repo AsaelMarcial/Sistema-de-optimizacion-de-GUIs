@@ -414,6 +414,10 @@ class Tone:
     name: str
     value: int
     color: Color
+
+    @property
+    def to_var(self) -> str:
+        return f"var({self.name})"
     
 @dataclass(frozen=True, slots=True)
 class Palette:
@@ -566,27 +570,23 @@ class ColorScheme:
         """
 
         try:
-            target = target_color if isinstance(target_color, Color) else Color(target_color)
+            target = Color(target_color)
             palette_name = color_pool.strip()
 
             if len(self.colors) == 0:
                 return None
-            if self.get_palette(palette_name) is not None:
-                return target.closest(self.get_palette_colors(palette_name))
 
             match palette_name.lower():
                 case "colors":
-                    closest_color = target.closest(list(self.get_colors().values()), method="2000")
+                    return target.closest(list(self.get_colors().values()), method="2000")
                 case "palettes":
-                    closest_color = target.closest(self.get_all_palette_colors(), method="2000")
+                    return  target.closest(self.get_all_palette_colors(), method="2000")
                 case _:
-                    raise ValueError(
-                    f"Invalid color pool: '{color_pool}'. Choose 'colors' or 'palettes'."
-                )
-           
-            return closest_color
+                   
+                    return target.closest(self.get_palette_colors(palette_name)) if self.get_palette(palette_name) is not None else None
+                    
         except Exception:
-            return None
+            raise ValueError(f"Invalid color pool: '{color_pool}'. Choose 'colors' or 'palettes'.")
 
     def add_palette(
         self,

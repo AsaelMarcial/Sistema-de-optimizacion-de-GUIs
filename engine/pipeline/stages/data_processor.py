@@ -7,7 +7,9 @@ from engine.domain.models.color_scheme import Color, ColorScheme
 from engine.domain.models.element import Element
 from engine.domain.models.session import Session
 from engine.domain.models.summary import Summary
+from engine.domain.models.token import TokenInventory
 from engine.domain.data.web_colors import nearest_web_color
+from engine.domain.utils.css_generator import generate_root_css
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
 
@@ -53,12 +55,16 @@ CONTRACT = StageContract(
     produces=(
         context_value(K.COLOR_SCHEME, ColorScheme),
         context_value(K.SUMMARY, Summary, validator=_summary_ready),
+        context_value(K.TOKEN_INVENTORY, TokenInventory),
     ),
 )
 
 
 def run_stage(context: PipelineContext) -> PipelineContext:
-    if context.error or context.has(K.SUMMARY):
+    if context.error:
+        return context
+
+    if context.has(K.SUMMARY) and context.has(K.TOKEN_INVENTORY):
         return context
 
     session = context.get(K.SESSION)
@@ -83,6 +89,14 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     )
     predominant_colors = _predominant_colors(colors_distribution)
     _build_tonal_palettes(color_scheme, predominant_colors)
+    token_inventory = TokenInventory()
+    token_inventory.generate_root_tokens(color_scheme.palettes)
+    css_path = _theme_css_path(session)
+    css_path.write_text(
+        generate_root_css(token_inventory.root_tokens),
+        encoding="utf-8",
+    )
+    session.save_in_before(css_path)
 
     summary.add_overview(
         "environmental_color_histogram",
@@ -103,6 +117,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
 
     context.set(K.COLOR_SCHEME, color_scheme)
     context.set(K.SUMMARY, summary)
+    context.set(K.TOKEN_INVENTORY, token_inventory)
     context.trace.add_stage_event(
         CONTRACT.name,
         "complete",
@@ -110,9 +125,15 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             "summary_ready": _summary_ready(summary),
             "predominant_color_count": len(predominant_colors),
             "palette_count": len(color_scheme.get_palettes()),
+            "glow_css_path": str(css_path),
         },
     )
     return context
+
+
+def _theme_css_path(session: Session):
+    html_file = session.find_by_suffix("before", ("html",))[0]
+    return html_file.parent / "glow.css"
 
 
 def _colors_distribution(

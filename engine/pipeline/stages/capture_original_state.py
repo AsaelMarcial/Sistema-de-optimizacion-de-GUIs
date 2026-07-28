@@ -5,13 +5,16 @@ from collections import defaultdict
 from engine.adapters.browser.page_builder import PageBuilder
 from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.domain.data.scope_css import CSSPROPERTIES, collect_longhands
+from engine.domain.data.scope_html_elements import get_html_element_category
 from engine.domain.models.color_scheme import Color, ColorScheme
 from engine.domain.models.element import Attribute, Element, Property
 from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
-from engine.domain.utils.parsers import matches_default_value, get_colors
-from engine.domain.data.scope_html_elements import get_html_element_category
+from engine.domain.utils.parsers import get_colors, has_multiplevalues, is_gradient, is_url_image, matches_default_value
+import tinycss2
+import re
+
 
 _IMAGE_ATTRIBUTES = {
     "src",
@@ -95,18 +98,16 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         if nodes["nodeType"][i] not in (1, 3) or nodes["backendNodeId"][i] is None:
             continue
 
-        node = page_builder.resolve_backend_node_id(nodes["backendNodeId"][i])  
-
-        if node is None:
-            continue
+        node = page_builder.resolve_backend_node_id(nodes["backendNodeId"][i]) 
+        node_id = node.get("nodeId")
 
         element = Element(
-            backend_node_id=node.get("backendNodeId"),
-            node_id=node.get("nodeId"),
-            tag_name=node.get("nodeName").lower(),
-            node_type=node.get("nodeType"),
-            parent_backend_node_id=node.get("parentId") if node.get("nodeName").lower() != "body" else -1,
-            category=get_html_element_category(node.get("nodeName").lower())
+            backend_node_id=nodes["backendNodeId"][i],
+            node_id=node_id,
+            tag_name=str(strings[nodes["nodeName"][i]]).lower(),
+            category=get_html_element_category(str(strings[nodes["nodeName"][i]]).lower()),
+            node_type=nodes["nodeType"][i],
+            parent_backend_node_id=nodes["backendNodeId"][nodes["parentIndex"][i]] if str(strings[nodes["nodeName"][i]]).lower() != "body" else -1,
         )
 
         if element.tag_name == "body":
@@ -146,9 +147,29 @@ def run_stage(context: PipelineContext) -> PipelineContext:
 
     depth_by_backend_node_id: dict[int, int] = {-1: -1}
     for element in root.iter_dfs():
+        print(element.tag_name + " " + str(element.node_id))
         element.depth = depth_by_backend_node_id.get(element.parent_backend_node_id, -1) + 1
         depth_by_backend_node_id[element.backend_node_id] = element.depth
-        _filter_properties(element)
+        css_text = ""
+        if not element.tag_name.startswith("#") and not element.tag_name.startswith("::"):
+            matched_styles = page_builder.get_matched_styles(element.node_id)
+            for key, info in matched_styles.items():
+                match key:
+                    case "matchedCSSRules":
+                        for rulematch in info:
+                            rule = rulematch.get("rule")
+                            if rule.get("styleSheetId") is not None and rule.get("origin") == "regular":
+                                style = rule.get("style")
+                                css_text += "\n" + str(style.get("cssText"))
+                    case "inlineStyle":
+                        if info.get("cssText") is not None and info.get("cssText") != "":
+                            css_text += "\n" + str(info.get("cssText"))
+                    case _:
+                            continue
+
+        _filter_properties(element, css_text)
+        for property in element.properties:
+            print(str(property.name)+": " + str(property.before_value))
         for property_model in element.properties:
             property_model.has_color = _register_colors(property_model.before_value, color_scheme)
 
@@ -185,82 +206,67 @@ def _attach_children(
 
 SVG_PAINT_TAGS = {"svg", "circle", "rect", "ellipse", "line", "polyline", "polygon", "path"}
 
-def _filter_properties(element: Element) -> None:
-    # 1. Eliminar valores predeterminados y propiedades redundantes.
-    for css_property in tuple(element.properties):
-        property_name = css_property.name
-        current_property = element.property(property_name)
+def _filter_properties(element: Element, css_text: str) -> None:
+    if css_text != "" and not element.tag_name.startswith("#") and not element.tag_name.startswith("::"):
+        raw_nodes = tinycss2.parse_declaration_list(css_text, skip_comments=True)
+        found_properties = set()
+        
+        for node in raw_nodes:
+            if node.type == 'declaration':
+                name = node.name.strip().lower()
+                raw_value = tinycss2.serialize(node.value).lower()
+                found_properties.add((name, _color_signature(raw_value)))
 
-        if current_property is None:
-            continue
+        not_matched=[]
+        if element.tag_name not in SVG_PAINT_TAGS:
+            for property_name in ("fill", "stroke"):
+                element.remove_property(property_name)   
 
-        property_data = CSSPROPERTIES[property_name]
+        for property in element.properties:
+            search_name = property.name.strip().lower()
+            search_colors = _color_signature(property.before_value)
 
-        if matches_default_value(
-            current_property.before_value,
-            property_data.default_value,
-        ):
-            element.remove_property(property_name)
+            if (search_name, search_colors) not in found_properties:
+                if _should_keep_unmatched_property(element, property):
+                    continue
+                else:
+                    not_matched.append(property)
 
-            for longhand_name in collect_longhands(property_name):
-                element.remove_property(longhand_name)
+        for name in [property.name for property in not_matched]:
+            element.remove_property(name)  
 
-            continue
+    elif css_text == "" or element.tag_name.startswith("#") or element.tag_name.startswith("::"):
+        for name in [property.name for property in element.properties]:
+            element.remove_property(name) 
 
-        if property_data.longhands is None:
-            continue
-
-        longhands = tuple(
-            longhand_name
-            for longhand_name in property_data.longhands
-            if element.property(longhand_name) is not None
+   
+def _should_keep_unmatched_property(element: Element, property: Property) -> bool:
+    property_name = property.name.strip().lower()
+    return (
+        (property_name in ("font-weight", "font-size") and element.has_text)
+        or is_url_image(property.before_value)
+        or is_gradient(property.before_value)
+        or (
+            element.tag_name == "body"
+            and property_name in ("color", "background-color")
         )
+    )
 
-        if not longhands:
-            continue
 
-        if len(longhands) == 1:
-            element.remove_property(property_name)
-            continue
+def _color_signature(value: str) -> tuple[str, ...]:
+    colors = get_colors(value)
+    if not colors:
+        return ()
 
-    # 2. Eliminar propiedades SVG que no aplican al elemento.
-    if element.tag_name not in SVG_PAINT_TAGS:
-        for property_name in ("fill", "stroke"):
-            element.remove_property(property_name)
+    return tuple(
+        color.convert("srgb").to_string(
+            comma=True,
+            alpha=True,
+            precision=0,
+        )
+        for _raw_value, color in colors
+    )
 
-    # 3. Eliminar colores reemplazados por imágenes.
-    if element.property("background-image") is not None:
-        element.remove_property("background-color")
-
-    if element.property("border-image-source") is not None:
-        for property_name in (
-            "border",
-            "border-color",
-            "border-block-color",
-            "border-inline-color",
-        ):
-            element.remove_property(property_name)
-
-    # 5. Eliminar de los hijos de texto las propiedades repetidas
-    # respecto al elemento que las contiene.
-    if element.has_text:
-        for child in element.children:
-            if child.tag_name != "#text":
-                continue
-
-            for text_property in tuple(child.properties):
-                element_property = element.property(text_property.name)
-
-                if (
-                    element_property is None
-                    or element_property.before_value == text_property.before_value
-                ):
-                    child.remove_property(text_property.name)
-
-    # 6. Eliminar propiedades tipográficas de elementos sin texto.
-    if not element.has_text:
-        for property_name in ("font-size", "font-weight"):
-            element.remove_property(property_name)
 
 def _register_colors(value: str, color_scheme: ColorScheme) -> bool:
     found_color = False
@@ -273,7 +279,7 @@ def _register_colors(value: str, color_scheme: ColorScheme) -> bool:
 
         if match.color.alpha(nans=False) > 0:
             found_color = True
-            color_scheme.add_color(match.color)
+            color_scheme.add_color(match.color.set("alpha", 1))
             
         end = int(getattr(match, "end", start + 1))
         start = max(end, start + 1)

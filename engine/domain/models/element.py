@@ -44,7 +44,7 @@ class Element:
     depth: int | None = None
     attributes: list[Attribute] = field(default_factory=list)
     properties: list[Property] = field(default_factory=list)
-    children: list["Element"] = field(default_factory=list, repr=False)
+    children: list[Element] = field(default_factory=list, repr=False)
 
     @property
     def has_text(self) -> bool:
@@ -139,12 +139,12 @@ class Element:
         if color_property is None:
             return None
 
-        color_value = (
-            color_property.after_value
+        text_color = (
+            get_colors(color_property.after_value)[0][1]
             if color_property.has_changed
-            else color_property.before_value
+            else get_colors(color_property.before_value)[0][1]
         )
-        text_color = get_colors(color_value)[0][1]
+
         if not text_color or background_colors is None:
             return None
 

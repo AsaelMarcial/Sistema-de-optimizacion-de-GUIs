@@ -137,7 +137,7 @@ def get_colors(value: str) -> list[tuple[str, Color]] | None:
             colors.append(
                 (
                     value[match.start:match.end],
-                    match.color.set("alpha", 1),
+                    match.color,
                 )
             )
 

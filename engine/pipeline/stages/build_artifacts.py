@@ -7,7 +7,7 @@ from engine.domain.models.color_scheme import ColorScheme
 from engine.domain.models.element import Element
 from engine.domain.models.session import Session
 from engine.domain.models.token import TokenInventory
-from engine.domain.utils.css_generator import generate_root_css
+from engine.domain.utils.css_generator import generate_theme_css
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
 
@@ -30,7 +30,7 @@ def _artifacts_ready(session: Session) -> bool:
 
 
 def _theme_css_path(session: Session):
-    html_file = session.find_by_suffix("after", ("html",))[0]
+    html_file = session.find_by_suffix("before", ("html",))[0]
     return html_file.parent / "glow.css"
 
 
@@ -69,14 +69,14 @@ def run_stage(context: PipelineContext) -> PipelineContext:
 
     css_path = _theme_css_path(session)
     token_inventory.generate_property_tokens(root)
+    root_css = css_path.read_text(encoding="utf-8") if css_path.is_file() else ""
     css_path.write_text(
-        generate_root_css(
-            token_inventory.root_tokens,
-            token_inventory.property_tokens,
-        ),
+        root_css.rstrip()
+        + "\n\n"
+        + generate_theme_css(token_inventory.property_tokens),
         encoding="utf-8",
     )
-    session.save_in_after(css_path)
+    session.save_in_before(css_path)
     data_theme_ready = page_builder.set_data_theme()
     theme_link_ready = page_builder.set_theme_link()
 

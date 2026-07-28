@@ -22,7 +22,7 @@ from engine.domain.models.element import Element, Property
 from engine.domain.models.summary import ContrastIssue, Summary
 from engine.domain.models.session import Session
 from engine.domain.models.token import RootToken, TokenInventory
-from engine.domain.utils.css_generator import generate_root_css
+from engine.domain.utils.css_generator import generate_root_css, generate_theme_css
 from engine.domain.utils.parsers import (
     attr_equals,
     flatten_list,
@@ -277,6 +277,12 @@ class CoreDomAndColorTests(unittest.TestCase):
         context.set(ContextKey.TOKEN_INVENTORY, token_inventory)
         context.set(ContextKey.DOM_TREE, root)
         context.set(ContextKey.PAGE_BUILDER, FakePageBuilder())
+        css_path = session.get_area_root("before") / "glow.css"
+        css_path.write_text(
+            generate_root_css(token_inventory.root_tokens),
+            encoding="utf-8",
+        )
+        session.save_in_before(css_path)
 
         run_build_artifacts_stage(context)
         validate_produces(context, BUILD_ARTIFACTS_CONTRACT)
@@ -284,7 +290,7 @@ class CoreDomAndColorTests(unittest.TestCase):
         output_path = session.get_path("palette_preview.png", "artifacts", "png")
         self.assertTrue(output_path.is_file())
         self.assertGreater(output_path.stat().st_size, 0)
-        css_path = session.get_path("glow.css", "artifacts", "css")
+        css_path = session.get_path("glow.css", "before", "css")
         self.assertEqual(
             css_path.read_text(encoding="utf-8"),
             (
@@ -308,6 +314,18 @@ class CoreDomAndColorTests(unittest.TestCase):
             "--cyan-20": RootToken("--cyan-20", "rgb(0, 255, 255)"),
             "--neutral-100": RootToken("--neutral-100", "rgb(255, 255, 255)"),
         }
+        self.assertEqual(
+            generate_root_css(root_tokens),
+            (
+                ":root {\n"
+                "  color-scheme: dark;\n"
+                "  --cyan-20: rgb(0, 255, 255);\n"
+                "  --neutral-100: rgb(255, 255, 255);\n"
+                "}\n"
+            ),
+        )
+
+    def test_generate_theme_css_uses_property_tokens_as_is(self) -> None:
         token_inventory = TokenInventory()
         property_token = token_inventory.create_property_token(
             "container",
@@ -317,14 +335,8 @@ class CoreDomAndColorTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            generate_root_css(root_tokens, {property_token.token_id: property_token}),
+            generate_theme_css({property_token.token_id: property_token}),
             (
-                ":root {\n"
-                "  color-scheme: dark;\n"
-                "  --cyan-20: rgb(0, 255, 255);\n"
-                "  --neutral-100: rgb(255, 255, 255);\n"
-                "}\n"
-                "\n"
                 "[data-theme=\"glow\"] {\n"
                 "  --container-background-color-1: rgb(0, 0, 0);\n"
                 "}\n"
@@ -396,8 +408,12 @@ class CoreDomAndColorTests(unittest.TestCase):
 
         summary = context.get(ContextKey.SUMMARY)
         distribution = summary.overview("colors_distribution").data
+        token_inventory = context.get(ContextKey.TOKEN_INVENTORY)
+        css_path = context.get(ContextKey.SESSION).get_path("glow.css", "before", "css")
 
         self.assertIsInstance(summary, Summary)
+        self.assertIsInstance(token_inventory, TokenInventory)
+        self.assertIn(":root", css_path.read_text(encoding="utf-8"))
         self.assertEqual(len(summary.contrast_issues), 1)
         self.assertEqual(summary.contrast_issues[0].backend_node_id, 4)
         self.assertTrue(any(warning.code == "background_colors_unavailable" for warning in summary.warnings))
