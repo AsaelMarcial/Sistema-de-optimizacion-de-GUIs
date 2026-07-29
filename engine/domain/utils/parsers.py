@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from tinycss2 import parse_one_component_value, parse_component_value_list, serialize
 from copy import deepcopy
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+import xml.etree.ElementTree as ET
+import re
 
 from engine.domain.models.color_scheme import Color
 
@@ -94,6 +96,44 @@ def is_url_image(property_value: str) -> bool:
     image_path = urlsplit(image_url).path.lower()
 
     return image_path.endswith(_IMAGE_EXTENSIONS)
+
+def extract_url_value(value: str) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+
+    text = value.strip()
+    match = re.search(r"url\(\s*(['\"]?)(.*?)\1\s*\)", text, re.IGNORECASE)
+    if match:
+        return match.group(2).strip()
+
+    return text.strip("\"'")
+
+def is_svg_url(value: str) -> bool:
+    url = extract_url_value(value)
+    if not url:
+        return False
+
+    return urlsplit(url).path.lower().endswith(".svg")
+
+def cache_busted_url(value: str, version: str) -> str:
+    url = extract_url_value(value) or value
+    parts = urlsplit(url)
+    query = [
+        (key, query_value)
+        for key, query_value in parse_qsl(parts.query, keep_blank_values=True)
+        if key != "glow"
+    ]
+    key, _, query_value = version.partition("=")
+    query.append((key, query_value))
+    return urlunsplit(
+        (
+            parts.scheme,
+            parts.netloc,
+            parts.path,
+            urlencode(query),
+            parts.fragment,
+        )
+    )
 
 def has_multiplevalues(property_value: str) -> bool:
     if not isinstance(property_value, str) or not property_value.strip():
@@ -290,3 +330,22 @@ def matches_default_value(
 def separate_token_terms(value: str) -> list:
     """Función auxiliar para limpiar los guiones y separar por puntos."""
     return value.removeprefix("--").split(".")
+
+def get_file_name_and_suffix(path_or_url: str) -> tuple[str, str]:
+    """
+    Cleans URL syntax and splits the path from the right side 
+    to safely return a tuple of (name, suffix).
+    """
+    clean_path = extract_url_value(path_or_url) or path_or_url
+    clean_path = urlsplit(clean_path).path
+    
+    # 2. Dividir desde la derecha usando el punto como separador
+    # maxsplit=1 asegura que maneje archivos con múltiples puntos (ej: archivo.v2.svg)
+    parts = clean_path.rsplit(".", 1)
+    
+    # Si hay una extensión válida, devolvemos (nombre, extensión)
+    if len(parts) > 1:
+        return parts[0], parts[1]
+        
+    # Si no tiene extensión, devolvemos la ruta limpia y un sufijo vacío
+    return clean_path, ""

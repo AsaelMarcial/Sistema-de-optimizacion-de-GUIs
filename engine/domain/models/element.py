@@ -10,12 +10,12 @@ from engine.domain.data.scope_css import get_font_weight
 
 from engine.domain.models.color_scheme import Color
 
+SVG_PAINT_TAGS = ("svg", "circle", "rect", "ellipse", "line", "polyline", "polygon", "path")
 
 @dataclass(slots=True)
 class Attribute:
     name: str
     value: str
-
 
 @dataclass(slots=True)
 class Property:
@@ -52,13 +52,20 @@ class Element:
     
     @property
     def has_image(self) -> bool:
-        return any(
-            is_url_image(property.before_value)
-            for property in self.properties
-        ) or any(
-            is_url_image(attribute.value)
-            for attribute in self.attributes
-        )
+        return bool(self.image_references())
+
+    def image_references(self) -> list[str]:
+        references: list[str] = []
+
+        for attribute in self.attributes:
+            if is_url_image(attribute.value):
+                references.append(attribute.value)
+
+        for property in self.properties:
+            if is_url_image(property.before_value):
+                references.append(property.before_value)
+
+        return references
 
     def add_child(self, child: "Element") -> None:
         if child is self:
@@ -131,27 +138,21 @@ class Element:
 
     def get_text_contrast(
         self,
+        color: str,
         background_colors: Iterable[str],
         font_size: object,
         font_weight: object,
-    ) -> tuple[Color, Color, float, float, bool] | None:
-        color_property = self.property("color")
-        if color_property is None:
+    ) -> tuple[str, Color, float, float, bool] | None:
+        background_values = tuple(background_colors or ())
+        if not color or not background_values:
             return None
 
-        text_color = (
-            get_colors(color_property.after_value)[0][1]
-            if color_property.has_changed
-            else get_colors(color_property.before_value)[0][1]
-        )
-
-        if not text_color or background_colors is None:
-            return None
+        foreground = Color(color)
 
         background, contrast_ratio = min(
             (
-                (background := Color(value), text_color.contrast(background))
-                for value in background_colors
+                (background := Color(value), foreground.contrast(background))
+                for value in background_values
             ),
             key=lambda item: item[1],
         )
@@ -165,7 +166,7 @@ class Element:
         required_ratio = 3.0 if is_large_text else 4.5
 
         return (
-            text_color,
+            foreground.convert("srgb").to_string(comma=True, alpha=True, rounding="decimal", precision=0),
             background,
             float(contrast_ratio),
             required_ratio,
@@ -187,10 +188,7 @@ class Element:
 
         return None
 
-    def get_effective_parent_background(
-        self,
-        root: "Element",
-    ) -> "Element | None":
+    def get_effective_parent_background(self, root: Element) -> Element | None:
         """
         Devuelve el ancestro más cercano que tenga al menos un color de
         fondo válido.
@@ -202,8 +200,12 @@ class Element:
         for ancestor in root.ancestors_of(self):
             if ancestor.tag_name == "body":
                 return ancestor
-            if ancestor.effective_background is not None:
-                return ancestor
+            ancestor_property = ancestor.effective_background
+            if ancestor_property is not None and ancestor.tag_name not in SVG_PAINT_TAGS:
+                current_value = ancestor_property.after_value if ancestor_property.has_changed else ancestor_property.before_value
+                colors = get_colors(current_value)
+                if next((color["alpha"] != 0 for _value, color in colors), None) is not None:
+                    return ancestor
 
         return None
 

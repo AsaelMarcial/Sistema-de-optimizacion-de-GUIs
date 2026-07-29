@@ -176,7 +176,7 @@ class PageBuilder:
                 "CSS.setEffectivePropertyValueForNode",
                 {"nodeId": int(node_id), "propertyName": property_name, "value": value},
             )
-            return self._current_property_value(int(node_id), property_name)
+            return self.current_property_value(int(node_id), property_name)
         except (PlaywrightError, TypeError, ValueError) as exc:
             raise RuntimeError(
                 f"No se pudo cambiar el valor: {exc}"
@@ -194,15 +194,16 @@ class PageBuilder:
                 "CSS.setEffectivePropertyValueForNode",
                 {"nodeId": int(node_id), "propertyName": property_name, "value": ""},
             )
-            return self._current_property_value(int(node_id), property_name)
+            return self.current_property_value(int(node_id), property_name)
         except (PlaywrightError, TypeError, ValueError) as exc:
             raise RuntimeError(
                 f"No se pudo cambiar el valor: {exc}"
             ) from exc
 
-    def _current_property_value(self, node_id: int, property_name: str) -> str | None:
+    def current_property_value(self, node_id: int, property_name: str) -> str | None:
         assert self._cdp is not None
         try:
+            # 1. Resolvemos el nodo para obtener su dirección en memoria (objectId)
             resolved = self._cdp.send(
                 "DOM.resolveNode",
                 {"nodeId": int(node_id)},
@@ -210,14 +211,23 @@ class PageBuilder:
             object_id = resolved.get("object", {}).get("objectId")
             if not object_id:
                 return None
+                
+            # 2. Ejecutamos la función pasando el objeto de forma explícita
             response = self._cdp.send(
                 "Runtime.callFunctionOn",
                 {
                     "objectId": object_id,
+                    # Recibimos el objeto mapeado en 'element' en lugar de confiar en 'this'
                     "functionDeclaration": """
                         function(prop) {
-                            return this[prop]
-                                || window.getComputedStyle(this).getPropertyValue(prop);
+                            let element = this;
+                            if (!element || element.nodeType !== 1) return null;
+                                      
+                            // 2. Calcular los estilos reales aplicados por CSS externo o clases
+                            let targetWindow = (element.ownerDocument && element.ownerDocument.defaultView) || window;
+                            let computed = targetWindow.getComputedStyle(element).getPropertyValue(prop);
+                            
+                            return computed ? computed : null;
                         }
                     """,
                     "arguments": [{"value": property_name}],
@@ -227,7 +237,154 @@ class PageBuilder:
             return response.get("result", {}).get("value")
         except (PlaywrightError, TypeError, ValueError) as exc:
             raise RuntimeError(
-                f"No se pudo cambiar el valor: {exc}"
+                f"No se pudo leer el valor de la propiedad: {exc}"
+            ) from exc
+
+    def refresh_image_reference(
+        self,
+        node_id: int,
+        original_value: str,
+        cache_busted_url: str,
+    ) -> bool:
+        self._ensure_open()
+        assert self._cdp is not None
+        if not node_id:
+            return False
+
+        try:
+            resolved = self._cdp.send(
+                "DOM.resolveNode",
+                {"nodeId": int(node_id)},
+            )
+            object_id = resolved.get("object", {}).get("objectId")
+            if not object_id:
+                return False
+
+            response = self._cdp.send(
+                "Runtime.callFunctionOn",
+                {
+                    "objectId": object_id,
+                    "functionDeclaration": """
+                        function(originalValue, cacheBustedUrl) {
+                            const imageAttributes = [
+                                "src",
+                                "srcset",
+                                "href",
+                                "xlink:href",
+                                "poster",
+                                "data",
+                            ];
+                            const imageProperties = [
+                                "background",
+                                "background-image",
+                                "border-image",
+                                "border-image-source",
+                                "content",
+                                "list-style",
+                                "list-style-image",
+                                "mask",
+                                "mask-image",
+                                "-webkit-mask",
+                                "-webkit-mask-image",
+                            ];
+                            const extractUrl = (value) => {
+                                if (!value) return "";
+                                const text = String(value).trim();
+                                const match = text.match(/url\\(\\s*(['"]?)(.*?)\\1\\s*\\)/i);
+                                return (match ? match[2] : text.replace(/^['"]|['"]$/g, "")).trim();
+                            };
+                            const normalizeUrl = (value) => {
+                                try {
+                                    return new URL(value, window.location.href).pathname.replace(/^\\/+/, "");
+                                } catch (_error) {
+                                    return String(value || "").split("?")[0].split("#")[0].replace(/^\\/+/, "");
+                                }
+                            };
+                            const originalUrl = extractUrl(originalValue);
+                            const originalKey = normalizeUrl(originalUrl);
+                            const sameSvg = (value) => {
+                                const url = extractUrl(value);
+                                if (!url || !url.toLowerCase().includes(".svg")) return false;
+                                return normalizeUrl(url) === originalKey
+                                    || normalizeUrl(url).endsWith("/" + originalKey.split("/").pop())
+                                    || normalizeUrl(url).split("/").pop() === originalKey.split("/").pop();
+                            };
+                            const replaceCssUrl = (value) => {
+                                const text = String(value || "");
+                                if (/url\\(/i.test(text)) {
+                                    return text.replace(/url\\(\\s*(['"]?)(.*?)\\1\\s*\\)/ig, (match, quote, url) => {
+                                        return sameSvg(url) ? `url("${cacheBustedUrl}")` : match;
+                                    });
+                                }
+                                return cacheBustedUrl;
+                            };
+
+                            let changed = false;
+
+                            for (const attr of imageAttributes) {
+                                const value = this.getAttribute(attr);
+                                if (!sameSvg(value)) continue;
+                                this.setAttribute(attr, cacheBustedUrl);
+                                changed = true;
+                            }
+
+                            for (const prop of imageProperties) {
+                                const inlineValue = this.style.getPropertyValue(prop);
+                                if (sameSvg(inlineValue)) {
+                                    this.style.setProperty(prop, replaceCssUrl(inlineValue));
+                                    changed = true;
+                                    continue;
+                                }
+
+                                const computedValue = window
+                                    .getComputedStyle(this)
+                                    .getPropertyValue(prop);
+                                if (sameSvg(computedValue)) {
+                                    this.style.setProperty(prop, replaceCssUrl(computedValue));
+                                    changed = true;
+                                }
+                            }
+
+                            return new Promise((resolve) => {
+                                const finish = () => {
+                                    requestAnimationFrame(() => {
+                                        requestAnimationFrame(() => resolve(changed));
+                                    });
+                                };
+
+                                if (
+                                    changed
+                                    && this.tagName
+                                    && this.tagName.toLowerCase() === "img"
+                                    && !this.complete
+                                ) {
+                                    const done = () => {
+                                        this.removeEventListener("load", done);
+                                        this.removeEventListener("error", done);
+                                        finish();
+                                    };
+                                    this.addEventListener("load", done, { once: true });
+                                    this.addEventListener("error", done, { once: true });
+                                    window.setTimeout(done, 500);
+                                    return;
+                                }
+
+                                window.setTimeout(finish, changed ? 100 : 0);
+                            });
+                        }
+                    """,
+                    "arguments": [
+                        {"value": original_value},
+                        {"value": cache_busted_url},
+                    ],
+                    "awaitPromise": True,
+                    "returnByValue": True,
+                },
+            )
+            return bool(response.get("result", {}).get("value"))
+        except (PlaywrightError, TypeError, ValueError) as exc:
+            raise RuntimeError(
+                f"No se pudo refrescar la referencia de imagen: {exc}"
             ) from exc
 
     def set_color_scheme(self) -> bool:
@@ -313,7 +470,6 @@ class PageBuilder:
                     };
 
                     link.rel = 'stylesheet';
-                    link.dataset.glowTheme = 'true';
                     link.addEventListener('load', finish, { once: true });
                     link.addEventListener('error', finish, { once: true });
                     link.href = href;
@@ -565,12 +721,8 @@ class PageBuilder:
             # Deconstruct the native payload into a clean Python dictionary
             return {
                 "inlineStyle": response.get("inlineStyle"),
-                "attributesStyle": response.get("attributesStyle",),
-                "matchedCSSRules": response.get("matchedCSSRules",),
-                "pseudoElements": response.get("pseudoElements"),
-                "inherited": response.get("inherited"),
-                "cssPropertyRules": response.get("cssPropertyRules"),
-                "cssAtRules": response.get("cssAtRules"),
+                "attributesStyle": response.get("attributesStyle"),
+                "matchedCSSRules": response.get("matchedCSSRules"),
             }
 
         except PlaywrightError as exc:

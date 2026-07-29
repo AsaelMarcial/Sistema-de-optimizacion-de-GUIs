@@ -90,10 +90,9 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     predominant_colors = _predominant_colors(colors_distribution)
     _build_tonal_palettes(color_scheme, predominant_colors)
     token_inventory = TokenInventory()
-    token_inventory.generate_root_tokens(color_scheme.palettes)
     css_path = _theme_css_path(session)
     css_path.write_text(
-        generate_root_css(token_inventory.root_tokens),
+        generate_root_css(color_scheme.palettes),
         encoding="utf-8",
     )
     session.save_in_before(css_path)
@@ -356,8 +355,31 @@ def _process_tree(
                 continue
 
             background_data = page_builder.get_background_colors(element.node_id)
+            background_colors = background_data.get("background_colors") or ()
+            if not background_colors:
+                summary.add_warning(
+                    warning_id=element.backend_node_id,
+                    code="background_colors_unavailable",
+                    message="No se pudo obtener el color de fondo para calcular contraste.",
+                    backend_node_id=element.backend_node_id,
+                    node_id=element.node_id,
+                )
+                continue
+
+            actual_color = None
+            current_property_value = getattr(page_builder, "current_property_value", None)
+            if callable(current_property_value):
+                actual_color = current_property_value(element.node_id, "color")
+            if not actual_color:
+                actual_color = page_builder.get_computed_styles_for_node(
+                    element.node_id
+                ).get("color")
+            if not actual_color:
+                continue
+
             contrast = element.get_text_contrast(
-                background_colors=background_data.get("background_colors", ()),
+                actual_color,
+                background_colors=background_colors,
                 font_size=background_data.get("font_size"),
                 font_weight=background_data.get("font_weight"),
             )
@@ -381,7 +403,7 @@ def _process_tree(
                 contrast_ratio=contrast_ratio,
                 required_ratio=required_ratio,
                 is_large_text=is_large_text,
-                foreground=foreground.convert("srgb").to_string(hex=True),
+                foreground=Color(foreground).convert("srgb").to_string(hex=True),
                 background=background.convert("srgb").to_string(hex=True),
             )
             issue_id += 1

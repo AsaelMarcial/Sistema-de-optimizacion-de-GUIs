@@ -1,31 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from engine.domain.models.color_scheme import Color, Palette
-from engine.domain.models.element import Element, Property
+from dataclasses import dataclass, field
+from engine.domain.models.element import Element
 
-
-@dataclass(frozen=True, slots=True)
-class RootToken:
-    """
-    Representa un token raíz que contiene un valor real (por ejemplo, un color).
-    Ejemplo:
-        token_id -> "blue-500"
-        value = "#4285F4"
-        
-    """
-    token_id: str
-    value: Color
-
-    @property
-    def palette(self) -> str:
-        """Indica el nombre de la paleta a la que pertenece."""
-        return self.token_id.rsplit("-", 1)[0]
-
-    @property
-    def tone(self) -> str:
-        """Indica el tone_value del Tone al que pertenece."""
-        return self.token_id.rsplit("-", 1)[1]
 
 @dataclass(slots=True)
 class PropertyToken:
@@ -35,12 +12,16 @@ class PropertyToken:
     token_id: str
     glow_theme_value: str
     original_theme_value: str
+    element_ids: set[tuple[int, str]] = field(default_factory=set[tuple[int, str]])
+
+    @property
+    def to_var(self) -> str:
+        return f"var({self.token_id})"
 
 class TokenInventory:
 
     def __init__(self) -> None:
 
-        self.root_tokens: dict[str, RootToken] = {}
         self.property_tokens: dict[str, PropertyToken] = {}
 
     # ==========================================================
@@ -81,23 +62,6 @@ class TokenInventory:
 
         return variant + 1
 
-    def create_root_token(
-        self,
-        tone_name: str,
-        value: Color,
-    ) -> RootToken:
-        name = self.create_token_name([tone_name])
-        # Buscar si ya existe uno idéntico.
-        if self.root_token(name) is not None:
-            return self.root_token(name)
-
-        self.root_tokens[name] = RootToken(
-            token_id= name,
-            value=value.convert("srgb").to_string(comma=True, alpha=True, rounding="decimal", precision=0),
-        )
-
-        return self.root_tokens[name]
-
     def create_property_token(
         self,
         category: str,
@@ -107,7 +71,7 @@ class TokenInventory:
     ) -> PropertyToken:
 
         for token in self.property_tokens.values():
-            if (token.glow_theme_value == glow_theme_value or token.original_theme_value == original_theme_value):
+            if (token.glow_theme_value == glow_theme_value and token.original_theme_value == original_theme_value):
                 return token
 
         name = self.create_token_name([category, property_name])
@@ -127,25 +91,12 @@ class TokenInventory:
     # DEFAULT TOKENS GENERATORS
     # ==========================================================
 
-    def generate_root_tokens(self, palettes: dict[str, Palette]) -> dict[str, RootToken]:
-        for palette in palettes.values():
-            for tone in palette.tones:
-                self.create_root_token(tone.name, tone.color)
-        
-        return self.root_tokens
-
     def generate_property_tokens(self, root: Element) -> dict[str, PropertyToken]:
-        for element in root.iter_bfs():
+        for element in root.iter_dfs():
             for property in element.properties:
-                if property.name is not None and property.has_color and element.tag_name != "#text":
-                    #print(element.tag_name + " -> " + property.name + " -> " + str(property.before_value) + " -> " + str(property.after_value) + " -> " + str(property.token_value))
-
-                    if property.after_value is None:
-                        self.create_property_token(element.category, property.name, property.before_value, property.before_value)
-                    elif property.before_value is None:
-                        self.create_property_token(element.category, property.name, property.after_value, property.after_value)
-                    elif property.before_value is not None and property.after_value is not None:
-                        self.create_property_token(element.category, property.name, property.after_value, property.before_value)
+                if property.token_value is not None:
+                    created_token = self.create_property_token(element.category, property.name, property.token_value, property.before_value)
+                    created_token.element_ids.add((element.node_id, property.name))
                 else:
                     continue
         
@@ -154,14 +105,6 @@ class TokenInventory:
     # ==========================================================
     # GET
     # ==========================================================
-
-    def root_token(self, token_id: str) -> RootToken | None:
-        return self.root_tokens.get(token_id) or None
-
-    def root_token_key(self, token_id: str) -> RootToken | None:
-        token_id = self.create_token_name([token_id])
-        token_found = self.root_tokens.get(token_id)
-        return token_found.token_id or None
 
     def property_token(self, token_id: str) -> PropertyToken | None:
         return self.property_tokens.get(token_id) or None

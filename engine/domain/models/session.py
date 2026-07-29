@@ -92,7 +92,7 @@ class Session:
                     f"Invalid area: '{area}'. Choose 'before', 'after', or 'artifacts'."
                 )
 
-        return [p for p in source_paths if p.suffix in valid_suffixes]
+        return [p for p in source_paths if p.suffix in valid_suffixes] or None
 
     def get_path(self, name: str, area: str, suffix: str) -> Path:
         """

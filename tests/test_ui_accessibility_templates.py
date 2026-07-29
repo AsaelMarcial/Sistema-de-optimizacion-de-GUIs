@@ -203,6 +203,7 @@ class UIAccessibilityTemplatesTest(unittest.TestCase):
             backend_node_id=20,
             node_id=200,
             tag_name="button",
+            category="input",
             node_type=1,
             properties=[
                 Property(
@@ -221,18 +222,21 @@ class UIAccessibilityTemplatesTest(unittest.TestCase):
             element,
             "background-color",
             "rgb(0, 0, 0)",
+            "var(--Neutral-0)",
         )
         _transform_property(
             page_builder,
             element,
             "color",
             "rgb(0, 0, 0)",
+            "var(--Neutral-0)",
         )
         _transform_property(
             page_builder,
             element,
             "border-color",
             "rgb(20, 20, 20)",
+            "var(--Neutral-20)",
         )
 
         self.assertEqual(

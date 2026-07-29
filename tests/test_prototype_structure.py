@@ -17,11 +17,11 @@ from engine.domain.enums.scope.css_properties import (
 )
 from engine.domain.enums.scope.html_elements import HTML_ELEMENTS_BY_ID
 from engine.domain.enums.scope.context_keys import ContextKey
-from engine.domain.models.color_scheme import Color, ColorScheme
+from engine.domain.models.color_scheme import Color, ColorScheme, Palette, Tone
 from engine.domain.models.element import Element, Property
 from engine.domain.models.summary import ContrastIssue, Summary
 from engine.domain.models.session import Session
-from engine.domain.models.token import RootToken, TokenInventory
+from engine.domain.models.token import TokenInventory
 from engine.domain.utils.css_generator import generate_root_css, generate_theme_css
 from engine.domain.utils.parsers import (
     attr_equals,
@@ -259,10 +259,6 @@ class CoreDomAndColorTests(unittest.TestCase):
         session = _session_with_html()
         color_scheme = ColorScheme()
         token_inventory = TokenInventory()
-        token_inventory.root_tokens["--cyan-20"] = RootToken(
-            token_id="--cyan-20",
-            value="rgb(0, 255, 255)",
-        )
         root = Element(backend_node_id=1, node_id=1, tag_name="body", node_type=1)
         root.properties.append(
             Property(
@@ -279,7 +275,7 @@ class CoreDomAndColorTests(unittest.TestCase):
         context.set(ContextKey.PAGE_BUILDER, FakePageBuilder())
         css_path = session.get_area_root("before") / "glow.css"
         css_path.write_text(
-            generate_root_css(token_inventory.root_tokens),
+            generate_root_css(color_scheme.palettes),
             encoding="utf-8",
         )
         session.save_in_before(css_path)
@@ -293,11 +289,8 @@ class CoreDomAndColorTests(unittest.TestCase):
         css_path = session.get_path("glow.css", "before", "css")
         self.assertEqual(
             css_path.read_text(encoding="utf-8"),
-            (
-                ":root {\n"
-                "  color-scheme: dark;\n"
-                "  --cyan-20: rgb(0, 255, 255);\n"
-                "}\n"
+            generate_root_css(color_scheme.palettes)
+            + (
                 "\n"
                 "[data-theme=\"glow\"] {\n"
                 "  --main-surface-background-color-1: rgb(0, 0, 0);\n"
@@ -309,18 +302,24 @@ class CoreDomAndColorTests(unittest.TestCase):
             ),
         )
 
-    def test_generate_root_css_uses_root_tokens_as_is(self) -> None:
-        root_tokens = {
-            "--cyan-20": RootToken("--cyan-20", "rgb(0, 255, 255)"),
-            "--neutral-100": RootToken("--neutral-100", "rgb(255, 255, 255)"),
+    def test_generate_root_css_uses_palette_tones_as_is(self) -> None:
+        palettes = {
+            "Cyan": Palette(
+                name="Cyan",
+                source_color=Color("rgb(0, 255, 255)"),
+                tones=(
+                    Tone("--Cyan-20", 20, Color("rgb(0, 60, 60)")),
+                    Tone("--Cyan-100", 100, Color("rgb(255, 255, 255)")),
+                ),
+            )
         }
         self.assertEqual(
-            generate_root_css(root_tokens),
+            generate_root_css(palettes),
             (
                 ":root {\n"
                 "  color-scheme: dark;\n"
-                "  --cyan-20: rgb(0, 255, 255);\n"
-                "  --neutral-100: rgb(255, 255, 255);\n"
+                "  --Cyan-20: rgb(0, 60, 60);\n"
+                "  --Cyan-100: rgb(255, 255, 255);\n"
                 "}\n"
             ),
         )

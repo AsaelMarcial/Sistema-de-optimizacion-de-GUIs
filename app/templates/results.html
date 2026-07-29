@@ -123,7 +123,7 @@
 
       <section id="drivers" aria-labelledby="visual-load-title">
         {% set color_distribution_overview = summary.overview('colors_distribution') if summary else none %}
-        {% set color_distribution = color_distribution_overview.data if color_distribution_overview else none %}
+        {% set color_distribution = color_distribution_overview.data if color_distribution_overview and color_distribution_overview.data else {} %}
         <span class="eyebrow">
           <span class="eyebrow__dot"></span>
           <span>Distribución del color</span>

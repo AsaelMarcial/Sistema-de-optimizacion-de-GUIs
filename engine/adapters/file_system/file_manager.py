@@ -58,11 +58,6 @@ def scan_files(root: str | Path) -> tuple[Path, ...]:
 def ensure_parent_dir(path: str | Path) -> None:
     Path(path).resolve().parent.mkdir(parents=True, exist_ok=True)
 
-
-def read_text(path: str | Path) -> str:
-    return Path(path).resolve().read_text(encoding="utf-8")
-
-
 def safe_rmtree(path: str | Path) -> bool:
     target = Path(path).resolve()
     if not target.exists():

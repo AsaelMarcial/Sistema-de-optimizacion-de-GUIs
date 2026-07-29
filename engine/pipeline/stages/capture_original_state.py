@@ -4,16 +4,15 @@ from collections import defaultdict
 
 from engine.adapters.browser.page_builder import PageBuilder
 from engine.domain.enums.scope.context_keys import ContextKey as K
-from engine.domain.data.scope_css import CSSPROPERTIES, collect_longhands
+from engine.domain.data.scope_css import CSSPROPERTIES
 from engine.domain.data.scope_html_elements import get_html_element_category
 from engine.domain.models.color_scheme import Color, ColorScheme
 from engine.domain.models.element import Attribute, Element, Property
 from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
-from engine.domain.utils.parsers import get_colors, has_multiplevalues, is_gradient, is_url_image, matches_default_value
+from engine.domain.utils.parsers import get_colors, is_gradient, is_url_image, get_file_name_and_suffix
 import tinycss2
-import re
 
 
 _IMAGE_ATTRIBUTES = {
@@ -105,8 +104,8 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             backend_node_id=nodes["backendNodeId"][i],
             node_id=node_id,
             tag_name=str(strings[nodes["nodeName"][i]]).lower(),
-            category=get_html_element_category(str(strings[nodes["nodeName"][i]]).lower()),
             node_type=nodes["nodeType"][i],
+            category=get_html_element_category(str(strings[nodes["nodeName"][i]]).lower()),
             parent_backend_node_id=nodes["backendNodeId"][nodes["parentIndex"][i]] if str(strings[nodes["nodeName"][i]]).lower() != "body" else -1,
         )
 
@@ -139,7 +138,13 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                         before_value=str(strings[value]),
                     )
                 )
-
+        image_references = element.image_references()
+        if image_references:
+            image_property = image_references[0]
+            _, suffix = get_file_name_and_suffix(image_property)
+            if suffix.lower() == "svg":
+                element.category = "decoration"
+        
     if root is None:
         return context.set_error("DOMSnapshot no contiene un nodo body valido.")
 
@@ -147,7 +152,6 @@ def run_stage(context: PipelineContext) -> PipelineContext:
 
     depth_by_backend_node_id: dict[int, int] = {-1: -1}
     for element in root.iter_dfs():
-        print(element.tag_name + " " + str(element.node_id))
         element.depth = depth_by_backend_node_id.get(element.parent_backend_node_id, -1) + 1
         depth_by_backend_node_id[element.backend_node_id] = element.depth
         css_text = ""
@@ -156,20 +160,31 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             for key, info in matched_styles.items():
                 match key:
                     case "matchedCSSRules":
+                        if not info:
+                            continue
                         for rulematch in info:
-                            rule = rulematch.get("rule")
+                            rule = rulematch.get("rule") or {}
                             if rule.get("styleSheetId") is not None and rule.get("origin") == "regular":
-                                style = rule.get("style")
-                                css_text += "\n" + str(style.get("cssText"))
+                                style = rule.get("style") or {}
+                                if style.get("cssText") is not None:
+                                    css_text += "\n" + str(style.get("cssText"))
                     case "inlineStyle":
+                        if not info:
+                            continue
                         if info.get("cssText") is not None and info.get("cssText") != "":
                             css_text += "\n" + str(info.get("cssText"))
+                    case "attributesStyle":
+                        if not info:
+                            continue                       
+                        for property in info.get("cssProperties"):
+                            css_text += "\n" + str(property.get("name"))+ ": " + str(property.get("value"))
                     case _:
                             continue
 
         _filter_properties(element, css_text)
-        for property in element.properties:
-            print(str(property.name)+": " + str(property.before_value))
+        #print("->>>>>"+element.tag_name)
+        #for property in element.properties:
+        #   print(str(property.name) + ": " + str(property.before_value) + " -> " + str(property.after_value)+ " -> " + str(property.token_value))
         for property_model in element.properties:
             property_model.has_color = _register_colors(property_model.before_value, color_scheme)
 
@@ -243,13 +258,14 @@ def _filter_properties(element: Element, css_text: str) -> None:
 def _should_keep_unmatched_property(element: Element, property: Property) -> bool:
     property_name = property.name.strip().lower()
     return (
-        (property_name in ("font-weight", "font-size") and element.has_text)
+        (property_name in ("font-weight", "font-size","color") and element.has_text)
         or is_url_image(property.before_value)
         or is_gradient(property.before_value)
         or (
             element.tag_name == "body"
             and property_name in ("color", "background-color")
         )
+        or (property_name in ("fill", "stroke") and element.category == "decoration")
     )
 
 

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from engine.domain.models.token import PropertyToken, RootToken
+from engine.domain.models.color_scheme import ColorScheme, Palette
+from engine.domain.models.token import PropertyToken
 
 
-def generate_root_css(root_tokens: dict[str, RootToken]) -> str:
+def generate_root_css(palettes: dict[str, Palette]) -> str:
     lines = [":root {"]
     lines.append("  color-scheme: dark;")
-    for token in root_tokens.values():
-        lines.append(f"  {token.token_id}: {token.value};")
+    for palette in palettes.values():
+        for tone in palette.tones:
+            lines.append(f"  {tone.name}: {ColorScheme.serialize_color(tone.color)};")
     lines.append("}")
     return "\n".join(lines) + "\n"
 

@@ -616,7 +616,7 @@ class ColorScheme:
             generated_colors = [source_color.clone().set('tone', step).fit('srgb', method='raytrace', pspace='hct') for step in step_values]
             tones = tuple(
                 Tone(
-                    name=f"{palette_name}-{step}",
+                    name=f"--{palette_name}-{step}",
                     value=int(step),
                     color=color,
                 )
