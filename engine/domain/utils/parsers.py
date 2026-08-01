@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from tinycss2 import parse_one_component_value, parse_component_value_list, serialize
+from tinycss2 import parse_component_value_list, serialize, parse_declaration_list
 from copy import deepcopy
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 import xml.etree.ElementTree as ET
@@ -31,71 +31,74 @@ _IMAGE_EXTENSIONS = (
     ".webp",
 )
 
-def is_gradient(property_value: str) -> bool:
+def has_gradient(property_value: str) -> bool:
     if not isinstance(property_value, str) or not property_value.strip():
         return False
 
-    value = parse_one_component_value(
+    tokens = parse_component_value_list(
         property_value,
         skip_comments=True,
     )
 
-    if (
-        value.type != "function"
-        or value.lower_name not in GRADIENT_FUNCTIONS
-    ):
-        return False
+    pending = list(tokens)
+    while pending:
+        token = pending.pop()
+        if token.type == "function":
+            if token.lower_name in GRADIENT_FUNCTIONS:
+                arguments = [
+                    argument
+                    for argument in token.arguments
+                    if argument.type not in {"whitespace", "comment"}
+                ]
+                return (
+                    bool(arguments)
+                    and not any(argument.type == "error" for argument in arguments)
+                    and any(
+                        argument.type == "literal" and argument.value == ","
+                        for argument in arguments
+                    )
+                )
+            pending.extend(token.arguments)
+        elif hasattr(token, "content"):
+            pending.extend(token.content)
 
-    arguments = [
-        token
-        for token in value.arguments
-        if token.type not in {"whitespace", "comment"}
-    ]
+    return False
 
-    return (
-        bool(arguments)
-        and not any(token.type == "error" for token in arguments)
-        and any(
-            token.type == "literal" and token.value == ","
-            for token in arguments
-        )
-    )
-
-def is_url_image(property_value: str) -> bool:
+def has_url_image(property_value: str) -> bool:
     if not isinstance(property_value, str) or not property_value.strip():
         return False
 
     raw_value = property_value.strip()
-    parsed_value = parse_one_component_value(
+    tokens = parse_component_value_list(
         raw_value,
         skip_comments=True,
     )
+    pending = list(tokens)
 
-    if parsed_value.type == "url":
-        image_url = parsed_value.value.strip()
+    while pending:
+        token = pending.pop()
+        image_url = None
 
-    elif parsed_value.type == "function" and parsed_value.lower_name == "url":
-        arguments = [
-            token
-            for token in parsed_value.arguments
-            if token.type not in {"whitespace", "comment"}
-        ]
+        if token.type == "url":
+            image_url = token.value.strip()
+        elif token.type == "function":
+            if token.lower_name == "url":
+                arguments = [
+                    argument
+                    for argument in token.arguments
+                    if argument.type not in {"whitespace", "comment"}
+                ]
+                if len(arguments) == 1 and arguments[0].type == "string":
+                    image_url = arguments[0].value.strip()
+            else:
+                pending.extend(token.arguments)
+        elif hasattr(token, "content"):
+            pending.extend(token.content)
 
-        if len(arguments) != 1 or arguments[0].type != "string":
-            return False
+        if image_url and urlsplit(image_url).path.lower().endswith(_IMAGE_EXTENSIONS):
+            return True
 
-        image_url = arguments[0].value.strip()
-
-    else:
-        # Ruta o URL directa, sin url(...)
-        image_url = raw_value.strip("\"'")
-
-    if not image_url:
-        return False
-
-    image_path = urlsplit(image_url).path.lower()
-
-    return image_path.endswith(_IMAGE_EXTENSIONS)
+    return urlsplit(raw_value.strip("\"'")).path.lower().endswith(_IMAGE_EXTENSIONS)
 
 def extract_url_value(value: str) -> str | None:
     if not isinstance(value, str) or not value.strip():
@@ -184,6 +187,41 @@ def get_colors(value: str) -> list[tuple[str, Color]] | None:
         start = max(match.end, start + 1)
 
     return colors or None
+
+def are_all_colors_transparent(css_text: str) -> bool:
+    """
+    Checks if all colors in the given text are completely transparent.
+    Reuses the custom get_colors function.
+    """
+    # Obtenemos la lista de tuplas (texto_color, objeto_color) de tu función.
+    # Si devuelve None o una lista vacía, usamos el cortocircuito 'or []' para evitar errores.
+    detected_colors = get_colors(css_text) or []
+    if not detected_colors:
+        return False
+    
+    # all() devuelve True si CADA UNO de los colores cumple que su alfa es exactamente 0.0.
+    # Si la lista está vacía, all() devuelve True automáticamente (verdad vacua).
+    return all(color.alpha(nans=False) == 0.0 for _, color in detected_colors)
+
+def are_all_colors_equal(css_text: str) -> bool:
+    """
+    Returns True if all colors detected in the text are identical 
+    according to ColorAide's mathematical comparison.
+    Returns True if 0 or 1 colors are found (trivially equal).
+    """
+    # Usamos tu función get_colors. Si da None, el cortocircuito 'or []' evita errores.
+    detected_colors = get_colors(css_text) or []
+    
+    # Si solo hay uno, técnicamente todos son iguales entre sí
+    if not detected_colors:
+        return False
+        
+    # Tomamos el primer objeto Color como nuestra referencia de comparación
+    _, reference_color = detected_colors[0]
+    
+    # Comparamos todos los demás colores contra la referencia usando delta_e
+    # Si la diferencia (Delta E) con respecto al primero es 0.0, son idénticos
+    return all(reference_color.delta_e(color) == 0.0 for _, color in detected_colors)
 
 def replace_property_values(
     property_value: str,
@@ -327,6 +365,24 @@ def matches_default_value(
 
     return False
 
+def has_important_flag(value_text: str) -> bool:
+    """
+    Parses a CSS value string using tinycss2 to robustly check 
+    if it contains the !important flag, ignoring format variations.
+    """
+    # Simulamos una propiedad ficticia 'x:' seguida del valor a evaluar
+    dummy_declaration = f"x: {value_text}"
+    
+    # Parseamos la línea simulada omitiendo comentarios
+    declarations = parse_declaration_list(dummy_declaration, skip_comments=True)
+    
+    # Si la lista está vacía o el elemento no es una declaración válida, no hay bandera
+    if not declarations or declarations[0].type != 'declaration':
+        return False
+        
+    # tinycss2 evalúa la sintaxis y expone la propiedad booleana .important
+    return declarations[0].important
+
 def separate_token_terms(value: str) -> list:
     """Función auxiliar para limpiar los guiones y separar por puntos."""
     return value.removeprefix("--").split(".")
@@ -349,3 +405,39 @@ def get_file_name_and_suffix(path_or_url: str) -> tuple[str, str]:
         
     # Si no tiene extensión, devolvemos la ruta limpia y un sufijo vacío
     return clean_path, ""
+
+def is_css_value_contained(value_in: str, value: str) -> bool:
+    """
+    Parses both CSS values into tokens and checks if the token sequence of 
+    'value_in' exists sequentially inside 'value'. Case and whitespace insensitive.
+    """
+    if not isinstance(value_in, str) or not isinstance(value, str):
+        return False
+
+    # 1. Convertimos ambos textos en listas de tokens limpios
+    # Normalizamos a minúsculas y omitimos comentarios o espacios en blanco puros
+    tokens_in = [
+        t for t in parse_component_value_list(value_in.lower())
+        if t.type not in ('comment', 'whitespace')
+    ]
+    tokens_container = [
+        t for t in parse_component_value_list(value.lower())
+        if t.type not in ('comment', 'whitespace')
+    ]
+
+    # Si el contenedor está vacío o es más chico que lo buscado, es imposible que lo contenga
+    if not tokens_container or len(tokens_in) > len(tokens_container) or not tokens_in:
+        return False
+
+    # 2. Serializamos cada token de forma individual para poder compararlos como texto
+    # Esto elimina diferencias de comillas en URLs o formatos numéricos
+    search_sequence = [serialize([t]).strip() for t in tokens_in]
+    container_sequence = [serialize([t]).strip() for t in tokens_container]
+
+    # 3. Buscamos la subsecuencia exacta dentro de la secuencia contenedora
+    len_search = len(search_sequence)
+    for i in range(len(container_sequence) - len_search + 1):
+        if container_sequence[i : i + len_search] == search_sequence:
+            return True
+
+    return False

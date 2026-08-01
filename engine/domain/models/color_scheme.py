@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 from coloraide.everything import ColorAll
 
 TONAL_STEPS: tuple[int, ...] = (10, 20, 30, 40, 50, 60, 70, 80, 90, 95)
@@ -425,11 +425,40 @@ class Palette:
     source_color: Color
     tones: tuple[Tone, ...] = field(default_factory=tuple)
 
+    @property
+    def steps(self) -> tuple[int, ...]:
+        return (
+            NEUTRAL_TONAL_STEPS
+            if self.name == "Neutral"
+            else TONAL_STEPS
+        )
+
     def tone(self, value: int) -> Tone | None:
         return next((tone for tone in self.tones if int(tone.value) == int(value)), None)
 
-    def next_tone(self, value: int) -> Tone | None:
-        return next((tone for tone in self.tones if int(tone.value) == int(value) + 10), None)
+    def get_highest_tone(self) -> Tone | None:
+        """Returns the Tone object with the largest .value from the tuple."""
+        return max(self.tones, key=lambda tone: tone.value)
+
+    def get_lowest_tone(self) -> Tone | None:
+        """Returns the Tone object with the smallest .value from the tuple."""
+        return min(self.tones, key=lambda tone: tone.value)
+
+    def shift_tone_by_steps(self, base_tone: Tone, steps: int) -> Tone:
+        """
+        Finds the base_tone in the tuple and shifts its position by the given steps.
+        Caps the result at the boundaries if steps go out of bounds.
+        """
+        try:
+            current_index = self.tones.index(base_tone)
+        except ValueError:
+            current_index = 0
+
+        target_index = current_index + steps
+        last_allowed_index = len(self.tones) - 1
+        safe_index = min(max(0, target_index), last_allowed_index)
+
+        return self.tones[safe_index]
 
 
 @dataclass(slots=True)
@@ -563,30 +592,56 @@ class ColorScheme:
         return None, None
 
 
-    def find_closest(self, target_color: str | Color, color_pool: str = "colors") -> Color | None:
+    def find_closest(self, target_color: str | Color, color_pool: str = "colors") -> Any:
         """
         Calcula mediante ColorAide el objeto de color más cercano al string provisto,
         buscando estrictamente dentro del pool inyectado como parámetro.
         """
-
         try:
             target = Color(target_color)
             palette_name = color_pool.strip()
 
-            if len(self.colors) == 0:
-                return None
-
             match palette_name.lower():
                 case "colors":
+                    if not self.colors:
+                        return None
                     return target.closest(list(self.get_colors().values()), method="2000")
+                
                 case "palettes":
-                    return  target.closest(self.get_all_palette_colors(), method="2000")
+                    if not self.palettes:
+                        return None, None, None
+                    closest_color = target.closest(self.get_all_palette_colors())
+                    if closest_color is None:
+                        return None, None, None
+                        
+                    # Extraemos palette, tone y el atributo steps directamente de la paleta encontrada
+                    return next(
+                        ((palette, tone, palette.steps) 
+                         for palette in self.palettes.values() 
+                         for tone in palette.tones 
+                         if tone.color is closest_color),
+                        (None, None, None)
+                    )
+                
                 case _:
-                   
-                    return target.closest(self.get_palette_colors(palette_name)) if self.get_palette(palette_name) is not None else None
+                    closest_color = target.closest(self.get_palette_colors(palette_name)) if self.get_palette(palette_name) is not None else None
+                    if closest_color is None:
+                        return None, None, None
+                        
+                    # Reemplazamos la variable genérica 'steps' por el atributo real 'palette.steps'
+                    return next(
+                        ((palette, tone, palette.steps) 
+                         for palette in self.palettes.values() 
+                         for tone in palette.tones 
+                         if closest_color is not None and tone.color is closest_color),
+                        (None, None, None)
+                    )
                     
-        except Exception:
-            raise ValueError(f"Invalid color pool: '{color_pool}'. Choose 'colors' or 'palettes'.")
+        except Exception as exc:
+            # Tu bloque except flexible que captura y reporta de forma clara cualquier anomalía
+            raise RuntimeError(
+                f"Failed to find closest color due to an unexpected error [{type(exc).__name__}]: {exc}"
+            ) from exc
 
     def add_palette(
         self,

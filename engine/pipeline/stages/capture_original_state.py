@@ -4,14 +4,14 @@ from collections import defaultdict
 
 from engine.adapters.browser.page_builder import PageBuilder
 from engine.domain.enums.scope.context_keys import ContextKey as K
-from engine.domain.data.scope_css import CSSPROPERTIES
+from engine.domain.data.scope_css import CSSPROPERTIES, get_default_values
 from engine.domain.data.scope_html_elements import get_html_element_category
 from engine.domain.models.color_scheme import Color, ColorScheme
 from engine.domain.models.element import Attribute, Element, Property
 from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
-from engine.domain.utils.parsers import get_colors, is_gradient, is_url_image, get_file_name_and_suffix
+from engine.domain.utils.parsers import get_colors, get_file_name_and_suffix, matches_default_value, is_css_value_contained
 import tinycss2
 
 
@@ -100,13 +100,15 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         node = page_builder.resolve_backend_node_id(nodes["backendNodeId"][i]) 
         node_id = node.get("nodeId")
 
+        tag_name = str(strings[nodes["nodeName"][i]]).strip().lower()
+
         element = Element(
             backend_node_id=nodes["backendNodeId"][i],
             node_id=node_id,
-            tag_name=str(strings[nodes["nodeName"][i]]).lower(),
+            tag_name=tag_name,
             node_type=nodes["nodeType"][i],
-            category=get_html_element_category(str(strings[nodes["nodeName"][i]]).lower()),
-            parent_backend_node_id=nodes["backendNodeId"][nodes["parentIndex"][i]] if str(strings[nodes["nodeName"][i]]).lower() != "body" else -1,
+            category=get_html_element_category(tag_name),
+            parent_backend_node_id=nodes["backendNodeId"][nodes["parentIndex"][i]] if tag_name != "body" else -1,
         )
 
         if element.tag_name == "body":
@@ -233,39 +235,44 @@ def _filter_properties(element: Element, css_text: str) -> None:
                 found_properties.add((name, _color_signature(raw_value)))
 
         not_matched=[]
-        if element.tag_name not in SVG_PAINT_TAGS:
-            for property_name in ("fill", "stroke"):
-                element.remove_property(property_name)   
 
         for property in element.properties:
             search_name = property.name.strip().lower()
             search_colors = _color_signature(property.before_value)
+            property.in_css = True
+            if (
+                matches_default_value(property.before_value, get_default_values(property.name))
+                or str(property.before_value).strip().casefold() in {"none"}
+            ):
+                not_matched.append(property)
+                continue
 
             if (search_name, search_colors) not in found_properties:
                 if _should_keep_unmatched_property(element, property):
+                    property.in_css = False
                     continue
                 else:
                     not_matched.append(property)
 
         for name in [property.name for property in not_matched]:
-            element.remove_property(name)  
+            element.remove_property(name) 
 
-    elif css_text == "" or element.tag_name.startswith("#") or element.tag_name.startswith("::"):
+    elif css_text == "":
         for name in [property.name for property in element.properties]:
             element.remove_property(name) 
 
    
 def _should_keep_unmatched_property(element: Element, property: Property) -> bool:
-    property_name = property.name.strip().lower()
+    if matches_default_value(property.before_value, get_default_values(property.name)) or property.before_value in ("none","None"):
+        return False
+
     return (
-        (property_name in ("font-weight", "font-size","color") and element.has_text)
-        or is_url_image(property.before_value)
-        or is_gradient(property.before_value)
+        (property.name in ("font-weight", "font-size","color") and element.has_text)
         or (
             element.tag_name == "body"
-            and property_name in ("color", "background-color")
+            and property.name in ("color", "background-color")
         )
-        or (property_name in ("fill", "stroke") and element.category == "decoration")
+        or (property.name in ("fill", "stroke") and element.category == "decoration")
     )
 
 

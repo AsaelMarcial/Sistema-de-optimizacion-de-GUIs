@@ -27,7 +27,7 @@ CSSPROPERTIES = MappingProxyType({
             categories=["main-surface", "container", "media", "composed", "input", "typography", "other"],
             shorthand="background",
             longhands=None,
-            default_value=["rgba(0, 0, 0, 0)"],
+            default_value=[],
         ),
         "background-image": CSSDATA(
             role="background",
@@ -174,7 +174,7 @@ CSSPROPERTIES = MappingProxyType({
             categories=["main-surface", "container", "media", "composed", "input", "typography", "other"],
             shorthand="border-image",
             longhands=None,
-            default_value=None,
+            default_value=["none"],
         ),
         "border-inline": CSSDATA(
             role="foreground",
@@ -345,7 +345,20 @@ def collect_longhands(property_name: str) -> set[str]:
     return longhands
 
 def get_shorthand(property_name: str) -> str | None:
-    return CSSPROPERTIES[property_name].shorthand
+    property_data = CSSPROPERTIES.get(property_name)
+    return property_data.shorthand if property_data is not None else None
+
+def get_default_values(property_name: str) -> any:
+    property_data = CSSPROPERTIES.get(property_name)
+    return property_data.default_value if property_data is not None and property_data.default_value else None
+
+def get_role(property_name: str) -> str | None:
+    property_data = CSSPROPERTIES.get(property_name)
+    return property_data.role if property_data is not None else None
+
+def is_valid_name(property_name: str) -> bool:
+    return property_name in CSSPROPERTIES
+
 
 FONT_WEIGHT_CHOICES = {
     100: ["Thin", "Hairline", "100"],
