@@ -502,7 +502,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             html_file = session.get_path("index.html", "before", "html")
             self.assertEqual(html_file.name, "index.html")
             self.assertEqual(html_file.relative_to(session.get_area_root("before")), Path("pages/index.html"))
-            self.assertEqual(len(session.find_by_suffix("before", ("html",))), 1)
+            self.assertEqual(len(session.find_by_suffix("before", "html")), 1)
         finally:
             shutil.rmtree(session.session_dir, ignore_errors=True)
 
@@ -606,7 +606,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             session.save_in_before(index_html)
             session.save_in_before(about_html)
 
-            self.assertEqual(len(session.find_by_suffix("before", ("html",))), 2)
+            self.assertEqual(len(session.find_by_suffix("before", "html")), 2)
         finally:
             shutil.rmtree(session.session_dir, ignore_errors=True)
 
@@ -642,7 +642,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
         project_before = context.get(ContextKey.SESSION)
 
         self.assertIsInstance(project_before, Session)
-        html_file = project_before.find_by_suffix("before", ("html",))[0]
+        html_file = project_before.find_by_suffix("before", "html")[0]
         self.assertEqual(html_file.name, "render_scope_matrix.html")
         self.assertIn("Snapshot Matrix", html_file.read_text(encoding="utf-8"))
         self.assertTrue(str(html_file).endswith("render_scope_matrix.html"))
@@ -664,7 +664,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
             project_before = context.get(ContextKey.SESSION)
 
             self.assertIsInstance(project_before, Session)
-            html_file = project_before.find_by_suffix("before", ("html",))[0]
+            html_file = project_before.find_by_suffix("before", "html")[0]
             self.assertEqual(html_file.relative_to(project_before.get_area_root("before")).parts[0], "project")
             self.assertEqual(
                 html_file.relative_to(project_before.get_area_root("before")).parts,
@@ -2409,13 +2409,17 @@ class EngineRefactorSmokeTests(unittest.TestCase):
 
         before_response = client.get(f"/sessions/{session_dirname}/artifacts/before.png")
         after_response = client.get(f"/sessions/{session_dirname}/artifacts/after.png")
-        bundle_response = client.get(f"/sessions/{session_dirname}/artifacts/site.zip")
+        bundle_response = client.get(f"/sessions/{session_dirname}/download")
         transformed_response = client.get(f"/sessions/{session_dirname}/after/site/pages/index.html")
 
         try:
             self.assertEqual(before_response.status_code, 200)
             self.assertEqual(after_response.status_code, 200)
             self.assertEqual(bundle_response.status_code, 200)
+            self.assertIn(
+                "glow_design.zip",
+                bundle_response.headers.get("Content-Disposition", ""),
+            )
             self.assertEqual(transformed_response.status_code, 200)
             self.assertIn("Asset route check", transformed_response.get_data(as_text=True))
 
@@ -2423,6 +2427,7 @@ class EngineRefactorSmokeTests(unittest.TestCase):
                 self.assertIn("site/pages/index.html", bundle.namelist())
                 self.assertIn("site/styles/site.css", bundle.namelist())
                 self.assertIn("site/assets/logo.png", bundle.namelist())
+                self.assertFalse(any(name.startswith("after/") for name in bundle.namelist()))
         finally:
             before_response.close()
             after_response.close()

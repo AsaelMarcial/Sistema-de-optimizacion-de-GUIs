@@ -4,7 +4,7 @@ function showAnalyzeButton() {
   const fileNameDisplay = document.getElementById("file-name");
   const emptyLabel =
     fileNameDisplay?.dataset.emptyLabel ||
-    "Arrastra aquí tu archivo HTML o ZIP, o haz clic para seleccionarlo.";
+    "Arrastra aquí tus archivos o ZIP, o haz clic para seleccionarlos.";
 
   if (!button || !fileInput || !fileNameDisplay) {
     return;
@@ -12,7 +12,10 @@ function showAnalyzeButton() {
 
   if (fileInput.files.length > 0) {
     button.style.display = "block";
-    fileNameDisplay.textContent = fileInput.files[0].name;
+    fileNameDisplay.textContent =
+      fileInput.files.length === 1
+        ? fileInput.files[0].name
+        : `${fileInput.files.length} archivos seleccionados`;
   } else {
     fileNameDisplay.textContent = emptyLabel;
     button.style.display = "none";

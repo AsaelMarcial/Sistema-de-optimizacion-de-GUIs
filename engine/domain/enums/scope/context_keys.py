@@ -24,6 +24,7 @@ class ContextKey(StrEnum):
     DOM_TREE = "dom.tree"
     COLOR_SCHEME = "scheme.color_scheme"
     SUMMARY = "summary"
+    STYLE = "style"
     SCHEME_COLOR_HISTOGRAM = "scheme.color_histogram"
     STYLE_CATALOG = "style.catalog"
     TOKEN_INVENTORY = "token.inventory"

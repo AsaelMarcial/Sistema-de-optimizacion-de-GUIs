@@ -131,7 +131,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
 
 
 def _theme_css_path(session: Session):
-    html_file = session.find_by_suffix("before", ("html",))[0]
+    html_file = session.find_by_suffix("before", "html")[0]
     return html_file.parent / "glow.css"
 
 

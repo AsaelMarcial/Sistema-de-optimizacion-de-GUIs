@@ -26,7 +26,7 @@ _IMAGE_ATTRIBUTES = {
 
 def _session_ready_for_capture(session: Session) -> bool:
     try:
-        candidates = session.find_by_suffix("before", ("html",))
+        candidates = session.find_by_suffix("before", "html")
         return len(candidates) == 1 and candidates[0].exists()
     except (FileNotFoundError, RuntimeError, ValueError, OSError):
         return False
@@ -115,7 +115,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             root = element
 
         for name, value in zip(nodes["attributes"][i][::2], nodes["attributes"][i][1::2]):
-            if str(strings[name]) in _IMAGE_ATTRIBUTES:
+            if str(strings[name]) in _IMAGE_ATTRIBUTES or get_colors(value) is not None:
                 element.attributes.append(
                     Attribute(
                         name=str(strings[name]),
@@ -140,12 +140,16 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                         before_value=str(strings[value]),
                     )
                 )
-        image_references = element.image_references()
-        if image_references:
-            image_property = image_references[0]
-            _, suffix = get_file_name_and_suffix(image_property)
+        for image_reference in element.image_references():
+            image_value = (
+                image_reference.value
+                if isinstance(image_reference, Attribute)
+                else image_reference.current_value
+            )
+            _, suffix = get_file_name_and_suffix(image_value)
             if suffix.lower() == "svg":
                 element.category = "decoration"
+                break
         
     if root is None:
         return context.set_error("DOMSnapshot no contiene un nodo body valido.")

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from engine.adapters.browser.page_builder import PageBuilder
 from engine.adapters.source_code_handler.source_code_formatter import (
-    clean_css_text,
-    clean_runtime_css,
     export_runtime_sources,
 )
 from engine.domain.data.scope_css import CSSPROPERTIES, get_role, is_valid_name
@@ -14,7 +12,7 @@ from engine.domain.models.color_scheme import (
     NEUTRAL_TONAL_STEPS,
     Tone,
 )
-from engine.domain.models.element import Element, Property
+from engine.domain.models.element import Attribute, Element, Property
 from engine.domain.models.session import Session
 from engine.domain.models.token import TokenInventory
 from engine.domain.utils.css_generator import generate_theme_css
@@ -413,14 +411,10 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         for property in element.properties:
             print(str(property.name) + ": " + str(property.before_value) + " -> " + str(property.after_value)+ " -> " + str(property.token_value))
 
-    css_path = _theme_css_path(session)
+    css_path = session.find_by_suffix("before", "html")[0].parent / "glow.css"
     token_inventory.generate_property_tokens(root)
     root_css = css_path.read_text(encoding="utf-8") if css_path.is_file() else ""
-    theme_css = clean_css_text(
-        root_css.rstrip()
-        + "\n\n"
-        + generate_theme_css(token_inventory.property_tokens)
-    )
+    theme_css = root_css.rstrip() + "\n\n" + generate_theme_css(token_inventory.property_tokens)
     css_path.write_text(theme_css, encoding="utf-8")
     session.save_in_before(css_path)
     data_theme_ready = page_builder.set_data_theme()
@@ -443,13 +437,11 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                 token_element.backend_node_id,
                 token_element.node_id,
                 property_name,
-                clean_css_text(f"{token.to_var} !important"),
+                token.to_var,
                 token_element.tag_name,
             )
 
-    clean_runtime_css(page_builder)
     page_builder.wait_for_style_ready()
-    after_theme_css_path = _persist_before_file_in_after(session, css_path)
 
     after_screenshot = session.get_path(
         "after.png",
@@ -459,6 +451,8 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     after_screenshot_path = page_builder.capture_fullpage_screenshot(
         output_path=after_screenshot
     )
+    copied_after_paths = session.copy_area_files("before", "after")
+    after_theme_css_path = session.parallel_path(css_path, "before", "after")
     source_export = _export_runtime_sources(session, page_builder)
     after_html_path = source_export.html_path
     after_css_paths = list(source_export.stylesheet_paths.values())
@@ -472,6 +466,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             "after_html_path": str(after_html_path),
             "after_theme_css_path": str(after_theme_css_path),
             "after_css_paths": [str(path) for path in after_css_paths],
+            "copied_after_paths": [str(path) for path in copied_after_paths],
             "data_theme_ready": data_theme_ready,
             "theme_link_ready": theme_link_ready,
         },
@@ -479,21 +474,18 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     return context
 
 
-def _theme_css_path(session: Session):
-    html_file = session.find_by_suffix("before", ("html",))[0]
-    return html_file.parent / "glow.css"
-
-
 def _export_runtime_sources(
     session: Session,
     page_builder: PageBuilder,
 ) -> Any:
-    before_html = session.find_by_suffix("before", ("html",))[0]
-    after_html = _after_parallel_path(session, before_html)
+    before_html = session.find_by_suffix("before", "html")[0]
+    before_root = session.get_area_root("before")
+    after_root = session.get_area_root("after")
+    html_relative_path = before_html.relative_to(before_root).as_posix()
     result = export_runtime_sources(
         page_builder=page_builder,
-        output_directory=after_html.parent,
-        html_filename=after_html.name,
+        output_directory=after_root,
+        html_filename=html_relative_path,
     )
     print(str(result))
 
@@ -502,20 +494,6 @@ def _export_runtime_sources(
         session.save_in_after(path)
 
     return result
-
-
-def _persist_before_file_in_after(session: Session, before_path: Path) -> Path:
-    after_path = _after_parallel_path(session, before_path)
-    after_path.parent.mkdir(parents=True, exist_ok=True)
-    after_path.write_bytes(before_path.read_bytes())
-    session.save_in_after(after_path)
-    return after_path
-
-
-def _after_parallel_path(session: Session, before_path: Path) -> Path:
-    before_root = session.get_area_root("before").resolve()
-    after_root = session.get_area_root("after").resolve()
-    return after_root / before_path.resolve().relative_to(before_root)
 
 def _process_external_svg_decoration(
     session: Session,
@@ -538,9 +516,27 @@ def _process_external_svg_decoration(
             if not svg_name:
                 return None
 
-            svg_path = session.get_path(svg_name, "before", "svg")
-            cache_key = svg_path.resolve()
-            glow_path = processed_svg_files.get(cache_key)
+            before_root = session.get_area_root("before").resolve()
+            candidate_root = (
+                before_root
+                if raw_path.startswith("/")
+                else (page_builder.base_path or before_root)
+            )
+            svg_path = (candidate_root / relative_path).resolve()
+            if (
+                not svg_path.is_file()
+                or not svg_path.is_relative_to(before_root)
+            ):
+                svg_path = session.get_path(svg_name, "before", "svg")
+
+            glow_path = next(
+                (
+                    cached_path
+                    for source_path, cached_path in processed_svg_files.items()
+                    if source_path.exists() and svg_path.samefile(source_path)
+                ),
+                None,
+            )
             if glow_path is None:
                 glow_path = svg_path.with_name(
                     f"{svg_path.stem}-glow{svg_path.suffix}"
@@ -555,14 +551,14 @@ def _process_external_svg_decoration(
                 ):
                     return None
 
-                processed_svg_files[cache_key] = glow_path
+                processed_svg_files[svg_path.resolve()] = glow_path
                 session.save_in_before(glow_path)
-                _persist_before_file_in_after(session, glow_path)
 
             if page_builder.base_path is not None:
                 try:
                     new_url = glow_path.resolve().relative_to(
-                        page_builder.base_path.resolve()
+                        page_builder.base_path.resolve(),
+                        walk_up=True,
                     ).as_posix()
                 except ValueError:
                     new_url = glow_path.name
@@ -582,36 +578,30 @@ def _process_external_svg_decoration(
 
             return new_url
 
-        for attribute in element.attributes:
-            if not has_url_image(attribute.value):
-                continue
-
-            new_value = transformed_reference(attribute.value)
-            if new_value is None or new_value == attribute.value:
-                continue
-
-            applied_value = page_builder.set_attribute_value(
-                element.node_id,
-                attribute.name,
-                new_value,
+        for image_reference in element.image_references():
+            source_value = (
+                image_reference.value
+                if isinstance(image_reference, Attribute)
+                else image_reference.current_value
             )
-            attribute.value = applied_value or new_value
-
-        for property_model in element.properties:
-            source_value = property_model.current_value or property_model.before_value or ""
-            if not has_url_image(source_value):
-                continue
-
             new_value = transformed_reference(source_value)
             if new_value is None or new_value == source_value:
                 continue
 
-            _transform_property(
-                page_builder,
-                element,
-                property_model,
-                new_value,
-            )
+            if isinstance(image_reference, Attribute):
+                applied_value = page_builder.set_attribute_value(
+                    element.node_id,
+                    image_reference.name,
+                    new_value,
+                )
+                image_reference.value = applied_value or new_value
+            else:
+                _transform_property(
+                    page_builder,
+                    element,
+                    image_reference,
+                    new_value,
+                )
     except Exception as exc:
         exception_type = type(exc).__name__
         

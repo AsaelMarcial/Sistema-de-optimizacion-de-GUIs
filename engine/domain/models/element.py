@@ -59,16 +59,16 @@ class Element:
     def has_image(self) -> bool:
         return bool(self.image_references())
 
-    def image_references(self) -> list[str]:
-        references: list[str] = []
+    def image_references(self) -> list[Attribute | Property]:
+        references: list[Attribute | Property] = []
 
         for attribute in self.attributes:
             if has_url_image(attribute.value):
-                references.append(attribute.value)
+                references.append(attribute)
 
-        for property in self.properties:
-            if has_url_image(property.before_value):
-                references.append(property.before_value)
+        for property_model in self.properties:
+            if has_url_image(property_model.current_value):
+                references.append(property_model)
 
         return references
 

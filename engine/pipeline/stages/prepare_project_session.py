@@ -1,41 +1,28 @@
 from __future__ import annotations
 
+import io
+import shutil
+import zipfile
 from pathlib import Path
+
+from werkzeug.datastructures import FileStorage
 
 from engine.adapters.file_system.file_manager import (
     clean_old_sessions,
-    extract_zip,
-    read_file_storage_bytes,
+    detect_type,
+    is_corrupted,
+    is_path_dangerous,
     safe_rmtree,
-    save_bytes,
-    scan_files,
 )
+from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
-from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.pipeline.stage_contract import StageContract, context_value
-from engine.validators.project_uploaded import (
-    ALLOWED_INPUT_EXTENSIONS,
-    ALLOWED_PROJECT_FILE_EXTENSIONS,
-    exists,
-    is_file_permitted,
-    is_readable,
-    is_safe_name,
-    is_zip_readable,
-)
 
 
 def _prepared_session(session: Session) -> bool:
     try:
-        if not session.get_area_root("before").is_dir() or not session.get_area_root("after").is_dir():
-            return False
-        if len(session.find_by_suffix("before", ("html",))) != 1:
-            return False
-        if len(session.find_by_suffix("after", ("html",))) != 1:
-            return False
-        return all(path.is_file() for path in session._before["paths"]) and all(
-            path.is_file() for path in session._after["paths"]
-        )
+        return session.get_area_root("before").is_dir() and session.validate_materialized_project("before")
     except (FileNotFoundError, RuntimeError, ValueError, OSError):
         return False
 
@@ -49,61 +36,139 @@ CONTRACT = StageContract(
 
 def run_stage(
     context: PipelineContext,
-    upload,
+    upload: list[FileStorage],
 ) -> PipelineContext:
     if context.error:
         return context
 
-    session: Session | None = None
+    session = Session()
+    clean_old_sessions(active_session_id=session.session_id, base_dir=session.session_dir.parent)
     context.trace.add_stage_event(CONTRACT.name, "start")
 
     try:
-        filename = getattr(upload, "filename", "")
-        context.trace.add_step("input.received", {"filename": filename})
-
-        if not exists(upload) or not exists(filename):
-            raise ValueError("No se seleccionó ningún archivo.")
-
-        input_filename = str(filename).strip()
-        if not is_safe_name(input_filename):
-            raise ValueError("Nombre de archivo no valido.")
-        if not is_file_permitted(input_filename, ALLOWED_INPUT_EXTENSIONS):
-            raise ValueError("Archivo no permitido")
-
-        payload = read_file_storage_bytes(upload)
-        extension = Path(input_filename).suffix.lower()
+        files = upload or []
         context.trace.add_step(
-            "input.basic_validated",
-            {"filename": input_filename, "extension": extension, "bytes": len(payload)},
+            "input.received",
+            {
+                "file_count": len(files),
+                "filenames": [str(file.filename or "") for file in files],
+            },
         )
 
-        match extension:
-            case ".html":
-                if not is_readable(payload, text=True):
-                    raise ValueError("No se pudo leer el archivo HTML.")
-            case ".zip":
-                if not is_zip_readable(payload):
-                    raise ValueError("ZIP corrupto")
-            case _:
-                raise ValueError("Archivo no permitido")
+        if not files:
+            raise ValueError("No se seleccionó ningún archivo.")
 
-        session = Session()
-        clean_old_sessions(active_session_id=session.session_id, base_dir=session.session_dir.parent)
+        input_records: list[tuple[FileStorage, Path, str]] = []
+        for file in files:
+            filename = str(file.filename or "").strip()
+            if not filename:
+                raise ValueError("No se seleccionó ningún archivo.")
 
-        match extension:
-            case ".html":
-                _materialize_html(payload, Path(input_filename).name, session)
-                context.trace.add_step("project.materialized", {"kind": "html"})
-            case ".zip":
-                _materialize_zip(payload, session)
-                context.trace.add_step("project.materialized", {"kind": "zip"})
-            case _:
-                raise ValueError("Archivo no permitido")
+            relative_path = Path(filename.replace("\\", "/"))
+            if is_path_dangerous(relative_path):
+                raise ValueError(f"Operation aborted. Unsafe filename: {filename}")
 
-        _index_materialized_files(session)
-        _validate_materialized_project(session)
+            detected_type = detect_type(file)
+            if not detected_type:
+                raise ValueError(f"Operation aborted. Unknown or unsupported file type: {filename}")
+            if detected_type == "directory":
+                raise ValueError("Operation aborted. Uncompressed directories are not allowed.")
+
+            corrupted, message = is_corrupted(file, detected_type)
+            if corrupted:
+                raise ValueError(f"Operation aborted. {filename}: {message}")
+
+            input_records.append(
+                (
+                    file,
+                    relative_path,
+                    detected_type,
+                )
+            )
+
+        input_types = [detected_type for _file, _path, detected_type in input_records]
+        is_zip_mode = len(input_records) == 1 and input_types[0] == ".zip"
+
+        if not is_zip_mode and ".zip" in input_types:
+            raise ValueError("Operation aborted. Mixing a ZIP file and loose files is forbidden.")
+
+        if not is_zip_mode and input_types.count(".html") != 1:
+            raise ValueError("Operation aborted. It has to be one HTML file.")
+
+        context.trace.add_step(
+            "input.basic_validated",
+            {
+                "file_count": len(input_records),
+                "files": [
+                    {
+                        "path": relative_path.as_posix(),
+                        "extension": detected_type,
+                    }
+                    for _file, relative_path, detected_type in input_records
+                ],
+            },
+        )
+
+        if is_zip_mode:
+            zip_storage = input_records[0][0]
+            html_count = 0
+
+            try:
+                zip_storage.seek(0)
+                with zipfile.ZipFile(zip_storage.stream, "r") as archive:
+                    for info in archive.infolist():
+                        internal_path = Path(info.filename.replace("\\", "/"))
+                        if is_path_dangerous(internal_path):
+                            raise ValueError(f"Operation aborted. Unsafe ZIP path: {info.filename}")
+                        if info.is_dir():
+                            continue
+
+                        file_bytes = archive.read(info)
+                        internal_storage = FileStorage(
+                            stream=io.BytesIO(file_bytes),
+                            filename=info.filename,
+                        )
+                        internal_type = detect_type(internal_storage)
+
+                        if not internal_type:
+                            raise ValueError(f"Operation aborted. Unsupported file inside ZIP: {info.filename}")
+                        if internal_type == ".zip":
+                            raise ValueError("Operation aborted. ZIP files inside ZIP files are not allowed.")
+
+                        corrupted, message = is_corrupted(internal_storage, internal_type)
+                        if corrupted:
+                            raise ValueError(f"Operation aborted. {info.filename}: {message}")
+
+                        if internal_type == ".html":
+                            html_count += 1
+
+                    if html_count != 1:
+                        raise ValueError("Operation aborted. It has to be one HTML file.")
+                    archive.extractall(session.get_area_root("before"))
+            except zipfile.BadZipFile as exc:
+                raise ValueError(f"Operation aborted. ZIP corrupto: {exc}") from exc
+
+            project_kind = "zip"
+        else:
+            seen_paths: set[Path] = set()
+            for _file, relative_path, _detected_type in input_records:
+                if relative_path in seen_paths:
+                    raise ValueError(f"Operation aborted. Duplicate file detected in request: {relative_path.as_posix()}")
+                seen_paths.add(relative_path)
+
+            for file, relative_path, _detected_type in input_records:
+                output_path = session.get_area_root("before") / relative_path
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                file.seek(0)
+                with output_path.open("wb") as target:
+                    shutil.copyfileobj(file.stream, target)
+
+            project_kind = "files"
+
+        session.validate_materialized_project("before")
 
         context.set(K.SESSION, session)
+        context.trace.add_step("project.materialized", {"kind": project_kind})
         context.trace.add_step(
             "session.workspace_materialized",
             {
@@ -123,82 +188,6 @@ def run_stage(
         if session is not None and safe_rmtree(session.session_dir):
             context.trace.add_step("session.cleanup", {"session_dir": str(session.session_dir)})
         return _fail(context, str(exc))
-
-
-def _materialize_html(payload: bytes, filename: str, session: Session) -> None:
-    save_bytes(payload, session.get_area_root("before") / filename)
-    save_bytes(payload, session.get_area_root("after") / filename)
-
-
-def _materialize_zip(payload: bytes, session: Session) -> None:
-    extract_zip(payload, session.get_area_root("before"))
-    extract_zip(payload, session.get_area_root("after"))
-
-
-def _index_materialized_files(session: Session) -> None:
-    for path in scan_files(session.get_area_root("before")):
-        session.save_in_before(path)
-    for path in scan_files(session.get_area_root("after")):
-        session.save_in_after(path)
-    for path in scan_files(session.get_area_root("artifacts")):
-        session.save_in_artifacts(path)
-
-
-def _validate_materialized_project(session: Session) -> None:
-    before_root = session.get_area_root("before")
-    after_root = session.get_area_root("after")
-    before_files = tuple(Path(path).resolve() for path in session._before["paths"])
-    after_files = tuple(Path(path).resolve() for path in session._after["paths"])
-
-    if not before_files:
-        raise ValueError("El proyecto materializado no contiene archivos.")
-    if not after_files:
-        raise ValueError("El proyecto materializado no contiene archivos en after.")
-
-    before_relative_paths = _relative_file_paths(before_files, before_root)
-    after_relative_paths = _relative_file_paths(after_files, after_root)
-    if before_relative_paths != after_relative_paths:
-        missing_after = sorted(before_relative_paths - after_relative_paths)
-        unexpected_after = sorted(after_relative_paths - before_relative_paths)
-        details = []
-        if missing_after:
-            details.append(f"faltan en after: {', '.join(path.as_posix() for path in missing_after)}")
-        if unexpected_after:
-            details.append(f"sobran en after: {', '.join(path.as_posix() for path in unexpected_after)}")
-        raise ValueError(f"before y after no tienen la misma estructura ({'; '.join(details)}).")
-
-    for path in (*before_files, *after_files):
-        if not is_file_permitted(path, ALLOWED_PROJECT_FILE_EXTENSIONS):
-            root = before_root if path.is_relative_to(before_root) else after_root
-            relative_path = path.relative_to(root)
-            raise ValueError(f"Archivo no permitido en proyecto: {relative_path}")
-
-    before_html_candidates = session.find_by_suffix("before", ("html",))
-    after_html_candidates = session.find_by_suffix("after", ("html",))
-    if len(before_html_candidates) != 1 or len(after_html_candidates) != 1:
-        raise ValueError("El proyecto debe tener exactamente un archivo .html.")
-
-    before_html = before_html_candidates[0]
-    after_html = after_html_candidates[0]
-    if before_html.relative_to(before_root) != after_html.relative_to(after_root):
-        raise ValueError("El HTML principal de before y after no coincide.")
-
-    if not is_readable(before_html.read_bytes(), text=True):
-        raise ValueError(f"No se pudo leer el HTML: {before_html}")
-    if not is_readable(after_html.read_bytes(), text=True):
-        raise ValueError(f"No se pudo leer el HTML: {after_html}")
-
-
-def _relative_file_paths(paths: tuple[Path, ...], root: Path) -> set[Path]:
-    relative_paths: set[Path] = set()
-    for path in paths:
-        if not path.is_file():
-            raise ValueError(f"Ruta indexada no es archivo: {path}")
-        try:
-            relative_paths.add(path.relative_to(root))
-        except ValueError as exc:
-            raise ValueError(f"Ruta fuera del area de sesion: {path}") from exc
-    return relative_paths
 
 
 def _fail(context: PipelineContext, message: str) -> PipelineContext:

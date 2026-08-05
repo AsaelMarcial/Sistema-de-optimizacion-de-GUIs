@@ -17,14 +17,14 @@ from playwright.sync_api import (
     sync_playwright,
 )
 
-from engine.domain.models.style import Styles, StyleSource, Stylesheet, StyleDocument, StyleSourceType
+from engine.domain.models.style import Styles, StyleSource, Stylesheet, StyleSourceType
 
 
 _LOCALHOST = "http://127.0.0.1"
 _DEFAULT_PORT = 8000
 _NAVIGATION_TIMEOUT = 30_000
 _OPERATION_TIMEOUT = 10_000
-
+_STYLE_MARKER_PREFIX = "GLOW_STYLESHEET:"
 
 class _ReusableStaticServer(socketserver.ThreadingTCPServer):
     allow_reuse_address = True
@@ -37,9 +37,13 @@ class _QuietStaticHandler(http.server.SimpleHTTPRequestHandler):
 
 
 class PageBuilder:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        styles: Styles | None = None,
+    ) -> None:
         self.html_path: Path | None = None
         self.base_path: Path | None = None
+        self.project_root: Path | None = None
 
         self._playwright: Playwright | None = None
         self._browser: Browser | None = None
@@ -47,13 +51,14 @@ class PageBuilder:
         self._page: Page | None = None
         self._cdp: CDPSession | None = None
 
-        self._document_root: dict[str, Any] | None = None
-        self._stylesheet_changes: list[str] = []
+        self._document_root: int | None = None
+        self._stylesheet_change_count = 0
+        self._last_stylesheet_change_id: str | None = None
         self._theme_stylesheet_id: str | None = None
         self._server: _ReusableStaticServer | None = None
         self._server_thread: threading.Thread | None = None
         self._port = _DEFAULT_PORT
-        self.styles = Styles()
+        self.styles = styles if styles is not None else Styles()
 
         self._init_playwright()
 
@@ -76,12 +81,8 @@ class PageBuilder:
         return self._theme_stylesheet_id
 
     @property
-    def document_root(self) -> dict[str, Any] | None:
-        return (
-            dict(self._document_root)
-            if self._document_root is not None
-            else None
-        )
+    def document_root(self) -> int | None:
+        return self._document_root
 
     @property
     def current_url(self) -> str:
@@ -208,13 +209,19 @@ class PageBuilder:
         stylesheet = self.styles.register_stylesheet(
             header
         )
-
+        
         if stylesheet is None:
             return
 
         if urlsplit(stylesheet.source_url).path.endswith("/glow.css"):
             self._theme_stylesheet_id = (
                 stylesheet.stylesheet_id
+            )
+        
+        if isinstance(stylesheet.owner_node, int):
+            self.insert_stylesheet_marker(
+                stylesheet.owner_node,
+                stylesheet.stylesheet_id,
             )
 
 
@@ -225,13 +232,15 @@ class PageBuilder:
         stylesheet_id = event.get("styleSheetId")
 
         if stylesheet_id:
-            self._stylesheet_changes.append(
+            self._stylesheet_change_count += 1
+            self._last_stylesheet_change_id = str(
                 stylesheet_id
             )
 
     def load_page(
-    self,
-    html_path: str | Path,
+        self,
+        html_path: str | Path,
+        project_root: str | Path | None = None,
     ) -> None:
         self._ensure_open
         assert self._page is not None
@@ -243,16 +252,21 @@ class PageBuilder:
                 f"HTML no encontrado: {target}"
             )
 
+        server_root = Path(project_root).resolve() if project_root is not None else target.parent
+
         self.html_path = target
         self.base_path = target.parent
-        self._restart_server(target.parent)
+        self.project_root = server_root
+        self._restart_server(server_root)
 
         self._document_root = None
         self._theme_stylesheet_id = None
-        self._stylesheet_changes.clear()
+        self._stylesheet_change_count = 0
+        self._last_stylesheet_change_id = None
         self.styles.clear()
 
-        page_url = f"{_LOCALHOST}:{self._port}/{quote(target.name)}"
+        page_path = target.relative_to(server_root).as_posix()
+        page_url = f"{_LOCALHOST}:{self._port}/{quote(page_path, safe='/')}"
 
         try:
             response = self._page.goto(
@@ -264,8 +278,6 @@ class PageBuilder:
                 raise RuntimeError(
                     "La navegación no devolvió una respuesta."
                 )
-
-            response.finished()
 
             if response.status >= 400:
                 raise RuntimeError(
@@ -438,12 +450,12 @@ class PageBuilder:
 
     def get_full_document_node(
         self,
-    ) -> dict[str, Any]:
+    ) -> int:
         self._ensure_open
         assert self._cdp is not None
 
         if self._document_root is not None:
-            return dict(self._document_root)
+            return self._document_root
 
         try:
             response = self._cdp.send(
@@ -461,9 +473,16 @@ class PageBuilder:
                     "DOM.getDocument no devolvió un nodo raíz."
                 )
 
-            self._document_root = root
+            node_id = root.get("nodeId")
 
-            return dict(root)
+            if not node_id:
+                raise RuntimeError(
+                    "El nodo raíz no contiene un nodeId válido."
+                )
+
+            self._document_root = int(node_id)
+
+            return self._document_root
 
         except Exception as exc:
             raise RuntimeError(
@@ -610,14 +629,7 @@ class PageBuilder:
             return None
 
         try:
-            expected_sources = self.styles.get_sources(
-                backend_node_id,
-                property_name,
-            )
-
-            change_index = len(
-                self._stylesheet_changes
-            )
+            change_count = self._stylesheet_change_count
 
             self._cdp.send(
                 "CSS.setEffectivePropertyValueForNode",
@@ -637,117 +649,48 @@ class PageBuilder:
                 },
             )
 
-            changed_stylesheet_ids = list(
-                dict.fromkeys(
-                    self._stylesheet_changes[
-                        change_index:
-                    ]
-                )
-            )
-
-            stylesheet_changes: list[
-                dict[str, Any]
-            ] = []
-
-            for stylesheet_id in changed_stylesheet_ids:
+            if (
+                self._stylesheet_change_count
+                != change_count
+                and self._last_stylesheet_change_id
+            ):
+                stylesheet_id = self._last_stylesheet_change_id
                 stylesheet = self.styles.get_stylesheet(
                     stylesheet_id
                 )
 
-                before_text = (
-                    stylesheet.current_text
-                    if stylesheet is not None
-                    else ""
-                )
-
-                after_text = self.get_stylesheet_text(
-                    stylesheet_id
-                )
-
-                self.styles.set_stylesheet_text(
-                    stylesheet_id,
-                    after_text,
-                )
-
-                stylesheet_changes.append(
-                    {
-                        "style_sheet_id": stylesheet_id,
-                        "before_text": before_text,
-                        "after_text": after_text,
-                        "text_changed": (
-                            before_text != after_text
-                        ),
-                        "expected_source": any(
-                            source.stylesheet_id
-                            == stylesheet_id
-                            for source in expected_sources
-                        ),
+                if stylesheet is None:
+                    return {
+                        "stylesheet_id": stylesheet_id,
+                        "type": "unknown",
+                        "changed": False,
                     }
-                )
 
-            inline_change = None
-
-            if not stylesheet_changes:
-                inline_styles = (
-                    self.get_inline_styles_for_node(
-                        node_id
-                    )
-                )
-
-                actual_property = (
-                    self._find_inline_property(
-                        inline_styles,
-                        property_name,
-                    )
-                )
-
-                previous_values = {
-                    source.value
-                    for source in expected_sources
-                    if source.source_type
-                    in {"inline", "attribute"}
+                return {
+                    "stylesheet_id": stylesheet_id,
+                    "type": stylesheet.kind,
+                    "changed": stylesheet.changed,
                 }
 
-                actual_value = (
-                    actual_property.get("value", "")
-                    if actual_property is not None
-                    else ""
-                )
-
-                inline_change = {
-                    "property": actual_property,
-                    "changed": (
-                        actual_property is not None
-                        and actual_value
-                        not in previous_values
-                    ),
-                    "requested_value_found": (
-                        "".join(actual_value.split()).casefold()
-                        == "".join(value.split()).casefold()
-                    ),
-                }
-
-            changed = (
-                any(
-                    change["text_changed"]
-                    for change in stylesheet_changes
-                )
-                or bool(
-                    inline_change
-                    and inline_change["changed"]
-                )
+            inline_styles = self.get_inline_styles_for_node(
+                node_id
+            )
+            actual_property = self._find_inline_property(
+                inline_styles,
+                property_name,
             )
 
+            if actual_property is not None:
+                return {
+                    "stylesheet_id": None,
+                    "type": "inline",
+                    "changed": True,
+                }
+
             return {
-                "backend_node_id": backend_node_id,
-                "node_id": int(node_id),
-                "tag_name": tag_name,
-                "property_name": property_name,
-                "requested_value": value,
-                "changed": changed,
-                "expected_sources": expected_sources,
-                "stylesheet_changes": stylesheet_changes,
-                "inline_change": inline_change,
+                "stylesheet_id": None,
+                "type": "unknown",
+                "changed": False,
             }
 
         except Exception as exc:
@@ -1111,10 +1054,8 @@ class PageBuilder:
                 self._theme_stylesheet_id = next(
                     (
                         stylesheet.stylesheet_id
-                        for document
-                        in self.styles.documents.values()
                         for stylesheet
-                        in document.stylesheets.values()
+                        in self.styles.stylesheets.values()
                         if stylesheet.source_url
                         == stylesheet_href
                     ),
@@ -1196,43 +1137,6 @@ class PageBuilder:
         except Exception as exc:
             raise RuntimeError(
                 "Stylesheet update failed due to an unexpected "
-                f"error [{type(exc).__name__}]: {exc}"
-            ) from exc
-
-    def clean_inline_style_attributes(self) -> None:
-        self._ensure_open
-        assert self._page is not None
-
-        try:
-            self._page.evaluate(
-                """
-                () => {
-                    const duplicateImportant =
-                        /(?:!\\s*important\\s*){2,}/gi;
-
-                    for (const element of document.querySelectorAll("[style]")) {
-                        const value = element.getAttribute("style");
-
-                        if (!value) {
-                            continue;
-                        }
-
-                        const cleanValue = value.replace(
-                            duplicateImportant,
-                            " !important"
-                        );
-
-                        if (cleanValue !== value) {
-                            element.setAttribute("style", cleanValue);
-                        }
-                    }
-                }
-                """
-            )
-
-        except Exception as exc:
-            raise RuntimeError(
-                "Inline style cleanup failed due to an unexpected "
                 f"error [{type(exc).__name__}]: {exc}"
             ) from exc
 
@@ -1391,6 +1295,7 @@ class PageBuilder:
             stylesheet.stylesheet_id: {
                 "frame_id": stylesheet.frame_id,
                 "source_url": stylesheet.source_url,
+                "kind": stylesheet.kind,
                 "origin": stylesheet.origin,
                 "disabled": stylesheet.disabled,
                 "is_inline": stylesheet.is_inline,
@@ -1405,10 +1310,10 @@ class PageBuilder:
                 "parent_stylesheet_id": (
                     stylesheet.parent_stylesheet_id
                 ),
+                "changes": stylesheet.changes,
             }
-            for document in self.styles.documents.values()
             for stylesheet
-            in document.stylesheets.values()
+            in self.styles.stylesheets.values()
         }
 
 
@@ -1551,30 +1456,26 @@ class PageBuilder:
         inline_styles: dict[str, Any],
         property_name: str,
     ) -> dict[str, Any] | None:
-        for source_type, style_key in (
-            ("inline", "inlineStyle"),
-            ("attribute", "attributesStyle"),
+        style = inline_styles.get("inlineStyle") or {}
+
+        for css_property in (
+            style.get("cssProperties") or []
         ):
-            style = inline_styles.get(style_key) or {}
+            if css_property.get("disabled"):
+                continue
 
-            for css_property in (
-                style.get("cssProperties") or []
-            ):
-                if css_property.get("disabled"):
-                    continue
+            if css_property.get("name") != property_name:
+                continue
 
-                if css_property.get("name") != property_name:
-                    continue
-
-                return {
-                    "source_type": source_type,
-                    "value": css_property.get("value", ""),
-                    "important": bool(
-                        css_property.get("important", False)
-                    ),
-                    "range": css_property.get("range"),
-                    "style_range": style.get("range"),
-                }
+            return {
+                "source_type": "inline",
+                "value": css_property.get("value", ""),
+                "important": bool(
+                    css_property.get("important", False)
+                ),
+                "range": css_property.get("range"),
+                "style_range": style.get("range"),
+            }
 
         return None
 
@@ -1610,22 +1511,19 @@ class PageBuilder:
         assert self._cdp is not None
 
         try:
-            for document in self.styles.documents.values():
-                for stylesheet in (
-                    document.stylesheets.values()
-                ):
-                    try:
-                        text = self.get_stylesheet_text(
-                            stylesheet.stylesheet_id
-                        )
-                    except RuntimeError:
-                        continue
-
-                    self.styles.set_stylesheet_text(
-                        stylesheet.stylesheet_id,
-                        text,
-                        initialize=True,
+            for stylesheet in self.styles.stylesheets.values():
+                try:
+                    text = self.get_stylesheet_text(
+                        stylesheet.stylesheet_id
                     )
+                except RuntimeError:
+                    continue
+
+                self.styles.set_stylesheet_text(
+                    stylesheet.stylesheet_id,
+                    text,
+                    initialize=True,
+                )
 
         except Exception as exc:
             raise RuntimeError(
@@ -1707,8 +1605,7 @@ class PageBuilder:
         assert self._cdp is not None
 
         try:
-            root = self.get_full_document_node()
-            node_id = root.get("nodeId")
+            node_id = self.get_full_document_node()
 
             if not node_id:
                 raise RuntimeError(
@@ -1760,8 +1657,7 @@ class PageBuilder:
 
         try:
             if node_id is None:
-                root = self.get_full_document_node()
-                node_id = root.get("nodeId")
+                node_id = self.get_full_document_node()
 
             if not node_id:
                 return None
@@ -1790,6 +1686,88 @@ class PageBuilder:
                 f"[{type(exc).__name__}]: {exc}"
             ) from exc
 
+    def insert_stylesheet_marker(
+        self,
+        backend_node_id: int,
+        identifier: str,
+    ) -> bool:
+        self._ensure_open
+        assert self._cdp is not None
+        try:
+            resolved = self._cdp.send(
+                "DOM.resolveNode",
+                {
+                    "backendNodeId": backend_node_id,
+                },
+            )
+
+            remote_object = resolved.get("object") or {}
+            object_id = remote_object.get("objectId")
+
+            if object_id is None:
+                return False
+
+            result = self._cdp.send(
+                "Runtime.callFunctionOn",
+                {
+                    "objectId": object_id,
+                    "functionDeclaration": """
+                        function (prefix, identifier) {
+                            if (!this.parentNode) {
+                                return false;
+                            }
+
+                            const markerValue =
+                                `${prefix}${identifier}`;
+
+                            const previous =
+                                this.previousSibling;
+
+                            if (
+                                previous?.nodeType ===
+                                    Node.COMMENT_NODE
+                                && previous.nodeValue ===
+                                    markerValue
+                            ) {
+                                return true;
+                            }
+
+                            const comment =
+                                new Comment(markerValue);
+
+                            this.parentNode.insertBefore(
+                                comment,
+                                this
+                            );
+
+                            return true;
+                        }
+                    """,
+                    "arguments": [
+                        {
+                            "value":
+                                _STYLE_MARKER_PREFIX
+                        },
+                        {
+                            "value": identifier
+                        },
+                    ],
+                    "returnByValue": True,
+                },
+            )
+
+            return bool(
+                result
+                .get("result", {})
+                .get("value")
+            )
+
+        except Exception as exc:
+            raise RuntimeError(
+                "Outer HTML retrieval failed due to an unexpected "
+                f"error [{type(exc).__name__}]: {exc}"
+            ) from exc
+
     def close(self) -> None:
         try:
             if self._context is not None:
@@ -1815,6 +1793,7 @@ class PageBuilder:
             self._playwright = None
             self._document_root = None
             self._theme_stylesheet_id = None
-            self._stylesheet_changes.clear()
-            self.styles.clear()
+            self.project_root = None
+            self._stylesheet_change_count = 0
+            self._last_stylesheet_change_id = None
             self._stop_server()

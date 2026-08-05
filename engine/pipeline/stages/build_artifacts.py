@@ -26,7 +26,7 @@ def _artifacts_ready(session: Session) -> bool:
 
 
 def _theme_css_path(session: Session):
-    html_file = session.find_by_suffix("before", ("html",))[0]
+    html_file = session.find_by_suffix("before", "html")[0]
     return html_file.parent / "glow.css"
 
 

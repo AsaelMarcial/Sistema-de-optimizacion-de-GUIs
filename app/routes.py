@@ -1,4 +1,5 @@
 from flask import (
+    abort,
     Blueprint,
     flash,
     redirect,
@@ -8,6 +9,7 @@ from flask import (
     url_for,
 )
 
+from engine.adapters.file_system.file_manager import create_output_bundle
 from engine.domain.models.session import Session
 from engine.pipeline.pipeline import run_pipeline
 
@@ -37,10 +39,51 @@ def session_after(session_id: str, filename: str):
     return send_from_directory(after_dir, filename)
 
 
+@main.route("/sessions/<session_id>/download")
+def session_after_download(session_id: str):
+    sessions_root = Session.SESSIONS_ROOT.resolve()
+    session_dir = (sessions_root / session_id).resolve()
+
+    try:
+        session_dir.relative_to(sessions_root)
+    except ValueError:
+        abort(404)
+
+    after_dir = (session_dir / "after").resolve()
+
+    try:
+        after_dir.relative_to(session_dir)
+    except ValueError:
+        abort(404)
+
+    if not after_dir.is_dir():
+        abort(404)
+
+    if not any(path.is_file() for path in after_dir.rglob("*")):
+        abort(404)
+
+    artifacts_dir = (session_dir / "artifacts").resolve()
+    zip_path = artifacts_dir / "glow_design.zip"
+
+    if not zip_path.is_file():
+        create_output_bundle(
+            source_dir=after_dir,
+            bundle_dir=artifacts_dir,
+            bundle_name="glow_design.zip",
+        )
+
+    return send_from_directory(
+        artifacts_dir,
+        "glow_design.zip",
+        as_attachment=True,
+        download_name="glow_design.zip",
+    )
+
+
 @main.route("/results", methods=["POST"])
 def results():
-    file = request.files.get("file")
-    payload, error_message = run_pipeline(file)
+    files = request.files.getlist("file")
+    payload, error_message = run_pipeline(files)
     if error_message:
         flash(error_message, "error")
         return redirect(url_for("main.index"))
@@ -48,11 +91,10 @@ def results():
     results = (payload or {}).get("results")
     summary = (payload or {}).get("summary")
 
-    if results and results.get("session_dirname") and results.get("download_url"):
+    if results and results.get("session_dirname"):
         results["download_url"] = url_for(
-            "main.session_artifact",
+            "main.session_after_download",
             session_id=results["session_dirname"],
-            filename=str(results["download_url"]).rsplit("/", 1)[-1],
         )
 
     return render_template("results.html", results=results, summary=summary)

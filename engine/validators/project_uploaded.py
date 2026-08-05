@@ -4,8 +4,7 @@ import io
 from pathlib import Path
 import zipfile
 
-ALLOWED_INPUT_EXTENSIONS = {".html", ".zip"}
-ALLOWED_PROJECT_FILE_EXTENSIONS = {
+ALLOWED_EXTENSIONS = {
     ".html",
     ".css",
     ".js",
@@ -14,7 +13,10 @@ ALLOWED_PROJECT_FILE_EXTENSIONS = {
     ".jpeg",
     ".svg",
     ".webp",
+    ".zip",
 }
+ALLOWED_INPUT_EXTENSIONS = set(ALLOWED_EXTENSIONS)
+ALLOWED_PROJECT_FILE_EXTENSIONS = set(ALLOWED_EXTENSIONS)
 
 _INVALID_FILENAME_CHARS = set('<>:"/\\|?*')
 _WINDOWS_RESERVED_NAMES = {

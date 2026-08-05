@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Literal
 
 
@@ -8,6 +8,11 @@ StyleSourceType = Literal[
     "rule",
     "inline",
     "attribute",
+]
+StylesheetKind = Literal[
+    "embedded",
+    "external",
+    "unavailable",
 ]
 
 
@@ -56,18 +61,30 @@ class Stylesheet:
 
     original_text: str = ""
     current_text: str = ""
+    changes: int = 0
 
+    @property
+    def kind(self) -> StylesheetKind:
+        if (
+            not self.frame_id
+            or self.disabled
+            or self.loading_failed
+            or self.is_constructed
+        ):
+            return "unavailable"
 
-@dataclass(slots=True)
-class StyleDocument:
-    """
-    Agrupa las stylesheets pertenecientes al mismo documento o frame.
-    """
+        if self.is_inline:
+            return "embedded"
 
-    frame_id: str
-    stylesheets: dict[str, Stylesheet] = field(
-        default_factory=dict
-    )
+        if self.source_url:
+            return "external"
+
+        return "unavailable"
+
+    @property
+    def changed(self) -> bool:
+        self.changes += 1
+        return True
 
 
 class Styles:
@@ -80,14 +97,12 @@ class Styles:
     """
 
     def __init__(self) -> None:
-        self.documents: dict[str, StyleDocument] = {}
+        self.stylesheets: dict[str, Stylesheet] = {}
 
         self.sources_by_node: dict[
             int,
             dict[str, list[StyleSource]],
         ] = {}
-
-        self.stylesheet_to_frame: dict[str, str] = {}
 
     def register_stylesheet(
         self,
@@ -130,18 +145,7 @@ class Styles:
             ),
         )
 
-        document = self.documents.setdefault(
-            frame_id,
-            StyleDocument(frame_id=frame_id),
-        )
-
-        document.stylesheets[
-            stylesheet_id
-        ] = stylesheet
-
-        self.stylesheet_to_frame[
-            stylesheet_id
-        ] = frame_id
+        self.stylesheets[stylesheet_id] = stylesheet
 
         return stylesheet
 
@@ -168,19 +172,7 @@ class Styles:
         self,
         stylesheet_id: str,
     ) -> Stylesheet | None:
-        frame_id = self.stylesheet_to_frame.get(
-            stylesheet_id
-        )
-
-        if frame_id is None:
-            return None
-
-        document = self.documents.get(frame_id)
-
-        if document is None:
-            return None
-
-        return document.stylesheets.get(
+        return self.stylesheets.get(
             stylesheet_id
         )
 
@@ -188,13 +180,10 @@ class Styles:
         self,
         frame_id: str,
     ) -> tuple[Stylesheet, ...]:
-        document = self.documents.get(frame_id)
-
-        if document is None:
-            return ()
-
         return tuple(
-            document.stylesheets.values()
+            stylesheet
+            for stylesheet in self.stylesheets.values()
+            if stylesheet.frame_id == frame_id
         )
 
     def register_element_sources(
@@ -229,9 +218,8 @@ class Styles:
         )
 
     def clear(self) -> None:
-        self.documents.clear()
+        self.stylesheets.clear()
         self.sources_by_node.clear()
-        self.stylesheet_to_frame.clear()
 
     @staticmethod
     def extract_property_sources(

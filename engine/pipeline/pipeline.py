@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import PurePosixPath
 from typing import Any
 from pprint import pformat
 
@@ -203,7 +204,7 @@ def _fallback_template_payload(context: PipelineContext) -> dict[str, Any] | Non
     session = context.get(K.SESSION)
     color_scheme = context.get(K.COLOR_SCHEME)
     session_dirname = session.session_dir.name
-    html_candidates = session.find_by_suffix("before", ("html",))
+    html_candidates = session.find_by_suffix("before", "html")
     html_name = html_candidates[0].name if html_candidates else ""
     palette_rows = _palette_rows(color_scheme)
     summary = context.get(K.SUMMARY) if context.has(K.SUMMARY) else None
@@ -241,7 +242,7 @@ def _fallback_template_payload(context: PipelineContext) -> dict[str, Any] | Non
         },
         "debug_summary_text": "",
         "recommendations": {"items": [], "summary": None},
-        "download_url": "",
+        "download_url": str(PurePosixPath("/sessions", session_dirname, "download")),
         "environmental_assessment": {
             "before": before_assessment.to_dict() if before_assessment is not None else {},
             "after": after_assessment.to_dict() if after_assessment is not None else {},

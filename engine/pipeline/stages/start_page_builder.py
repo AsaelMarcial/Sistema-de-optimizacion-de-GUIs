@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from engine.adapters.browser.page_builder import PageBuilder
+from engine.adapters.source_code_handler.local_asset_rewriter import (
+    rewrite_local_asset_references,
+)
 from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.domain.models.session import Session
+from engine.domain.models.style import Styles
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
 
@@ -13,7 +17,7 @@ def _session_ready_for_page_builder(
     try:
         html_files = session.find_by_suffix(
             "before",
-            ("html",),
+            "html",
         )
 
         return (
@@ -43,7 +47,7 @@ def _page_builder_ready(
             and page_builder.base_path is not None
             and page_builder.base_path.is_dir()
             and document_root is not None
-            and bool(document_root.get("nodeId"))
+            and bool(document_root)
         )
 
     except (
@@ -69,6 +73,10 @@ CONTRACT = StageContract(
             PageBuilder,
             validator=_page_builder_ready,
         ),
+        context_value(
+            K.STYLE,
+            Styles,
+        ),
     ),
 )
 
@@ -88,7 +96,7 @@ def run_stage(
 
     html_files = session.find_by_suffix(
         "before",
-        ("html",),
+        "html",
     )
 
     if len(html_files) != 1:
@@ -98,6 +106,16 @@ def run_stage(
         )
 
     html_file = html_files[0]
+    before_root = session.get_area_root("before")
+    rewrite_result = rewrite_local_asset_references(html_file, before_root)
+    if rewrite_result.changed:
+        context.trace.add_step(
+            "html.asset_paths_rewritten",
+            {
+                "rewrite_count": len(rewrite_result.rewrites),
+                "html_path": str(html_file),
+            },
+        )
 
     existing_page_builder = context.get(
         K.PAGE_BUILDER
@@ -111,20 +129,39 @@ def run_stage(
             "Ya existe una instancia activa de PageBuilder."
         )
 
-    page_builder = PageBuilder()
+    styles = Styles()
+    page_builder = PageBuilder(styles=styles)
 
     try:
-        page_builder.load_page(html_file)
+        page_builder.load_page(html_file, project_root=before_root)
+        failed_stylesheets = [
+            stylesheet
+            for stylesheet in page_builder.styles.stylesheets.values()
+            if stylesheet.loading_failed
+        ]
+        if failed_stylesheets:
+            fallback_result = rewrite_local_asset_references(html_file, before_root)
+            if fallback_result.changed:
+                context.trace.add_step(
+                    "html.asset_paths_rewritten_after_load",
+                    {
+                        "rewrite_count": len(fallback_result.rewrites),
+                        "failed_stylesheets": len(failed_stylesheets),
+                    },
+                )
+                page_builder.load_page(html_file, project_root=before_root)
 
         context.set(
             K.PAGE_BUILDER,
             page_builder,
         )
+        context.set(
+            K.STYLE,
+            styles,
+        )
 
-        stylesheet_count = sum(
-            len(document.stylesheets)
-            for document
-            in page_builder.styles.documents.values()
+        stylesheet_count = len(
+            page_builder.styles.stylesheets
         )
 
         context.trace.add_stage_event(
@@ -138,15 +175,9 @@ def run_stage(
                     page_builder.base_path
                 ),
                 "document_node_id": (
-                    page_builder.document_root or {}
-                ).get("nodeId"),
-                "style_documents": len(
-                    page_builder.styles.documents
+                    page_builder.document_root
                 ),
                 "stylesheets": stylesheet_count,
-                "theme_stylesheet_id": (
-                    page_builder.theme_stylesheet_id
-                ),
             },
         )
 

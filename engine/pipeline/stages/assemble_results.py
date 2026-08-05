@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 import re
 
 from engine.adapters.file_system.file_manager import create_output_bundle
@@ -34,7 +34,7 @@ _FUNCTION_COLOR_RE = re.compile(r"(?:rgba?|hsla?)\([^)]+\)", re.IGNORECASE)
 
 
 def _session_ready_for_results(session: Session) -> bool:
-    return bool(session.session_id.strip()) and len(session.find_by_suffix("after", ("html",))) == 1
+    return bool(session.session_id.strip()) and len(session.find_by_suffix("after", "html")) == 1
 
 CONTRACT = StageContract(
     name="assemble_results",
@@ -700,28 +700,14 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     output_dir = session.get_area_root("after")
     artifacts_dir = session.get_area_root("artifacts")
     session_dirname = session.session_dir.name
-    html_file = session.find_by_suffix("after", ("html",))[0]
-    project_root = output_dir
-    top_level_dirs: set[str] = set()
-    for path in session._after["paths"]:
-        relative_path = path.relative_to(output_dir)
-        if len(relative_path.parts) == 1:
-            project_root = output_dir
-            break
-        top_level_dirs.add(relative_path.parts[0])
-    else:
-        if len(top_level_dirs) == 1:
-            candidate = output_dir / next(iter(top_level_dirs))
-            if candidate.is_dir():
-                project_root = candidate.resolve()
-    bundle_stem = project_root.name if project_root != output_dir else html_file.stem
-    bundle_name = f"{bundle_stem}.zip"
+    html_file = session.find_by_suffix("after", "html")[0]
+    bundle_name = "glow_design.zip"
     zip_output_path, zip_filename = create_output_bundle(
         source_dir=output_dir,
         bundle_dir=artifacts_dir,
         bundle_name=bundle_name,
     )
-    download_path = str(PurePosixPath("/sessions", session_dirname, "artifacts", bundle_name))
+    download_path = str(PurePosixPath("/sessions", session_dirname, "download"))
     context.set(K.RECOMMENDATIONS, RecommendationsPayload(items=(), summary=None))
     context.trace.add_step("transformed.zip_created", {"zip_output_path": zip_output_path})
 
