@@ -94,8 +94,13 @@ class TokenInventory:
     def generate_property_tokens(self, root: Element) -> dict[str, PropertyToken]:
         for element in root.iter_dfs():
             for property in element.properties:
-                if property.token_value is not None:
-                    created_token = self.create_property_token(element.category, property.name, property.token_value, property.before_value)
+                if property.calculated_value is not None and property.type in ("inline", "matched"):
+                    created_token = self.create_property_token(
+                        element.category,
+                        property.name,
+                        str(property.calculated_value),
+                        property.before_value,
+                    )
                     created_token.element_ids.add((element.node_id, property.name))
                 else:
                     continue

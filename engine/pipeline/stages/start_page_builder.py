@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import posixpath
+from pathlib import Path
+from urllib.parse import quote, unquote, urljoin, urlparse
+
 from engine.adapters.browser.page_builder import PageBuilder
 from engine.adapters.source_code_handler.local_asset_rewriter import (
     rewrite_local_asset_references,
@@ -15,10 +19,7 @@ def _session_ready_for_page_builder(
     session: Session,
 ) -> bool:
     try:
-        html_files = session.find_by_suffix(
-            "before",
-            "html",
-        )
+        html_files = session.get_by_type(".html")
 
         return (
             len(html_files) == 1
@@ -94,10 +95,7 @@ def run_stage(
 
     session = context.get(K.SESSION)
 
-    html_files = session.find_by_suffix(
-        "before",
-        "html",
-    )
+    html_files = session.get_by_type(".html")
 
     if len(html_files) != 1:
         raise RuntimeError(
@@ -107,12 +105,12 @@ def run_stage(
 
     html_file = html_files[0]
     before_root = session.get_area_root("before")
-    rewrite_result = rewrite_local_asset_references(html_file, before_root)
-    if rewrite_result.changed:
+    rewritten_values = rewrite_local_asset_references(html_file, session)
+    if rewritten_values:
         context.trace.add_step(
             "html.asset_paths_rewritten",
             {
-                "rewrite_count": len(rewrite_result.rewrites),
+                "rewrite_count": len(rewritten_values),
                 "html_path": str(html_file),
             },
         )
@@ -134,22 +132,72 @@ def run_stage(
 
     try:
         page_builder.load_page(html_file, project_root=before_root)
-        failed_stylesheets = [
-            stylesheet
-            for stylesheet in page_builder.styles.stylesheets.values()
-            if stylesheet.loading_failed
-        ]
-        if failed_stylesheets:
-            fallback_result = rewrite_local_asset_references(html_file, before_root)
-            if fallback_result.changed:
-                context.trace.add_step(
-                    "html.asset_paths_rewritten_after_load",
-                    {
-                        "rewrite_count": len(fallback_result.rewrites),
-                        "failed_stylesheets": len(failed_stylesheets),
-                    },
+        network_information = page_builder.get_network_asset_information()
+        network_by_url: dict[str, dict] = {}
+        for item in network_information:
+            request = item.get("request") or {}
+            response_event = item.get("responseReceived") or {}
+            response = response_event.get("response") or {}
+            for url in {
+                str(request.get("url") or ""),
+                str(response.get("url") or ""),
+            }:
+                if not url:
+                    continue
+                network_by_url[url] = item
+                network_by_url[unquote(url)] = item
+
+        matched_network_ids: set[str] = set()
+        for source in session.get_all_sources():
+            if isinstance(source.source_name, Path):
+                runtime_source = urljoin(
+                    page_builder.page_url,
+                    quote(source.source_name.as_posix(), safe="/:@%"),
                 )
-                page_builder.load_page(html_file, project_root=before_root)
+            else:
+                runtime_source = str(source.source_name)
+
+            source.runtime_source = runtime_source
+            network_item = network_by_url.get(runtime_source) or network_by_url.get(unquote(runtime_source))
+            if network_item is None:
+                continue
+
+            matched_network_ids.add(str(network_item.get("requestId") or ""))
+            source.set_load_status(
+                network_item.get("load_status"),
+                network_item.get("error_message"),
+            )
+
+        for item in network_information:
+            request_id = str(item.get("requestId") or "")
+            if request_id in matched_network_ids:
+                continue
+
+            request = item.get("request") or {}
+            response_event = item.get("responseReceived") or {}
+            response = response_event.get("response") or {}
+            runtime_source = str(request.get("url") or response.get("url") or "")
+            if not runtime_source:
+                continue
+
+            parsed_runtime_source = urlparse(runtime_source)
+            parsed_page_url = urlparse(page_builder.page_url)
+            source_name = runtime_source
+            if parsed_runtime_source.netloc == parsed_page_url.netloc:
+                source_name = Path(
+                    posixpath.relpath(
+                        unquote(parsed_runtime_source.path),
+                        posixpath.dirname(unquote(parsed_page_url.path)),
+                    )
+                )
+
+            session.register_source(
+                source_name,
+                founded_on="network",
+                load_status=item.get("load_status"),
+                error_message=item.get("error_message"),
+                runtime_source=runtime_source,
+            )
 
         context.set(
             K.PAGE_BUILDER,

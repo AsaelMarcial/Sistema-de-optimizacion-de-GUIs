@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from engine.adapters.browser.page_builder import PageBuilder
-from engine.adapters.source_code_handler.source_code_formatter import (
-    export_runtime_sources,
+from engine.adapters.source_code_handler.local_asset_rewriter import (
+    rewrite_reference_candidates,
 )
 from engine.domain.data.scope_css import CSSPROPERTIES, get_role, is_valid_name
 from engine.domain.enums.scope.context_keys import ContextKey as K
@@ -12,16 +12,13 @@ from engine.domain.models.color_scheme import (
     NEUTRAL_TONAL_STEPS,
     Tone,
 )
-from engine.domain.models.element import Attribute, Element, Property
-from engine.domain.models.session import Session
+from engine.domain.models.element import Element, Property, SVG_PAINT_TAGS
+from engine.domain.models.session import Session, Source
 from engine.domain.models.token import TokenInventory
 from engine.domain.utils.css_generator import generate_theme_css
 from engine.domain.utils.parsers import (
-    extract_url_value,
     get_colors,
     has_gradient,
-    is_svg_url,
-    has_url_image,
     replace_property_values,
     is_css_value_contained,
 )
@@ -30,11 +27,9 @@ from engine.pipeline.stage_contract import StageContract, context_value
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote, urlsplit
 import re
 import io
 
-SVG_PAINT_TAGS = ("svg", "circle", "rect", "ellipse", "line", "polyline", "polygon", "path")
 SVG_DEFAULT_FILL_TAGS = ("path", "circle", "rect", "ellipse", "polygon", "polyline", "text", "use")
 
 def _transformed_dom_tree_ready(root: Element) -> bool:
@@ -79,7 +74,6 @@ def run_stage(context: PipelineContext) -> PipelineContext:
 
     page_builder.set_color_scheme()
     theme_link_ready = page_builder.set_theme_link()
-    processed_svg_files: dict[Path, Path] = {}
 
     original_backgrounds = _original_backgrounds(root, page_builder)
 
@@ -95,6 +89,9 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         )
 
         for css_property in tuple(element.properties):
+            if css_property.type in ("attribute", "inherited"):
+                continue
+
             actual_value = css_property.current_value
             before_colors = get_colors(css_property.before_value)
 
@@ -220,7 +217,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                         for tone in target_tones:
                             if isinstance(tone, Tone):
                                 tone.color["t"] = tone.color["t"] - 10
-                        token_value = replace_property_values(
+                        calculated_value = replace_property_values(
                             css_property.before_value,
                             [value for value, _color in before_colors],
                             [
@@ -233,7 +230,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                             page_builder,
                             element,
                             css_property,
-                            token_value
+                            calculated_value
                         )
 
                 case "main-surface" | "container" | "composed" | "typography" | "media" , "foreground":
@@ -265,41 +262,41 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                     if css_property.name == "color":
                         continue
 
-                    target_token_values = []
+                    target_calculated_values = []
 
                     for value, color in before_colors:
                         if color.get("alpha") == 0  or is_css_value_contained("transparent", value):
-                            target_token_values.append(value)
+                            target_calculated_values.append(value)
                             continue
                         elif color.convert("hct").get("t") >= 60:
                             palette, tone, _steps = color_scheme.find_closest(color, "palettes") or (None, None, None)
                             if palette is None or tone is None:
-                                target_token_values.append(_serialize_color(color))
+                                target_calculated_values.append(_serialize_color(color))
                                 continue
 
-                            target_token_values.append(tone.to_var)
+                            target_calculated_values.append(tone.to_var)
                         else:
                             target_tones = _differences(css_property.name, [("", color)], original_ancestor_background_colors, original_inner_background_colors, actual_ancestor_background_colors, actual_inner_background_colors, element.tag_name, color_scheme, 60, None)
                             if target_tones:
-                                target_token_values.append(
+                                target_calculated_values.append(
                                     target_tones[0].to_var
                                     if isinstance(target_tones[0], Tone)
                                     else target_tones[0]
                                 )
                             else:
-                                target_token_values.append(_serialize_color(color))
+                                target_calculated_values.append(_serialize_color(color))
 
-                    token_value = replace_property_values(
+                    calculated_value = replace_property_values(
                         css_property.before_value,
                         [value for value, _color in before_colors],
-                        target_token_values,
+                        target_calculated_values,
                     )
 
                     _transform_property(
                         page_builder,
                         element,
                         css_property,
-                        token_value
+                        calculated_value
                     )
 
                 case "decoration", "foreground" | "background":
@@ -321,7 +318,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                             None
                         )
                         if target_values:
-                            token_value = replace_property_values(
+                            calculated_value = replace_property_values(
                                 css_property.before_value,
                                 [value for value, _color in before_colors],
                                 [
@@ -333,7 +330,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                                 page_builder,
                                 element,
                                 css_property,
-                                token_value
+                                calculated_value
                             )
 
                 case _,_:
@@ -347,18 +344,17 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                 original_ancestor_background_colors,
                 actual_ancestor_background_colors,
                 color_scheme,
-                processed_svg_files,
             )
             continue
 
         if element.has_text and not element.has_tag("body"):
-            print(str(element.tag_name))
+            # print(str(element.tag_name))
             actual_background_data = page_builder.get_background_colors(
                 element.node_id
             ) or {}
 
             color_property = element.property("color")
-            print("propiedad" + str(color_property))
+            # print("propiedad" + str(color_property))
             size_property = element.property("font-size")
             weight_property = element.property("font-weight")
             if color_property["name"] and actual_background_data:
@@ -374,9 +370,9 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                     actual_background_data.get("font-size") or size_property["before_value"],
                     actual_background_data.get("font_weight") or weight_property["before_value"],
                 ) if actual_background_data is not None else None
-                print("original_background_data " +str(original_background_data))
-                print("actual_background_data " +str(actual_contrast_data))
-                print("font " +str(size_property) +str(weight_property))
+                # print("original_background_data " +str(original_background_data))
+                # print("actual_background_data " +str(actual_contrast_data))
+                # print("font " +str(size_property) +str(weight_property))
 
                 if actual_contrast_data is not None and not (color_property["has_changed"] and actual_contrast_data[2] >= actual_contrast_data[3]):
                     target_tone = _text_contrast_target_tone(
@@ -387,7 +383,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                         original_contrast_data,
                         original_background_data,
                     )
-                    print("target_tone " + str(target_tone))
+                    # print("target_tone " + str(target_tone))
                     if target_tone is not None:
                         property_model = next(
                             (
@@ -407,9 +403,10 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                             target_tone.to_var
                         )
         _update_properties(page_builder, element)
-        print("->>>>>"+element.tag_name)
-        for property in element.properties:
-            print(str(property.name) + ": " + str(property.before_value) + " -> " + str(property.after_value)+ " -> " + str(property.token_value))
+        # print("->>>>>"+element.tag_name)
+        #for property in element.properties:
+            # print(str(property.name) + ": " + str(property.before_value) + " -> " + str(property.after_value)+ " -> " + str(property.calculated_value))
+            #pass
 
     css_path = session.find_by_suffix("before", "html")[0].parent / "glow.css"
     token_inventory.generate_property_tokens(root)
@@ -420,7 +417,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     data_theme_ready = page_builder.set_data_theme()
     theme_link_ready = page_builder.set_theme_link()
     page_builder.set_theme_stylesheet_text(theme_css)
-    print(str(theme_link_ready))
+    # print(str(theme_link_ready))
 
     elements_by_node_id = {
         element.node_id: element
@@ -451,49 +448,17 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     after_screenshot_path = page_builder.capture_fullpage_screenshot(
         output_path=after_screenshot
     )
-    copied_after_paths = session.copy_area_files("before", "after")
-    after_theme_css_path = session.parallel_path(css_path, "before", "after")
-    source_export = _export_runtime_sources(session, page_builder)
-    after_html_path = source_export.html_path
-    after_css_paths = list(source_export.stylesheet_paths.values())
-
     context.set(K.DOM_TREE, root)
     context.trace.add_stage_event(
         CONTRACT.name,
         "complete",
         {
             "after_screenshot_path": after_screenshot_path,
-            "after_html_path": str(after_html_path),
-            "after_theme_css_path": str(after_theme_css_path),
-            "after_css_paths": [str(path) for path in after_css_paths],
-            "copied_after_paths": [str(path) for path in copied_after_paths],
             "data_theme_ready": data_theme_ready,
             "theme_link_ready": theme_link_ready,
         },
     )
     return context
-
-
-def _export_runtime_sources(
-    session: Session,
-    page_builder: PageBuilder,
-) -> Any:
-    before_html = session.find_by_suffix("before", "html")[0]
-    before_root = session.get_area_root("before")
-    after_root = session.get_area_root("after")
-    html_relative_path = before_html.relative_to(before_root).as_posix()
-    result = export_runtime_sources(
-        page_builder=page_builder,
-        output_directory=after_root,
-        html_filename=html_relative_path,
-    )
-    print(str(result))
-
-    session.save_in_after(result.html_path)
-    for path in result.stylesheet_paths.values():
-        session.save_in_after(path)
-
-    return result
 
 def _process_external_svg_decoration(
     session: Session,
@@ -502,99 +467,71 @@ def _process_external_svg_decoration(
     original_ancestor_background_colors: Any,
     actual_ancestor_background_colors: Any,
     color_scheme: ColorScheme,
-    processed_svg_files: dict[Path, Path],
 ) -> None:
     try:
-        def transformed_reference(reference_value: str) -> str | None:
-            svg_url = extract_url_value(reference_value)
-            if svg_url is None or not is_svg_url(svg_url):
-                return None
+        before_root = session.get_area_root("before").resolve()
+        reference_base_path = (page_builder.base_path or before_root).resolve()
 
-            raw_path = unquote(urlsplit(svg_url).path).replace("\\", "/")
-            relative_path = raw_path.lstrip("/")
-            svg_name = Path(relative_path).name if relative_path else Path(svg_url).name
-            if not svg_name:
-                return None
-
-            before_root = session.get_area_root("before").resolve()
-            candidate_root = (
-                before_root
-                if raw_path.startswith("/")
-                else (page_builder.base_path or before_root)
-            )
-            svg_path = (candidate_root / relative_path).resolve()
+        for image_reference in element.properties:
+            source = image_reference.image_source
             if (
-                not svg_path.is_file()
-                or not svg_path.is_relative_to(before_root)
+                not isinstance(source, Source)
+                or source.type != "local"
+                or source.load_status != "loaded"
+                or not isinstance(source.source_name, Path)
             ):
-                svg_path = session.get_path(svg_name, "before", "svg")
+                continue
 
-            glow_path = next(
+            svg_path = next(
                 (
-                    cached_path
-                    for source_path, cached_path in processed_svg_files.items()
-                    if source_path.exists() and svg_path.samefile(source_path)
+                    candidate
+                    for candidate in session.get_by_type(".svg")
+                    if candidate.stem.lower() == source.source_name.stem.lower()
                 ),
                 None,
             )
-            if glow_path is None:
-                glow_path = svg_path.with_name(
-                    f"{svg_path.stem}-glow{svg_path.suffix}"
-                )
+            if svg_path is None:
+                continue
+
+            if source.versions:
+                version_source = next(iter(source.versions))
+            else:
 
                 if not _rewrite_svg_file(
                     svg_path,
-                    glow_path,
+                    svg_path.with_name(f"{svg_path.stem}-glow{svg_path.suffix}"),
                     original_ancestor_background_colors,
                     actual_ancestor_background_colors,
                     color_scheme,
                 ):
-                    return None
+                    continue
 
-                processed_svg_files[svg_path.resolve()] = glow_path
-                session.save_in_before(glow_path)
+                session.save_in_before(svg_path.with_name(f"{source.source_name.stem}-glow{source.source_name.suffix}"))
+                version_source = session.register_source(source.source_name.with_name(f"{source.source_name.stem}-glow{source.source_name.suffix}"))
+                source.add_version(version_source)
 
-            if page_builder.base_path is not None:
-                try:
-                    new_url = glow_path.resolve().relative_to(
-                        page_builder.base_path.resolve(),
-                        walk_up=True,
-                    ).as_posix()
-                except ValueError:
-                    new_url = glow_path.name
-            else:
-                new_url = glow_path.name
-
-            if re.search(r"url\(", reference_value, re.IGNORECASE):
-                return re.sub(
-                    r"url\(\s*(['\"]?)(.*?)\1\s*\)",
-                    lambda match: (
-                        f"url({match.group(1)}{new_url}{match.group(1)})"
-                    ),
-                    reference_value,
-                    count=1,
-                    flags=re.IGNORECASE,
-                )
-
-            return new_url
-
-        for image_reference in element.image_references():
-            source_value = (
-                image_reference.value
-                if isinstance(image_reference, Attribute)
-                else image_reference.current_value
-            )
-            new_value = transformed_reference(source_value)
-            if new_value is None or new_value == source_value:
+            if (
+                version_source.type != "local"
+                or not isinstance(version_source.source_name, Path)
+            ):
                 continue
 
-            if isinstance(image_reference, Attribute):
-                applied_value = page_builder.set_attribute_value(
+            new_value = rewrite_reference_candidates(
+                image_reference.current_value,
+                version_source.source_name.as_posix(),
+                (
+                    image_reference.name
+                    if image_reference.type == "attribute"
+                    else None
+                ),
+            )
+
+            if image_reference.type == "attribute":
+                image_reference.after_value = page_builder.set_attribute_value(
                     element.node_id,
                     image_reference.name,
                     new_value,
                 )
-                image_reference.value = applied_value or new_value
             else:
                 _transform_property(
                     page_builder,
@@ -602,6 +539,7 @@ def _process_external_svg_decoration(
                     image_reference,
                     new_value,
                 )
+            image_reference.image_source = version_source
     except Exception as exc:
         exception_type = type(exc).__name__
         
@@ -784,7 +722,7 @@ def _transform_property(
     page_builder: PageBuilder,
     element: Element,
     property: Property | str,
-    token_value: str
+    calculated_value: str
 ) -> None:
     if not element.node_id:
         return
@@ -797,20 +735,24 @@ def _transform_property(
                 item
                 for item in element.properties
                 if item.name == property
+                and item.type not in ("attribute", "inherited")
             ),
             None,
         )
     )
 
-    if property_model is None:
+    if (
+        property_model is None
+        or property_model.type in ("attribute", "inherited")
+    ):
         return
 
-    if property_model.before_value != token_value:
+    if property_model.before_value != calculated_value:
         page_builder.set_effective_value(
             element.backend_node_id,
             element.node_id,
             property_model.name,
-            token_value,
+            calculated_value,
             element.tag_name,
         )
         changed_value = page_builder.current_property_value(
@@ -818,7 +760,7 @@ def _transform_property(
             property_model.name,
         )
         property_model.after_value = changed_value
-        property_model.token_value = token_value
+        property_model.calculated_value = calculated_value
         property_model.has_color = bool(changed_value and get_colors(changed_value) is not None)
 
 def _update_properties(
@@ -830,6 +772,9 @@ def _update_properties(
     )
 
     for property_model in element.properties:
+        if property_model.type in ("attribute", "inherited"):
+            continue
+
         updated_value = updated_properties.get(property_model.name)
         property_model.after_value = updated_value if updated_value != property_model.before_value else None
 
@@ -844,7 +789,7 @@ def _text_contrast_target_tone(
     palette, tone, _ = color_scheme.find_closest(actual_color, "palettes") or (None, None, None)
     if palette is None or tone is None:
         return None
-    print("1")
+    # print("1")
 
     original_palette = None
     if original_contrast_data is not None:
@@ -864,15 +809,15 @@ def _text_contrast_target_tone(
         and original_contrast_data[2] >= original_contrast_data[3]
         and actual_palette.name == original_palette.name
     )
-    print(str(preserve_original_contrast))
-    print(str(actual_palette.name if actual_palette is not None else None))
-    print(str(original_palette.name if original_palette is not None else None))
-    print(str(original_palette.name if original_palette is not None else None))
+    # print(str(preserve_original_contrast))
+    # print(str(actual_palette.name if actual_palette is not None else None))
+    # print(str(original_palette.name if original_palette is not None else None))
+    # print(str(original_palette.name if original_palette is not None else None))
 
     if actual_contrast_data[2] >= actual_contrast_data[3] and not preserve_original_contrast:
-        print("entró")
+        # print("entró")
         return None
-    print("2")
+    # print("2")
 
     def valid_candidate(candidate_tone: Tone):
         contrast_ratio = candidate_tone.color.contrast(actual_contrast_data[1])
@@ -894,7 +839,7 @@ def _text_contrast_target_tone(
             if tone is not None
         ]
 
-    print("candidate_tones=" + str([(tone.name, tone.value) for tone in candidate_tones]))
+    # print("candidate_tones=" + str([(tone.name, tone.value) for tone in candidate_tones]))
 
     target_contrast_ratio = (
         original_contrast_data[2]
@@ -903,20 +848,20 @@ def _text_contrast_target_tone(
     )
 
     for candidate_tone in candidate_tones:
-        print("3")
+        # print("3")
 
         candidate = valid_candidate(candidate_tone)
         if candidate is None:
-            print(
-                    "candidate_rejected="
-                    + str(candidate_tone.name)
-                    + " contrast="
-                    + str(candidate_tone.color.contrast(actual_contrast_data[1]))
-                    + " required="
-                    + str(actual_contrast_data[3])
-                )
+            # print(
+            #         "candidate_rejected="
+            #         + str(candidate_tone.name)
+            #         + " contrast="
+            #         + str(candidate_tone.color.contrast(actual_contrast_data[1]))
+            #         + " required="
+            #         + str(actual_contrast_data[3])
+            #     )
             continue
-        print("4")
+        # print("4")
 
         candidate_tone, contrast_ratio = candidate
         candidates.append(
@@ -928,10 +873,10 @@ def _text_contrast_target_tone(
 
     if candidates:
         candidates.sort(key=lambda item: item[0])
-        print(str(candidates))
+        # print(str(candidates))
         return candidates[0][1]
 
-    print("5")
+    # print("5")
     return None
 
     return None

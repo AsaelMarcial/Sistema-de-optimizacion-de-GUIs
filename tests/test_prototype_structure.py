@@ -67,13 +67,13 @@ class CoreDomAndColorTests(unittest.TestCase):
         self.assertEqual(root.filter(lambda item: item.tag_name == "h1"), (child,))
         self.assertIs(root.property("color"), None)
         child.properties.append(Property("color", "rgb(0, 0, 0)", has_color=True))
-        self.assertEqual(child.property("color").value, "rgb(0, 0, 0)")
+        self.assertEqual(child.property("color")["current_value"], "rgb(0, 0, 0)")
         self.assertTrue(root.has_tag("body"))
 
     def test_property_marks_color_values_without_generated_ids(self) -> None:
         prop = Property(
             name="background-image",
-            value="linear-gradient(rgb(255, 0, 0), #0000ff)",
+            before_value="linear-gradient(rgb(255, 0, 0), #0000ff)",
             has_color=True,
         )
 

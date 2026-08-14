@@ -1,9 +1,46 @@
 import uuid
+from dataclasses import dataclass, field
 from pathlib import Path
 import shutil
-from typing import List, TypedDict
+from typing import List, TypeAlias, TypedDict
+from urllib.parse import unquote, urlparse, urlunparse
+from werkzeug.datastructures import FileStorage
 
-from engine.validators.project_uploaded import is_readable
+from engine.adapters.file_system.file_manager import is_corrupted
+
+Url: TypeAlias = str
+
+
+@dataclass(slots=True, eq=False)
+class Source:
+    source_name: Path | Url
+    type: str
+    founded_on: Path | str | None = None
+    runtime_source: Url | None = None
+    used_by: set[int] = field(default_factory=set)
+    load_status: str | None = None
+    error_message: str | None = None
+    versions: set["Source"] = field(default_factory=set)
+
+    def add_used_by(self, backend_node_id: int | None) -> None:
+        if backend_node_id is None:
+            return
+        self.used_by.add(int(backend_node_id))
+
+    def add_version(self, source: "Source") -> None:
+        if source is self:
+            return
+        self.versions.add(source)
+
+    def set_load_status(
+        self,
+        load_status: str | None,
+        error_message: str | None = None,
+    ) -> None:
+        if load_status not in {None, "loaded", "failed"}:
+            raise ValueError("load_status debe ser None, 'loaded' o 'failed'.")
+        self.load_status = load_status
+        self.error_message = error_message
 
 
 # Define the strict internal structure of your dictionary for the type checker
@@ -15,6 +52,7 @@ class AreaStructure(TypedDict):
 class Session:
     SESSIONS_ROOT: Path = Path(__file__).resolve().parents[3] / "workspace" / "sessions"
     TEXT_FILE_SUFFIXES = {".html", ".css", ".js", ".svg"}
+    VIDEO_FILE_SUFFIXES = {".mp4", ".m4v", ".mov", ".webm", ".ogv"}
 
     def __init__(self) -> None:
         self.session_id: str = uuid.uuid4().hex
@@ -33,6 +71,8 @@ class Session:
             "rootPath": self.session_dir / "artifacts",
             "paths": []
         }
+        self.file_types: dict[Path, str] = {}
+        self.sources: list[Source] = []
         self._register_fixed_artifacts()
 
     def _register_fixed_artifacts(self) -> None:
@@ -103,36 +143,188 @@ class Session:
         return (target_root / relative_path).resolve()
 
     def copy_area_files(self, from_area: str, to_area: str) -> list[Path]:
-        copied_paths: list[Path] = []
-        for source_path in self.update_area_root_paths(from_area):
-            target_path = self.parallel_path(source_path, from_area, to_area)
-            target_path.parent.mkdir(parents=True, exist_ok=True)
-            if not target_path.exists() or not source_path.samefile(target_path):
-                shutil.copy2(source_path, target_path)
-            copied_paths.append(target_path.resolve())
+        source_root = self.get_area_root(from_area).resolve()
+        target_root = self.get_area_root(to_area).resolve()
+        if not source_root.is_dir():
+            return []
 
+        shutil.copytree(source_root, target_root, dirs_exist_ok=True)
         self.update_area_root_paths(to_area)
-        return copied_paths
+        return self.update_area_root_paths(to_area)
 
-    def validate_materialized_project(self, area: str = "before") -> bool:
+    def validate_materialized_project(
+        self,
+        area: str,
+        analyzed_files: list[tuple[FileStorage, Path, str]],
+    ) -> bool:
+        root = self.get_area_root(area).resolve()
         files = tuple(self.update_area_root_paths(area))
 
         if not files:
             raise ValueError("El proyecto materializado no contiene archivos.")
 
+        if len(files) != len(analyzed_files):
+            raise ValueError(
+                "El proyecto materializado no coincide con los archivos analizados."
+            )
+
+        self.file_types = {}
+        matched_indexes: set[int] = set()
         for path in files:
             if not path.exists():
                 raise ValueError(f"No existe el archivo: {path}")
-            try:
-                payload = path.read_bytes()
-            except OSError as exc:
-                raise ValueError(f"No se pudo leer el archivo: {path}") from exc
-            if path.suffix.lower() in self.TEXT_FILE_SUFFIXES and not is_readable(payload, text=True):
-                raise ValueError(f"No se pudo leer el archivo de texto: {path}")
+
+            for index, (analyzed_file, analyzed_path, analyzed_type) in enumerate(analyzed_files):
+                if index in matched_indexes:
+                    continue
+
+                try:
+                    if not path.samefile((root / analyzed_path).resolve()):
+                        continue
+                except OSError:
+                    continue
+
+                matched_indexes.add(index)
+                self.file_types[path.resolve()] = analyzed_type
+
+                validation_type = (
+                    Path(analyzed_file.filename or "").suffix.lower()
+                    if analyzed_type == "video"
+                    and Path(analyzed_file.filename or "").suffix.lower() in {".jpg", ".jpeg"}
+                    else analyzed_type
+                )
+                corrupted, message = is_corrupted(analyzed_file, validation_type)
+                if corrupted:
+                    raise ValueError(f"El archivo materializado no pudo abrirse: {path}: {message}")
+                break
+            else:
+                raise ValueError(f"No se encontró metadata analizada para el archivo: {path}")
 
         return True
 
     # --- Query Methods ---
+
+    def register_source(
+        self,
+        source_name: Path | Url,
+        founded_on: Path | str | None = None,
+        load_status: str | None = None,
+        error_message: str | None = None,
+        runtime_source: Url | None = None,
+    ) -> Source:
+        existing = self.get_source(runtime_source or source_name)
+        if existing is not None:
+            return existing
+
+        if isinstance(source_name, Path):
+            requested_path = Path(source_name.as_posix())
+            found_path = self.find_by_full_path("before", requested_path)
+            parsed_name: Path | Url = requested_path
+            source_type = "local" if found_path is not None else "missing"
+        else:
+            parsed_url = urlparse(str(source_name).strip())
+            is_local_url = parsed_url.hostname in {"127.0.0.1", "localhost", "::1"}
+            if (parsed_url.scheme or parsed_url.netloc) and not is_local_url:
+                parsed_name = urlunparse(parsed_url)
+                source_type = "external"
+            else:
+                path_text = unquote(parsed_url.path or str(source_name)).strip()
+                if is_local_url:
+                    path_text = path_text.lstrip("/\\")
+                requested_path = Path(Path(path_text).as_posix())
+                found_path = self.find_by_full_path("before", requested_path)
+                parsed_name = requested_path
+                source_type = "local" if found_path is not None else "missing"
+
+        match founded_on:
+            case "network" | "Network":
+                clean_founded_on: Path | str | None = "Network"
+            case Path():
+                clean_founded_on = self.find_by_full_path("before", founded_on) or founded_on
+            case None:
+                clean_founded_on = None
+            case _:
+                clean_founded_on = self.find_by_full_path("before", str(founded_on)) or str(founded_on)
+
+        source = Source(
+            source_name=parsed_name,
+            type=source_type,
+            founded_on=clean_founded_on,
+            runtime_source=runtime_source,
+            load_status=load_status,
+            error_message=error_message,
+        )
+        self.sources.append(source)
+        return source
+
+    def get_source(self, source_name: Path | Url) -> Source | None:
+        if isinstance(source_name, Path):
+            requested_path = Path(source_name.as_posix())
+            resolved_path = self.find_by_full_path("before", requested_path) or requested_path
+            external_url = None
+        else:
+            text_name = str(source_name or "").strip()
+            if not text_name:
+                return None
+
+            parsed_url = urlparse(text_name)
+            is_local_url = parsed_url.hostname in {"127.0.0.1", "localhost", "::1"}
+            if (parsed_url.scheme or parsed_url.netloc) and not is_local_url:
+                resolved_path = None
+                external_url = urlunparse(parsed_url)
+            else:
+                path_text = unquote(parsed_url.path or text_name).strip()
+                if is_local_url:
+                    path_text = path_text.lstrip("/\\")
+                requested_path = Path(Path(path_text).as_posix())
+                resolved_path = self.find_by_full_path("before", requested_path) or requested_path
+                external_url = None
+
+        for source in self.sources:
+            if source.runtime_source and not isinstance(source_name, Path) and str(source_name) in {
+                source.runtime_source,
+                unquote(source.runtime_source),
+            }:
+                return source
+
+            match source.source_name:
+                case Path() as path:
+                    source_path = Path(path.as_posix())
+                    source_resolved = self.find_by_full_path("before", source_path) or source_path
+                    if resolved_path is not None and (
+                        source_path.as_posix().casefold() == Path(resolved_path).as_posix().casefold()
+                        or source_resolved.as_posix().casefold() == Path(resolved_path).as_posix().casefold()
+                    ):
+                        return source
+                case _:
+                    if external_url is not None and external_url in {str(source.source_name), unquote(str(source.source_name))}:
+                        return source
+
+        return None
+
+    def get_all_sources(self) -> list[Source]:
+        return sorted(
+            self.sources,
+            key=lambda source: str(source.source_name).casefold(),
+        )
+
+    def get_by_type(self, file_type: str) -> list[Path]:
+        clean_type = str(file_type or "").strip().lower()
+        if clean_type in self.VIDEO_FILE_SUFFIXES:
+            clean_type = "video"
+        extension_type = clean_type if clean_type.startswith(".") else f".{clean_type}"
+
+        return sorted(
+            path
+            for path, stored_type in self.file_types.items()
+            if (
+                str(stored_type or "").strip().lower() in {clean_type, extension_type}
+                or (
+                    clean_type == "video"
+                    and path.suffix.lower() in self.VIDEO_FILE_SUFFIXES
+                )
+            )
+        )
 
     def find_by_suffix(self, area: str, suffix: str) -> list[Path]:
         """
@@ -146,8 +338,63 @@ class Session:
         if not root.is_dir():
             return []
 
-        return sorted(path.resolve() for path in root.rglob(search_pattern) if path.is_file())
+        return sorted(path.resolve() for path in root.rglob(search_pattern, case_sensitive=False) if path.is_file())
 
+    def find_by_full_path(self, area: str, path: str | Path) -> Path | None:
+        root = self.get_area_root(area).resolve()
+        if not root.is_dir():
+            return None
+
+        normalized_path = Path(Path(path).as_posix()).resolve() if isinstance(path, str) else Path(path.as_posix()).resolve()
+
+        relative_path = Path(*normalized_path.parts)
+
+        direct_path = (
+            normalized_path.resolve()
+            if normalized_path.is_absolute()
+            else (root / relative_path).resolve()
+        )
+        if direct_path.is_file() and direct_path.is_relative_to(root):
+            return direct_path.relative_to(root, walk_up=True)
+
+        matches = sorted(
+            candidate.resolve()
+            for candidate in root.rglob(
+                f"{relative_path.stem}.*",
+                case_sensitive=False,
+            )
+            if candidate.is_file() and candidate.name.casefold().startswith(relative_path.stem.casefold())
+        )
+
+        if relative_path.suffix:
+            same_suffix = [
+                candidate
+                for candidate in self.find_by_suffix(area, str(relative_path.suffix))
+                if candidate.name.casefold() == relative_path.name.casefold()
+            ]
+            if same_suffix:
+                matches = same_suffix
+            elif relative_path.suffix.lower() in self.VIDEO_FILE_SUFFIXES:
+                matches = [
+                    candidate
+                    for candidate in self.get_by_type("video")
+                    if candidate.stem.lower() == relative_path.stem.lower()
+                ]
+
+        if len(matches) == 1:
+            return matches[0].relative_to(root, walk_up=True)
+
+        for index in range(len(relative_path.parts)):
+            partial_path = (root / Path(*relative_path.parts[index:])).resolve()
+            for match in matches:
+                try:
+                    if partial_path.samefile(match):
+                        return match.relative_to(root, walk_up=True)
+                except OSError:
+                    continue
+
+        return None
+    
     def get_path(self, name: str, area: str, suffix: str) -> Path:
         """
         Retrieves a single unique Path by its name, area, and suffix.

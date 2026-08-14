@@ -3,26 +3,31 @@ from __future__ import annotations
 from collections import defaultdict
 
 from engine.adapters.browser.page_builder import PageBuilder
+from engine.adapters.source_code_handler.local_asset_rewriter import extract_reference_candidates
 from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.domain.data.scope_css import CSSPROPERTIES, get_default_values
 from engine.domain.data.scope_html_elements import get_html_element_category
 from engine.domain.models.color_scheme import Color, ColorScheme
-from engine.domain.models.element import Attribute, Element, Property
+from engine.domain.models.element import Element, Property
 from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stage_contract import StageContract, context_value
-from engine.domain.utils.parsers import get_colors, get_file_name_and_suffix, matches_default_value, is_css_value_contained
+from engine.domain.utils.parsers import get_colors, matches_default_value
 import tinycss2
+from pathlib import Path
 
 
 _IMAGE_ATTRIBUTES = {
     "src",
     "srcset",
+    "data-src",
+    "data-srcset",
     "href",
     "xlink:href",
     "poster",
     "data",
 }
+
 
 def _session_ready_for_capture(session: Session) -> bool:
     try:
@@ -111,15 +116,15 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             parent_backend_node_id=nodes["backendNodeId"][nodes["parentIndex"][i]] if tag_name != "body" else -1,
         )
 
-        if element.tag_name == "body":
-            root = element
-
         for name, value in zip(nodes["attributes"][i][::2], nodes["attributes"][i][1::2]):
-            if str(strings[name]) in _IMAGE_ATTRIBUTES or get_colors(value) is not None:
-                element.attributes.append(
-                    Attribute(
-                        name=str(strings[name]),
-                        value=str(strings[value]),
+            attribute_name = str(strings[name]).strip().casefold()
+            if attribute_name in _IMAGE_ATTRIBUTES:
+                element.properties.append(
+                    Property(
+                        name=attribute_name,
+                        before_value=str(strings[value]),
+                        type="attribute",
+                        is_defined=True,
                     )
                 )
 
@@ -140,16 +145,39 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                         before_value=str(strings[value]),
                     )
                 )
-        for image_reference in element.image_references():
-            image_value = (
-                image_reference.value
-                if isinstance(image_reference, Attribute)
-                else image_reference.current_value
+        for image_reference in element.properties:
+            candidates = extract_reference_candidates(
+                image_reference.current_value,
+                attribute_name=(
+                    image_reference.name
+                    if image_reference.type == "attribute"
+                    else None
+                ),
             )
-            _, suffix = get_file_name_and_suffix(image_value)
-            if suffix.lower() == "svg":
-                element.category = "decoration"
-                break
+            if not candidates:
+                continue
+
+            for candidate in candidates:
+                source = session.register_source(candidate)
+                source.add_used_by(element.backend_node_id)
+                if image_reference.image_source is None:
+                    image_reference.image_source = source
+
+                if (
+                    source.type == "local"
+                    and source.load_status == "loaded"
+                    and isinstance(source.source_name, Path)
+                    and any(
+                        svg_path.stem.lower() == source.source_name.stem.lower()
+                        for svg_path in session.get_by_type(".svg")
+                    )
+                ):
+                    image_reference.image_source = source
+                    element.category = "decoration"
+                    break
+
+        if element.tag_name == "body":
+            root = element
         
     if root is None:
         return context.set_error("DOMSnapshot no contiene un nodo body valido.")
@@ -168,6 +196,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                     case "matchedCSSRules":
                         if not info:
                             continue
+                        css_text += "\n" + "matchedCSSRules"
                         for rulematch in info:
                             rule = rulematch.get("rule") or {}
                             if rule.get("styleSheetId") is not None and rule.get("origin") == "regular":
@@ -178,19 +207,32 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                         if not info:
                             continue
                         if info.get("cssText") is not None and info.get("cssText") != "":
+                            css_text += "\n" + "inlineStyle"
                             css_text += "\n" + str(info.get("cssText"))
                     case "attributesStyle":
                         if not info:
-                            continue                       
+                            continue
+                        css_text += "\n" + "attributesStyle"
                         for property in info.get("cssProperties"):
                             css_text += "\n" + str(property.get("name"))+ ": " + str(property.get("value"))
+                    case "inherited":
+                        if not info:
+                            continue
+                        css_text += "\n" + "inherited"
+                        for inherited_entry in info:
+                            inline_style = inherited_entry.get("inlineStyle") or {}
+                            if inline_style.get("cssText") is not None and inline_style.get("cssText") != "":
+                                css_text += "\n" + str(inline_style.get("cssText"))
+
+                            for rulematch in inherited_entry.get("matchedCSSRules") or []:
+                                rule = rulematch.get("rule") or {}
+                                if rule.get("styleSheetId") is not None and rule.get("origin") == "regular":
+                                    style = rule.get("style") or {}
+                                    if style.get("cssText") is not None:
+                                        css_text += "\n" + str(style.get("cssText"))
                     case _:
                             continue
-
         _filter_properties(element, css_text)
-        #print("->>>>>"+element.tag_name)
-        #for property in element.properties:
-        #   print(str(property.name) + ": " + str(property.before_value) + " -> " + str(property.after_value)+ " -> " + str(property.token_value))
         for property_model in element.properties:
             property_model.has_color = _register_colors(property_model.before_value, color_scheme)
 
@@ -225,8 +267,6 @@ def _attach_children(
         parent.add_child(child)
         _attach_children(child, siblings, elements)
 
-SVG_PAINT_TAGS = {"svg", "circle", "rect", "ellipse", "line", "polyline", "polygon", "path"}
-
 def _filter_properties(element: Element, css_text: str) -> None:
     if css_text != "" and not element.tag_name.startswith("#") and not element.tag_name.startswith("::"):
         raw_nodes = tinycss2.parse_declaration_list(css_text, skip_comments=True)
@@ -241,9 +281,13 @@ def _filter_properties(element: Element, css_text: str) -> None:
         not_matched=[]
 
         for property in element.properties:
+            if property.type == "attribute":
+                continue
+
             search_name = property.name.strip().lower()
             search_colors = _color_signature(property.before_value)
-            property.in_css = True
+            property.is_defined = True
+            property.type = "matched"
             if (
                 matches_default_value(property.before_value, get_default_values(property.name))
                 or str(property.before_value).strip().casefold() in {"none"}
@@ -253,7 +297,8 @@ def _filter_properties(element: Element, css_text: str) -> None:
 
             if (search_name, search_colors) not in found_properties:
                 if _should_keep_unmatched_property(element, property):
-                    property.in_css = False
+                    property.is_defined = False
+                    property.type = "inherited"
                     continue
                 else:
                     not_matched.append(property)
@@ -262,8 +307,16 @@ def _filter_properties(element: Element, css_text: str) -> None:
             element.remove_property(name) 
 
     elif css_text == "":
-        for name in [property.name for property in element.properties]:
-            element.remove_property(name) 
+        for property in tuple(element.properties):
+            if property.type == "attribute":
+                continue
+
+            if _should_keep_unmatched_property(element, property):
+                property.is_defined = False
+                property.type = "inherited"
+                continue
+
+            element.remove_property(property.name)
 
    
 def _should_keep_unmatched_property(element: Element, property: Property) -> bool:

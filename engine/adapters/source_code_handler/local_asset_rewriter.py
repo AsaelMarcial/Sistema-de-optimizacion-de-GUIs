@@ -1,95 +1,258 @@
 from __future__ import annotations
 
-import re
-from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
-from urllib.parse import unquote, urlsplit
+from pathlib import Path
+from typing import Any
+from urllib.parse import quote, unquote, urlparse, urlunparse
 
+import tinycss2
 from bs4 import BeautifulSoup, Tag
 
-from engine.adapters.source_code_handler.source_code_formatter import UnsortedAttributes
+from engine.domain.models.session import Session
 
-_PATH_ATTRIBUTES = ("href", "src", "poster", "data-href", "data-src")
-_SRCSET_ATTRIBUTES = ("srcset", "data-srcset")
-_URL_RE = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)", re.IGNORECASE)
+_SRCSET_ATTRIBUTES = {"srcset", "data-srcset"}
+_IGNORED_EXTERNAL_SCHEMES = {
+    "about",
+    "blob",
+    "data",
+    "javascript",
+    "mailto",
+    "tel",
+}
+
+def extract_reference_candidates(value: str | None, attribute_name: str | None = None) -> list[str]:
+    try:
+        if not (text := str(value or "").strip()):
+            return []
+
+        match str(attribute_name or "").casefold():
+            case attr if attr in _SRCSET_ATTRIBUTES:
+                return [
+                    parts[0] for item in text.split(",") 
+                    if (parts := item.split()) and not parts[0].startswith("#")
+                ]
+            case attr if attr != "":
+                c = text.strip("\"'")
+                return [c] if c and not c.startswith("#") else []
+            case _:
+                pending = tinycss2.parse_component_value_list(text, skip_comments=True)
+                candidates: set[str] = set()
+
+                while pending:
+                    t = pending.pop(0)
+                    match (
+                        getattr(t, "type", ""),
+                        str(getattr(t, "lower_name", getattr(t, "name", ""))).casefold(),
+                    ):
+                        case ("url", _):
+                            candidates.add(str(t.value))
+                        case ("function", "url"):
+                            candidates.add(tinycss2.serialize(t.arguments).strip().strip("\"'"))
+                        case _:
+                            if isinstance(nested := getattr(t, "content", getattr(t, "arguments", None)), list):
+                                pending.extend(nested)
+
+                return sorted(c for c in candidates if c and not c.startswith("#"))
+    except Exception:
+        return []
+
+def rewrite_reference_candidates(
+    value: str | None,
+    new_path: str,
+    attribute_name: str | None = None,
+) -> str:
+    try:
+        if not (text := str(value or "").strip()):
+            return ""
+
+        match str(attribute_name or "").casefold():
+            case attr if attr in _SRCSET_ATTRIBUTES:
+                # Reconstruye el srcset inyectando el new_path en cada descriptor
+                new_items = []
+                for item in text.split(","):
+                    if (parts := item.split()) and not parts[0].startswith("#"):
+                        # Reemplaza la URL (primer elemento) manteniendo el resto (ej: '2x')
+                        parts[0] = new_path
+                        new_items.append(" ".join(parts))
+                    else:
+                        new_items.append(item.strip())
+                return ", ".join(new_items)
+
+            case attr if attr != "":
+                # Atributo estándar: si no es un ancla, se reemplaza por completo
+                return text if text.strip("\"'").startswith("#") else new_path
+
+            case _:
+                # Bloque CSS: analizamos, modificamos los tokens y serializamos de vuelta
+                tokens = tinycss2.parse_component_value_list(text, skip_comments=True)
+                
+                # Función auxiliar recursiva para modificar los tokens in-place
+                def _modify_tokens(token_list):
+                    for t in token_list:
+                        match (
+                            getattr(t, "type", ""),
+                            str(getattr(t, "lower_name", getattr(t, "name", ""))).casefold(),
+                        ):
+                            case ("url", _):
+                                if not str(t.value).startswith("#"):
+                                    t.value = new_path
+                            case ("function", "url"):
+                                # Las funciones url() pueden contener strings o tokens URL
+                                # Si no son un ancla, reiniciamos sus argumentos con el nuevo path
+                                current_content = tinycss2.serialize(t.arguments).strip().strip("\"'")
+                                if not current_content.startswith("#"):
+                                    t.arguments = tinycss2.parse_component_value_list(new_path)
+                            case _:
+                                if isinstance(nested := getattr(t, "content", getattr(t, "arguments", None)), list):
+                                    _modify_tokens(nested)
+
+                _modify_tokens(tokens)
+                return tinycss2.serialize(tokens)
+
+    except Exception:
+        return str(value or "")
 
 
-@dataclass(slots=True)
-class AssetRewriteResult:
-    changed: bool
-    rewrites: list[dict[str, str]]
-
-
-def rewrite_local_asset_references(html_path: Path, before_root: Path) -> AssetRewriteResult:
+def rewrite_local_asset_references(html_path: Path, session: Session) -> list[str]:
     html_path = Path(html_path).resolve()
-    before_root = Path(before_root).resolve()
-    base_path = html_path.parent
+    before_root = session.get_area_root("before").resolve()
+    html_base_path = html_path.parent.resolve()
+    founded_on = Path(html_path.relative_to(html_base_path, walk_up=True).as_posix())
+    processed_css: set[Path] = set()
+    rewritten_values: list[str] = []
+
     soup = BeautifulSoup(html_path.read_text(encoding="utf-8"), "html.parser")
-    rewrites: list[dict[str, str]] = []
+    html_changed = False
 
     for tag in soup.find_all(True):
         if not isinstance(tag, Tag):
             continue
 
-        for attr in _PATH_ATTRIBUTES:
-            value = tag.get(attr)
-            if not isinstance(value, str):
-                continue
-            rewritten = _rewrite_reference(value, before_root, base_path)
-            if rewritten and rewritten != value:
-                tag[attr] = rewritten
-                rewrites.append({"kind": attr, "from": value, "to": rewritten})
+        for attr, value in list(tag.attrs.items()):
+            if isinstance(value, str):
+                rewritten = _rewrite_value(
+                    value,
+                    session,
+                    before_root,
+                    html_base_path,
+                    html_base_path,
+                    founded_on,
+                    attr,
+                    processed_css,
+                    rewritten_values,
+                )
+                if rewritten != value:
+                    tag[attr] = rewritten
+                    html_changed = True
+            elif isinstance(value, list):
+                original_values = [str(item) for item in value]
+                rewritten_attr_values = [
+                    _rewrite_value(
+                        item,
+                        session,
+                        before_root,
+                        html_base_path,
+                        html_base_path,
+                        founded_on,
+                        attr,
+                        processed_css,
+                        rewritten_values,
+                    )
+                    for item in original_values
+                ]
+                if rewritten_attr_values != original_values:
+                    tag[attr] = rewritten_attr_values
+                    html_changed = True
 
-        for attr in _SRCSET_ATTRIBUTES:
-            value = tag.get(attr)
-            if not isinstance(value, str):
-                continue
-            rewritten = _rewrite_srcset(value, before_root, base_path)
-            if rewritten and rewritten != value:
-                tag[attr] = rewritten
-                rewrites.append({"kind": attr, "from": value, "to": rewritten})
+        if tag.name and tag.name.casefold() == "style" and tag.string is not None:
+            css_text = str(tag.string)
+            rewritten = _rewrite_css_urls(
+                css_text,
+                session,
+                before_root,
+                html_base_path,
+                html_base_path,
+                founded_on,
+                processed_css,
+                rewritten_values,
+            )
+            if rewritten != css_text:
+                tag.string.replace_with(rewritten)
+                html_changed = True
 
-        style_value = tag.get("style")
-        if isinstance(style_value, str):
-            rewritten = _rewrite_css_urls(style_value, before_root, base_path)
-            if rewritten != style_value:
-                tag["style"] = rewritten
-                rewrites.append({"kind": "style", "from": style_value, "to": rewritten})
+    if html_changed:
+        html_path.write_text(soup.decode(), encoding="utf-8")
 
-    for style_tag in soup.find_all("style"):
-        if not isinstance(style_tag, Tag) or style_tag.string is None:
-            continue
-        css_text = str(style_tag.string)
-        rewritten = _rewrite_css_urls(css_text, before_root, base_path)
-        if rewritten != css_text:
-            style_tag.string.replace_with(rewritten)
-            rewrites.append({"kind": "style-tag", "from": css_text, "to": rewritten})
-
-    if rewrites:
-        html_path.write_text(soup.decode(formatter=UnsortedAttributes()), encoding="utf-8")
-
-    return AssetRewriteResult(changed=bool(rewrites), rewrites=rewrites)
+    return rewritten_values
 
 
-def _rewrite_reference(value: str, before_root: Path, base_path: Path) -> str | None:
-    local_reference = _local_reference(value)
-    if local_reference is None:
-        return None
-
-    path_text, root_absolute = local_reference
-    current_root = before_root if root_absolute else base_path
-    current_path = (current_root / path_text).resolve()
-    if current_path.is_file():
+def _rewrite_value(
+    value: str,
+    session: Session,
+    before_root: Path,
+    html_base_path: Path,
+    reference_base_path: Path,
+    founded_on: Path | None,
+    attr_name: str = "",
+    processed_css: set[Path] | None = None,
+    rewritten_values: list[str] | None = None,
+) -> str:
+    text = value.strip()
+    if not text:
         return value
 
-    target_path = _find_existing_asset(path_text, before_root)
-    if target_path is None:
-        return None
+    if "url(" in text.casefold():
+        return _rewrite_css_urls(
+            value,
+            session,
+            before_root,
+            html_base_path,
+            reference_base_path,
+            founded_on,
+            processed_css,
+            rewritten_values,
+        )
 
-    return target_path.relative_to(base_path, walk_up=True).as_posix()
+    if attr_name.casefold() in _SRCSET_ATTRIBUTES:
+        parts: list[str] = []
+        changed = False
+        for candidate in value.split(","):
+            item = candidate.strip()
+            if not item:
+                continue
+            source, *descriptor = item.split()
+            rewritten_source = _rewrite_path(
+                source,
+                session,
+                before_root,
+                html_base_path,
+                reference_base_path,
+                founded_on,
+                processed_css,
+                rewritten_values,
+            )
+            if rewritten_source != source:
+                source = rewritten_source
+                changed = True
+            parts.append(" ".join((source, *descriptor)))
 
+        return ", ".join(parts) if changed else value
 
-def _rewrite_srcset(value: str, before_root: Path, base_path: Path) -> str | None:
+    rewritten_path = _rewrite_path(
+        value,
+        session,
+        before_root,
+        html_base_path,
+        reference_base_path,
+        founded_on,
+        processed_css,
+        rewritten_values,
+    )
+    if rewritten_path != value:
+        return rewritten_path
+
+    if "," not in value:
+        return value
+
     parts: list[str] = []
     changed = False
     for candidate in value.split(","):
@@ -97,65 +260,256 @@ def _rewrite_srcset(value: str, before_root: Path, base_path: Path) -> str | Non
         if not item:
             continue
         source, *descriptor = item.split()
-        rewritten_source = _rewrite_reference(source, before_root, base_path)
-        if rewritten_source and rewritten_source != source:
-            changed = True
+        rewritten_source = _rewrite_path(
+            source,
+            session,
+            before_root,
+            html_base_path,
+            reference_base_path,
+            founded_on,
+            processed_css,
+            rewritten_values,
+        )
+        if rewritten_source != source:
             source = rewritten_source
+            changed = True
         parts.append(" ".join((source, *descriptor)))
 
-    return ", ".join(parts) if changed else None
-
-
-def _rewrite_css_urls(css_text: str, before_root: Path, base_path: Path) -> str:
-    def replace(match: re.Match[str]) -> str:
-        quote = match.group(1)
-        value = match.group(2)
-        rewritten = _rewrite_reference(value, before_root, base_path)
-        if not rewritten:
-            return match.group(0)
-        return f"url({quote}{rewritten}{quote})"
-
-    return _URL_RE.sub(replace, css_text)
-
-
-def _local_reference(value: str) -> tuple[str, bool] | None:
+    return ", ".join(parts) if changed else value
+def _rewrite_path(
+    value: str,
+    session: Session,
+    before_root: Path,
+    html_base_path: Path,
+    reference_base_path: Path,
+    founded_on: Path | None = None,
+    processed_css: set[Path] | None = None,
+    rewritten_values: list[str] | None = None,
+) -> str:
     text = value.strip()
-    if not text or text.startswith(("#", "data:", "mailto:", "tel:", "javascript:")):
-        return None
+    if not text or text.startswith("#"):
+        return value
 
-    parsed = urlsplit(text)
-    if parsed.scheme and parsed.scheme not in {"file"}:
-        return None
-    if parsed.netloc:
-        return None
+    parsed = urlparse(text)
+    if parsed.scheme or parsed.netloc:
+        if parsed.scheme.casefold() not in _IGNORED_EXTERNAL_SCHEMES:
+            session.register_source(urlunparse(parsed), founded_on=founded_on)
+        return value
+    if not parsed.path:
+        return value
 
-    raw_path = unquote(parsed.path).strip().replace("\\", "/")
-    root_absolute = raw_path.startswith("/")
-    path_text = raw_path
+    path_text = Path(unquote(parsed.path).strip()).as_posix()
     if not path_text:
-        return None
+        return value
+    if not (
+        path_text.startswith((".", "/", "\\"))
+        or "/" in path_text
+        or "\\" in path_text
+        or bool(Path(path_text).suffix)
+    ):
+        return value
 
-    parts = [
-        part
-        for part in PurePosixPath(path_text).parts
-        if part not in {"", "/", "."}
-    ]
-    if not parts or ".." in parts:
-        return None
+    root_absolute = path_text.startswith("/")
+    path = Path(path_text.lstrip("/") if root_absolute else path_text)
+    current_root = before_root if root_absolute else reference_base_path
+    current_path = (current_root / path).resolve()
 
-    return Path(*parts).as_posix(), root_absolute
+    if current_path.is_file() and current_path.is_relative_to(before_root):
+        session.register_source(
+            Path(current_path.relative_to(html_base_path, walk_up=True).as_posix()),
+            founded_on=founded_on,
+        )
+        _rewrite_stylesheet_file_if_needed(
+            current_path,
+            session,
+            before_root,
+            html_base_path,
+            processed_css,
+            rewritten_values,
+        )
+        return value
+
+    target_path = session.find_by_full_path("before", path)
+    if target_path is None:
+        current_root = before_root if root_absolute else reference_base_path
+        candidate_path = (current_root / path).resolve()
+        source_name = (
+            Path(candidate_path.relative_to(html_base_path, walk_up=True).as_posix())
+            if candidate_path.is_relative_to(before_root)
+            else Path(path.as_posix())
+        )
+        session.register_source(source_name, founded_on=founded_on)
+        return value
+
+    target_absolute = (before_root / target_path).resolve()
+    if not target_absolute.is_file() or not target_absolute.is_relative_to(before_root):
+        session.register_source(Path(path.as_posix()), founded_on=founded_on)
+        return value
+
+    session.register_source(
+        Path(target_absolute.relative_to(html_base_path, walk_up=True).as_posix()),
+        founded_on,
+    )
+    _rewrite_stylesheet_file_if_needed(
+        target_absolute,
+        session,
+        before_root,
+        html_base_path,
+        processed_css,
+        rewritten_values,
+    )
+
+    if root_absolute:
+        rewritten_path = f"/{target_path.as_posix()}"
+    else:
+        rewritten_path = target_absolute.relative_to(
+            reference_base_path,
+            walk_up=True,
+        ).as_posix()
+
+    rewritten = urlunparse(
+        parsed._replace(
+            path=quote(rewritten_path, safe="/:@"),
+        )
+    )
+    if rewritten_values is not None:
+        rewritten_values.append(rewritten)
+    return rewritten
 
 
-def _find_existing_asset(path_text: str, before_root: Path) -> Path | None:
-    relative_path = Path(path_text)
-    direct_path = (before_root / relative_path).resolve()
-    if direct_path.is_file():
-        return direct_path
+def _rewrite_css_urls(
+    css_text: str,
+    session: Session,
+    before_root: Path,
+    html_base_path: Path,
+    reference_base_path: Path | None = None,
+    founded_on: Path | None = None,
+    processed_css: set[Path] | None = None,
+    rewritten_values: list[str] | None = None,
+) -> str:
+    tokens = tinycss2.parse_component_value_list(
+        css_text,
+        skip_comments=False,
+    )
+    changed = _rewrite_css_url_tokens(
+        tokens,
+        session,
+        before_root,
+        html_base_path,
+        reference_base_path or html_base_path,
+        founded_on,
+        processed_css,
+        rewritten_values,
+    )
+    return tinycss2.serialize(tokens) if changed else css_text
 
-    matches = [
-        path.resolve()
-        for path in before_root.rglob(relative_path.name)
-        if path.is_file() and path.name == relative_path.name
-    ]
 
-    return matches[0] if len(matches) == 1 else None
+def _rewrite_css_url_tokens(
+    tokens: list[Any],
+    session: Session,
+    before_root: Path,
+    html_base_path: Path,
+    reference_base_path: Path,
+    founded_on: Path | None,
+    processed_css: set[Path] | None = None,
+    rewritten_values: list[str] | None = None,
+) -> bool:
+    changed = False
+
+    for index, token in enumerate(tokens):
+        token_type = getattr(token, "type", "")
+
+        if token_type == "url":
+            rewritten = _rewrite_path(
+                token.value,
+                session,
+                before_root,
+                html_base_path,
+                reference_base_path,
+                founded_on,
+                processed_css,
+                rewritten_values,
+            )
+            if rewritten != token.value:
+                token.value = rewritten
+                token.representation = f"url({rewritten})"
+                changed = True
+            continue
+
+        token_name = str(getattr(token, "name", "")).casefold()
+        if token_type == "function" and token_name == "url":
+            original = tinycss2.serialize(token.arguments).strip().strip("\"'")
+            rewritten = _rewrite_path(
+                original,
+                session,
+                before_root,
+                html_base_path,
+                reference_base_path,
+                founded_on,
+                processed_css,
+                rewritten_values,
+            )
+            if rewritten != original:
+                replacement = tinycss2.parse_component_value_list(
+                    f"url({rewritten})",
+                    skip_comments=False,
+                )
+                if replacement:
+                    tokens[index] = replacement[0]
+                    changed = True
+            continue
+
+        nested_tokens = (
+            getattr(token, "content", None)
+            or getattr(token, "arguments", None)
+        )
+        if isinstance(nested_tokens, list):
+            changed = _rewrite_css_url_tokens(
+                nested_tokens,
+                session,
+                before_root,
+                html_base_path,
+                reference_base_path,
+                founded_on,
+                processed_css,
+                rewritten_values,
+            ) or changed
+
+    return changed
+
+
+def _rewrite_stylesheet_file_if_needed(
+    css_path: Path,
+    session: Session,
+    before_root: Path,
+    html_base_path: Path,
+    processed_css: set[Path] | None = None,
+    rewritten_values: list[str] | None = None,
+) -> None:
+    css_path = Path(css_path).resolve()
+    if css_path.suffix.lower() != ".css":
+        return
+
+    if processed_css is None:
+        processed_css = set()
+    if css_path in processed_css:
+        return
+
+    processed_css.add(css_path)
+    try:
+        css_text = css_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return
+
+    rewritten = _rewrite_css_urls(
+        css_text,
+        session,
+        before_root,
+        html_base_path,
+        css_path.parent,
+        Path(css_path.relative_to(html_base_path, walk_up=True).as_posix()),
+        processed_css,
+        rewritten_values,
+    )
+    if rewritten != css_text:
+        css_path.write_text(rewritten, encoding="utf-8")

@@ -55,6 +55,7 @@ class PageBuilder:
         self._stylesheet_change_count = 0
         self._last_stylesheet_change_id: str | None = None
         self._theme_stylesheet_id: str | None = None
+        self._network_requests: dict[str, dict[str, Any]] = {}
         self._server: _ReusableStaticServer | None = None
         self._server_thread: threading.Thread | None = None
         self._port = _DEFAULT_PORT
@@ -90,6 +91,10 @@ class PageBuilder:
         assert self._page is not None
 
         return self._page.url
+
+    @property
+    def page_url(self) -> str:
+        return self.current_url
 
     @property
     def is_open(self) -> bool:
@@ -142,8 +147,24 @@ class PageBuilder:
                 self._on_stylesheet_changed,
             )
 
+            self._cdp.on(
+                "Network.requestWillBeSent",
+                self._on_request_will_be_sent,
+            )
+
+            self._cdp.on(
+                "Network.responseReceived",
+                self._on_response_received,
+            )
+
+            self._cdp.on(
+                "Network.loadingFailed",
+                self._on_loading_failed,
+            )
+
             self._cdp.send("DOM.enable")
             self._cdp.send("CSS.enable")
+            self._cdp.send("Network.enable")
 
         except Exception as exc:
             try:
@@ -237,6 +258,197 @@ class PageBuilder:
                 stylesheet_id
             )
 
+    def _on_request_will_be_sent(
+        self,
+        event: dict[str, Any],
+    ) -> None:
+        request_id = event.get("requestId")
+        if not request_id:
+            return
+
+        entry = self._network_requests.setdefault(
+            str(request_id),
+            {
+                "requestId": str(request_id),
+                "source_methods": [],
+            },
+        )
+        if "Network.requestWillBeSent" not in entry["source_methods"]:
+            entry["source_methods"].append("Network.requestWillBeSent")
+
+        request = event.get("request") or {}
+        entry.update(
+            {
+                "documentURL": event.get("documentURL", ""),
+                "type": event.get("type", ""),
+                "frameId": event.get("frameId", ""),
+                "loaderId": event.get("loaderId", ""),
+                "initiator": event.get("initiator") or {},
+                "request": {
+                    "url": request.get("url", ""),
+                    "urlFragment": request.get("urlFragment", ""),
+                    "method": request.get("method", ""),
+                    "headers": request.get("headers") or {},
+                    "hasPostData": bool(
+                        request.get("hasPostData", False)
+                    ),
+                    "mixedContentType": request.get(
+                        "mixedContentType",
+                        "",
+                    ),
+                    "initialPriority": request.get(
+                        "initialPriority",
+                        "",
+                    ),
+                    "referrerPolicy": request.get(
+                        "referrerPolicy",
+                        "",
+                    ),
+                },
+            }
+        )
+
+        print(
+            "[PageBuilder][CDP Network.requestWillBeSent] "
+            f"{entry['type']} {entry['request']['method']} "
+            f"{entry['request']['url']}"
+        )
+
+    def _on_response_received(
+        self,
+        event: dict[str, Any],
+    ) -> None:
+        request_id = event.get("requestId")
+        if not request_id:
+            return
+
+        entry = self._network_requests.setdefault(
+            str(request_id),
+            {
+                "requestId": str(request_id),
+                "source_methods": [],
+            },
+        )
+        if "Network.responseReceived" not in entry["source_methods"]:
+            entry["source_methods"].append("Network.responseReceived")
+
+        response = event.get("response") or {}
+        entry.setdefault(
+            "documentURL",
+            event.get("documentURL", ""),
+        )
+        entry.setdefault("type", event.get("type", ""))
+        entry["responseReceived"] = {
+            "source_method": "Network.responseReceived",
+            "frameId": event.get("frameId", ""),
+            "loaderId": event.get("loaderId", ""),
+            "type": event.get("type", ""),
+            "response": {
+                "url": response.get("url", ""),
+                "status": response.get("status"),
+                "statusText": response.get("statusText", ""),
+                "mimeType": response.get("mimeType", ""),
+                "headers": response.get("headers") or {},
+                "fromDiskCache": bool(
+                    response.get("fromDiskCache", False)
+                ),
+                "fromServiceWorker": bool(
+                    response.get("fromServiceWorker", False)
+                ),
+                "encodedDataLength": response.get(
+                    "encodedDataLength",
+                ),
+            },
+        }
+
+        print(
+            "[PageBuilder][CDP Network.responseReceived] "
+            f"{entry.get('type', '')} "
+            f"{response.get('status')} {response.get('url', '')}"
+        )
+
+    def _on_loading_failed(
+        self,
+        event: dict[str, Any],
+    ) -> None:
+        request_id = event.get("requestId")
+        if not request_id:
+            return
+
+        entry = self._network_requests.setdefault(
+            str(request_id),
+            {
+                "requestId": str(request_id),
+                "source_methods": [],
+            },
+        )
+        if "Network.loadingFailed" not in entry["source_methods"]:
+            entry["source_methods"].append("Network.loadingFailed")
+
+        entry.setdefault("type", event.get("type", ""))
+        entry["loadingFailed"] = {
+            "source_method": "Network.loadingFailed",
+            "type": event.get("type", ""),
+            "errorText": event.get("errorText", ""),
+            "blockedReason": event.get("blockedReason", ""),
+            "corsErrorStatus": event.get("corsErrorStatus"),
+            "canceled": bool(event.get("canceled", False)),
+        }
+
+        request = entry.get("request") or {}
+        print(
+            "[PageBuilder][CDP Network.loadingFailed] "
+            f"{entry.get('type', '')} "
+            f"{event.get('errorText', '')} "
+            f"{request.get('url', '')}"
+        )
+
+    def get_network_asset_information(
+        self,
+    ) -> list[dict[str, Any]]:
+        information: list[dict[str, Any]] = []
+
+        for entry in self._network_requests.values():
+            response_event = entry.get("responseReceived") or {}
+            response = response_event.get("response") or {}
+            status = int(response.get("status") or 0)
+            loading_failed = entry.get("loadingFailed")
+
+            item = dict(entry)
+            if loading_failed is not None:
+                item["load_status"] = "failed"
+                item["error_message"] = loading_failed.get("errorText", "")
+            elif status >= 400:
+                item["load_status"] = "failed"
+                item["error_message"] = response.get("statusText", "")
+            elif response:
+                item["load_status"] = "loaded"
+                item["error_message"] = None
+            else:
+                item["load_status"] = None
+                item["error_message"] = None
+
+            information.append(item)
+
+        print(
+            "[PageBuilder][CDP get_network_asset_information] "
+            f"count={len(information)}"
+        )
+        for item in information:
+            request = item.get("request") or {}
+            response_event = item.get("responseReceived") or {}
+            response = response_event.get("response") or {}
+            print(
+                "[PageBuilder][CDP source] "
+                f"{item.get('load_status')} "
+                f"{item.get('type', '')} "
+                f"status={response.get('status')} "
+                f"error={item.get('error_message') or ''} "
+                f"url={request.get('url') or response.get('url', '')}"
+            )
+
+        return information
+
     def load_page(
         self,
         html_path: str | Path,
@@ -263,6 +475,7 @@ class PageBuilder:
         self._theme_stylesheet_id = None
         self._stylesheet_change_count = 0
         self._last_stylesheet_change_id = None
+        self._network_requests = {}
         self.styles.clear()
 
         page_path = target.relative_to(server_root).as_posix()
@@ -274,16 +487,15 @@ class PageBuilder:
                 wait_until="load",
             )
 
-            if response is None:
+            if response is None or not response.ok:
                 raise RuntimeError(
-                    "La navegación no devolvió una respuesta."
-                )
-
-            if response.status >= 400:
-                raise RuntimeError(
-                    f"HTTP {response.status}: "
-                    f"{response.request.method} "
-                    f"{response.url}"
+                    "No se pudo cargar la página."
+                    if response is None
+                    else (
+                        f"HTTP {response.status}: "
+                        f"{response.request.method} "
+                        f"{response.url}"
+                    )
                 )
 
             self.wait_for_render_ready()
@@ -291,6 +503,7 @@ class PageBuilder:
             self.cache_stylesheets()
 
         except Exception as exc:
+            self.get_network_asset_information()
             raise RuntimeError(
                 "Page loading failed due to an unexpected "
                 f"error [{type(exc).__name__}]: {exc}"
@@ -307,146 +520,8 @@ class PageBuilder:
                 "() => document.readyState === 'complete'"
             )
 
-            ready = self._page.evaluate(
-                """
-                async (timeoutMs) => {
-                    const waitForImage = (image) => {
-                        if (image.complete) {
-                            return Promise.resolve();
-                        }
-
-                        return new Promise((resolve, reject) => {
-                            const finish = (error) => {
-                                image.removeEventListener(
-                                    "load",
-                                    onLoad
-                                );
-
-                                image.removeEventListener(
-                                    "error",
-                                    onError
-                                );
-
-                                if (error) {
-                                    reject(error);
-                                } else {
-                                    resolve();
-                                }
-                            };
-
-                            const onLoad = () => finish();
-
-                            const onError = () => finish(
-                                new Error(
-                                    "No se pudo cargar la imagen: "
-                                    + (
-                                        image.currentSrc
-                                        || image.src
-                                    )
-                                )
-                            );
-
-                            image.addEventListener(
-                                "load",
-                                onLoad,
-                                { once: true }
-                            );
-
-                            image.addEventListener(
-                                "error",
-                                onError,
-                                { once: true }
-                            );
-                        });
-                    };
-
-                    const prepare = async () => {
-                        if (document.fonts?.ready) {
-                            await document.fonts.ready;
-                        }
-
-                        const images = Array.from(
-                            document.images
-                        );
-
-                        await Promise.all(
-                            images.map(waitForImage)
-                        );
-
-                        const brokenImages = images.filter(
-                            (image) =>
-                                image.complete
-                                && image.naturalWidth === 0
-                        );
-
-                        if (brokenImages.length > 0) {
-                            throw new Error(
-                                "Una o más imágenes no se cargaron."
-                            );
-                        }
-
-                        await Promise.all(
-                            images.map(async (image) => {
-                                if (
-                                    typeof image.decode
-                                    !== "function"
-                                ) {
-                                    return;
-                                }
-
-                                try {
-                                    await image.decode();
-                                } catch (error) {
-                                    if (
-                                        image.naturalWidth === 0
-                                    ) {
-                                        throw error;
-                                    }
-                                }
-                            })
-                        );
-
-                        await new Promise((resolve) => {
-                            requestAnimationFrame(() => {
-                                requestAnimationFrame(resolve);
-                            });
-                        });
-
-                        return (
-                            document.readyState === "complete"
-                        );
-                    };
-
-                    return Promise.race([
-                        prepare(),
-
-                        new Promise((_, reject) => {
-                            setTimeout(
-                                () => reject(
-                                    new Error(
-                                        "La preparación del render "
-                                        + `excedió ${timeoutMs} ms.`
-                                    )
-                                ),
-                                timeoutMs
-                            );
-                        })
-                    ]);
-                }
-                """,
-                _OPERATION_TIMEOUT,
-            )
-
-            if ready is not True:
-                raise RuntimeError(
-                    "El documento no quedó listo."
-                )
-
         except Exception as exc:
-            raise RuntimeError(
-                "Render readiness failed due to an unexpected "
-                f"error [{type(exc).__name__}]: {exc}"
-            ) from exc
+            print(str(exc))
 
     def get_full_document_node(
         self,
@@ -762,14 +837,6 @@ class PageBuilder:
 
             result = response.get("result") or {}
 
-            if "exceptionDetails" in response:
-                raise RuntimeError(
-                    response["exceptionDetails"].get(
-                        "text",
-                        "Runtime.callFunctionOn falló.",
-                    )
-                )
-
             return result.get("value")
 
         except Exception as exc:
@@ -791,8 +858,12 @@ class PageBuilder:
                             "objectId": object_id,
                         },
                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    exception_type = type(exc).__name__
+                    
+                    raise RuntimeError(
+                        f"Operation failed due to an unexpected error [{exception_type}]: {exc}"
+                    ) from exc
 
     def set_color_scheme(self) -> bool:
         self._ensure_open
@@ -1796,4 +1867,5 @@ class PageBuilder:
             self.project_root = None
             self._stylesheet_change_count = 0
             self._last_stylesheet_change_id = None
+            self._network_requests = {}
             self._stop_server()

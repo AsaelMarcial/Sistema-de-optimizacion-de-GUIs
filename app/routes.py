@@ -10,6 +10,7 @@ from flask import (
 )
 
 from engine.adapters.file_system.file_manager import create_output_bundle
+from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.domain.models.session import Session
 from engine.pipeline.pipeline import run_pipeline
 
@@ -83,18 +84,36 @@ def session_after_download(session_id: str):
 @main.route("/results", methods=["POST"])
 def results():
     files = request.files.getlist("file")
-    payload, error_message = run_pipeline(files)
+    context, error_message = run_pipeline(files)
     if error_message:
         flash(error_message, "error")
         return redirect(url_for("main.index"))
+    if context is None:
+        flash("No se pudieron generar resultados.", "error")
+        return redirect(url_for("main.index"))
 
-    results = (payload or {}).get("results")
-    summary = (payload or {}).get("summary")
+    session = context.get(K.SESSION)
+    dom_tree = context.get(K.DOM_TREE)
+    changed_elements = [
+        element
+        for element in (dom_tree.iter_dfs() if dom_tree is not None else ())
+        if any(property_model.has_changed for property_model in element.properties)
+    ]
 
-    if results and results.get("session_dirname"):
-        results["download_url"] = url_for(
+    return render_template(
+        "results.html",
+        context=context,
+        session=session,
+        session_dirname=session.session_dir.name,
+        summary=context.get(K.SUMMARY),
+        dom_tree=dom_tree,
+        changed_elements=changed_elements,
+        color_scheme=context.get(K.COLOR_SCHEME),
+        before_assessment=context.get(K.ENVIRONMENTAL_BEFORE_ASSESSMENT),
+        after_assessment=context.get(K.ENVIRONMENTAL_AFTER_ASSESSMENT),
+        savings=context.get(K.ENVIRONMENTAL_SAVINGS),
+        download_url=url_for(
             "main.session_after_download",
-            session_id=results["session_dirname"],
-        )
-
-    return render_template("results.html", results=results, summary=summary)
+            session_id=session.session_dir.name,
+        ),
+    )

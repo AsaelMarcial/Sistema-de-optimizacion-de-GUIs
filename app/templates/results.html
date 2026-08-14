@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#050505" />
     <title>Resultados de optimización | GLOW</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -29,9 +28,9 @@
       id="main-content"
       data-page="results"
       summary="summary"
-      data-energy-wh="{{ results.energy_wh | round(4) }}"
-      data-carbon-footprint="{{ results.carbon_footprint | round(6) }}"
-      data-environmental-carbon-footprint="{{ results.environmental_co2eq_per_use | round(6) }}"
+      data-energy-wh="{{ before_assessment.energy_wh | round(4) }}"
+      data-carbon-footprint="{{ before_assessment.co2eq_per_use | round(6) }}"
+      data-environmental-carbon-footprint="{{ after_assessment.co2eq_per_use | round(6) }}"
     >
       <section id="impact" aria-labelledby="impact-title">
         <span class="eyebrow">
@@ -46,7 +45,7 @@
                 Tu interfaz puede
                 <span id="heroReductionLead">reducir su impacto hasta en</span>
                 <span class="title__inline">
-                  <strong id="heroReductionValue">{{ results.view.initial_reduction | round(4) }}</strong>
+                  <strong id="heroReductionValue">{{ savings.co2eq_per_use | round(4) }}</strong>
                   <em id="heroReductionTail">kg de CO₂eq</em>
                 </span>
               </h1>
@@ -68,13 +67,13 @@
           <div class="impact-panel">
             <article id="carbon_card" class="card card--soft metric">
               <span class="metric__label">Huella de carbono estimada</span>
-              <div class="metric__value" id="summaryCarbonValue">{{ results.carbon_footprint | round(4) }}</div>
+              <div class="metric__value" id="summaryCarbonValue">{{ before_assessment.co2eq_per_use | round(4) }}</div>
               <div class="metric__text" id="summaryCarbonUnit">kg de CO₂eq generados</div>
             </article>
 
             <article id="energy_card" class="card card--soft metric">
               <span class="metric__label">Consumo energético estimado</span>
-              <div class="metric__value" id="summaryEnergyValue">{{ results.energy_wh | round(2) }}</div>
+              <div class="metric__value" id="summaryEnergyValue">{{ before_assessment.energy_wh | round(2) }}</div>
               <div class="metric__text" id="summaryEnergyUnit">Wh de energía consumida</div>
             </article>
 
@@ -178,33 +177,35 @@
         </p>
 
         <div class="flex-row">
-          {% if results.view.palette_rows %}
+          {% set palettes = color_scheme.get_palettes().values() if color_scheme else [] %}
+          {% if palettes %}
           <article class="card card--soft palette-card">
             <h3>Paletas detectadas</h3>
 
             <div class="palette">
-              {% for palette in results.view.palette_rows %}
-              {% set palette_label = 'Neutral' if (palette.label or '')|lower == 'base achromatica' else palette.label %}
+              {% for palette in palettes %}
+              {% set palette_label = palette.name %}
               <div class="palette-row">
                 <div class="palette-meta">
                   <h4 class="palette-meta__title">{{ palette_label }}</h4>
-                  <span class="text-caption">{{ palette.tone_count }} tonos</span>
+                  <span class="text-caption">{{ palette.tones | length }} tonos</span>
                 </div>
 
                 <div class="palette-swatches">
                   <ul class="swatch-list" role="list" style="--swatch-count: {{ palette.tones | length }};">
                     {% for tone in palette.tones %}
-                    {% set tone_is_light = tone.is_light if tone.is_light is defined else (tone.tone >= 80) %}
+                    {% set tone_css = tone.color.convert("srgb").to_string(hex=True) %}
+                    {% set tone_is_light = tone.value >= 80 %}
                     <li class="swatch-list__item">
                       <button
                         type="button"
                         class="swatch {% if tone_is_light %}swatch--light{% else %}swatch--dark{% endif %}"
-                        style="background: {{ tone.hex_value }};"
-                        data-copy-color="{{ tone.hex_value | upper }}"
-                        data-copy-label="{{ palette_label }} {{ tone.tone }}"
-                        data-copy-message="{{ tone.hex_value | upper }}"
-                        title="{{ palette_label }} tono {{ tone.tone }} · {{ tone.hex_value | upper }} · Haz clic para copiar"
-                        aria-label="{{ palette_label }} tono {{ tone.tone }}, {{ tone.hex_value | upper }}, haz clic para copiar"
+                        style="background: {{ tone_css }};"
+                        data-copy-color="{{ tone_css | upper }}"
+                        data-copy-label="{{ palette_label }} {{ tone.value }}"
+                        data-copy-message="{{ tone_css | upper }}"
+                        title="{{ palette_label }} tono {{ tone.value }} · {{ tone_css | upper }} · Haz clic para copiar"
+                        aria-label="{{ palette_label }} tono {{ tone.value }}, {{ tone_css | upper }}, haz clic para copiar"
                       ></button>
                     </li>
                     {% endfor %}
@@ -276,7 +277,7 @@
               </div>
 
               <img
-                src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.before) }}"
+                src="{{ url_for('main.session_artifact', session_id=session_dirname, filename='before.png') }}"
                 alt="Vista previa original"
                 class="preview-window__image"
                 loading="lazy"
@@ -297,7 +298,7 @@
               </div>
 
               <img
-                src="{{ url_for('main.session_artifact', session_id=results.session_dirname, filename=results.debug_screenshots.after) }}"
+                src="{{ url_for('main.session_artifact', session_id=session_dirname, filename='after.png') }}"
                 alt="Vista previa ajustada"
                 class="preview-window__image"
                 loading="lazy"
@@ -306,7 +307,7 @@
             </article>
           </div>
 
-          {% if results.view.change_history_groups %}
+          {% if changed_elements %}
           <div id="history" class="results-subheading">
             <h3>Historial de optimización</h3>
             <p class="text-secondary">
@@ -315,47 +316,46 @@
           </div>
 
           <div class="change-history">
-            {% for group in results.view.change_history_groups %}
+            {% for element in changed_elements %}
+            {% set changed_properties = element.properties | selectattr('has_changed') | list %}
             <details class="card card--soft change-group">
               <summary class="change-group__head">
                 <span class="change-group__title">
                   <span class="change-group__toggle" aria-hidden="true">+</span>
-                  <span>{{ group.title | upper }}</span>
+                  <span>{{ element.tag_name | upper }}</span>
                 </span>
-                {% if group.change_count %}
-                <span class="pill pill--neutral">{{ group.change_count }} {{ 'cambio' if group.change_count == 1 else 'cambios' }}</span>
+                {% if changed_properties %}
+                <span class="pill pill--neutral">{{ changed_properties | length }} {{ 'cambio' if changed_properties | length == 1 else 'cambios' }}</span>
                 {% endif %}
               </summary>
 
-              {% if group.changes %}
+              {% if changed_properties %}
               <div class="change-list change-group__body">
-                {% for change in group.changes %}
+                {% for property in changed_properties %}
+                {% set before_value = property.before_value or '' %}
+                {% set after_value = property.after_value or '' %}
+                {% set before_css = 'transparent' if 'url(' in before_value | lower else before_value %}
+                {% set after_css = 'transparent' if 'url(' in after_value | lower else after_value %}
                 <div class="change-item">
                   <div class="change-item__line">
-                    <strong>{{ change.property_name }}:</strong>
+                    <strong>{{ property.name }}:</strong>
                     <span
                       class="change-swatch"
-                      style="background: {{ change.before_css }};"
-                      title="{{ change.before_value }}"
+                      style="background: {{ before_css }};"
+                      title="{{ before_value }}"
                     ></span>
-                    <span class="text-caption change-value">{{ change.before_label }}</span>
+                    <span class="text-caption change-value">{{ before_value or 'sin valor' }}</span>
                     <span class="change-arrow" aria-hidden="true">→</span>
                     <span
                       class="change-swatch"
-                      style="background: {{ change.after_css }};"
-                      title="{{ change.after_value }}"
+                      style="background: {{ after_css }};"
+                      title="{{ after_value }}"
                     ></span>
-                    <span class="text-caption change-value">{{ change.after_label }}</span>
+                    <span class="text-caption change-value">{{ after_value or 'sin valor' }}</span>
                   </div>
                 </div>
                 {% endfor %}
               </div>
-              {% elif group.notes %}
-              <ul class="change-notes change-group__body">
-                {% for note in group.notes %}
-                <li>{{ note }}</li>
-                {% endfor %}
-              </ul>
               {% endif %}
             </details>
             {% endfor %}
@@ -363,50 +363,6 @@
           {% endif %}
         </div>
       </section>
-
-      {# La evidencia de colores de efectos se eliminó intencionalmente de la interfaz visible. #}
-      {% if results.heuristics %}
-      <section aria-labelledby="heuristics-title">
-        <span class="eyebrow">
-          <span class="eyebrow__dot"></span>
-          <span>Criterios de evaluación</span>
-        </span>
-        <h2 id="heuristics-title">
-          Principios que guiaron
-          <span>la optimización</span>
-        </h2>
-
-        <p class="text-secondary">
-          Cada criterio explica por qué se realizó un ajuste y cómo contribuye a una interfaz más legible, consistente y eficiente.
-        </p>
-
-        <div class="heuristics">
-          {% for heuristica in results.heuristics %}
-          <article class="card card--soft heuristic">
-            <div class="heuristic__head">
-              <h3 class="heuristic__title">{{ heuristica.nombre }}</h3>
-              <span class="badge {% if heuristica.cumple %}badge--success{% else %}badge--warning{% endif %}">
-                {{ 'Cumple' if heuristica.cumple else 'No cumple' }}
-              </span>
-            </div>
-
-            <p class="text-tertiary">{{ heuristica.recomendacion }}</p>
-
-            {% if heuristica.detalles %}
-            <details class="details">
-              <summary>Ver detalles</summary>
-              <ul>
-                {% for detalle in heuristica.detalles %}
-                <li>{{ detalle }}</li>
-                {% endfor %}
-              </ul>
-            </details>
-            {% endif %}
-          </article>
-          {% endfor %}
-        </div>
-      </section>
-      {% endif %}
 
       <section id="download" aria-labelledby="export-title">
         <span class="eyebrow">
@@ -427,7 +383,7 @@
 
           <div class="export-actions">
             <a
-              href="{{ results.download_url }}"
+              href="{{ download_url }}"
               download="glow_design.zip"
               class="button button--primary"
             >

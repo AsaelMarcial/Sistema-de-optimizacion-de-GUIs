@@ -12,8 +12,7 @@
     <a href="#impact">Impacto</a>
     <a href="#drivers">Hallazgos</a>
     <a href="#preview">Comparativa</a>
-    {# DEBUG TEMPORAL: tolera results fallback/None mientras se inspecciona snapshot_debug. Eliminar al restaurar results completo. #}
-    {% if results and results.view.change_history_groups %}
+    {% if changed_elements %}
     <a href="#history">Historial</a>
     {% endif %}
     <a class="button button--primary" href="#download">Descargar diseño</a>

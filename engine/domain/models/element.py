@@ -3,28 +3,34 @@ from __future__ import annotations
 import builtins
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable
+from pathlib import Path
+from typing import Any, Callable, Iterable, Literal
 
 from engine.domain.data.scope_css import get_font_weight
+from engine.domain.models.session import Source
 from engine.domain.utils.parsers import get_colors, has_url_image, are_all_colors_transparent
 
 from engine.domain.models.color_scheme import Color
 
 SVG_PAINT_TAGS = ("svg", "circle", "rect", "ellipse", "line", "polyline", "polygon", "path")
 
-@dataclass(slots=True)
-class Attribute:
-    name: str
-    value: str
+PropertyType = Literal[
+    "inline",
+    "inherited",
+    "matched",
+    "attribute",
+]
 
 @dataclass(slots=True)
 class Property:
     name: str
     before_value: str| None = field(default="")
     after_value: str | None = field(default=None)
-    token_value: str | None = field(default=None)
+    calculated_value: str | None = field(default=None)
+    image_source: Source | None = field(default=None)
     has_color: bool = False
-    in_css: bool = field(default=False)
+    type: PropertyType = field(default="inherited")
+    is_defined: bool = field(default=False)
 
     @property
     def current_value(self) -> str:
@@ -47,7 +53,6 @@ class Element:
     width: float | None = None
     height: float | None = None
     depth: int | None = None
-    attributes: list[Attribute] = field(default_factory=list)
     properties: list[Property] = field(default_factory=list)
     children: list[Element] = field(default_factory=list, repr=False)
 
@@ -59,18 +64,16 @@ class Element:
     def has_image(self) -> bool:
         return bool(self.image_references())
 
-    def image_references(self) -> list[Attribute | Property]:
-        references: list[Attribute | Property] = []
+    @property
+    def attributes(self) -> list[Property]:
+        return [
+            property_model
+            for property_model in self.properties
+            if property_model.type == "attribute"
+        ]
 
-        for attribute in self.attributes:
-            if has_url_image(attribute.value):
-                references.append(attribute)
-
-        for property_model in self.properties:
-            if has_url_image(property_model.current_value):
-                references.append(property_model)
-
-        return references
+    def image_references(self) -> list[Property]:
+        return [property_model for property_model in self.properties if property_model.image_source is not None]
 
     def add_child(self, child: Element) -> None:
         if child is self:
@@ -123,7 +126,7 @@ class Element:
 
         return ancestors
 
-    def attribute(self, name: str) -> Attribute | None:
+    def attribute(self, name: str) -> Property | None:
         normalized = str(name).strip()
         return next((attr for attr in self.attributes if attr.name == normalized), None)
         
@@ -133,15 +136,24 @@ class Element:
         todos sus atributos. Si no existe, devuelve valores seguros por defecto.
         """
         normalized = str(name).strip().lower() if name is not None else ""
-        prop = next((p for p in self.properties if p.name == normalized), None)
+        prop = next(
+            (
+                p
+                for p in self.properties
+                if p.name == normalized and p.type != "attribute"
+            ),
+            None,
+        )
         
         return {
             "name": prop.name if prop is not None else "",
             "before_value": prop.before_value if prop is not None and prop.before_value is not None else "",
             "after_value": prop.after_value if prop is not None else None,
-            "token_value": prop.token_value if prop is not None else None,
+            "calculated_value": prop.calculated_value if prop is not None else None,
+            "image_source": prop.image_source if prop is not None else None,
             "has_color": prop.has_color if prop is not None else False,
-            "in_css": prop.in_css if prop is not None else False,
+            "is_defined": prop.is_defined if prop is not None else False,
+            "type": prop.type if prop is not None else "inherited",
             "current_value": prop.current_value if prop is not None else "",
             "has_changed": prop.has_changed if prop is not None else False
         }
@@ -149,7 +161,9 @@ class Element:
     def remove_property(self, name: str) -> None:
         normalized = str(name).strip()
         self.properties[:] = [
-            prop for prop in self.properties if prop.name != normalized
+            prop
+            for prop in self.properties
+            if prop.name != normalized or prop.type == "attribute"
         ]
 
     def has_tag(self, *names: str) -> bool:

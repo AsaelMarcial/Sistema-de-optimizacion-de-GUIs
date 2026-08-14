@@ -17,8 +17,6 @@ GRADIENT_FUNCTIONS = {
     "repeating-conic-gradient",
 }
 
-
-
 _IMAGE_EXTENSIONS = (
     ".avif",
     ".bmp",
@@ -110,13 +108,6 @@ def extract_url_value(value: str) -> str | None:
         return match.group(2).strip()
 
     return text.strip("\"'")
-
-def is_svg_url(value: str) -> bool:
-    url = extract_url_value(value)
-    if not url:
-        return False
-
-    return urlsplit(url).path.lower().endswith(".svg")
 
 def cache_busted_url(value: str, version: str) -> str:
     url = extract_url_value(value) or value

@@ -580,25 +580,13 @@ class ColorScheme:
                 unique_colors.append(tone.color)
         return unique_colors
 
-    def resolve_color_location(self, color: Color) -> tuple[Palette, Tone] | tuple[None, None]:
-        """
-        Identifica a qué Palette y a qué Tone pertenece exactamente una instancia de Color dada,
-        mediante comparación directa de referencias de memoria (operador 'is').
-        """
-        for palette in self.palettes.values():
-            for tone in palette.tones:
-                if tone.color is color:
-                    return palette, tone
-        return None, None
-
-
     def find_closest(self, target_color: str | Color, color_pool: str = "colors") -> Any:
         """
         Calcula mediante ColorAide el objeto de color más cercano al string provisto,
         buscando estrictamente dentro del pool inyectado como parámetro.
         """
         try:
-            target = Color(target_color)
+            target = target_color if isinstance(target_color, Color) else Color(target_color)
             palette_name = color_pool.strip()
 
             match palette_name.lower():

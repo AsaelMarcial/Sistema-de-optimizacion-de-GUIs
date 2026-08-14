@@ -10,6 +10,7 @@ from werkzeug.datastructures import FileStorage
 from app.config import SESSION_EXPIRE_MINUTES
 from PIL import Image
 import magic
+from engine.domain.utils.FFmpeg import validate_video
 
 # Bidirectional mapping between MIME types and their standard official extensions
 TYPE_TO_EXTENSION = {
@@ -24,7 +25,15 @@ TYPE_TO_EXTENSION = {
     "image/webp": ".webp",
     "application/zip": ".zip",
     "application/x-zip-compressed": ".zip",
-    "inode/directory": "directory"
+    "inode/directory": "directory",
+    "application/xml": ".xml",
+    "text/xml": ".xml",
+    "image/gif": ".gif",
+    "image/x-icon": ".ico",
+    "image/vnd.microsoft.icon": ".ico",
+    "image/bmp": ".bmp",
+    "image/x-ms-bmp": ".bmp",
+    "text/plain": ".txt",
 }
 
 DANGEROUS_PATTERN = re.compile(
@@ -41,19 +50,40 @@ ALLOWED_FILE_SUFFIXES = {
     ".html",
     ".css",
     ".js",
+    ".txt",
+    ".xml",
     ".png",
     ".jpg",
     ".jpeg",
     ".svg",
     ".webp",
-    ".zip"
+    ".gif",
+    ".ico",
+    ".bmp",
+    ".mp4",
+    ".m4v",
+    ".mov",
+    ".webm",
+    ".ogv",
+    ".zip",
+}
+
+TEXT_FILE_SUFFIXES = {
+    ".html",
+    ".css",
+    ".js",
+    ".svg",
+    ".txt",
+    ".xml",
 }
 
 def is_path_dangerous(path: str | Path) -> bool:
     """
     Returns True if a relative path contains dangerous components.
     """
-    path = Path(str(path).replace("\\", "/"))
+    if not path:
+        return True
+    path = Path(Path(path).as_posix())
 
     if (
         path.is_absolute()
@@ -101,21 +131,43 @@ def detect_type(file: FileStorage) -> str:
     
     detected_mime = magic.from_buffer(safe_block, mime=True)
     file_suffix = Path(file.filename).suffix.lower()
-    text_suffixes = {".html", ".css", ".js", ".svg"}
+
+    if file_suffix in TEXT_FILE_SUFFIXES and _is_text_mime_or_utf8(
+        detected_mime,
+        safe_block,
+    ):
+        return file_suffix
     
     match detected_mime:
-        case mime if (
-            mime == "text/plain"
-            or mime.startswith("text/")
-            or mime in {"application/xml", "text/xml", "application/octet-stream"}
-        ):
-            detected_type = file_suffix if file_suffix in text_suffixes else ""
+        case mime if mime.startswith("video"):
+            detected_type = "video"
         case "image/jpeg":
             detected_type = ".jpeg" if not file_suffix else file_suffix
         case _:
             detected_type = TYPE_TO_EXTENSION.get(detected_mime, "")
 
     return detected_type
+
+
+def _is_text_mime_or_utf8(detected_mime: str, payload: bytes) -> bool:
+    if (
+        detected_mime.startswith("text/")
+        or detected_mime in {
+            "application/javascript",
+            "application/xml",
+            "image/svg+xml",
+            "image/svg",
+            "text/xml",
+        }
+    ):
+        return True
+
+    try:
+        payload.decode("utf-8", errors="strict")
+    except UnicodeDecodeError:
+        return False
+
+    return True
 
 def is_corrupted(file: FileStorage, detected_type: str) -> tuple[bool, str | None]:
     """
@@ -130,12 +182,12 @@ def is_corrupted(file: FileStorage, detected_type: str) -> tuple[bool, str | Non
         file.seek(0)
 
         match detected_type:
-            case ".png" | ".jpg" | ".jpeg" | ".webp":
+            case ".png" | ".jpg" | ".jpeg" | ".webp" | ".gif" | ".ico" | ".bmp":
                 with Image.open(file.stream) as img:
                     img.verify()
                 return False, None
 
-            case ".html" | ".css" | ".js" | ".svg":
+            case ".html" | ".css" | ".js" | ".svg" | ".txt" | ".xml":
                 contenido = file.read().decode('utf-8', errors='strict')
                 file.seek(0)  # Restaurar puntero tras leer texto
                 if not contenido.strip():
@@ -152,6 +204,13 @@ def is_corrupted(file: FileStorage, detected_type: str) -> tuple[bool, str | Non
                 return False, None
                 
             case "directory":
+                return False, None
+
+            case "video":
+                payload = file.read()
+                file.seek(0)
+                if validate_video(payload):
+                    return True, "Video file is corrupted or unreadable."
                 return False, None
                 
             case _:
