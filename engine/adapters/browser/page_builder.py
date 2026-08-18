@@ -441,8 +441,10 @@ class PageBuilder:
             print(
                 "[PageBuilder][CDP source] "
                 f"{item.get('load_status')} "
+                f"{item.get('documentURL', '')} "
                 f"{item.get('type', '')} "
                 f"status={response.get('status')} "
+                f"mimeType={response.get('mimeType')} "
                 f"error={item.get('error_message') or ''} "
                 f"url={request.get('url') or response.get('url', '')}"
             )
@@ -1410,6 +1412,7 @@ class PageBuilder:
                 full_page=True,
                 animations="disabled",
                 caret="hide",
+                scale="css"
             )
 
             return output

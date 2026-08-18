@@ -233,6 +233,10 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                     case _:
                             continue
         _filter_properties(element, css_text)
+        print("->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"+element.tag_name)
+        for property in element.properties:
+           print(str(property.name) + ": " + str(property.before_value) + " -> " + str(property.after_value)+ " -> " + str(property.calculated_value))
+        print("->> "+css_text)
         for property_model in element.properties:
             property_model.has_color = _register_colors(property_model.before_value, color_scheme)
 

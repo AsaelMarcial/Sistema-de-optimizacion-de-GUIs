@@ -5,6 +5,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterable, Literal
+from weakref import ref,ReferenceType
 
 from engine.domain.data.scope_css import get_font_weight
 from engine.domain.models.session import Source
@@ -48,13 +49,22 @@ class Element:
     category: str | None
     node_type: int
     parent_backend_node_id: int = -1
+    parent: ReferenceType[Element] | None = field(
+        default=None,
+        repr=False,
+        compare=False
+    )
     x: float | None = None
     y: float | None = None
     width: float | None = None
     height: float | None = None
     depth: int | None = None
     properties: list[Property] = field(default_factory=list)
-    children: list[Element] = field(default_factory=list, repr=False)
+    children: list[Element] = field(
+        default_factory=list, 
+        repr=False,
+        compare=False
+    )
 
     @property
     def has_text(self) -> bool:
