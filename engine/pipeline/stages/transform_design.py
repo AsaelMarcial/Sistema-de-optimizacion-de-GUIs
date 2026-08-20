@@ -5,7 +5,6 @@ from engine.adapters.source_code_handler.local_asset_rewriter import (
     rewrite_reference_candidates,
 )
 from engine.domain.data.scope_css import CSSPROPERTIES, get_role, is_valid_name
-from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.domain.models.color_scheme import (
     Color,
     ColorScheme,
@@ -23,54 +22,40 @@ from engine.domain.utils.parsers import (
     is_css_value_contained,
 )
 from engine.pipeline.context import PipelineContext
-from engine.pipeline.stage_contract import StageContract, context_value
+from engine.pipeline.glow_runtime import glow_flow, glow_task
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 import re
 import io
+from prefect.states import Completed, Failed, State
 
 SVG_DEFAULT_FILL_TAGS = ("path", "circle", "rect", "ellipse", "polygon", "polyline", "text", "use")
 
-def _transformed_dom_tree_ready(root: Element) -> bool:
+@glow_task
+def _color_scheme_ready(page_builder: PageBuilder | None) -> State:
+    if page_builder is None:
+        return Failed(message="No hay PageBuilder para validar transformacion.")
+
     try:
-            #aqui iría una validación de que set_color_scheme sea true, set_theme link sea true, glow.css exista y set_data_theme true
-
-        return False
+        if page_builder.set_color_scheme():
+            return Completed(message="Transformacion aplicada en PageBuilder.")
+        return Failed(message="PageBuilder no pudo aplicar ColorScheme.")
     except Exception as exc:
-        exception_type = type(exc).__name__
-        
-        raise RuntimeError(
-            f"Operation failed due to an unexpected error [{exception_type}]: {exc}"
-        ) from exc
+        return Failed(
+            message=(
+                "No se pudo validar la transformacion "
+                f"[{type(exc).__name__}]: {exc}"
+            )
+        )
 
-def _color_scheme_ready(page_builder: PageBuilder) -> bool:
-    return page_builder.set_color_scheme()
-
-CONTRACT = StageContract(
-    name="transform_design",
-    requires=(
-        context_value(K.SESSION, Session),
-        context_value(K.PAGE_BUILDER, PageBuilder),
-        context_value(K.DOM_TREE, Element),
-        context_value(K.COLOR_SCHEME, ColorScheme),
-        context_value(K.TOKEN_INVENTORY, TokenInventory),
-    ),
-    produces=(
-        context_value(K.PAGE_BUILDER, PageBuilder, validator=_color_scheme_ready),
-        context_value(K.DOM_TREE, Element),
-    ),
-)
-
-
-def run_stage(context: PipelineContext) -> PipelineContext:
-    session = context.get(K.SESSION)
-    page_builder = context.get(K.PAGE_BUILDER)
-    root = context.get(K.DOM_TREE)
-    color_scheme = context.get(K.COLOR_SCHEME)
-    token_inventory = context.get(K.TOKEN_INVENTORY)
-
-    context.trace.add_stage_event(CONTRACT.name, "start")
+@glow_flow
+def transform_design(context: PipelineContext):
+    session = context.session
+    page_builder = context.page_builder
+    root = context.dom_tree
+    color_scheme = context.color_scheme
+    token_inventory = context.token_inventory
 
     page_builder.set_color_scheme()
     theme_link_ready = page_builder.set_theme_link()
@@ -448,17 +433,15 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     after_screenshot_path = page_builder.capture_fullpage_screenshot(
         output_path=after_screenshot
     )
-    context.set(K.DOM_TREE, root)
-    context.trace.add_stage_event(
-        CONTRACT.name,
-        "complete",
-        {
+    print({
+        "transform_design.complete": {
             "after_screenshot_path": after_screenshot_path,
             "data_theme_ready": data_theme_ready,
             "theme_link_ready": theme_link_ready,
-        },
-    )
-    return context
+        }
+    })
+    color_scheme_ready = _color_scheme_ready(page_builder, return_state=True)
+    return theme_link_ready, data_theme_ready, after_screenshot_path, color_scheme_ready
 
 def _process_external_svg_decoration(
     session: Session,
@@ -516,9 +499,17 @@ def _process_external_svg_decoration(
             ):
                 continue
 
+            new_reference = _source_reference_for_page_builder(
+                session,
+                page_builder,
+                version_source,
+            )
+            if new_reference is None:
+                continue
+
             new_value = rewrite_reference_candidates(
                 image_reference.current_value,
-                version_source.source_name.as_posix(),
+                new_reference,
                 (
                     image_reference.name
                     if image_reference.type == "attribute"
@@ -546,6 +537,41 @@ def _process_external_svg_decoration(
         raise RuntimeError(
             f"Operation failed due to an unexpected error [{exception_type}]: {exc}"
         ) from exc
+
+
+def _source_reference_for_page_builder(
+    session: Session,
+    page_builder: PageBuilder,
+    source: Source,
+) -> str | None:
+    if not isinstance(source.source_name, Path):
+        return None
+
+    before_root = session.get_area_root("before").resolve()
+    reference_base_path = (page_builder.base_path or before_root).resolve()
+    relative_source_path = session.find_by_full_path("before", source.source_name)
+
+    if relative_source_path is None:
+        source_path = Path(source.source_name.as_posix())
+        source_absolute_path = (
+            source_path.resolve()
+            if source_path.is_absolute()
+            else (before_root / source_path).resolve()
+        )
+        if source_absolute_path.is_file() and source_absolute_path.is_relative_to(before_root):
+            relative_source_path = source_absolute_path.relative_to(before_root, walk_up=True)
+
+    if relative_source_path is None:
+        return None
+
+    source_absolute_path = (before_root / relative_source_path).resolve()
+    if not source_absolute_path.is_file() or not source_absolute_path.is_relative_to(before_root):
+        return None
+
+    return source_absolute_path.relative_to(
+        reference_base_path,
+        walk_up=True,
+    ).as_posix()
 
 
 def _rewrite_svg_file(

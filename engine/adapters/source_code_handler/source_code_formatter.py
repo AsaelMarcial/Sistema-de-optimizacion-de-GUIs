@@ -402,7 +402,7 @@ def export_runtime_sources(
         page_builder=page_builder,
         soup=soup,
         output_root=output_root,
-        document_url=page_builder.current_url,
+        document_url=page_builder.page_url,
         html_path=html_path
     )
 

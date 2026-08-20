@@ -14,55 +14,52 @@ from engine.adapters.file_system.file_manager import (
     is_path_dangerous,
     safe_rmtree,
 )
-from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
-from engine.pipeline.stage_contract import StageContract, context_value
+from engine.pipeline.glow_runtime import glow_flow, glow_task
 from engine.domain.utils.FFmpeg import generate_thumbnail
+from prefect.states import Completed, Failed, State
 
 
-def _prepared_session(session: Session) -> bool:
+@glow_task
+def _prepared_session(session: Session) -> State:
     try:
         before_files = session.update_area_root_paths("before")
-        return (
+        if (
             session.get_area_root("before").is_dir()
             and bool(before_files)
             and all(path in session.file_types for path in before_files)
             and len(session.get_by_type(".html")) == 1
-        )
+        ):
+            return Completed(message="La sesion del proyecto esta preparada.")
+        return Failed(message="La sesion del proyecto no quedo preparada.")
     except (FileNotFoundError, RuntimeError, ValueError, OSError):
-        return False
+        return Failed(message="No se pudo validar la sesion preparada.")
 
 
-CONTRACT = StageContract(
-    name="prepare_project_session",
-    requires=(),
-    produces=(context_value(K.SESSION, Session, validator=_prepared_session),),
-)
+@glow_task
+def _prepare_project_session_failed(message: str) -> State:
+    return Failed(message=message)
 
 
-def run_stage(
+@glow_flow
+def prepare_project_session(
     context: PipelineContext,
     upload: list[FileStorage],
-) -> PipelineContext:
-    if context.error:
-        return context
-
-    session = Session()
+):
+    session = context.session
     clean_old_sessions(active_session_id=session.session_id, base_dir=session.session_dir.parent)
-    context.trace.add_stage_event(CONTRACT.name, "start")
 
     try:
         files = upload or []
         file_count = len(files)
         analyzed_files: list[tuple[FileStorage, Path, str]] = []
-        context.trace.add_step(
-            "input.received",
-            {
+        print({
+            "input.received": {
                 "file_count": file_count,
                 "filenames": [str(file.filename or "") for file in files],
-            },
-        )
+            }
+        })
 
         match file_count:
             case 0:
@@ -158,9 +155,8 @@ def run_stage(
 
                     project_kind = "files"
 
-        context.trace.add_step(
-            "input.basic_validated",
-            {
+        print({
+            "input.basic_validated": {
                 "file_count": len(analyzed_files),
                 "files": [
                     {
@@ -169,38 +165,32 @@ def run_stage(
                     }
                     for _file, relative_path, detected_type in analyzed_files
                 ],
-            },
-        )
+            }
+        })
 
         session.validate_materialized_project("before", analyzed_files)
 
-        context.set(K.SESSION, session)
-        context.trace.add_step("project.materialized", {"kind": project_kind})
-        context.trace.add_step(
-            "session.workspace_materialized",
-            {
+        print({"project.materialized": {"kind": project_kind}})
+        print({
+            "session.workspace_materialized": {
                 "session_id": session.session_id,
                 "before_dir": str(session.get_area_root("before")),
                 "after_dir": str(session.get_area_root("after")),
                 "artifacts_dir": str(session.get_area_root("artifacts")),
-            },
-        )
-        context.trace.add_stage_event(
-            CONTRACT.name,
-            "complete",
-            {"session_id": session.session_id},
-        )
-        return context
+            }
+        })
+        print({"prepare_project_session.complete": {"session_id": session.session_id}})
+        return _prepared_session(session, return_state=True)
+    except ValueError as exc:
+        if session is not None and safe_rmtree(session.session_dir):
+            print({"session.cleanup": {"session_dir": str(session.session_dir)}})
+        return _prepare_project_session_failed(str(exc), return_state=True)
     except Exception as exc:
         if session is not None and safe_rmtree(session.session_dir):
-            context.trace.add_step("session.cleanup", {"session_dir": str(session.session_dir)})
-        return _fail(context, str(exc))
-
-
-def _fail(context: PipelineContext, message: str) -> PipelineContext:
-    context.trace.add_step("input.error", {"message": message})
-    context.trace.add_stage_event(CONTRACT.name, "error", {"message": message})
-    return context.set_error(message)
+            print({"session.cleanup": {"session_dir": str(session.session_dir)}})
+        raise RuntimeError(
+            f"unexpected error [{type(exc).__name__}]: {exc}"
+        ) from exc
 
 def _analyze_file(file: FileStorage) -> tuple[Path, str]:
     if is_path_dangerous(file.filename):

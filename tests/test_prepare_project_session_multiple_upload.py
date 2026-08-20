@@ -10,7 +10,6 @@ from unittest.mock import patch
 from werkzeug.datastructures import FileStorage
 
 from engine.adapters.file_system.file_manager import detect_type
-from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stages import prepare_project_session
@@ -52,8 +51,9 @@ class PrepareProjectSessionMultipleUploadTests(unittest.TestCase):
             )
 
     def test_materializes_multiple_allowed_files(self) -> None:
-        context = prepare_project_session.run_stage(
-            PipelineContext(),
+        context = PipelineContext()
+        state = prepare_project_session.prepare_project_session(
+            context,
             [
                 upload(
                     "index.html",
@@ -63,11 +63,12 @@ class PrepareProjectSessionMultipleUploadTests(unittest.TestCase):
                 upload("script.js", b"console.log('ok');"),
                 upload("logo.svg", b"<svg xmlns='http://www.w3.org/2000/svg'></svg>"),
             ],
+            return_state=True,
         )
 
         try:
-            self.assertIsNone(context.error)
-            session = context.get(K.SESSION)
+            self.assertTrue(state.is_completed())
+            session = context.session
             self.assertTrue((session.get_area_root("before") / "index.html").is_file())
             self.assertTrue((session.get_area_root("before") / "style.css").is_file())
             self.assertEqual(len(session.find_by_suffix("before", "html")), 1)
@@ -80,7 +81,7 @@ class PrepareProjectSessionMultipleUploadTests(unittest.TestCase):
                 ".html",
             )
         finally:
-            session = context.get(K.SESSION)
+            session = context.session
             if session is not None:
                 shutil.rmtree(session.session_dir, ignore_errors=True)
 
@@ -89,23 +90,27 @@ class PrepareProjectSessionMultipleUploadTests(unittest.TestCase):
         with zipfile.ZipFile(buffer, "w") as archive:
             archive.writestr("index.html", "<html></html>")
 
-        context = prepare_project_session.run_stage(
-            PipelineContext(),
+        context = PipelineContext()
+        state = prepare_project_session.prepare_project_session(
+            context,
             [
                 upload("project.zip", buffer.getvalue()),
                 upload("index.html", b"<html></html>"),
             ],
+            return_state=True,
         )
 
-        self.assertEqual(context.error, "Operation aborted. Mixing a ZIP file and loose files is forbidden.")
+        self.assertTrue(state.is_failed())
 
     def test_rejects_project_without_html(self) -> None:
-        context = prepare_project_session.run_stage(
-            PipelineContext(),
+        context = PipelineContext()
+        state = prepare_project_session.prepare_project_session(
+            context,
             [upload("style.css", b"body { color: black; }")],
+            return_state=True,
         )
 
-        self.assertEqual(context.error, "Operation aborted. It has to be one HTML file.")
+        self.assertTrue(state.is_failed())
 
     def test_extracts_zip_after_validating_contents(self) -> None:
         buffer = BytesIO()
@@ -113,14 +118,16 @@ class PrepareProjectSessionMultipleUploadTests(unittest.TestCase):
             archive.writestr("site/index.html", "<html><body></body></html>")
             archive.writestr("site/css/style.css", "body { color: black; }")
 
-        context = prepare_project_session.run_stage(
-            PipelineContext(),
+        context = PipelineContext()
+        state = prepare_project_session.prepare_project_session(
+            context,
             [upload("project.zip", buffer.getvalue())],
+            return_state=True,
         )
 
         try:
-            self.assertIsNone(context.error)
-            session = context.get(K.SESSION)
+            self.assertTrue(state.is_completed())
+            session = context.session
             self.assertTrue((session.get_area_root("before") / "site" / "index.html").is_file())
             self.assertTrue((session.get_area_root("before") / "site" / "css" / "style.css").is_file())
             self.assertEqual(len(session.find_by_suffix("before", "html")), 1)
@@ -129,7 +136,7 @@ class PrepareProjectSessionMultipleUploadTests(unittest.TestCase):
                 ["site/index.html"],
             )
         finally:
-            session = context.get(K.SESSION)
+            session = context.session
             if session is not None:
                 shutil.rmtree(session.session_dir, ignore_errors=True)
 

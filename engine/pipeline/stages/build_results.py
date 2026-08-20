@@ -6,14 +6,17 @@ from engine.adapters.source_code_handler.source_code_formatter import (
     export_runtime_sources,
 )
 from engine.adapters.utils.palette_preview import render_palette_preview
-from engine.domain.enums.scope.context_keys import ContextKey as K
-from engine.domain.models.color_scheme import ColorScheme
 from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
-from engine.pipeline.stage_contract import StageContract, context_value
+from engine.pipeline.glow_runtime import glow_flow, glow_task
+from prefect.states import Completed, Failed, State
 
 
-def _results_ready(session: Session) -> bool:
+@glow_task
+def _results_ready(session: Session | None) -> State:
+    if session is None:
+        return Failed(message="No hay sesion para validar resultados.")
+
     try:
         palette_preview = session.get_path(
             "palette_preview.png",
@@ -22,39 +25,24 @@ def _results_ready(session: Session) -> bool:
         )
         after_html = session.find_by_suffix("after", "html")
         bundle = session.get_path("glow_design.zip", "artifacts", "zip")
-        return (
+        if (
             palette_preview.is_file()
             and palette_preview.stat().st_size > 0
             and len(after_html) == 1
             and bundle.is_file()
             and bundle.stat().st_size > 0
-        )
+        ):
+            return Completed(message="Resultados listos.")
+        return Failed(message="Los artefactos de resultados no pasaron validacion.")
     except (FileNotFoundError, ValueError, OSError):
-        return False
+        return Failed(message="No se pudieron validar los artefactos de resultados.")
 
 
-CONTRACT = StageContract(
-    name="build_results",
-    requires=(
-        context_value(K.SESSION, Session),
-        context_value(K.PAGE_BUILDER, PageBuilder),
-        context_value(K.COLOR_SCHEME, ColorScheme),
-    ),
-    produces=(
-        context_value(K.SESSION, Session, validator=_results_ready),
-    ),
-)
-
-
-def run_stage(context: PipelineContext) -> PipelineContext:
-    if context.error:
-        return context
-
-    session = context.get(K.SESSION)
-    page_builder = context.get(K.PAGE_BUILDER)
-    color_scheme = context.get(K.COLOR_SCHEME)
-
-    context.trace.add_stage_event(CONTRACT.name, "start")
+@glow_flow
+def build_results(context: PipelineContext):
+    session = context.session
+    page_builder = context.page_builder
+    color_scheme = context.color_scheme
 
     palette_preview_path = session.get_path(
         "palette_preview.png",
@@ -87,10 +75,8 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     )
     session.save_in_artifacts(session.get_area_root("artifacts") / zip_filename)
 
-    context.trace.add_stage_event(
-        CONTRACT.name,
-        "complete",
-        {
+    print({
+        "build_results.complete": {
             "palette_preview_path": str(palette_preview_path),
             "copied_after_file_count": len(copied_after_paths),
             "after_html_path": str(source_export.html_path),
@@ -99,6 +85,6 @@ def run_stage(context: PipelineContext) -> PipelineContext:
                 for path in source_export.stylesheet_paths.values()
             ],
             "bundle_path": zip_path,
-        },
-    )
-    return context
+        }
+    })
+    return _results_ready(session, return_state=True)

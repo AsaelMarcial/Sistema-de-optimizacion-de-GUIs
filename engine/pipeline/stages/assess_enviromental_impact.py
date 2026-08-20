@@ -4,7 +4,6 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 from engine.adapters.utils.pixel import build_histogram, image_to_array
-from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.domain.models.color_scheme import Color
 from engine.domain.models.environmental_assessment.assessment import (
     EnvironmentalAssessmentModel,
@@ -15,59 +14,28 @@ from engine.domain.models.environmental_assessment.carbon_footprint import (
     assess_interface,
 )
 from engine.domain.models.environmental_assessment.energy_consumption import EnergyModel
-from engine.domain.models.session import Session
 from engine.domain.models.summary import Summary
 from engine.pipeline.context import PipelineContext
-from engine.pipeline.stage_contract import StageContract, context_value
+from engine.pipeline.glow_runtime import glow_flow, glow_task
+from prefect.states import Completed, Failed, State
 
 _ENERGY_MODEL = EnergyModel.build_default()
 _CARBON_MODEL = CarbonFootprintModel.build_default()
 
 
-def _session_ready_for_environmental_assessment(session: Session) -> bool:
-    return bool(session.session_id.strip())
+@glow_task
+def _summary_has_environmental_assessment(summary: Summary | None) -> State:
+    if summary is None:
+        return Failed(message="No hay Summary para evaluacion ambiental.")
 
-
-def _summary_ready_for_environmental_assessment(summary: Summary) -> bool:
-    overview = summary.overview("environmental_color_histogram")
-    return overview is not None and isinstance(overview.data, dict)
-
-
-def _summary_has_environmental_assessment(summary: Summary) -> bool:
     after_overview = summary.overview("environmental_color_histogram_after")
-    return (
-        _summary_ready_for_environmental_assessment(summary)
-        and after_overview is not None
+    if (
+        after_overview is not None
         and isinstance(after_overview.data, dict)
         and summary.environmental_review() is not None
-    )
-
-
-CONTRACT = StageContract(
-    name="assess_enviromental_impact",
-    requires=(
-        context_value(
-            K.SESSION,
-            Session,
-            validator=_session_ready_for_environmental_assessment,
-        ),
-        context_value(
-            K.SUMMARY,
-            Summary,
-            validator=_summary_ready_for_environmental_assessment,
-        ),
-    ),
-    produces=(
-        context_value(
-            K.SUMMARY,
-            Summary,
-            validator=_summary_has_environmental_assessment,
-        ),
-        context_value(K.ENVIRONMENTAL_BEFORE_ASSESSMENT, EnvironmentalAssessmentModel),
-        context_value(K.ENVIRONMENTAL_AFTER_ASSESSMENT, EnvironmentalAssessmentModel),
-        context_value(K.ENVIRONMENTAL_SAVINGS, EnvironmentalSavingsModel),
-    ),
-)
+    ):
+        return Completed(message="Evaluacion ambiental lista.")
+    return Failed(message="La evaluacion ambiental no paso validacion.")
 
 
 def _build_savings(
@@ -136,14 +104,11 @@ def _rgb_channels(color_value: object) -> tuple[int, int, int]:
     )
 
 
-def run_stage(context: PipelineContext) -> PipelineContext:
-    if context.error or context.has(K.ENVIRONMENTAL_SAVINGS):
-        return context
+@glow_flow
+def assess_enviromental_impact(context: PipelineContext):
+    session = context.session
+    summary = context.summary
 
-    session = context.get(K.SESSION)
-    summary = context.get(K.SUMMARY)
-
-    context.trace.add_stage_event(CONTRACT.name, "start")
     screenshot_path = session.get_path("after.png", "artifacts", "png")
     pixel_matrix = image_to_array(screenshot_path)
     environmental_histogram = build_histogram(pixel_matrix)
@@ -171,21 +136,17 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     savings = _build_savings(before_assessment, after_assessment)
 
     summary.add_environmental_review(
-        energy_consumption=after_assessment.energy_wh,
-        carbon_footprint=after_assessment.co2eq_per_use,
+        before_energy_consumption=before_assessment.energy_wh,
+        before_carbon_footprint=before_assessment.co2eq_per_use,
+        after_energy_consumption=after_assessment.energy_wh,
+        after_carbon_footprint=after_assessment.co2eq_per_use,
         carbon_footprint_reduction=savings.co2eq_per_use,
     )
-    context.set(K.SUMMARY, summary)
-    context.set(K.ENVIRONMENTAL_BEFORE_ASSESSMENT, before_assessment)
-    context.set(K.ENVIRONMENTAL_AFTER_ASSESSMENT, after_assessment)
-    context.set(K.ENVIRONMENTAL_SAVINGS, savings)
-    context.trace.add_stage_event(
-        CONTRACT.name,
-        "complete",
-        {
+    print({
+        "assess_enviromental_impact.complete": {
             "before_co2eq_per_use": before_assessment.co2eq_per_use,
             "after_co2eq_per_use": after_assessment.co2eq_per_use,
             "co2eq_per_use_savings": savings.co2eq_per_use,
-        },
-    )
-    return context
+        }
+    })
+    return _summary_has_environmental_assessment(summary, return_state=True)

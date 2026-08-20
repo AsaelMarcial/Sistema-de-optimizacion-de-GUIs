@@ -3,11 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from engine.domain.enums.scope.context_keys import ContextKey, ContextKeyLike, ContextRoot
-from engine.pipeline.debug_trace import DebugTrace
-
-_ALLOWED_ROOT_KEYS = {root.value for root in ContextRoot}
-_VALUE_KEY = "__value__"
+from engine.adapters.browser.page_builder import PageBuilder
+from engine.domain.models.color_scheme import ColorScheme
+from engine.domain.models.element import Element
+from engine.domain.models.requestRecords import RequestRecords
+from engine.domain.models.session import Session
+from engine.domain.models.style import Styles
+from engine.domain.models.summary import Summary
+from engine.domain.models.token import TokenInventory
+from typing_extensions import Self
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,78 +19,46 @@ class RecommendationsPayload:
     items: tuple[dict[str, Any], ...] = field(default_factory=tuple)
     summary: str | None = None
 
-class MissingContextKeysError(ValueError):
-    pass
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "items": list(self.items),
+            "summary": self.summary,
+        }
 
-
-@dataclass(slots=True)
 class PipelineContext:
-    trace: DebugTrace = field(default_factory=lambda: DebugTrace(enabled=True))
-    error: str | None = None
-    _state: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
+    def __init__(self) -> None:
+        self.session = Session()
+        self.page_builder: PageBuilder | None = None
+        self.dom_tree: Element | None = None
 
-    def get(self, key: ContextKeyLike, default: Any | None = None) -> Any:
-        current: Any = self._state
-        for part in self._parts(key):
-            if not isinstance(current, dict) or part not in current:
-                return default
-            current = current[part]
-        if isinstance(current, dict) and _VALUE_KEY in current:
-            return current[_VALUE_KEY]
-        return current
+        self.color_scheme = ColorScheme()
+        self.summary = Summary()
+        self.style = Styles()
+        self.request_records = RequestRecords()
+        self.token_inventory = TokenInventory()
 
-    def set(self, key: ContextKeyLike, value: Any) -> "PipelineContext":
-        current = self._state
-        parts = self._parts(key)
-        if parts[0] not in _ALLOWED_ROOT_KEYS:
-            raise ValueError(
-                f"Namespace de PipelineContext no permitido: '{parts[0]}'."
-            )
-        for part in parts[:-1]:
-            next_value = current.get(part)
-            if not isinstance(next_value, dict):
-                next_value = {_VALUE_KEY: next_value} if next_value is not None else {}
-                current[part] = next_value
-            current = next_value
-        existing_value = current.get(parts[-1])
-        if isinstance(existing_value, dict):
-            existing_value[_VALUE_KEY] = value
-        else:
-            current[parts[-1]] = value
+    def __enter__(self) -> Self:
         return self
 
-    def has(self, key: ContextKeyLike) -> bool:
-        sentinel = object()
-        return self.get(key, sentinel) is not sentinel
+    def __exit__(self, exc_type, exc, traceback) -> bool:
+        if self.page_builder is not None:
+            try:
+                self.page_builder.close()
+            except Exception as close_exc:
+                raise RuntimeError(
+                    f"unexpected error [{type(close_exc).__name__}]: {close_exc}"
+                ) from close_exc
+            finally:
+                self.page_builder = None
+        return False
 
-    def require(self, *keys: ContextKeyLike) -> "PipelineContext":
-        missing = tuple(key for key in keys if not self.has(key) or self.get(key) is None)
-        if missing:
-            raise MissingContextKeysError(
-                f"Faltan claves requeridas en PipelineContext: {', '.join(missing)}"
-            )
+    def get(self, name: str, default: Any | None = None) -> Any:
+        return getattr(self, str(name), default)
+
+    def set(self, name: str, value: Any) -> PipelineContext:
+        setattr(self, str(name), value)
         return self
 
-    def delete(self, key: ContextKeyLike) -> None:
-        current: Any = self._state
-        parts = self._parts(key)
-        for part in parts[:-1]:
-            if not isinstance(current, dict) or part not in current:
-                return
-            current = current[part]
-        if isinstance(current, dict):
-            current.pop(parts[-1], None)
-
-
-    def set_error(self, message: str) -> "PipelineContext":
-        self.error = message
-        return self
-
-    @staticmethod
-    def _parts(key: ContextKeyLike) -> tuple[str, ...]:
-        raw_key = key.value if isinstance(key, ContextKey) else str(key)
-        normalized = tuple(part.strip() for part in raw_key.split(".") if part.strip())
-        if not normalized:
-            raise ValueError("La clave del contexto no puede estar vacia.")
-        return normalized
+    def has(self, name: str) -> bool:
+        return hasattr(self, str(name)) and getattr(self, str(name)) is not None
 

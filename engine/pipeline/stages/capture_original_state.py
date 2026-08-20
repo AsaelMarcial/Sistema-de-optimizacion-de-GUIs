@@ -4,17 +4,16 @@ from collections import defaultdict
 
 from engine.adapters.browser.page_builder import PageBuilder
 from engine.adapters.source_code_handler.local_asset_rewriter import extract_reference_candidates
-from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.domain.data.scope_css import CSSPROPERTIES, get_default_values
 from engine.domain.data.scope_html_elements import get_html_element_category
 from engine.domain.models.color_scheme import Color, ColorScheme
 from engine.domain.models.element import Element, Property
-from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
-from engine.pipeline.stage_contract import StageContract, context_value
+from engine.pipeline.glow_runtime import glow_flow, glow_task
 from engine.domain.utils.parsers import get_colors, matches_default_value
 import tinycss2
 from pathlib import Path
+from prefect.states import Completed, Failed, State
 
 
 _IMAGE_ATTRIBUTES = {
@@ -29,18 +28,14 @@ _IMAGE_ATTRIBUTES = {
 }
 
 
-def _session_ready_for_capture(session: Session) -> bool:
-    try:
-        candidates = session.find_by_suffix("before", "html")
-        return len(candidates) == 1 and candidates[0].exists()
-    except (FileNotFoundError, RuntimeError, ValueError, OSError):
-        return False
+@glow_task
+def _dom_tree_ready(root: Element | None) -> State:
+    if root is None:
+        return Failed(message="No se genero arbol DOM.")
 
-
-def _dom_tree_ready(root: Element) -> bool:
     try:
         elements = tuple(root.iter_dfs())
-        return (
+        if (
             root.tag_name == "body"
             and bool(elements)
             and root.parent_backend_node_id == -1
@@ -49,37 +44,35 @@ def _dom_tree_ready(root: Element) -> bool:
             and all(element.backend_node_id != 0 for element in elements)
             and all(isinstance(element.node_id, int) for element in elements)
             and all(element.node_id >= 0 for element in elements)
-        )
+        ):
+            return Completed(message="El arbol DOM esta listo.")
+        return Failed(message="El arbol DOM no paso validacion.")
     except (AttributeError, RuntimeError, TypeError, ValueError):
-        return False
+        return Failed(message="No se pudo validar el arbol DOM.")
 
 
-def _color_scheme_ready(color_scheme: ColorScheme) -> bool:
+@glow_task
+def _color_scheme_ready(color_scheme: ColorScheme | None) -> State:
+    if color_scheme is None:
+        return Failed(message="No se genero ColorScheme.")
+
     try:
-        return isinstance(color_scheme.get_colors(), dict)
+        if isinstance(color_scheme.get_colors(), dict):
+            return Completed(message="ColorScheme esta listo.")
+        return Failed(message="ColorScheme no paso validacion.")
     except (AttributeError, RuntimeError, TypeError, ValueError):
-        return False
+        return Failed(message="No se pudo validar ColorScheme.")
 
 
-CONTRACT = StageContract(
-    name="capture_original_state",
-    requires=(
-        context_value(K.PAGE_BUILDER, PageBuilder),
-        context_value(K.SESSION, Session, validator=_session_ready_for_capture),
-    ),
-    produces=(
-        context_value(K.DOM_TREE, Element, validator=_dom_tree_ready),
-        context_value(K.COLOR_SCHEME, ColorScheme, validator=_color_scheme_ready),
-    ),
-)
+@glow_task
+def _capture_original_state_failed(message: str) -> State:
+    return Failed(message=message)
 
 
-def run_stage(context: PipelineContext) -> PipelineContext:
-    if context.error or context.has(K.DOM_TREE):
-        return context
-    
-    session = context.get(K.SESSION)
-    page_builder = context.get(K.PAGE_BUILDER)
+@glow_flow
+def capture_original_state(context: PipelineContext):
+    session = context.session
+    page_builder = context.page_builder
     color_scheme = ColorScheme()
     whitelist_styles = list(CSSPROPERTIES.keys())
     before_screenshot = session.get_path("before.png", "artifacts", "png")
@@ -180,7 +173,10 @@ def run_stage(context: PipelineContext) -> PipelineContext:
             root = element
         
     if root is None:
-        return context.set_error("DOMSnapshot no contiene un nodo body valido.")
+        return _capture_original_state_failed(
+            "DOMSnapshot no contiene un nodo body valido.",
+            return_state=True,
+        )
 
     _attach_children(root, siblings, created_elements)
 
@@ -240,24 +236,18 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         for property_model in element.properties:
             property_model.has_color = _register_colors(property_model.before_value, color_scheme)
 
-    context.set(K.DOM_TREE, root)
-    context.set(K.COLOR_SCHEME, color_scheme)
+    context.set("dom_tree", root)
+    context.set("color_scheme", color_scheme)
 
-    context.trace.add_step(
-        "dom.capture_done",
-        {
+    print({
+        "dom.capture_done": {
             "screenshot_path": screenshot_path,
             "observed_color_count": len(color_scheme.get_colors()),
-        },
-    )
-    context.trace.add_stage_event(
-        CONTRACT.name,
-        "complete",
-        {
-            "observed_color_count": len(color_scheme.get_colors()),
-        },
-    )
-    return context
+        }
+    })
+    dom_tree_ready = _dom_tree_ready(context.dom_tree, return_state=True)
+    color_scheme_ready = _color_scheme_ready(context.color_scheme, return_state=True)
+    return dom_tree_ready, color_scheme_ready
 
 def _attach_children(
     parent: Element,

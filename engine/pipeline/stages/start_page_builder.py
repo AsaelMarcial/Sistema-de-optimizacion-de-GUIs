@@ -8,40 +8,22 @@ from engine.adapters.browser.page_builder import PageBuilder
 from engine.adapters.source_code_handler.local_asset_rewriter import (
     rewrite_local_asset_references,
 )
-from engine.domain.enums.scope.context_keys import ContextKey as K
-from engine.domain.models.session import Session
-from engine.domain.models.style import Styles
 from engine.pipeline.context import PipelineContext
-from engine.pipeline.stage_contract import StageContract, context_value
+from engine.pipeline.glow_runtime import glow_flow, glow_task
+from prefect.states import Completed, Failed, State
 
 
-def _session_ready_for_page_builder(
-    session: Session,
-) -> bool:
-    try:
-        html_files = session.get_by_type(".html")
-
-        return (
-            len(html_files) == 1
-            and html_files[0].is_file()
-        )
-
-    except (
-        FileNotFoundError,
-        RuntimeError,
-        ValueError,
-        OSError,
-    ):
-        return False
-
-
+@glow_task
 def _page_builder_ready(
-    page_builder: PageBuilder,
-) -> bool:
+    page_builder: PageBuilder | None,
+) -> State:
+    if page_builder is None:
+        return Failed(message="PageBuilder no fue inicializado.")
+
     try:
         document_root = page_builder.document_root
 
-        return (
+        if (
             page_builder.is_open
             and page_builder.html_path is not None
             and page_builder.html_path.is_file()
@@ -49,52 +31,23 @@ def _page_builder_ready(
             and page_builder.base_path.is_dir()
             and document_root is not None
             and bool(document_root)
-        )
+        ):
+            return Completed(message="PageBuilder esta listo.")
+        return Failed(message="PageBuilder no quedo listo.")
 
     except (
         AttributeError,
         RuntimeError,
         OSError,
     ):
-        return False
+        return Failed(message="No se pudo validar PageBuilder.")
 
 
-CONTRACT = StageContract(
-    name="start_page_builder",
-    requires=(
-        context_value(
-            K.SESSION,
-            Session,
-            validator=_session_ready_for_page_builder,
-        ),
-    ),
-    produces=(
-        context_value(
-            K.PAGE_BUILDER,
-            PageBuilder,
-            validator=_page_builder_ready,
-        ),
-        context_value(
-            K.STYLE,
-            Styles,
-        ),
-    ),
-)
-
-
-def run_stage(
+@glow_flow
+def start_page_builder(
     context: PipelineContext,
-) -> PipelineContext:
-    if context.error:
-        return context
-
-    context.trace.add_stage_event(
-        CONTRACT.name,
-        "start",
-    )
-
-    session = context.get(K.SESSION)
-
+):
+    session = context.session
     html_files = session.get_by_type(".html")
 
     if len(html_files) != 1:
@@ -107,28 +60,21 @@ def run_stage(
     before_root = session.get_area_root("before")
     rewritten_values = rewrite_local_asset_references(html_file, session)
     if rewritten_values:
-        context.trace.add_step(
-            "html.asset_paths_rewritten",
-            {
+        print({
+            "html.asset_paths_rewritten": {
                 "rewrite_count": len(rewritten_values),
                 "html_path": str(html_file),
-            },
-        )
+            }
+        })
 
-    existing_page_builder = context.get(
-        K.PAGE_BUILDER
+    styles = context.style
+    request_records = context.request_records
+    styles.clear()
+    request_records.clear()
+    page_builder = PageBuilder(
+        styles=styles,
+        request_records=request_records,
     )
-
-    if (
-        existing_page_builder is not None
-        and existing_page_builder.is_open
-    ):
-        raise RuntimeError(
-            "Ya existe una instancia activa de PageBuilder."
-        )
-
-    styles = Styles()
-    page_builder = PageBuilder(styles=styles)
 
     try:
         page_builder.load_page(html_file, project_root=before_root)
@@ -199,23 +145,14 @@ def run_stage(
                 runtime_source=runtime_source,
             )
 
-        context.set(
-            K.PAGE_BUILDER,
-            page_builder,
-        )
-        context.set(
-            K.STYLE,
-            styles,
-        )
+        context.set("page_builder", page_builder)
 
         stylesheet_count = len(
             page_builder.styles.stylesheets
         )
 
-        context.trace.add_stage_event(
-            CONTRACT.name,
-            "complete",
-            {
+        print({
+            "start_page_builder.complete": {
                 "html_path": str(
                     page_builder.html_path
                 ),
@@ -226,10 +163,9 @@ def run_stage(
                     page_builder.document_root
                 ),
                 "stylesheets": stylesheet_count,
-            },
-        )
-
-        return context
+            }
+        })
+        return _page_builder_ready(context.page_builder, return_state=True)
 
     except Exception as exc:
         try:
@@ -238,6 +174,5 @@ def run_stage(
             pass
 
         raise RuntimeError(
-            "PageBuilder startup failed due to an unexpected "
-            f"error [{type(exc).__name__}]: {exc}"
+            f"unexpected error [{type(exc).__name__}]: {exc}"
         ) from exc

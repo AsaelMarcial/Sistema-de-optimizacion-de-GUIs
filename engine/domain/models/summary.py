@@ -38,9 +38,13 @@ from engine.domain.models.color_scheme import Color
 @dataclass(frozen=True, slots=True)
 class EnvironmentalReview:
 
-    energy_consumption: float = field(init=True)
+    before_energy_consumption: float = field(init=True)
 
-    carbon_footprint: float = field(init=True)
+    before_carbon_footprint: float = field(init=True)
+
+    after_energy_consumption: float = field(init=True)
+
+    after_carbon_footprint: float = field(init=True)
 
     carbon_footprint_reduction: float = field(init=True)
 
@@ -171,8 +175,10 @@ class Summary:
 
     def add_environmental_review(
         self,
-        energy_consumption: float,
-        carbon_footprint: float,
+        before_energy_consumption: float,
+        before_carbon_footprint: float,
+        after_energy_consumption: float,
+        after_carbon_footprint: float,        
         carbon_footprint_reduction: float,
     ) -> EnvironmentalReview:
 
@@ -180,8 +186,10 @@ class Summary:
             return self.__environmental_review
 
         review = EnvironmentalReview(
-            energy_consumption=energy_consumption,
-            carbon_footprint=carbon_footprint,
+            before_energy_consumption=before_energy_consumption,
+            before_carbon_footprint=before_carbon_footprint,
+            after_energy_consumption=after_energy_consumption,
+            after_carbon_footprint=after_carbon_footprint,
             carbon_footprint_reduction=carbon_footprint_reduction,
         )
 

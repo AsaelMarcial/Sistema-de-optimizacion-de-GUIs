@@ -16,7 +16,6 @@ from engine.domain.utils.color_utils import (
 from engine.domain.models.prototype_structure import PrototypeStructure
 from engine.domain.models.style import StyleCatalog
 from engine.domain.models.token import TokenInventoryModel
-from engine.pipeline.debug_trace import DebugTrace
 
 _REMOTE_REFERENCE_PREFIXES = ("http://", "https://", "//", "data:", "javascript:", "mailto:", "tel:")
 _HTML_ASSET_ATTRIBUTES = (
@@ -69,7 +68,6 @@ def load_transformed_html(transformed_html_path: str) -> tuple[str, str]:
         transformed_html_content = file.read()
     return transformed_html_path, transformed_html_content
 
-trace = DebugTrace(enabled=True)
 _DECLARATION_PATTERN_TEMPLATE = r"({property}\s*:\s*){value}(\s*[;}}])"
 
 
@@ -897,12 +895,7 @@ def apply_tokens_to_project(
     if not change_log:
         return []
 
-    trace.add_step(
-        "transformed.tokens_applied",
-        {
-            "changes": change_log,
-        },
-    )
+    print({"transformed.tokens_applied": {"changes": change_log}})
     return [
         {
             "nombre": "Token-driven color transformation",
@@ -1131,12 +1124,7 @@ def evaluate_and_apply_heuristics(html_content, output_path, base_path, session_
         }
     )
 
-    trace.add_step(
-        "transformed.heuristics_applied",
-        {
-            "resultados": resultados,
-        },
-    )
+    print({"transformed.heuristics_applied": {"resultados": resultados}})
 
     return resultados
 

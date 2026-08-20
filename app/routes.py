@@ -10,9 +10,9 @@ from flask import (
 )
 
 from engine.adapters.file_system.file_manager import create_output_bundle
-from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.domain.models.session import Session
-from engine.pipeline.pipeline import run_pipeline
+from engine.pipeline.pipeline import pipeline
+from prefect.states import get_state_exception
 
 
 main = Blueprint("main", __name__)
@@ -84,16 +84,14 @@ def session_after_download(session_id: str):
 @main.route("/results", methods=["POST"])
 def results():
     files = request.files.getlist("file")
-    context, error_message = run_pipeline(files)
-    if error_message:
-        flash(error_message, "error")
+    state = pipeline(files, return_state=True)
+    if state.is_failed():
+        flash(str(get_state_exception(state)), "error")
         return redirect(url_for("main.index"))
-    if context is None:
-        flash("No se pudieron generar resultados.", "error")
-        return redirect(url_for("main.index"))
+    context = state.result()
 
-    session = context.get(K.SESSION)
-    dom_tree = context.get(K.DOM_TREE)
+    session = context.session
+    dom_tree = context.dom_tree
     changed_elements = [
         element
         for element in (dom_tree.iter_dfs() if dom_tree is not None else ())
@@ -105,13 +103,11 @@ def results():
         context=context,
         session=session,
         session_dirname=session.session_dir.name,
-        summary=context.get(K.SUMMARY),
+        summary=context.summary,
         dom_tree=dom_tree,
         changed_elements=changed_elements,
-        color_scheme=context.get(K.COLOR_SCHEME),
-        before_assessment=context.get(K.ENVIRONMENTAL_BEFORE_ASSESSMENT),
-        after_assessment=context.get(K.ENVIRONMENTAL_AFTER_ASSESSMENT),
-        savings=context.get(K.ENVIRONMENTAL_SAVINGS),
+        color_scheme=context.color_scheme,
+        environmental_review=context.summary.environmental_review(),
         download_url=url_for(
             "main.session_after_download",
             session_id=session.session_dir.name,

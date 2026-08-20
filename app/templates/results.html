@@ -23,14 +23,15 @@
   </head>
   <body>
     {% include 'header.html' %}
+    {% set review = environmental_review %}
 
     <main
       id="main-content"
       data-page="results"
       summary="summary"
-      data-energy-wh="{{ before_assessment.energy_wh | round(4) }}"
-      data-carbon-footprint="{{ before_assessment.co2eq_per_use | round(6) }}"
-      data-environmental-carbon-footprint="{{ after_assessment.co2eq_per_use | round(6) }}"
+      data-energy-wh="{{ review.before_energy_consumption | round(4) }}"
+      data-carbon-footprint="{{ review.before_carbon_footprint | round(6) }}"
+      data-environmental-carbon-footprint="{{ review.after_carbon_footprint | round(6) }}"
     >
       <section id="impact" aria-labelledby="impact-title">
         <span class="eyebrow">
@@ -45,7 +46,7 @@
                 Tu interfaz puede
                 <span id="heroReductionLead">reducir su impacto hasta en</span>
                 <span class="title__inline">
-                  <strong id="heroReductionValue">{{ savings.co2eq_per_use | round(4) }}</strong>
+                  <strong id="heroReductionValue">{{ review.carbon_footprint_reduction | round(4) }}</strong>
                   <em id="heroReductionTail">kg de CO₂eq</em>
                 </span>
               </h1>
@@ -67,13 +68,13 @@
           <div class="impact-panel">
             <article id="carbon_card" class="card card--soft metric">
               <span class="metric__label">Huella de carbono estimada</span>
-              <div class="metric__value" id="summaryCarbonValue">{{ before_assessment.co2eq_per_use | round(4) }}</div>
+              <div class="metric__value" id="summaryCarbonValue">{{ review.before_carbon_footprint | round(4) }}</div>
               <div class="metric__text" id="summaryCarbonUnit">kg de CO₂eq generados</div>
             </article>
 
             <article id="energy_card" class="card card--soft metric">
               <span class="metric__label">Consumo energético estimado</span>
-              <div class="metric__value" id="summaryEnergyValue">{{ before_assessment.energy_wh | round(2) }}</div>
+              <div class="metric__value" id="summaryEnergyValue">{{ review.before_energy_consumption | round(2) }}</div>
               <div class="metric__text" id="summaryEnergyUnit">Wh de energía consumida</div>
             </article>
 

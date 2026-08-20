@@ -2,23 +2,26 @@ from __future__ import annotations
 
 from engine.adapters.browser.page_builder import PageBuilder
 from engine.adapters.utils.pixel import build_histogram, image_to_array
-from engine.domain.enums.scope.context_keys import ContextKey as K
 from engine.domain.models.color_scheme import Color, ColorScheme
 from engine.domain.models.element import Element
 from engine.domain.models.session import Session
 from engine.domain.models.summary import Summary
-from engine.domain.models.token import TokenInventory
 from engine.domain.data.web_colors import nearest_web_color
 from engine.domain.utils.css_generator import generate_root_css
 from engine.pipeline.context import PipelineContext
-from engine.pipeline.stage_contract import StageContract, context_value
+from engine.pipeline.glow_runtime import glow_flow, glow_task
+from prefect.states import Completed, Failed, State
 
 _PREDOMINANT_COLOR_LIMIT = 13
 _HUE_BUCKET_SIZE = 30
 _HSL_DISTANCE_THRESHOLD = 40
 
 
-def _summary_ready(summary: Summary) -> bool:
+@glow_task
+def _summary_ready(summary: Summary | None) -> State:
+    if summary is None:
+        return Failed(message="No se genero Summary.")
+
     try:
         required_overviews = (
             "environmental_color_histogram",
@@ -26,7 +29,7 @@ def _summary_ready(summary: Summary) -> bool:
             "colors_distribution",
             "predominant_colors",
         )
-        return all(
+        if all(
             summary.overview(name) is not None
             for name in required_overviews
         ) and all(
@@ -39,42 +42,21 @@ def _summary_ready(summary: Summary) -> bool:
         ) and isinstance(
             summary.overview("predominant_colors").data,
             tuple,
-        )
+        ):
+            return Completed(message="Summary esta listo.")
+        return Failed(message="Summary no paso validacion.")
     except (AttributeError, RuntimeError, TypeError, ValueError):
-        return False
+        return Failed(message="No se pudo validar Summary.")
 
 
-CONTRACT = StageContract(
-    name="data_processor",
-    requires=(
-        context_value(K.SESSION, Session),
-        context_value(K.PAGE_BUILDER, PageBuilder),
-        context_value(K.DOM_TREE, Element),
-        context_value(K.COLOR_SCHEME, ColorScheme),
-    ),
-    produces=(
-        context_value(K.COLOR_SCHEME, ColorScheme),
-        context_value(K.SUMMARY, Summary, validator=_summary_ready),
-        context_value(K.TOKEN_INVENTORY, TokenInventory),
-    ),
-)
-
-
-def run_stage(context: PipelineContext) -> PipelineContext:
-    if context.error:
-        return context
-
-    if context.has(K.SUMMARY) and context.has(K.TOKEN_INVENTORY):
-        return context
-
-    session = context.get(K.SESSION)
-    page_builder = context.get(K.PAGE_BUILDER)
-    dom_tree = context.get(K.DOM_TREE)
-    color_scheme = context.get(K.COLOR_SCHEME)
-    summary = Summary()
+@glow_flow
+def data_processor(context: PipelineContext):
+    session = context.session
+    page_builder = context.page_builder
+    dom_tree = context.dom_tree
+    color_scheme = context.color_scheme
+    summary = context.summary
     screenshot_path = session.get_path("before.png", "artifacts", "png")
-
-    context.trace.add_stage_event(CONTRACT.name, "start")
 
     pixel_matrix = image_to_array(screenshot_path)
     excluded_pixels = _process_tree(summary, page_builder, dom_tree)
@@ -89,7 +71,7 @@ def run_stage(context: PipelineContext) -> PipelineContext:
     )
     predominant_colors = _predominant_colors(colors_distribution)
     _build_tonal_palettes(color_scheme, predominant_colors)
-    token_inventory = TokenInventory()
+    token_inventory = context.token_inventory
     css_path = _theme_css_path(session)
     css_path.write_text(
         generate_root_css(color_scheme.palettes),
@@ -114,20 +96,15 @@ def run_stage(context: PipelineContext) -> PipelineContext:
         predominant_colors,
     )
 
-    context.set(K.COLOR_SCHEME, color_scheme)
-    context.set(K.SUMMARY, summary)
-    context.set(K.TOKEN_INVENTORY, token_inventory)
-    context.trace.add_stage_event(
-        CONTRACT.name,
-        "complete",
-        {
-            "summary_ready": _summary_ready(summary),
+    print({
+        "data_processor.complete": {
+            "summary_ready": True,
             "predominant_color_count": len(predominant_colors),
             "palette_count": len(color_scheme.get_palettes()),
             "glow_css_path": str(css_path),
-        },
-    )
-    return context
+        }
+    })
+    return _summary_ready(summary, return_state=True)
 
 
 def _theme_css_path(session: Session):

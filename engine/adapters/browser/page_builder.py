@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-import functools
-import http.server
-import socketserver
-import threading
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, urlsplit
+from urllib.parse import urlsplit
 
 from playwright.sync_api import (
     Browser,
@@ -14,32 +10,24 @@ from playwright.sync_api import (
     CDPSession,
     Page,
     Playwright,
+    Request,
     sync_playwright,
 )
 
-from engine.domain.models.style import Styles, StyleSource, Stylesheet, StyleSourceType
+from engine.adapters.browser.server import StaticServer
+from engine.domain.models.requestRecords import RequestRecords
+from engine.domain.models.style import Styles, StyleSource
 
-
-_LOCALHOST = "http://127.0.0.1"
-_DEFAULT_PORT = 8000
 _NAVIGATION_TIMEOUT = 30_000
 _OPERATION_TIMEOUT = 10_000
 _STYLE_MARKER_PREFIX = "GLOW_STYLESHEET:"
-
-class _ReusableStaticServer(socketserver.ThreadingTCPServer):
-    allow_reuse_address = True
-    daemon_threads = True
-
-
-class _QuietStaticHandler(http.server.SimpleHTTPRequestHandler):
-    def log_message(self, format: str, *args: Any) -> None:
-        return
 
 
 class PageBuilder:
     def __init__(
         self,
         styles: Styles | None = None,
+        request_records: RequestRecords | None = None,
     ) -> None:
         self.html_path: Path | None = None
         self.base_path: Path | None = None
@@ -55,15 +43,63 @@ class PageBuilder:
         self._stylesheet_change_count = 0
         self._last_stylesheet_change_id: str | None = None
         self._theme_stylesheet_id: str | None = None
-        self._network_requests: dict[str, dict[str, Any]] = {}
-        self._server: _ReusableStaticServer | None = None
-        self._server_thread: threading.Thread | None = None
-        self._port = _DEFAULT_PORT
+        self._server: StaticServer | None = None
         self.styles = styles if styles is not None else Styles()
+        self.request_records = (
+            request_records
+            if request_records is not None
+            else RequestRecords()
+        )
 
-        self._init_playwright()
+        try:
+            self._playwright = sync_playwright().start()
+            self._browser = self._playwright.chromium.launch(
+                headless=True,
+            )
 
-    @property
+            desktop_chrome = self._playwright.devices[
+                "Desktop Chrome"
+            ]
+
+            self._context = self._browser.new_context(
+                **desktop_chrome,
+            )
+            self._page = self._context.new_page()
+            self._page.set_default_timeout(
+                _OPERATION_TIMEOUT
+            )
+            self._page.set_default_navigation_timeout(
+                _NAVIGATION_TIMEOUT
+            )
+
+            self._cdp = self._context.new_cdp_session(
+                self._page
+            )
+            self._cdp.on(
+                "CSS.styleSheetAdded",
+                self._on_stylesheet_added,
+            )
+            self._cdp.on(
+                "CSS.styleSheetChanged",
+                self._on_stylesheet_changed,
+            )
+            self._page.on("requestfinished", self._handle_request)
+            self._page.on("requestfailed", self._handle_request)
+
+            self._cdp.send("DOM.enable")
+            self._cdp.send("CSS.enable")
+
+        except Exception as exc:
+            try:
+                self.close()
+            except Exception:
+                pass
+
+            raise RuntimeError(
+                "Playwright initialization failed due to an "
+                f"unexpected error [{type(exc).__name__}]: {exc}"
+            ) from exc
+
     def _ensure_open(self) -> None:
         if (
             self._browser is None
@@ -78,23 +114,15 @@ class PageBuilder:
             )
 
     @property
-    def theme_stylesheet_id(self) -> str | None:
-        return self._theme_stylesheet_id
-
-    @property
     def document_root(self) -> int | None:
         return self._document_root
 
     @property
-    def current_url(self) -> str:
-        self._ensure_open
+    def page_url(self) -> str:
+        self._ensure_open()
         assert self._page is not None
 
         return self._page.url
-
-    @property
-    def page_url(self) -> str:
-        return self.current_url
 
     @property
     def is_open(self) -> bool:
@@ -106,120 +134,6 @@ class PageBuilder:
             and not self._page.is_closed()
             and self._cdp is not None
         )
-
-    def _init_playwright(self) -> None:
-        try:
-            self._playwright = sync_playwright().start()
-
-            self._browser = self._playwright.chromium.launch(
-                headless=True,
-            )
-
-            desktop_chrome = self._playwright.devices[
-                "Desktop Chrome"
-            ]
-
-            self._context = self._browser.new_context(
-                **desktop_chrome,
-            )
-
-            self._page = self._context.new_page()
-
-            self._page.set_default_timeout(
-                _OPERATION_TIMEOUT
-            )
-
-            self._page.set_default_navigation_timeout(
-                _NAVIGATION_TIMEOUT
-            )
-
-            self._cdp = self._context.new_cdp_session(
-                self._page
-            )
-
-            self._cdp.on(
-                "CSS.styleSheetAdded",
-                self._on_stylesheet_added,
-            )
-
-            self._cdp.on(
-                "CSS.styleSheetChanged",
-                self._on_stylesheet_changed,
-            )
-
-            self._cdp.on(
-                "Network.requestWillBeSent",
-                self._on_request_will_be_sent,
-            )
-
-            self._cdp.on(
-                "Network.responseReceived",
-                self._on_response_received,
-            )
-
-            self._cdp.on(
-                "Network.loadingFailed",
-                self._on_loading_failed,
-            )
-
-            self._cdp.send("DOM.enable")
-            self._cdp.send("CSS.enable")
-            self._cdp.send("Network.enable")
-
-        except Exception as exc:
-            try:
-                self.close()
-            except Exception:
-                pass
-
-            raise RuntimeError(
-                "Playwright initialization failed due to an "
-                f"unexpected error [{type(exc).__name__}]: {exc}"
-            ) from exc
-
-    def _restart_server(self, directory: Path) -> None:
-        self._stop_server()
-
-        handler = functools.partial(
-            _QuietStaticHandler,
-            directory=str(directory),
-        )
-
-        for port in (_DEFAULT_PORT, 0):
-            try:
-                self._server = _ReusableStaticServer(
-                    ("127.0.0.1", port),
-                    handler,
-                )
-                break
-            except OSError:
-                self._server = None
-
-        if self._server is None:
-            raise RuntimeError(
-                "No se pudo iniciar el servidor local para PageBuilder."
-            )
-
-        self._port = int(self._server.server_address[1])
-        self._server_thread = threading.Thread(
-            target=self._server.serve_forever,
-            daemon=True,
-        )
-        self._server_thread.start()
-
-    def _stop_server(self) -> None:
-        server = self._server
-        thread = self._server_thread
-
-        self._server = None
-        self._server_thread = None
-
-        if server is not None:
-            server.shutdown()
-            server.server_close()
-
-        if thread is not None and thread.is_alive():
-            thread.join(timeout=2)
 
     def _on_stylesheet_added(
         self,
@@ -258,149 +172,41 @@ class PageBuilder:
                 stylesheet_id
             )
 
-    def _on_request_will_be_sent(
-        self,
-        event: dict[str, Any],
-    ) -> None:
-        request_id = event.get("requestId")
-        if not request_id:
-            return
+    def _handle_request(self, request: Request) -> None:
+        response = request.response()
+        failure = request.failure
 
-        entry = self._network_requests.setdefault(
-            str(request_id),
-            {
-                "requestId": str(request_id),
-                "source_methods": [],
-            },
-        )
-        if "Network.requestWillBeSent" not in entry["source_methods"]:
-            entry["source_methods"].append("Network.requestWillBeSent")
-
-        request = event.get("request") or {}
-        entry.update(
-            {
-                "documentURL": event.get("documentURL", ""),
-                "type": event.get("type", ""),
-                "frameId": event.get("frameId", ""),
-                "loaderId": event.get("loaderId", ""),
-                "initiator": event.get("initiator") or {},
-                "request": {
-                    "url": request.get("url", ""),
-                    "urlFragment": request.get("urlFragment", ""),
-                    "method": request.get("method", ""),
-                    "headers": request.get("headers") or {},
-                    "hasPostData": bool(
-                        request.get("hasPostData", False)
-                    ),
-                    "mixedContentType": request.get(
-                        "mixedContentType",
-                        "",
-                    ),
-                    "initialPriority": request.get(
-                        "initialPriority",
-                        "",
-                    ),
-                    "referrerPolicy": request.get(
-                        "referrerPolicy",
-                        "",
-                    ),
-                },
-            }
+        failed = (
+            failure is not None
+            or response is None
+            or (
+                response.status is not None
+                and response.status >= 400
+            )
         )
 
-        print(
-            "[PageBuilder][CDP Network.requestWillBeSent] "
-            f"{entry['type']} {entry['request']['method']} "
-            f"{entry['request']['url']}"
-        )
-
-    def _on_response_received(
-        self,
-        event: dict[str, Any],
-    ) -> None:
-        request_id = event.get("requestId")
-        if not request_id:
-            return
-
-        entry = self._network_requests.setdefault(
-            str(request_id),
-            {
-                "requestId": str(request_id),
-                "source_methods": [],
-            },
-        )
-        if "Network.responseReceived" not in entry["source_methods"]:
-            entry["source_methods"].append("Network.responseReceived")
-
-        response = event.get("response") or {}
-        entry.setdefault(
-            "documentURL",
-            event.get("documentURL", ""),
-        )
-        entry.setdefault("type", event.get("type", ""))
-        entry["responseReceived"] = {
-            "source_method": "Network.responseReceived",
-            "frameId": event.get("frameId", ""),
-            "loaderId": event.get("loaderId", ""),
-            "type": event.get("type", ""),
-            "response": {
-                "url": response.get("url", ""),
-                "status": response.get("status"),
-                "statusText": response.get("statusText", ""),
-                "mimeType": response.get("mimeType", ""),
-                "headers": response.get("headers") or {},
-                "fromDiskCache": bool(
-                    response.get("fromDiskCache", False)
-                ),
-                "fromServiceWorker": bool(
-                    response.get("fromServiceWorker", False)
-                ),
-                "encodedDataLength": response.get(
-                    "encodedDataLength",
-                ),
-            },
-        }
-
-        print(
-            "[PageBuilder][CDP Network.responseReceived] "
-            f"{entry.get('type', '')} "
-            f"{response.get('status')} {response.get('url', '')}"
-        )
-
-    def _on_loading_failed(
-        self,
-        event: dict[str, Any],
-    ) -> None:
-        request_id = event.get("requestId")
-        if not request_id:
-            return
-
-        entry = self._network_requests.setdefault(
-            str(request_id),
-            {
-                "requestId": str(request_id),
-                "source_methods": [],
-            },
-        )
-        if "Network.loadingFailed" not in entry["source_methods"]:
-            entry["source_methods"].append("Network.loadingFailed")
-
-        entry.setdefault("type", event.get("type", ""))
-        entry["loadingFailed"] = {
-            "source_method": "Network.loadingFailed",
-            "type": event.get("type", ""),
-            "errorText": event.get("errorText", ""),
-            "blockedReason": event.get("blockedReason", ""),
-            "corsErrorStatus": event.get("corsErrorStatus"),
-            "canceled": bool(event.get("canceled", False)),
-        }
-
-        request = entry.get("request") or {}
-        print(
-            "[PageBuilder][CDP Network.loadingFailed] "
-            f"{entry.get('type', '')} "
-            f"{event.get('errorText', '')} "
-            f"{request.get('url', '')}"
+        self.request_records.add_request(
+            timing=float(
+                request.timing.get("startTime", 0)
+            ),
+            url=(
+                response.url
+                if response is not None
+                else request.url
+            ),
+            resource_type=request.resource_type,
+            method=request.method,
+            status="failed" if failed else "loaded",
+            status_code=response.status if response is not None else None,
+            message=(
+                failure
+                if failure is not None
+                else (
+                    response.status_text
+                    if response is not None
+                    else "Unknown"
+                )
+            ),
         )
 
     def get_network_asset_information(
@@ -408,45 +214,29 @@ class PageBuilder:
     ) -> list[dict[str, Any]]:
         information: list[dict[str, Any]] = []
 
-        for entry in self._network_requests.values():
-            response_event = entry.get("responseReceived") or {}
-            response = response_event.get("response") or {}
-            status = int(response.get("status") or 0)
-            loading_failed = entry.get("loadingFailed")
-
-            item = dict(entry)
-            if loading_failed is not None:
-                item["load_status"] = "failed"
-                item["error_message"] = loading_failed.get("errorText", "")
-            elif status >= 400:
-                item["load_status"] = "failed"
-                item["error_message"] = response.get("statusText", "")
-            elif response:
-                item["load_status"] = "loaded"
-                item["error_message"] = None
-            else:
-                item["load_status"] = None
-                item["error_message"] = None
-
-            information.append(item)
-
-        print(
-            "[PageBuilder][CDP get_network_asset_information] "
-            f"count={len(information)}"
-        )
-        for item in information:
-            request = item.get("request") or {}
-            response_event = item.get("responseReceived") or {}
-            response = response_event.get("response") or {}
-            print(
-                "[PageBuilder][CDP source] "
-                f"{item.get('load_status')} "
-                f"{item.get('documentURL', '')} "
-                f"{item.get('type', '')} "
-                f"status={response.get('status')} "
-                f"mimeType={response.get('mimeType')} "
-                f"error={item.get('error_message') or ''} "
-                f"url={request.get('url') or response.get('url', '')}"
+        for request in self.request_records.all_records():
+            information.append(
+                {
+                    "requestId": str(request.timing),
+                    "type": request.resource_type,
+                    "request": {
+                        "url": request.url,
+                        "method": request.method,
+                    },
+                    "responseReceived": {
+                        "response": {
+                            "url": request.url,
+                            "status": request.status_code,
+                            "statusText": request.message or "",
+                        },
+                    },
+                    "load_status": request.status,
+                    "error_message": (
+                        request.message
+                        if request.status == "failed"
+                        else None
+                    ),
+                }
             )
 
         return information
@@ -456,36 +246,36 @@ class PageBuilder:
         html_path: str | Path,
         project_root: str | Path | None = None,
     ) -> None:
-        self._ensure_open
+        self._ensure_open()
         assert self._page is not None
 
-        target = Path(html_path).resolve()
+        self.html_path = Path(html_path).resolve()
 
-        if not target.is_file():
+        if not self.html_path.is_file():
             raise FileNotFoundError(
-                f"HTML no encontrado: {target}"
+                f"HTML no encontrado: {self.html_path}"
             )
 
-        server_root = Path(project_root).resolve() if project_root is not None else target.parent
-
-        self.html_path = target
-        self.base_path = target.parent
-        self.project_root = server_root
-        self._restart_server(server_root)
+        self.base_path = self.html_path.parent
+        self.project_root = (
+            Path(project_root).resolve()
+            if project_root is not None
+            else self.base_path
+        )
+        if self._server is not None:
+            self._server.close()
+        self._server = StaticServer(self.project_root).open()
 
         self._document_root = None
         self._theme_stylesheet_id = None
         self._stylesheet_change_count = 0
         self._last_stylesheet_change_id = None
-        self._network_requests = {}
+        self.request_records.clear()
         self.styles.clear()
-
-        page_path = target.relative_to(server_root).as_posix()
-        page_url = f"{_LOCALHOST}:{self._port}/{quote(page_path, safe='/')}"
 
         try:
             response = self._page.goto(
-                page_url,
+                self._server.url_for(self.html_path),
                 wait_until="load",
             )
 
@@ -512,7 +302,7 @@ class PageBuilder:
             ) from exc
 
     def wait_for_render_ready(self) -> None:
-        self._ensure_open
+        self._ensure_open()
         assert self._page is not None
 
         try:
@@ -528,7 +318,7 @@ class PageBuilder:
     def get_full_document_node(
         self,
     ) -> int:
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         if self._document_root is not None:
@@ -572,7 +362,7 @@ class PageBuilder:
         Espera hojas de estilo agregadas o actualizadas después
         de la carga inicial y permite dos ciclos de renderizado.
         """
-        self._ensure_open
+        self._ensure_open()
         assert self._page is not None
 
         try:
@@ -625,7 +415,7 @@ class PageBuilder:
         computedStyles únicamente controla qué estilos calculados se agregan
         al snapshot. No modifica el documento.
         """
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         try:
@@ -655,7 +445,7 @@ class PageBuilder:
         Mantiene la resolución mediante DOM.describeNode y devuelve el nodeId
         frontend requerido por CSS.setEffectivePropertyValueForNode.
         """
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         if not backend_node_id:
@@ -699,7 +489,7 @@ class PageBuilder:
         Primero utiliza CSS.styleSheetChanged. Si no se modificó una hoja,
         consulta el estilo inline actual del nodo.
         """
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         if not node_id:
@@ -792,7 +582,7 @@ class PageBuilder:
         Esto evita pedir todas las propiedades con
         CSS.getComputedStyleForNode en cada modificación.
         """
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         if not node_id:
@@ -868,7 +658,7 @@ class PageBuilder:
                     ) from exc
 
     def set_color_scheme(self) -> bool:
-        self._ensure_open
+        self._ensure_open()
         assert self._page is not None
 
         try:
@@ -917,7 +707,7 @@ class PageBuilder:
 
 
     def set_data_theme(self) -> bool:
-        self._ensure_open
+        self._ensure_open()
         assert self._page is not None
 
         try:
@@ -963,7 +753,7 @@ class PageBuilder:
             ) from exc
 
     def set_theme_link(self) -> bool:
-        self._ensure_open
+        self._ensure_open()
         assert self._page is not None
         assert self._cdp is not None
 
@@ -1162,7 +952,7 @@ class PageBuilder:
         self,
         css_content: str,
     ) -> None:
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         if self._theme_stylesheet_id is None:
@@ -1187,7 +977,7 @@ class PageBuilder:
         stylesheet_id: str,
         css_content: str,
     ) -> None:
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         if not stylesheet_id:
@@ -1226,7 +1016,7 @@ class PageBuilder:
             - font_size
             - font_weight
         """
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         if not node_id:
@@ -1277,7 +1067,7 @@ class PageBuilder:
 
         Devuelve una lista vacía cuando el nodo no tiene una caja visual.
         """
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         if not backend_node_id:
@@ -1325,7 +1115,7 @@ class PageBuilder:
         """
         Obtiene todos los estilos calculados del nodo como un diccionario.
         """
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         if not node_id:
@@ -1359,42 +1149,11 @@ class PageBuilder:
                 f"error [{exception_type}]: {exc}"
             ) from exc
 
-
-    @property
-    def stylesheets_meta(
-        self,
-    ) -> dict[str, dict[str, Any]]:
-        return {
-            stylesheet.stylesheet_id: {
-                "frame_id": stylesheet.frame_id,
-                "source_url": stylesheet.source_url,
-                "kind": stylesheet.kind,
-                "origin": stylesheet.origin,
-                "disabled": stylesheet.disabled,
-                "is_inline": stylesheet.is_inline,
-                "is_mutable": stylesheet.is_mutable,
-                "is_constructed": (
-                    stylesheet.is_constructed
-                ),
-                "loading_failed": (
-                    stylesheet.loading_failed
-                ),
-                "owner_node": stylesheet.owner_node,
-                "parent_stylesheet_id": (
-                    stylesheet.parent_stylesheet_id
-                ),
-                "changes": stylesheet.changes,
-            }
-            for stylesheet
-            in self.styles.stylesheets.values()
-        }
-
-
     def capture_fullpage_screenshot(
         self,
         output_path: str | Path,
     ) -> Path:
-        self._ensure_open
+        self._ensure_open()
         assert self._page is not None
 
         output = Path(output_path)
@@ -1427,7 +1186,7 @@ class PageBuilder:
         self,
         node_id: int,
     ) -> dict[str, Any]:
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         try:
@@ -1462,7 +1221,7 @@ class PageBuilder:
             fill
             stroke
         """
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         if not node_id or not attribute_name:
@@ -1508,7 +1267,7 @@ class PageBuilder:
         self,
         node_id: int,
     ) -> dict[str, Any]:
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         try:
@@ -1557,7 +1316,7 @@ class PageBuilder:
         self,
         stylesheet_id: str,
     ) -> str:
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         try:
@@ -1581,7 +1340,7 @@ class PageBuilder:
         Guarda el texto original y actual de todas las hojas cuyo contenido
         puede recuperarse mediante CDP.
         """
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         try:
@@ -1616,7 +1375,7 @@ class PageBuilder:
         Obtiene los estilos coincidentes y conserva solamente las fuentes
         relacionadas con las propiedades analizadas del elemento.
         """
-        self._ensure_open
+        self._ensure_open()
 
         try:
             matched_styles = self.get_matched_styles(
@@ -1642,7 +1401,7 @@ class PageBuilder:
         Se utiliza para excluir stylesheets pertenecientes a iframes u otros
         documentos que no corresponden al HTML recuperado con get_outer_html().
         """
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         try:
@@ -1675,7 +1434,7 @@ class PageBuilder:
         DOM.getOuterHTML no suele incluir el DOCTYPE; este se agrega
         posteriormente durante el formateo.
         """
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         try:
@@ -1723,7 +1482,7 @@ class PageBuilder:
 
         Retorna el nodeId encontrado o None cuando no existe coincidencia.
         """
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
 
         if not selector or not selector.strip():
@@ -1765,7 +1524,7 @@ class PageBuilder:
         backend_node_id: int,
         identifier: str,
     ) -> bool:
-        self._ensure_open
+        self._ensure_open()
         assert self._cdp is not None
         try:
             resolved = self._cdp.send(
@@ -1870,5 +1629,7 @@ class PageBuilder:
             self.project_root = None
             self._stylesheet_change_count = 0
             self._last_stylesheet_change_id = None
-            self._network_requests = {}
-            self._stop_server()
+            self.request_records.clear()
+            if self._server is not None:
+                self._server.close()
+                self._server = None
