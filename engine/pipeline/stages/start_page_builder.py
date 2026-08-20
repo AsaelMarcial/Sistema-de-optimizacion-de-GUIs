@@ -9,8 +9,11 @@ from engine.adapters.source_code_handler.local_asset_rewriter import (
     rewrite_local_asset_references,
 )
 from engine.pipeline.context import PipelineContext
-from engine.pipeline.glow_runtime import glow_flow, glow_task
-from prefect.states import Completed, Failed, State
+from engine.pipeline.glow_runtime import (
+    glow_flow,
+    glow_task,
+)
+from prefect.states import Completed, Failed, State, get_state_exception
 
 
 @glow_task
@@ -18,29 +21,20 @@ def _page_builder_ready(
     page_builder: PageBuilder | None,
 ) -> State:
     if page_builder is None:
-        return Failed(message="PageBuilder no fue inicializado.")
+        raise get_state_exception(Failed(message="PageBuilder no fue inicializado."))
 
-    try:
-        document_root = page_builder.document_root
-
-        if (
-            page_builder.is_open
-            and page_builder.html_path is not None
-            and page_builder.html_path.is_file()
-            and page_builder.base_path is not None
-            and page_builder.base_path.is_dir()
-            and document_root is not None
-            and bool(document_root)
-        ):
-            return Completed(message="PageBuilder esta listo.")
-        return Failed(message="PageBuilder no quedo listo.")
-
-    except (
-        AttributeError,
-        RuntimeError,
-        OSError,
+    document_root = page_builder.document_root
+    if (
+        page_builder.is_open
+        and page_builder.html_path is not None
+        and page_builder.html_path.is_file()
+        and page_builder.base_path is not None
+        and page_builder.base_path.is_dir()
+        and document_root is not None
+        and bool(document_root)
     ):
-        return Failed(message="No se pudo validar PageBuilder.")
+        return Completed(message="PageBuilder esta listo.")
+    raise get_state_exception(Failed(message="PageBuilder no quedo listo."))
 
 
 @glow_flow
@@ -165,7 +159,6 @@ def start_page_builder(
                 "stylesheets": stylesheet_count,
             }
         })
-        return _page_builder_ready(context.page_builder, return_state=True)
 
     except Exception as exc:
         try:
@@ -176,3 +169,5 @@ def start_page_builder(
         raise RuntimeError(
             f"unexpected error [{type(exc).__name__}]: {exc}"
         ) from exc
+
+    _page_builder_ready(context.page_builder)

@@ -50,6 +50,7 @@ class PipelineContext:
                 ) from close_exc
             finally:
                 self.page_builder = None
+
         return False
 
     def get(self, name: str, default: Any | None = None) -> Any:
@@ -61,4 +62,3 @@ class PipelineContext:
 
     def has(self, name: str) -> bool:
         return hasattr(self, str(name)) and getattr(self, str(name)) is not None
-

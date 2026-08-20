@@ -22,32 +22,41 @@ from engine.domain.utils.parsers import (
     is_css_value_contained,
 )
 from engine.pipeline.context import PipelineContext
-from engine.pipeline.glow_runtime import glow_flow, glow_task
+from engine.pipeline.glow_runtime import (
+    glow_flow,
+    glow_task,
+)
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 import re
 import io
-from prefect.states import Completed, Failed, State
+from prefect.states import Completed, Failed, State, get_state_exception
 
 SVG_DEFAULT_FILL_TAGS = ("path", "circle", "rect", "ellipse", "polygon", "polyline", "text", "use")
 
 @glow_task
-def _color_scheme_ready(page_builder: PageBuilder | None) -> State:
-    if page_builder is None:
-        return Failed(message="No hay PageBuilder para validar transformacion.")
+def _transform_design_ready(
+    color_scheme_ready: bool,
+    theme_link_ready: bool,
+    data_theme_ready: bool,
+    after_screenshot_path: str | Path | None,
+) -> State:
+    screenshot_path = (
+        Path(after_screenshot_path)
+        if after_screenshot_path is not None
+        else None
+    )
+    if (
+        color_scheme_ready
+        and theme_link_ready
+        and data_theme_ready
+        and screenshot_path is not None
+        and screenshot_path.is_file()
+    ):
+        return Completed(message="Transformacion lista.")
+    raise get_state_exception(Failed(message="La transformacion no paso validacion."))
 
-    try:
-        if page_builder.set_color_scheme():
-            return Completed(message="Transformacion aplicada en PageBuilder.")
-        return Failed(message="PageBuilder no pudo aplicar ColorScheme.")
-    except Exception as exc:
-        return Failed(
-            message=(
-                "No se pudo validar la transformacion "
-                f"[{type(exc).__name__}]: {exc}"
-            )
-        )
 
 @glow_flow
 def transform_design(context: PipelineContext):
@@ -57,7 +66,7 @@ def transform_design(context: PipelineContext):
     color_scheme = context.color_scheme
     token_inventory = context.token_inventory
 
-    page_builder.set_color_scheme()
+    color_scheme_ready = page_builder.set_color_scheme()
     theme_link_ready = page_builder.set_theme_link()
 
     original_backgrounds = _original_backgrounds(root, page_builder)
@@ -440,8 +449,13 @@ def transform_design(context: PipelineContext):
             "theme_link_ready": theme_link_ready,
         }
     })
-    color_scheme_ready = _color_scheme_ready(page_builder, return_state=True)
-    return theme_link_ready, data_theme_ready, after_screenshot_path, color_scheme_ready
+
+    _transform_design_ready(
+        color_scheme_ready,
+        theme_link_ready,
+        data_theme_ready,
+        after_screenshot_path,
+    )
 
 def _process_external_svg_decoration(
     session: Session,

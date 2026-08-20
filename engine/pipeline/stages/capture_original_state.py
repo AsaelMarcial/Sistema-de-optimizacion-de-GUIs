@@ -9,11 +9,14 @@ from engine.domain.data.scope_html_elements import get_html_element_category
 from engine.domain.models.color_scheme import Color, ColorScheme
 from engine.domain.models.element import Element, Property
 from engine.pipeline.context import PipelineContext
-from engine.pipeline.glow_runtime import glow_flow, glow_task
+from engine.pipeline.glow_runtime import (
+    glow_flow,
+    glow_task,
+)
 from engine.domain.utils.parsers import get_colors, matches_default_value
 import tinycss2
 from pathlib import Path
-from prefect.states import Completed, Failed, State
+from prefect.states import Completed, Failed, State, get_state_exception
 
 
 _IMAGE_ATTRIBUTES = {
@@ -31,42 +34,36 @@ _IMAGE_ATTRIBUTES = {
 @glow_task
 def _dom_tree_ready(root: Element | None) -> State:
     if root is None:
-        return Failed(message="No se genero arbol DOM.")
+        raise get_state_exception(Failed(message="No se genero arbol DOM."))
 
-    try:
-        elements = tuple(root.iter_dfs())
-        if (
-            root.tag_name == "body"
-            and bool(elements)
-            and root.parent_backend_node_id == -1
-            and all(element.tag_name for element in elements)
-            and all(isinstance(element.backend_node_id, int) for element in elements)
-            and all(element.backend_node_id != 0 for element in elements)
-            and all(isinstance(element.node_id, int) for element in elements)
-            and all(element.node_id >= 0 for element in elements)
-        ):
-            return Completed(message="El arbol DOM esta listo.")
-        return Failed(message="El arbol DOM no paso validacion.")
-    except (AttributeError, RuntimeError, TypeError, ValueError):
-        return Failed(message="No se pudo validar el arbol DOM.")
+    elements = tuple(root.iter_dfs())
+    if (
+        root.tag_name == "body"
+        and bool(elements)
+        and root.parent_backend_node_id == -1
+        and all(element.tag_name for element in elements)
+        and all(isinstance(element.backend_node_id, int) for element in elements)
+        and all(element.backend_node_id != 0 for element in elements)
+        and all(isinstance(element.node_id, int) for element in elements)
+        and all(element.node_id >= 0 for element in elements)
+    ):
+        return Completed(message="El arbol DOM esta listo.")
+    raise get_state_exception(Failed(message="El arbol DOM no paso validacion."))
 
 
 @glow_task
 def _color_scheme_ready(color_scheme: ColorScheme | None) -> State:
     if color_scheme is None:
-        return Failed(message="No se genero ColorScheme.")
+        raise get_state_exception(Failed(message="No se genero ColorScheme."))
 
-    try:
-        if isinstance(color_scheme.get_colors(), dict):
-            return Completed(message="ColorScheme esta listo.")
-        return Failed(message="ColorScheme no paso validacion.")
-    except (AttributeError, RuntimeError, TypeError, ValueError):
-        return Failed(message="No se pudo validar ColorScheme.")
+    if isinstance(color_scheme.get_colors(), dict):
+        return Completed(message="ColorScheme esta listo.")
+    raise get_state_exception(Failed(message="ColorScheme no paso validacion."))
 
 
 @glow_task
 def _capture_original_state_failed(message: str) -> State:
-    return Failed(message=message)
+    raise get_state_exception(Failed(message=message))
 
 
 @glow_flow
@@ -173,10 +170,7 @@ def capture_original_state(context: PipelineContext):
             root = element
         
     if root is None:
-        return _capture_original_state_failed(
-            "DOMSnapshot no contiene un nodo body valido.",
-            return_state=True,
-        )
+        _capture_original_state_failed("DOMSnapshot no contiene un nodo body valido.")
 
     _attach_children(root, siblings, created_elements)
 
@@ -245,9 +239,8 @@ def capture_original_state(context: PipelineContext):
             "observed_color_count": len(color_scheme.get_colors()),
         }
     })
-    dom_tree_ready = _dom_tree_ready(context.dom_tree, return_state=True)
-    color_scheme_ready = _color_scheme_ready(context.color_scheme, return_state=True)
-    return dom_tree_ready, color_scheme_ready
+    _dom_tree_ready(context.dom_tree)
+    _color_scheme_ready(context.color_scheme)
 
 def _attach_children(
     parent: Element,

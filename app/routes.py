@@ -85,7 +85,7 @@ def session_after_download(session_id: str):
 def results():
     files = request.files.getlist("file")
     state = pipeline(files, return_state=True)
-    if state.is_failed():
+    if state.is_failed() or state.is_crashed() or state.is_cancelled():
         flash(str(get_state_exception(state)), "error")
         return redirect(url_for("main.index"))
     context = state.result()

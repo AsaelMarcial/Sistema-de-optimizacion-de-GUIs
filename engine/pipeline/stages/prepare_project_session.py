@@ -16,30 +16,32 @@ from engine.adapters.file_system.file_manager import (
 )
 from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
-from engine.pipeline.glow_runtime import glow_flow, glow_task
+from engine.pipeline.glow_runtime import (
+    glow_flow,
+    glow_task,
+)
 from engine.domain.utils.FFmpeg import generate_thumbnail
-from prefect.states import Completed, Failed, State
+from prefect.states import Completed, Failed, State, get_state_exception
 
 
 @glow_task
 def _prepared_session(session: Session) -> State:
-    try:
-        before_files = session.update_area_root_paths("before")
-        if (
-            session.get_area_root("before").is_dir()
-            and bool(before_files)
-            and all(path in session.file_types for path in before_files)
-            and len(session.get_by_type(".html")) == 1
-        ):
-            return Completed(message="La sesion del proyecto esta preparada.")
-        return Failed(message="La sesion del proyecto no quedo preparada.")
-    except (FileNotFoundError, RuntimeError, ValueError, OSError):
-        return Failed(message="No se pudo validar la sesion preparada.")
+    before_files = session.update_area_root_paths("before")
+    if (
+        session.get_area_root("before").is_dir()
+        and bool(before_files)
+        and all(path in session.file_types for path in before_files)
+        and len(session.get_by_type(".html")) == 1
+    ):
+        return Completed(message="La sesion del proyecto esta preparada.")
+    raise get_state_exception(
+        Failed(message="La sesion del proyecto no quedo preparada.")
+    )
 
 
 @glow_task
 def _prepare_project_session_failed(message: str) -> State:
-    return Failed(message=message)
+    raise get_state_exception(Failed(message=message))
 
 
 @glow_flow
@@ -180,17 +182,18 @@ def prepare_project_session(
             }
         })
         print({"prepare_project_session.complete": {"session_id": session.session_id}})
-        return _prepared_session(session, return_state=True)
     except ValueError as exc:
         if session is not None and safe_rmtree(session.session_dir):
             print({"session.cleanup": {"session_dir": str(session.session_dir)}})
-        return _prepare_project_session_failed(str(exc), return_state=True)
+        _prepare_project_session_failed(str(exc))
     except Exception as exc:
         if session is not None and safe_rmtree(session.session_dir):
             print({"session.cleanup": {"session_dir": str(session.session_dir)}})
         raise RuntimeError(
             f"unexpected error [{type(exc).__name__}]: {exc}"
         ) from exc
+
+    _prepared_session(session)
 
 def _analyze_file(file: FileStorage) -> tuple[Path, str]:
     if is_path_dangerous(file.filename):

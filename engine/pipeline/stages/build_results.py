@@ -8,34 +8,36 @@ from engine.adapters.source_code_handler.source_code_formatter import (
 from engine.adapters.utils.palette_preview import render_palette_preview
 from engine.domain.models.session import Session
 from engine.pipeline.context import PipelineContext
-from engine.pipeline.glow_runtime import glow_flow, glow_task
-from prefect.states import Completed, Failed, State
+from engine.pipeline.glow_runtime import (
+    glow_flow,
+    glow_task,
+)
+from prefect.states import Completed, Failed, State, get_state_exception
 
 
 @glow_task
 def _results_ready(session: Session | None) -> State:
     if session is None:
-        return Failed(message="No hay sesion para validar resultados.")
+        raise get_state_exception(Failed(message="No hay sesion para validar resultados."))
 
-    try:
-        palette_preview = session.get_path(
-            "palette_preview.png",
-            "artifacts",
-            "png",
-        )
-        after_html = session.find_by_suffix("after", "html")
-        bundle = session.get_path("glow_design.zip", "artifacts", "zip")
-        if (
-            palette_preview.is_file()
-            and palette_preview.stat().st_size > 0
-            and len(after_html) == 1
-            and bundle.is_file()
-            and bundle.stat().st_size > 0
-        ):
-            return Completed(message="Resultados listos.")
-        return Failed(message="Los artefactos de resultados no pasaron validacion.")
-    except (FileNotFoundError, ValueError, OSError):
-        return Failed(message="No se pudieron validar los artefactos de resultados.")
+    palette_preview = session.get_path(
+        "palette_preview.png",
+        "artifacts",
+        "png",
+    )
+    after_html = session.find_by_suffix("after", "html")
+    bundle = session.get_path("glow_design.zip", "artifacts", "zip")
+    if (
+        palette_preview.is_file()
+        and palette_preview.stat().st_size > 0
+        and len(after_html) == 1
+        and bundle.is_file()
+        and bundle.stat().st_size > 0
+    ):
+        return Completed(message="Resultados listos.")
+    raise get_state_exception(
+        Failed(message="Los artefactos de resultados no pasaron validacion.")
+    )
 
 
 @glow_flow
@@ -87,4 +89,4 @@ def build_results(context: PipelineContext):
             "bundle_path": zip_path,
         }
     })
-    return _results_ready(session, return_state=True)
+    _results_ready(session)

@@ -16,8 +16,11 @@ from engine.domain.models.environmental_assessment.carbon_footprint import (
 from engine.domain.models.environmental_assessment.energy_consumption import EnergyModel
 from engine.domain.models.summary import Summary
 from engine.pipeline.context import PipelineContext
-from engine.pipeline.glow_runtime import glow_flow, glow_task
-from prefect.states import Completed, Failed, State
+from engine.pipeline.glow_runtime import (
+    glow_flow,
+    glow_task,
+)
+from prefect.states import Completed, Failed, State, get_state_exception
 
 _ENERGY_MODEL = EnergyModel.build_default()
 _CARBON_MODEL = CarbonFootprintModel.build_default()
@@ -26,7 +29,9 @@ _CARBON_MODEL = CarbonFootprintModel.build_default()
 @glow_task
 def _summary_has_environmental_assessment(summary: Summary | None) -> State:
     if summary is None:
-        return Failed(message="No hay Summary para evaluacion ambiental.")
+        raise get_state_exception(
+            Failed(message="No hay Summary para evaluacion ambiental.")
+        )
 
     after_overview = summary.overview("environmental_color_histogram_after")
     if (
@@ -35,7 +40,9 @@ def _summary_has_environmental_assessment(summary: Summary | None) -> State:
         and summary.environmental_review() is not None
     ):
         return Completed(message="Evaluacion ambiental lista.")
-    return Failed(message="La evaluacion ambiental no paso validacion.")
+    raise get_state_exception(
+        Failed(message="La evaluacion ambiental no paso validacion.")
+    )
 
 
 def _build_savings(
@@ -149,4 +156,4 @@ def assess_enviromental_impact(context: PipelineContext):
             "co2eq_per_use_savings": savings.co2eq_per_use,
         }
     })
-    return _summary_has_environmental_assessment(summary, return_state=True)
+    _summary_has_environmental_assessment(summary)

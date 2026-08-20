@@ -9,8 +9,11 @@ from engine.domain.models.summary import Summary
 from engine.domain.data.web_colors import nearest_web_color
 from engine.domain.utils.css_generator import generate_root_css
 from engine.pipeline.context import PipelineContext
-from engine.pipeline.glow_runtime import glow_flow, glow_task
-from prefect.states import Completed, Failed, State
+from engine.pipeline.glow_runtime import (
+    glow_flow,
+    glow_task,
+)
+from prefect.states import Completed, Failed, State, get_state_exception
 
 _PREDOMINANT_COLOR_LIMIT = 13
 _HUE_BUCKET_SIZE = 30
@@ -20,33 +23,30 @@ _HSL_DISTANCE_THRESHOLD = 40
 @glow_task
 def _summary_ready(summary: Summary | None) -> State:
     if summary is None:
-        return Failed(message="No se genero Summary.")
+        raise get_state_exception(Failed(message="No se genero Summary."))
 
-    try:
-        required_overviews = (
+    required_overviews = (
+        "environmental_color_histogram",
+        "design_color_histogram",
+        "colors_distribution",
+        "predominant_colors",
+    )
+    if all(
+        summary.overview(name) is not None
+        for name in required_overviews
+    ) and all(
+        isinstance(summary.overview(name).data, dict)
+        for name in (
             "environmental_color_histogram",
             "design_color_histogram",
             "colors_distribution",
-            "predominant_colors",
         )
-        if all(
-            summary.overview(name) is not None
-            for name in required_overviews
-        ) and all(
-            isinstance(summary.overview(name).data, dict)
-            for name in (
-                "environmental_color_histogram",
-                "design_color_histogram",
-                "colors_distribution",
-            )
-        ) and isinstance(
-            summary.overview("predominant_colors").data,
-            tuple,
-        ):
-            return Completed(message="Summary esta listo.")
-        return Failed(message="Summary no paso validacion.")
-    except (AttributeError, RuntimeError, TypeError, ValueError):
-        return Failed(message="No se pudo validar Summary.")
+    ) and isinstance(
+        summary.overview("predominant_colors").data,
+        tuple,
+    ):
+        return Completed(message="Summary esta listo.")
+    raise get_state_exception(Failed(message="Summary no paso validacion."))
 
 
 @glow_flow
@@ -104,7 +104,7 @@ def data_processor(context: PipelineContext):
             "glow_css_path": str(css_path),
         }
     })
-    return _summary_ready(summary, return_state=True)
+    _summary_ready(summary)
 
 
 def _theme_css_path(session: Session):
