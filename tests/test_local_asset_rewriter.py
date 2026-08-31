@@ -6,12 +6,31 @@ from engine.adapters.source_code_handler.local_asset_rewriter import (
     _rewrite_css_urls,
     rewrite_local_asset_references,
 )
+from engine.domain.models.asset_records import AssetRecords, LocalAsset
 from engine.domain.models.session import Session
+
+
+def register_local_assets(session: Session, asset_records: AssetRecords) -> None:
+    before_root = session.get_area_root("before").resolve()
+    asset_records.root = before_root
+    session.update_area_root_paths("before")
+    session.file_types = {
+        path.resolve(): path.suffix.lower() or "unknown"
+        for path in before_root.rglob("*")
+        if path.is_file()
+    }
+    for path, file_type in session.file_types.items():
+        asset_records.add_local_asset(
+            path.relative_to(before_root),
+            file_type=file_type,
+            origin="local",
+        )
 
 
 class LocalAssetRewriterTest(unittest.TestCase):
     def test_rewrites_path_attrs_without_losing_html_document(self) -> None:
         session = Session()
+        asset_records = AssetRecords()
         try:
             before_root = session.get_area_root("before")
             assets_dir = before_root / "assets"
@@ -35,10 +54,12 @@ class LocalAssetRewriterTest(unittest.TestCase):
                 """,
                 encoding="utf-8",
             )
+            register_local_assets(session, asset_records)
 
             result = rewrite_local_asset_references(
                 html_path,
                 session,
+                asset_records,
             )
             rewritten_html = html_path.read_text(encoding="utf-8")
 
@@ -65,6 +86,7 @@ class LocalAssetRewriterTest(unittest.TestCase):
 
     def test_rewrites_css_urls_with_tinycss2_tokens(self) -> None:
         session = Session()
+        asset_records = AssetRecords()
         try:
             before_root = session.get_area_root("before")
             assets_dir = before_root / "assets"
@@ -72,6 +94,7 @@ class LocalAssetRewriterTest(unittest.TestCase):
             (assets_dir / "logo.png").write_bytes(b"logo")
             (assets_dir / "small.png").write_bytes(b"small")
             (assets_dir / "large.png").write_bytes(b"large")
+            register_local_assets(session, asset_records)
 
             rewritten_css = _rewrite_css_urls(
                 (
@@ -80,6 +103,7 @@ class LocalAssetRewriterTest(unittest.TestCase):
                     "url(missing/large.png) 2x);"
                 ),
                 session,
+                asset_records,
                 before_root,
                 before_root,
             )
@@ -92,6 +116,7 @@ class LocalAssetRewriterTest(unittest.TestCase):
 
     def test_rewrites_any_attribute_or_style_value_with_local_path(self) -> None:
         session = Session()
+        asset_records = AssetRecords()
         try:
             before_root = session.get_area_root("before")
             assets_dir = before_root / "assets"
@@ -115,8 +140,9 @@ class LocalAssetRewriterTest(unittest.TestCase):
                 """,
                 encoding="utf-8",
             )
+            register_local_assets(session, asset_records)
 
-            result = rewrite_local_asset_references(html_path, session)
+            result = rewrite_local_asset_references(html_path, session, asset_records)
             rewritten_html = html_path.read_text(encoding="utf-8")
 
             self.assertEqual(
@@ -135,6 +161,7 @@ class LocalAssetRewriterTest(unittest.TestCase):
 
     def test_keeps_existing_relative_path_inside_nested_project(self) -> None:
         session = Session()
+        asset_records = AssetRecords()
         try:
             before_root = session.get_area_root("before")
             project_dir = before_root / "Pagina de prueba 7"
@@ -147,8 +174,9 @@ class LocalAssetRewriterTest(unittest.TestCase):
                 '<html><head><link rel="stylesheet" href="css/estilos.css"></head></html>',
                 encoding="utf-8",
             )
+            register_local_assets(session, asset_records)
 
-            result = rewrite_local_asset_references(html_path, session)
+            result = rewrite_local_asset_references(html_path, session, asset_records)
             rewritten_html = html_path.read_text(encoding="utf-8")
 
             self.assertEqual([], result)
@@ -162,6 +190,7 @@ class LocalAssetRewriterTest(unittest.TestCase):
 
     def test_rewrites_missing_nested_path_relative_to_html_base(self) -> None:
         session = Session()
+        asset_records = AssetRecords()
         try:
             before_root = session.get_area_root("before")
             project_dir = before_root / "Pagina de prueba 7"
@@ -174,8 +203,9 @@ class LocalAssetRewriterTest(unittest.TestCase):
                 '<html><head><link rel="stylesheet" href="missing/estilos.css"></head></html>',
                 encoding="utf-8",
             )
+            register_local_assets(session, asset_records)
 
-            result = rewrite_local_asset_references(html_path, session)
+            result = rewrite_local_asset_references(html_path, session, asset_records)
             rewritten_html = html_path.read_text(encoding="utf-8")
 
             self.assertEqual(["css/estilos.css"], result)
@@ -189,6 +219,7 @@ class LocalAssetRewriterTest(unittest.TestCase):
 
     def test_rewrites_urls_inside_external_css_files(self) -> None:
         session = Session()
+        asset_records = AssetRecords()
         try:
             before_root = session.get_area_root("before")
             project_dir = before_root / "project"
@@ -207,18 +238,22 @@ class LocalAssetRewriterTest(unittest.TestCase):
                 '<html><head><link rel="stylesheet" href="css/main.css"></head></html>',
                 encoding="utf-8",
             )
+            register_local_assets(session, asset_records)
 
-            result = rewrite_local_asset_references(html_path, session)
+            result = rewrite_local_asset_references(html_path, session, asset_records)
 
             self.assertEqual(["../assets/hero.png"], result)
             self.assertIn(
                 "url(../assets/hero.png)",
                 css_path.read_text(encoding="utf-8"),
             )
-            source = session.get_source(Path("assets/hero.png"))
+            source = asset_records.find_asset(Path("project/assets/hero.png"))
             self.assertIsNotNone(source)
-            self.assertEqual(Path("assets/hero.png"), source.source_name)
-            self.assertEqual(Path("project/css/main.css"), source.founded_on)
+            self.assertEqual("project/assets/hero.png", source.source)
+            css_asset = asset_records.find_asset(Path("project/css/main.css"))
+            self.assertIsNotNone(css_asset)
+            self.assertIsInstance(css_asset, LocalAsset)
+            self.assertEqual("../assets/hero.png", css_asset.resource(source))
         finally:
             shutil.rmtree(session.session_dir, ignore_errors=True)
 

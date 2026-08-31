@@ -6,19 +6,19 @@ from engine.adapters.source_code_handler.source_code_formatter import (
     export_runtime_sources,
 )
 from engine.adapters.utils.palette_preview import render_palette_preview
+from engine.domain.models.color_scheme import ColorScheme
 from engine.domain.models.session import Session
-from engine.pipeline.context import PipelineContext
 from engine.pipeline.glow_runtime import (
     glow_flow,
     glow_task,
 )
-from prefect.states import Completed, Failed, State, get_state_exception
+from prefect.states import Completed, State
 
 
 @glow_task
 def _results_ready(session: Session | None) -> State:
     if session is None:
-        raise get_state_exception(Failed(message="No hay sesion para validar resultados."))
+        raise RuntimeError("No hay sesion para validar resultados.")
 
     palette_preview = session.get_path(
         "palette_preview.png",
@@ -35,17 +35,15 @@ def _results_ready(session: Session | None) -> State:
         and bundle.stat().st_size > 0
     ):
         return Completed(message="Resultados listos.")
-    raise get_state_exception(
-        Failed(message="Los artefactos de resultados no pasaron validacion.")
-    )
+    raise RuntimeError("Los artefactos de resultados no pasaron validacion.")
 
 
 @glow_flow
-def build_results(context: PipelineContext):
-    session = context.session
-    page_builder = context.page_builder
-    color_scheme = context.color_scheme
-
+def build_results(
+    session: Session,
+    page_builder: PageBuilder,
+    color_scheme: ColorScheme,
+):
     palette_preview_path = session.get_path(
         "palette_preview.png",
         "artifacts",

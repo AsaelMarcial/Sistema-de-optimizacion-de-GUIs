@@ -10,8 +10,8 @@ from unittest.mock import patch
 from werkzeug.datastructures import FileStorage
 
 from engine.adapters.file_system.file_manager import detect_type
+from engine.domain.models.asset_records import AssetRecords
 from engine.domain.models.session import Session
-from engine.pipeline.context import PipelineContext
 from engine.pipeline.stages import prepare_project_session
 
 
@@ -51,9 +51,11 @@ class PrepareProjectSessionMultipleUploadTests(unittest.TestCase):
             )
 
     def test_materializes_multiple_allowed_files(self) -> None:
-        context = PipelineContext()
+        session = Session()
+        asset_records = AssetRecords()
         state = prepare_project_session.prepare_project_session(
-            context,
+            session,
+            asset_records,
             [
                 upload(
                     "index.html",
@@ -68,7 +70,6 @@ class PrepareProjectSessionMultipleUploadTests(unittest.TestCase):
 
         try:
             self.assertTrue(state.is_completed())
-            session = context.session
             self.assertTrue((session.get_area_root("before") / "index.html").is_file())
             self.assertTrue((session.get_area_root("before") / "style.css").is_file())
             self.assertEqual(len(session.find_by_suffix("before", "html")), 1)
@@ -80,8 +81,9 @@ class PrepareProjectSessionMultipleUploadTests(unittest.TestCase):
                 session.file_types[(session.get_area_root("before") / "index.html").resolve()],
                 ".html",
             )
+            self.assertIsNotNone(asset_records.find_asset("index.html"))
+            self.assertIsNotNone(asset_records.find_asset("style.css"))
         finally:
-            session = context.session
             if session is not None:
                 shutil.rmtree(session.session_dir, ignore_errors=True)
 
@@ -90,9 +92,11 @@ class PrepareProjectSessionMultipleUploadTests(unittest.TestCase):
         with zipfile.ZipFile(buffer, "w") as archive:
             archive.writestr("index.html", "<html></html>")
 
-        context = PipelineContext()
+        session = Session()
+        asset_records = AssetRecords()
         state = prepare_project_session.prepare_project_session(
-            context,
+            session,
+            asset_records,
             [
                 upload("project.zip", buffer.getvalue()),
                 upload("index.html", b"<html></html>"),
@@ -103,9 +107,11 @@ class PrepareProjectSessionMultipleUploadTests(unittest.TestCase):
         self.assertTrue(state.is_failed())
 
     def test_rejects_project_without_html(self) -> None:
-        context = PipelineContext()
+        session = Session()
+        asset_records = AssetRecords()
         state = prepare_project_session.prepare_project_session(
-            context,
+            session,
+            asset_records,
             [upload("style.css", b"body { color: black; }")],
             return_state=True,
         )
@@ -118,16 +124,17 @@ class PrepareProjectSessionMultipleUploadTests(unittest.TestCase):
             archive.writestr("site/index.html", "<html><body></body></html>")
             archive.writestr("site/css/style.css", "body { color: black; }")
 
-        context = PipelineContext()
+        session = Session()
+        asset_records = AssetRecords()
         state = prepare_project_session.prepare_project_session(
-            context,
+            session,
+            asset_records,
             [upload("project.zip", buffer.getvalue())],
             return_state=True,
         )
 
         try:
             self.assertTrue(state.is_completed())
-            session = context.session
             self.assertTrue((session.get_area_root("before") / "site" / "index.html").is_file())
             self.assertTrue((session.get_area_root("before") / "site" / "css" / "style.css").is_file())
             self.assertEqual(len(session.find_by_suffix("before", "html")), 1)
@@ -136,7 +143,6 @@ class PrepareProjectSessionMultipleUploadTests(unittest.TestCase):
                 ["site/index.html"],
             )
         finally:
-            session = context.session
             if session is not None:
                 shutil.rmtree(session.session_dir, ignore_errors=True)
 

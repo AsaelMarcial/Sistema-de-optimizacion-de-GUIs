@@ -2,6 +2,7 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
+from typing import Self
 from urllib.parse import quote
 
 
@@ -30,7 +31,7 @@ class StaticServer:
     def origin(self) -> str:
         try:
             if not self.server:
-                raise RuntimeError("El servidor no ha sido iniciado mediante el método open().")
+                raise RuntimeError("El servidor no ha sido iniciado mediante __enter__.")
             host, port = self.server.server_address
             return f"http://[{host}]:{port}" if ":" in host else f"http://{host}:{port}"
         except Exception as e:
@@ -41,7 +42,7 @@ class StaticServer:
                 f"Error: [{error_nombre}] - {error_desc}"
             ) from e
 
-    def open(self) -> "StaticServer":
+    def __enter__(self) -> Self:
         """Inicia el servidor y el hilo secundario controlando cualquier fallo de red."""
         try:
             if self.server:
@@ -57,9 +58,9 @@ class StaticServer:
         except Exception as e:
             error_nombre = type(e).__name__
             error_desc = str(e)
-            self.close()
+            self.__exit__(None, None, None)
             raise RuntimeError(
-                f"[StaticServer.open] Falló el arranque del servidor en {self.host}. "
+                f"[StaticServer.__enter__] Falló el arranque del servidor en {self.host}. "
                 f"Error: [{error_nombre}] - {error_desc}"
             ) from e
 
@@ -70,11 +71,6 @@ class StaticServer:
             relative = path_absoluto.relative_to(self.root)
             return f"{self.origin}/{quote(relative.as_posix().lstrip('/'), safe='/')}"
 
-        except ValueError as e:
-            raise ValueError(
-                f"[StaticServer.url_for] Violación de seguridad. El archivo '{path}' "
-                f"está fuera de la raíz '{self.root}'. Error: [ValueError] - {str(e)}"
-            ) from e
         except Exception as e:
             error_nombre = type(e).__name__
             error_desc = str(e)
@@ -83,17 +79,34 @@ class StaticServer:
                 f"Error: [{error_nombre}] - {error_desc}"
             ) from e
 
-    def close(self) -> None:
-        """Apaga el servidor y el hilo garantizando que las variables pasen a None."""
-        server = self.server
-        thread = self.thread
+    def __exit__(self, exc_type, exc, traceback) -> bool:
+        """Apaga el servidor sin ocultar excepciones del bloque with."""
+        close_errors: list[str] = []
 
-        self.server = None
-        self.thread = None
+        if self.server:
+            try:
+                self.server.shutdown()
+                self.server.server_close()
+            except Exception as close_exc:
+                close_errors.append(
+                    f"server [{type(close_exc).__name__}]: {close_exc}"
+                )
+            finally:
+                self.server = None
 
-        if server:
-            server.shutdown()
-            server.server_close()
+        if self.thread and self.thread.is_alive():
+            try:
+                self.thread.join(timeout=1.0)
+            except Exception as close_exc:
+                close_errors.append(
+                    f"thread [{type(close_exc).__name__}]: {close_exc}"
+                )
+            finally:
+                self.thread = None
 
-        if thread and thread.is_alive():
-            thread.join(timeout=1.0)
+        if close_errors and exc_type is None:
+            raise RuntimeError(
+                "StaticServer close failed: " + "; ".join(close_errors)
+            )
+
+        return False

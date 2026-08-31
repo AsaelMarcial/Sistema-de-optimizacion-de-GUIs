@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ast import unparse
 
 from tinycss2 import parse_component_value_list, serialize, parse_declaration_list
 from copy import deepcopy

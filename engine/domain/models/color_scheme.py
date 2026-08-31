@@ -506,17 +506,16 @@ class ColorScheme:
 
         return self.colors[unique_key]
 
-    def get_color(self, color_string: str) -> Optional[Color]:
+    def get_color(self, color_string: str) -> Color | None:
         """
         Retrieves a Color object from the catalogue.
 
         It does not register anything.
         It only creates a temporary Color to calculate the same search key.
         """
-
         search_key = self.serialize_color(Color(color_string))
 
-        return self.colors[search_key] if search_key in self.colors else None
+        return self.colors.get(search_key, None)
 
     @staticmethod
     def serialize_color(color: Color) -> str:
@@ -538,14 +537,14 @@ class ColorScheme:
         """Devuelve la instancia directa del catálogo de colores."""
         return self.colors
 
-    def get_palette(self, palette_name: str) -> Optional[Palette]:
+    def get_palette(self, palette_name: str) -> Palette | None:
         """
         Retrieves a Palette object from the catalogue.
 
         It does not register anything.
         """
 
-        return self.palettes[palette_name] if palette_name in self.palettes else None
+        return self.palettes.get(palette_name, None)
 
     def get_palettes(self) -> dict[str, Palette]:
         """Devuelve la instancia directa del catálogo de paletas."""

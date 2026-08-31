@@ -12,16 +12,15 @@ from engine.adapters.file_system.file_manager import (
     detect_type,
     is_corrupted,
     is_path_dangerous,
-    safe_rmtree,
 )
+from engine.domain.models.asset_records import AssetRecords
 from engine.domain.models.session import Session
-from engine.pipeline.context import PipelineContext
 from engine.pipeline.glow_runtime import (
     glow_flow,
     glow_task,
 )
 from engine.domain.utils.FFmpeg import generate_thumbnail
-from prefect.states import Completed, Failed, State, get_state_exception
+from prefect.states import Completed, State
 
 
 @glow_task
@@ -34,33 +33,43 @@ def _prepared_session(session: Session) -> State:
         and len(session.get_by_type(".html")) == 1
     ):
         return Completed(message="La sesion del proyecto esta preparada.")
-    raise get_state_exception(
-        Failed(message="La sesion del proyecto no quedo preparada.")
-    )
-
-
-@glow_task
-def _prepare_project_session_failed(message: str) -> State:
-    raise get_state_exception(Failed(message=message))
-
+    raise RuntimeError("La sesion del proyecto no quedo preparada.")
 
 @glow_flow
 def prepare_project_session(
-    context: PipelineContext,
+    session: Session,
+    asset_records: AssetRecords,
     upload: list[FileStorage],
 ):
-    session = context.session
     clean_old_sessions(active_session_id=session.session_id, base_dir=session.session_dir.parent)
 
     try:
         files = upload or []
         file_count = len(files)
         analyzed_files: list[tuple[FileStorage, Path, str]] = []
+        before_root = session.get_area_root("before")
+        asset_records.root = before_root
         print({
             "input.received": {
                 "file_count": file_count,
                 "filenames": [str(file.filename or "") for file in files],
             }
+        })
+        print({
+            "input.filestorage_debug": [
+                {
+                    "filename": file.filename,
+                    "name": file.name,
+                    "content_type": file.content_type,
+                    "content_length": file.content_length,
+                    "headers": (
+                        list(file.headers.items())
+                        if file.headers is not None
+                        else None
+                    ),
+                }
+                for file in files
+            ]
         })
 
         match file_count:
@@ -172,6 +181,13 @@ def prepare_project_session(
 
         session.validate_materialized_project("before", analyzed_files)
 
+        for path, file_type in session.file_types.items():
+            asset_records.add_local_asset(
+                path.relative_to(before_root),
+                file_type=file_type,
+                origin="local",
+            )
+
         print({"project.materialized": {"kind": project_kind}})
         print({
             "session.workspace_materialized": {
@@ -182,13 +198,7 @@ def prepare_project_session(
             }
         })
         print({"prepare_project_session.complete": {"session_id": session.session_id}})
-    except ValueError as exc:
-        if session is not None and safe_rmtree(session.session_dir):
-            print({"session.cleanup": {"session_dir": str(session.session_dir)}})
-        _prepare_project_session_failed(str(exc))
     except Exception as exc:
-        if session is not None and safe_rmtree(session.session_dir):
-            print({"session.cleanup": {"session_dir": str(session.session_dir)}})
         raise RuntimeError(
             f"unexpected error [{type(exc).__name__}]: {exc}"
         ) from exc

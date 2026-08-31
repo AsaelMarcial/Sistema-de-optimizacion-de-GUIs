@@ -4,7 +4,7 @@ function showAnalyzeButton() {
   const fileNameDisplay = document.getElementById("file-name");
   const emptyLabel =
     fileNameDisplay?.dataset.emptyLabel ||
-    "Arrastra aquí tus archivos o ZIP, o haz clic para seleccionarlos.";
+    "Arrastra aquí tus archivos o haz clic para seleccionarlos.";
 
   if (!button || !fileInput || !fileNameDisplay) {
     return;

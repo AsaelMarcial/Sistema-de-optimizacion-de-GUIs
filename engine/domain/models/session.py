@@ -1,47 +1,10 @@
 import uuid
-from dataclasses import dataclass, field
 from pathlib import Path
 import shutil
-from typing import List, TypeAlias, TypedDict
-from urllib.parse import unquote, urlparse, urlunparse
+from typing import List, TypedDict
 from werkzeug.datastructures import FileStorage
 
 from engine.adapters.file_system.file_manager import is_corrupted
-
-Url: TypeAlias = str
-
-
-@dataclass(slots=True, eq=False)
-class Source:
-    source_name: Path | Url
-    type: str
-    founded_on: Path | str | None = None
-    runtime_source: Url | None = None
-    used_by: set[int] = field(default_factory=set)
-    load_status: str | None = None
-    error_message: str | None = None
-    versions: set["Source"] = field(default_factory=set)
-
-    def add_used_by(self, backend_node_id: int | None) -> None:
-        if backend_node_id is None:
-            return
-        self.used_by.add(int(backend_node_id))
-
-    def add_version(self, source: "Source") -> None:
-        if source is self:
-            return
-        self.versions.add(source)
-
-    def set_load_status(
-        self,
-        load_status: str | None,
-        error_message: str | None = None,
-    ) -> None:
-        if load_status not in {None, "loaded", "failed"}:
-            raise ValueError("load_status debe ser None, 'loaded' o 'failed'.")
-        self.load_status = load_status
-        self.error_message = error_message
-
 
 # Define the strict internal structure of your dictionary for the type checker
 class AreaStructure(TypedDict):
@@ -72,7 +35,6 @@ class Session:
             "paths": []
         }
         self.file_types: dict[Path, str] = {}
-        self.sources: list[Source] = []
         self._register_fixed_artifacts()
 
     def _register_fixed_artifacts(self) -> None:
@@ -203,110 +165,6 @@ class Session:
         return True
 
     # --- Query Methods ---
-
-    def register_source(
-        self,
-        source_name: Path | Url,
-        founded_on: Path | str | None = None,
-        load_status: str | None = None,
-        error_message: str | None = None,
-        runtime_source: Url | None = None,
-    ) -> Source:
-        existing = self.get_source(runtime_source or source_name)
-        if existing is not None:
-            return existing
-
-        if isinstance(source_name, Path):
-            requested_path = Path(source_name.as_posix())
-            found_path = self.find_by_full_path("before", requested_path)
-            parsed_name: Path | Url = requested_path
-            source_type = "local" if found_path is not None else "missing"
-        else:
-            parsed_url = urlparse(str(source_name).strip())
-            is_local_url = parsed_url.hostname in {"127.0.0.1", "localhost", "::1"}
-            if (parsed_url.scheme or parsed_url.netloc) and not is_local_url:
-                parsed_name = urlunparse(parsed_url)
-                source_type = "external"
-            else:
-                path_text = unquote(parsed_url.path or str(source_name)).strip()
-                if is_local_url:
-                    path_text = path_text.lstrip("/\\")
-                requested_path = Path(Path(path_text).as_posix())
-                found_path = self.find_by_full_path("before", requested_path)
-                parsed_name = requested_path
-                source_type = "local" if found_path is not None else "missing"
-
-        match founded_on:
-            case "network" | "Network":
-                clean_founded_on: Path | str | None = "Network"
-            case Path():
-                clean_founded_on = self.find_by_full_path("before", founded_on) or founded_on
-            case None:
-                clean_founded_on = None
-            case _:
-                clean_founded_on = self.find_by_full_path("before", str(founded_on)) or str(founded_on)
-
-        source = Source(
-            source_name=parsed_name,
-            type=source_type,
-            founded_on=clean_founded_on,
-            runtime_source=runtime_source,
-            load_status=load_status,
-            error_message=error_message,
-        )
-        self.sources.append(source)
-        return source
-
-    def get_source(self, source_name: Path | Url) -> Source | None:
-        if isinstance(source_name, Path):
-            requested_path = Path(source_name.as_posix())
-            resolved_path = self.find_by_full_path("before", requested_path) or requested_path
-            external_url = None
-        else:
-            text_name = str(source_name or "").strip()
-            if not text_name:
-                return None
-
-            parsed_url = urlparse(text_name)
-            is_local_url = parsed_url.hostname in {"127.0.0.1", "localhost", "::1"}
-            if (parsed_url.scheme or parsed_url.netloc) and not is_local_url:
-                resolved_path = None
-                external_url = urlunparse(parsed_url)
-            else:
-                path_text = unquote(parsed_url.path or text_name).strip()
-                if is_local_url:
-                    path_text = path_text.lstrip("/\\")
-                requested_path = Path(Path(path_text).as_posix())
-                resolved_path = self.find_by_full_path("before", requested_path) or requested_path
-                external_url = None
-
-        for source in self.sources:
-            if source.runtime_source and not isinstance(source_name, Path) and str(source_name) in {
-                source.runtime_source,
-                unquote(source.runtime_source),
-            }:
-                return source
-
-            match source.source_name:
-                case Path() as path:
-                    source_path = Path(path.as_posix())
-                    source_resolved = self.find_by_full_path("before", source_path) or source_path
-                    if resolved_path is not None and (
-                        source_path.as_posix().casefold() == Path(resolved_path).as_posix().casefold()
-                        or source_resolved.as_posix().casefold() == Path(resolved_path).as_posix().casefold()
-                    ):
-                        return source
-                case _:
-                    if external_url is not None and external_url in {str(source.source_name), unquote(str(source.source_name))}:
-                        return source
-
-        return None
-
-    def get_all_sources(self) -> list[Source]:
-        return sorted(
-            self.sources,
-            key=lambda source: str(source.source_name).casefold(),
-        )
 
     def get_by_type(self, file_type: str) -> list[Path]:
         clean_type = str(file_type or "").strip().lower()

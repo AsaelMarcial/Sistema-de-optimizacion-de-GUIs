@@ -2,18 +2,17 @@ from __future__ import annotations
 
 import builtins
 from collections import deque
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Callable, Iterable, Literal
-from weakref import ref,ReferenceType
+from typing import Any, Literal
 
 from engine.domain.data.scope_css import get_font_weight
-from engine.domain.models.session import Source
-from engine.domain.utils.parsers import get_colors, has_url_image, are_all_colors_transparent
-
+from engine.domain.models.asset_records import Asset
 from engine.domain.models.color_scheme import Color
+from engine.domain.utils.parsers import are_all_colors_transparent, get_colors
 
 SVG_PAINT_TAGS = ("svg", "circle", "rect", "ellipse", "line", "polyline", "polygon", "path")
+BoxQuad = list[tuple[float, float]]
 
 PropertyType = Literal[
     "inline",
@@ -28,9 +27,9 @@ class Property:
     before_value: str| None = field(default="")
     after_value: str | None = field(default=None)
     calculated_value: str | None = field(default=None)
-    image_source: Source | None = field(default=None)
+    image_source: Asset | None = field(default=None)
     has_color: bool = False
-    type: PropertyType = field(default="inherited")
+    type: PropertyType = field(default="matched")
     is_defined: bool = field(default=False)
 
     @property
@@ -41,24 +40,18 @@ class Property:
     def has_changed(self) -> bool:
         return self.after_value is not None and self.before_value != self.after_value
 
-@dataclass(slots=True)
+@dataclass(slots=True, eq=False)
 class Element:
     backend_node_id: int
     node_id: int | None
     tag_name: str
     category: str | None
     node_type: int
-    parent_backend_node_id: int = -1
-    parent: ReferenceType[Element] | None = field(
-        default=None,
-        repr=False,
-        compare=False
-    )
-    x: float | None = None
-    y: float | None = None
+    node_value: str | None = None
+    parent: Element | None = field(default=None, repr=False, compare=False)
+    box_model: dict[str, BoxQuad] = field(default_factory=dict)
     width: float | None = None
     height: float | None = None
-    depth: int | None = None
     properties: list[Property] = field(default_factory=list)
     children: list[Element] = field(
         default_factory=list, 
@@ -66,9 +59,54 @@ class Element:
         compare=False
     )
 
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, Element)
+            and self.backend_node_id == other.backend_node_id
+        )
+
+    def __hash__(self) -> int:
+        return hash(self.backend_node_id)
+
+    @property
+    def ancestors(self) -> Iterator[Element]:
+        current = self.parent
+        visited_backend_node_ids: set[int] = {self.backend_node_id}
+
+        while current is not None:
+            if current.backend_node_id in visited_backend_node_ids:
+                break
+
+            yield current
+            visited_backend_node_ids.add(current.backend_node_id)
+            current = current.parent
+
+    @property
+    def is_visible(self) -> bool:
+        return bool(
+            self.box_model
+            and (self.width or 0) > 0
+            and (self.height or 0) > 0
+        )
+
+    @property
+    def depth(self) -> int:
+        return self.depth_for()
+
+    def depth_for(self, only_visible_ancestors: bool = True) -> int:
+        return sum(
+            1
+            for ancestor in self.ancestors
+            if not only_visible_ancestors or ancestor.is_visible
+        )
+
     @property
     def has_text(self) -> bool:
-        return any(child.tag_name == "#text" for child in self.children)
+        return any(
+            child.tag_name == "#text"
+            and bool(str(child.node_value or "").strip())
+            for child in self.children
+        )
     
     @property
     def has_image(self) -> bool:
@@ -82,14 +120,33 @@ class Element:
             if property_model.type == "attribute"
         ]
 
+    @property
+    def content(self) -> BoxQuad | None:
+        return self.box_model.get("content")
+
+    @property
+    def padding(self) -> BoxQuad | None:
+        return self.box_model.get("padding")
+
+    @property
+    def border(self) -> BoxQuad | None:
+        return self.box_model.get("border")
+
+    @property
+    def margin(self) -> BoxQuad | None:
+        return self.box_model.get("margin")
+
     def image_references(self) -> list[Property]:
         return [property_model for property_model in self.properties if property_model.image_source is not None]
 
     def add_child(self, child: Element) -> None:
         if child is self:
             raise ValueError("An Element cannot be a child of itself.")
-        if child not in self.children:
-            child.parent_backend_node_id = self.backend_node_id
+        if not any(
+            item.backend_node_id == child.backend_node_id
+            for item in self.children
+        ):
+            child.parent = self
             self.children.append(child)
 
     def iter_dfs(self):
@@ -103,38 +160,6 @@ class Element:
             current = queue.popleft()
             yield current
             queue.extend(current.children)
-
-    def find(self, condition: Callable[[Element], bool]) -> Element | None:
-        for element in self.iter_dfs():
-            if condition(element):
-                return element
-        return None
-
-    def find_by_backend_node_id(self, backend_node_id: int) -> Element | None:
-        return self.find(lambda element: element.backend_node_id == backend_node_id)
-
-    def ancestors_of(self, node: Element) -> list[Element]:
-        elements_by_backend_node_id = {
-            element.backend_node_id: element
-            for element in self.iter_dfs()
-        }
-        ancestors: list[Element] = []
-        parent_backend_node_id = node.parent_backend_node_id
-        visited_backend_node_ids: set[int] = {node.backend_node_id}
-
-        while parent_backend_node_id != -1:
-            if parent_backend_node_id in visited_backend_node_ids:
-                break
-
-            parent = elements_by_backend_node_id.get(parent_backend_node_id)
-            if parent is None:
-                break
-
-            ancestors.append(parent)
-            visited_backend_node_ids.add(parent.backend_node_id)
-            parent_backend_node_id = parent.parent_backend_node_id
-
-        return ancestors
 
     def attribute(self, name: str) -> Property | None:
         normalized = str(name).strip()
@@ -176,10 +201,6 @@ class Element:
             if prop.name != normalized or prop.type == "attribute"
         ]
 
-    def has_tag(self, *names: str) -> bool:
-        normalized = {str(name).strip().lower() for name in names}
-        return self.tag_name.lower() in normalized
-
     def get_text_contrast(
         self,
         color: str,
@@ -189,7 +210,7 @@ class Element:
     ) -> tuple[str, Color, float, float, bool] | None:
         background_values = tuple(background_colors or ())
         if not color or not background_values:
-            print(str(color))
+            # print(str(color))
             return None
 
         foreground = Color(color)
@@ -205,7 +226,7 @@ class Element:
         try:
             font_size = float(str(font_size).removesuffix("px"))
         except (TypeError, ValueError):
-            print(str(font_size))
+            # print(str(font_size))
             return None
 
         font_weight = get_font_weight(str(font_weight)) or 400
@@ -265,7 +286,7 @@ class Element:
         Devuelve el ancestro más cercano que tenga al menos un color de
         fondo válido. Si ninguno tiene, devuelve el nodo 'root'.
         """
-        for ancestor in root.ancestors_of(self):
+        for ancestor in self.ancestors:
             if ancestor.tag_name == "body" or ancestor.has_image:
                 return ancestor
                 
@@ -280,3 +301,69 @@ class Element:
 
 def iter_elements(root: Element | None) -> Iterable[Element]:
     return () if root is None else root.iter_dfs()
+
+
+@dataclass(slots=True)
+class DomTree:
+    html: Element | None = None
+    body: Element | None = None
+    elements: dict[int, Element] = field(default_factory=dict)
+    stylesheet_owners: dict[int, Element] = field(default_factory=dict)
+    meta_elements: dict[int, Element] = field(default_factory=dict)
+    page_width: int = 0
+    page_height: int = 0
+
+    @property
+    def root(self) -> Element | None:
+        return self.html
+
+    @property
+    def size(self) -> tuple[int, int]:
+        return self.page_width, self.page_height
+
+    def require_html(self) -> Element:
+        if self.html is None:
+            raise RuntimeError("DomTree no contiene html.")
+        return self.html
+
+    def require_body(self) -> Element:
+        if self.body is None:
+            raise RuntimeError("DomTree no contiene body.")
+        return self.body
+
+    def iter_dfs(self) -> Iterable[Element]:
+        body = self.body
+        return () if body is None else body.iter_dfs()
+
+    def iter_full_dfs(self) -> Iterable[Element]:
+        html = self.html
+        return () if html is None else html.iter_dfs()
+
+    def get(self, backend_node_id: int) -> Element | None:
+        return self.elements.get(backend_node_id)
+
+    def find(self, condition: Callable[[Element], bool]) -> Element | None:
+        return next(
+            (
+                element
+                for element in self.elements.values()
+                if condition(element)
+            ),
+            None,
+        )
+
+    def find_by_backend_node_id(
+        self,
+        backend_node_id: int,
+    ) -> Element | None:
+        return self.elements.get(backend_node_id)
+
+    def filter(
+        self,
+        condition: Callable[[Element], bool],
+    ) -> dict[int, Element]:
+        return {
+            backend_node_id: element
+            for backend_node_id, element in self.elements.items()
+            if condition(element)
+        }

@@ -7,6 +7,7 @@ from urllib.parse import quote, unquote, urlparse, urlunparse
 import tinycss2
 from bs4 import BeautifulSoup, Tag
 
+from engine.domain.models.asset_records import Asset, AssetRecords, LocalAsset
 from engine.domain.models.session import Session
 
 _SRCSET_ATTRIBUTES = {"srcset", "data-srcset"}
@@ -112,11 +113,17 @@ def rewrite_reference_candidates(
         return str(value or "")
 
 
-def rewrite_local_asset_references(html_path: Path, session: Session) -> list[str]:
+def rewrite_local_asset_references(
+    html_path: Path,
+    session: Session,
+    asset_records: AssetRecords,
+) -> list[str]:
     html_path = Path(html_path).resolve()
     before_root = session.get_area_root("before").resolve()
     html_base_path = html_path.parent.resolve()
-    founded_on = Path(html_path.relative_to(html_base_path, walk_up=True).as_posix())
+    owner_asset = asset_records.find_asset(html_path)
+    if not isinstance(owner_asset, LocalAsset):
+        owner_asset = None
     processed_css: set[Path] = set()
     rewritten_values: list[str] = []
 
@@ -132,10 +139,11 @@ def rewrite_local_asset_references(html_path: Path, session: Session) -> list[st
                 rewritten = _rewrite_value(
                     value,
                     session,
+                    asset_records,
                     before_root,
                     html_base_path,
                     html_base_path,
-                    founded_on,
+                    owner_asset,
                     attr,
                     processed_css,
                     rewritten_values,
@@ -149,10 +157,11 @@ def rewrite_local_asset_references(html_path: Path, session: Session) -> list[st
                     _rewrite_value(
                         item,
                         session,
+                        asset_records,
                         before_root,
                         html_base_path,
                         html_base_path,
-                        founded_on,
+                        owner_asset,
                         attr,
                         processed_css,
                         rewritten_values,
@@ -168,10 +177,11 @@ def rewrite_local_asset_references(html_path: Path, session: Session) -> list[st
             rewritten = _rewrite_css_urls(
                 css_text,
                 session,
+                asset_records,
                 before_root,
                 html_base_path,
                 html_base_path,
-                founded_on,
+                owner_asset,
                 processed_css,
                 rewritten_values,
             )
@@ -188,10 +198,11 @@ def rewrite_local_asset_references(html_path: Path, session: Session) -> list[st
 def _rewrite_value(
     value: str,
     session: Session,
+    asset_records: AssetRecords,
     before_root: Path,
     html_base_path: Path,
     reference_base_path: Path,
-    founded_on: Path | None,
+    owner_asset: LocalAsset | None,
     attr_name: str = "",
     processed_css: set[Path] | None = None,
     rewritten_values: list[str] | None = None,
@@ -204,10 +215,11 @@ def _rewrite_value(
         return _rewrite_css_urls(
             value,
             session,
+            asset_records,
             before_root,
             html_base_path,
             reference_base_path,
-            founded_on,
+            owner_asset,
             processed_css,
             rewritten_values,
         )
@@ -223,10 +235,11 @@ def _rewrite_value(
             rewritten_source = _rewrite_path(
                 source,
                 session,
+                asset_records,
                 before_root,
                 html_base_path,
                 reference_base_path,
-                founded_on,
+                owner_asset,
                 processed_css,
                 rewritten_values,
             )
@@ -240,10 +253,11 @@ def _rewrite_value(
     rewritten_path = _rewrite_path(
         value,
         session,
+        asset_records,
         before_root,
         html_base_path,
         reference_base_path,
-        founded_on,
+        owner_asset,
         processed_css,
         rewritten_values,
     )
@@ -263,10 +277,11 @@ def _rewrite_value(
         rewritten_source = _rewrite_path(
             source,
             session,
+            asset_records,
             before_root,
             html_base_path,
             reference_base_path,
-            founded_on,
+            owner_asset,
             processed_css,
             rewritten_values,
         )
@@ -279,10 +294,11 @@ def _rewrite_value(
 def _rewrite_path(
     value: str,
     session: Session,
+    asset_records: AssetRecords,
     before_root: Path,
     html_base_path: Path,
     reference_base_path: Path,
-    founded_on: Path | None = None,
+    owner_asset: LocalAsset | None = None,
     processed_css: set[Path] | None = None,
     rewritten_values: list[str] | None = None,
 ) -> str:
@@ -293,7 +309,13 @@ def _rewrite_path(
     parsed = urlparse(text)
     if parsed.scheme or parsed.netloc:
         if parsed.scheme.casefold() not in _IGNORED_EXTERNAL_SCHEMES:
-            session.register_source(urlunparse(parsed), founded_on=founded_on)
+            if owner_asset is not None:
+                asset_records.add_resource(
+                    owner_asset.source,
+                    urlunparse(parsed),
+                )
+            else:
+                asset_records.add_asset(urlunparse(parsed), "external")
         return value
     if not parsed.path:
         return value
@@ -315,15 +337,18 @@ def _rewrite_path(
     current_path = (current_root / path).resolve()
 
     if current_path.is_file() and current_path.is_relative_to(before_root):
-        session.register_source(
-            Path(current_path.relative_to(html_base_path, walk_up=True).as_posix()),
-            founded_on=founded_on,
-        )
+        current_asset = asset_records.find_asset(current_path)
+        if current_asset is None:
+            current_asset = asset_records.add_asset(current_path, "unknown")
+        if owner_asset is not None:
+            asset_records.add_resource(owner_asset.source, current_path)
         _rewrite_stylesheet_file_if_needed(
             current_path,
             session,
+            asset_records,
             before_root,
             html_base_path,
+            current_asset if isinstance(current_asset, LocalAsset) else None,
             processed_css,
             rewritten_values,
         )
@@ -333,28 +358,49 @@ def _rewrite_path(
     if target_path is None:
         current_root = before_root if root_absolute else reference_base_path
         candidate_path = (current_root / path).resolve()
-        source_name = (
+        unknown_source = (
             Path(candidate_path.relative_to(html_base_path, walk_up=True).as_posix())
             if candidate_path.is_relative_to(before_root)
             else Path(path.as_posix())
         )
-        session.register_source(source_name, founded_on=founded_on)
+        asset = asset_records.add_asset(unknown_source.as_posix(), "unknown")
+        if owner_asset is not None:
+            asset_records.add_resource(
+                owner_asset.source,
+                asset.source,
+            )
         return value
 
     target_absolute = (before_root / target_path).resolve()
     if not target_absolute.is_file() or not target_absolute.is_relative_to(before_root):
-        session.register_source(Path(path.as_posix()), founded_on=founded_on)
+        asset = asset_records.add_asset(path.as_posix(), "unknown")
+        if owner_asset is not None:
+            asset_records.add_resource(
+                owner_asset.source,
+                asset.source,
+            )
         return value
 
-    session.register_source(
-        Path(target_absolute.relative_to(html_base_path, walk_up=True).as_posix()),
-        founded_on,
-    )
+    target_asset = asset_records.find_asset(target_absolute)
+    if target_asset is None:
+        target_asset = asset_records.add_asset(target_absolute, "unknown")
+    if owner_asset is not None:
+        related_path = asset_records.add_resource(
+            owner_asset.source,
+            target_absolute,
+        )
+    else:
+        related_path = target_absolute.relative_to(
+            reference_base_path,
+            walk_up=True,
+        ).as_posix()
     _rewrite_stylesheet_file_if_needed(
         target_absolute,
         session,
+        asset_records,
         before_root,
         html_base_path,
+        target_asset if isinstance(target_asset, LocalAsset) else None,
         processed_css,
         rewritten_values,
     )
@@ -362,10 +408,7 @@ def _rewrite_path(
     if root_absolute:
         rewritten_path = f"/{target_path.as_posix()}"
     else:
-        rewritten_path = target_absolute.relative_to(
-            reference_base_path,
-            walk_up=True,
-        ).as_posix()
+        rewritten_path = str(related_path)
 
     rewritten = urlunparse(
         parsed._replace(
@@ -380,13 +423,19 @@ def _rewrite_path(
 def _rewrite_css_urls(
     css_text: str,
     session: Session,
-    before_root: Path,
-    html_base_path: Path,
+    asset_records: AssetRecords,
+    before_root: Path | None = None,
+    html_base_path: Path | None = None,
     reference_base_path: Path | None = None,
-    founded_on: Path | None = None,
+    owner_asset: LocalAsset | None = None,
     processed_css: set[Path] | None = None,
     rewritten_values: list[str] | None = None,
 ) -> str:
+    if before_root is None or html_base_path is None:
+        raise ValueError("before_root y html_base_path son obligatorios.")
+    resolved_before_root = Path(before_root)
+    resolved_html_base_path = Path(html_base_path)
+
     tokens = tinycss2.parse_component_value_list(
         css_text,
         skip_comments=False,
@@ -394,10 +443,11 @@ def _rewrite_css_urls(
     changed = _rewrite_css_url_tokens(
         tokens,
         session,
-        before_root,
-        html_base_path,
-        reference_base_path or html_base_path,
-        founded_on,
+        asset_records,
+        resolved_before_root,
+        resolved_html_base_path,
+        reference_base_path or resolved_html_base_path,
+        owner_asset,
         processed_css,
         rewritten_values,
     )
@@ -407,10 +457,11 @@ def _rewrite_css_urls(
 def _rewrite_css_url_tokens(
     tokens: list[Any],
     session: Session,
+    asset_records: AssetRecords,
     before_root: Path,
     html_base_path: Path,
     reference_base_path: Path,
-    founded_on: Path | None,
+    owner_asset: LocalAsset | None,
     processed_css: set[Path] | None = None,
     rewritten_values: list[str] | None = None,
 ) -> bool:
@@ -423,10 +474,11 @@ def _rewrite_css_url_tokens(
             rewritten = _rewrite_path(
                 token.value,
                 session,
+                asset_records,
                 before_root,
                 html_base_path,
                 reference_base_path,
-                founded_on,
+                owner_asset,
                 processed_css,
                 rewritten_values,
             )
@@ -442,10 +494,11 @@ def _rewrite_css_url_tokens(
             rewritten = _rewrite_path(
                 original,
                 session,
+                asset_records,
                 before_root,
                 html_base_path,
                 reference_base_path,
-                founded_on,
+                owner_asset,
                 processed_css,
                 rewritten_values,
             )
@@ -467,10 +520,11 @@ def _rewrite_css_url_tokens(
             changed = _rewrite_css_url_tokens(
                 nested_tokens,
                 session,
+                asset_records,
                 before_root,
                 html_base_path,
                 reference_base_path,
-                founded_on,
+                owner_asset,
                 processed_css,
                 rewritten_values,
             ) or changed
@@ -481,8 +535,10 @@ def _rewrite_css_url_tokens(
 def _rewrite_stylesheet_file_if_needed(
     css_path: Path,
     session: Session,
+    asset_records: AssetRecords,
     before_root: Path,
     html_base_path: Path,
+    owner_asset: LocalAsset | None,
     processed_css: set[Path] | None = None,
     rewritten_values: list[str] | None = None,
 ) -> None:
@@ -504,10 +560,11 @@ def _rewrite_stylesheet_file_if_needed(
     rewritten = _rewrite_css_urls(
         css_text,
         session,
+        asset_records,
         before_root,
         html_base_path,
         css_path.parent,
-        Path(css_path.relative_to(html_base_path, walk_up=True).as_posix()),
+        owner_asset,
         processed_css,
         rewritten_values,
     )

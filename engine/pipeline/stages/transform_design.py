@@ -11,8 +11,9 @@ from engine.domain.models.color_scheme import (
     NEUTRAL_TONAL_STEPS,
     Tone,
 )
-from engine.domain.models.element import Element, Property, SVG_PAINT_TAGS
-from engine.domain.models.session import Session, Source
+from engine.domain.models.asset_records import AssetRecords, LocalAsset
+from engine.domain.models.element import DomTree, Element, Property, SVG_PAINT_TAGS
+from engine.domain.models.session import Session
 from engine.domain.models.token import TokenInventory
 from engine.domain.utils.css_generator import generate_theme_css
 from engine.domain.utils.parsers import (
@@ -21,7 +22,6 @@ from engine.domain.utils.parsers import (
     replace_property_values,
     is_css_value_contained,
 )
-from engine.pipeline.context import PipelineContext
 from engine.pipeline.glow_runtime import (
     glow_flow,
     glow_task,
@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any
 import re
 import io
-from prefect.states import Completed, Failed, State, get_state_exception
+from prefect.states import Completed, State
 
 SVG_DEFAULT_FILL_TAGS = ("path", "circle", "rect", "ellipse", "polygon", "polyline", "text", "use")
 
@@ -55,17 +55,19 @@ def _transform_design_ready(
         and screenshot_path.is_file()
     ):
         return Completed(message="Transformacion lista.")
-    raise get_state_exception(Failed(message="La transformacion no paso validacion."))
+    raise RuntimeError("La transformacion no paso validacion.")
 
 
 @glow_flow
-def transform_design(context: PipelineContext):
-    session = context.session
-    page_builder = context.page_builder
-    root = context.dom_tree
-    color_scheme = context.color_scheme
-    token_inventory = context.token_inventory
-
+def transform_design(
+    session: Session,
+    page_builder: PageBuilder,
+    dom_tree: DomTree,
+    color_scheme: ColorScheme,
+    token_inventory: TokenInventory,
+    asset_records: AssetRecords,
+):
+    root = dom_tree.require_body()
     color_scheme_ready = page_builder.set_color_scheme()
     theme_link_ready = page_builder.set_theme_link()
 
@@ -145,7 +147,7 @@ def transform_design(context: PipelineContext):
                             target_tone = target_tones[0] if target_tones else None
                     else:
                         surface_depth = max(element.depth or 1, 1)
-                        for surface_ancestor in root.ancestors_of(element):
+                        for surface_ancestor in element.ancestors:
                             if surface_ancestor.tag_name == "body":
                                 break
                             
@@ -333,6 +335,7 @@ def transform_design(context: PipelineContext):
             actual_ancestor_background_colors, _ = _actual_backgrounds(root, element)
             _process_external_svg_decoration(
                 session,
+                asset_records,
                 page_builder,
                 element,
                 original_ancestor_background_colors,
@@ -341,7 +344,7 @@ def transform_design(context: PipelineContext):
             )
             continue
 
-        if element.has_text and not element.has_tag("body"):
+        if element.has_text and element.tag_name != "body":
             # print(str(element.tag_name))
             actual_background_data = page_builder.get_background_colors(
                 element.node_id
@@ -459,6 +462,7 @@ def transform_design(context: PipelineContext):
 
 def _process_external_svg_decoration(
     session: Session,
+    asset_records: AssetRecords,
     page_builder: PageBuilder,
     element: Element,
     original_ancestor_background_colors: Any,
@@ -472,10 +476,9 @@ def _process_external_svg_decoration(
         for image_reference in element.properties:
             source = image_reference.image_source
             if (
-                not isinstance(source, Source)
-                or source.type != "local"
-                or source.load_status != "loaded"
-                or not isinstance(source.source_name, Path)
+                not isinstance(source, LocalAsset)
+                or source.origin not in {"local", "generated"}
+                or not source.load_status
             ):
                 continue
 
@@ -483,33 +486,38 @@ def _process_external_svg_decoration(
                 (
                     candidate
                     for candidate in session.get_by_type(".svg")
-                    if candidate.stem.lower() == source.source_name.stem.lower()
+                    if candidate.stem.lower() == source.path.stem.lower()
                 ),
                 None,
             )
             if svg_path is None:
                 continue
 
-            if source.versions:
-                version_source = next(iter(source.versions))
+            source_versions = tuple(source.versions_of)
+            if source_versions:
+                version_source = asset_records.find_asset(source_versions[0])
+                if not isinstance(version_source, LocalAsset):
+                    continue
             else:
+                glow_path = svg_path.with_name(f"{svg_path.stem}-glow{svg_path.suffix}")
 
                 if not _rewrite_svg_file(
                     svg_path,
-                    svg_path.with_name(f"{svg_path.stem}-glow{svg_path.suffix}"),
+                    glow_path,
                     original_ancestor_background_colors,
                     actual_ancestor_background_colors,
                     color_scheme,
                 ):
                     continue
 
-                session.save_in_before(svg_path.with_name(f"{source.source_name.stem}-glow{source.source_name.suffix}"))
-                version_source = session.register_source(source.source_name.with_name(f"{source.source_name.stem}-glow{source.source_name.suffix}"))
-                source.add_version(version_source)
+                version_source = asset_records.add_version(
+                    source.source,
+                    glow_path.read_bytes(),
+                )
+                session.save_in_before(version_source.path)
 
             if (
-                version_source.type != "local"
-                or not isinstance(version_source.source_name, Path)
+                version_source.origin not in {"local", "generated"}
             ):
                 continue
 
@@ -556,22 +564,15 @@ def _process_external_svg_decoration(
 def _source_reference_for_page_builder(
     session: Session,
     page_builder: PageBuilder,
-    source: Source,
+    source: LocalAsset,
 ) -> str | None:
-    if not isinstance(source.source_name, Path):
-        return None
-
     before_root = session.get_area_root("before").resolve()
     reference_base_path = (page_builder.base_path or before_root).resolve()
-    relative_source_path = session.find_by_full_path("before", source.source_name)
+    source_path = source.path
+    relative_source_path = session.find_by_full_path("before", source_path)
 
     if relative_source_path is None:
-        source_path = Path(source.source_name.as_posix())
-        source_absolute_path = (
-            source_path.resolve()
-            if source_path.is_absolute()
-            else (before_root / source_path).resolve()
-        )
+        source_absolute_path = Path(source_path).resolve()
         if source_absolute_path.is_file() and source_absolute_path.is_relative_to(before_root):
             relative_source_path = source_absolute_path.relative_to(before_root, walk_up=True)
 
@@ -1013,7 +1014,7 @@ def _original_backgrounds(root: Element, page_builder: PageBuilder) -> list[tupl
     background_data: dict[str, Any] = {}
 
     for element in root.iter_dfs():
-        if element.has_text and not element.has_tag("body"):
+        if element.has_text and element.tag_name != "body":
             background_data = page_builder.get_background_colors(
                 element.node_id
             ) or {}

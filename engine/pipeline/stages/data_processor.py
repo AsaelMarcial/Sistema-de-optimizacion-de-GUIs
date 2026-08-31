@@ -3,17 +3,16 @@ from __future__ import annotations
 from engine.adapters.browser.page_builder import PageBuilder
 from engine.adapters.utils.pixel import build_histogram, image_to_array
 from engine.domain.models.color_scheme import Color, ColorScheme
-from engine.domain.models.element import Element
+from engine.domain.models.element import DomTree, Element
 from engine.domain.models.session import Session
 from engine.domain.models.summary import Summary
 from engine.domain.data.web_colors import nearest_web_color
 from engine.domain.utils.css_generator import generate_root_css
-from engine.pipeline.context import PipelineContext
 from engine.pipeline.glow_runtime import (
     glow_flow,
     glow_task,
 )
-from prefect.states import Completed, Failed, State, get_state_exception
+from prefect.states import Completed, State
 
 _PREDOMINANT_COLOR_LIMIT = 13
 _HUE_BUCKET_SIZE = 30
@@ -23,7 +22,7 @@ _HSL_DISTANCE_THRESHOLD = 40
 @glow_task
 def _summary_ready(summary: Summary | None) -> State:
     if summary is None:
-        raise get_state_exception(Failed(message="No se genero Summary."))
+        raise RuntimeError("No se genero Summary.")
 
     required_overviews = (
         "environmental_color_histogram",
@@ -46,16 +45,17 @@ def _summary_ready(summary: Summary | None) -> State:
         tuple,
     ):
         return Completed(message="Summary esta listo.")
-    raise get_state_exception(Failed(message="Summary no paso validacion."))
+    raise RuntimeError("Summary no paso validacion.")
 
 
 @glow_flow
-def data_processor(context: PipelineContext):
-    session = context.session
-    page_builder = context.page_builder
-    dom_tree = context.dom_tree
-    color_scheme = context.color_scheme
-    summary = context.summary
+def data_processor(
+    session: Session,
+    page_builder: PageBuilder,
+    dom_tree: DomTree,
+    color_scheme: ColorScheme,
+    summary: Summary,
+):
     screenshot_path = session.get_path("before.png", "artifacts", "png")
 
     pixel_matrix = image_to_array(screenshot_path)
@@ -71,7 +71,6 @@ def data_processor(context: PipelineContext):
     )
     predominant_colors = _predominant_colors(colors_distribution)
     _build_tonal_palettes(color_scheme, predominant_colors)
-    token_inventory = context.token_inventory
     css_path = _theme_css_path(session)
     css_path.write_text(
         generate_root_css(color_scheme.palettes),
@@ -314,8 +313,9 @@ def _build_tonal_palettes(
 def _process_tree(
     summary: Summary,
     page_builder: PageBuilder,
-    root: Element,
+    dom_tree: DomTree,
 ) -> list[list[tuple[float, float]]]:
+    root = dom_tree.require_body()
     issue_id = 1
     quads: list[list[tuple[float, float]]] = []
 
@@ -323,10 +323,8 @@ def _process_tree(
         try:
             excluded_pixels = element.category == "media" or element.has_image or element.category == "input"
 
-            if excluded_pixels:
-                quad = page_builder.get_box_model(element.backend_node_id)
-                if quad:
-                    quads.append(quad)
+            if excluded_pixels and element.content is not None:
+                quads.append(element.content)
 
             if not element.has_text or element.node_id is None:
                 continue

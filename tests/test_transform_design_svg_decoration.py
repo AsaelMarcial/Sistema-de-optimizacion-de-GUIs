@@ -5,8 +5,9 @@ from pathlib import Path
 from engine.adapters.source_code_handler.local_asset_rewriter import (
     extract_reference_candidates,
 )
+from engine.domain.models.asset_records import Asset, AssetRecords
 from engine.domain.models.element import Element, Property
-from engine.domain.models.session import Session, Source
+from engine.domain.models.session import Session
 from engine.domain.models.token import TokenInventory
 from engine.pipeline.stages.transform_design import (
     _process_external_svg_decoration,
@@ -76,7 +77,7 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
                 Property(
                     name="srcset",
                     before_value="wide.png 1x",
-                    image_source=Source(Path("wide.png"), "local"),
+                    image_source=Asset(source="wide.png", origin="unknown"),
                     type="attribute",
                     is_defined=True,
                 ),
@@ -117,7 +118,18 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
                 encoding="utf-8",
             )
             session.file_types[svg_path.resolve()] = ".svg"
-            source = session.register_source("missing/icon.svg", load_status="loaded")
+            asset_records = AssetRecords()
+            asset_records.root = before_root
+            source = asset_records.add_local_asset(
+                svg_path,
+                file_type=".svg",
+            )
+            source.add_network_information(
+                "http://127.0.0.1/site/assets/icon.svg",
+                timing=None,
+                resource_type="image",
+                load_status=True,
+            )
 
             element = Element(
                 backend_node_id=10,
@@ -146,6 +158,7 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
 
             _process_external_svg_decoration(
                 session=session,
+                asset_records=asset_records,
                 page_builder=page_builder,
                 element=element,
                 original_ancestor_background_colors=None,
@@ -155,7 +168,7 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
 
             glow_path = project_dir / "assets" / "icon-glow.svg"
             self.assertTrue(glow_path.is_file())
-            self.assertEqual(1, len(source.versions))
+            self.assertEqual(1, len(tuple(source.versions_of)))
             self.assertEqual(
                 "assets/icon-glow.svg",
                 element.attributes[0].current_value,
@@ -192,9 +205,22 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
             glow_path.write_text("<svg></svg>", encoding="utf-8")
             session.file_types[svg_path.resolve()] = ".svg"
 
-            source = session.register_source("missing/icon.svg", load_status="loaded")
-            version_source = session.register_source(glow_path)
-            source.add_version(version_source)
+            asset_records = AssetRecords()
+            asset_records.root = before_root
+            source = asset_records.add_local_asset(
+                svg_path,
+                file_type=".svg",
+            )
+            source.add_network_information(
+                "http://127.0.0.1/site/assets/icon.svg",
+                timing=None,
+                resource_type="image",
+                load_status=True,
+            )
+            version_source = asset_records.add_version(
+                source.source,
+                b"<svg><path fill='white' /></svg>",
+            )
 
             element = Element(
                 backend_node_id=10,
@@ -216,6 +242,7 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
 
             _process_external_svg_decoration(
                 session=session,
+                asset_records=asset_records,
                 page_builder=page_builder,
                 element=element,
                 original_ancestor_background_colors=None,
@@ -223,7 +250,10 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
                 color_scheme=None,
             )
 
-            self.assertEqual({version_source}, source.versions)
+            self.assertIs(
+                version_source,
+                asset_records.find_asset(next(iter(source.versions_of))),
+            )
             self.assertEqual(
                 "assets/icon-glow.svg",
                 page_builder.attribute_values[(20, "src")],
@@ -240,7 +270,12 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
             svg_path.parent.mkdir(parents=True, exist_ok=True)
             svg_path.write_text("<svg></svg>", encoding="utf-8")
             session.file_types[svg_path.resolve()] = ".svg"
-            source = session.register_source("missing/icon.svg")
+            asset_records = AssetRecords()
+            asset_records.root = before_root
+            source = asset_records.add_local_asset(
+                svg_path,
+                file_type=".svg",
+            )
 
             element = Element(
                 backend_node_id=10,
@@ -262,6 +297,7 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
 
             _process_external_svg_decoration(
                 session=session,
+                asset_records=asset_records,
                 page_builder=page_builder,
                 element=element,
                 original_ancestor_background_colors=None,
@@ -270,7 +306,7 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
             )
 
             self.assertEqual({}, page_builder.attribute_values)
-            self.assertFalse(source.versions)
+            self.assertFalse(tuple(source.versions_of))
         finally:
             shutil.rmtree(session.session_dir, ignore_errors=True)
 
@@ -286,7 +322,18 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
                 encoding="utf-8",
             )
             session.file_types[svg_path.resolve()] = ".svg"
-            source = session.register_source("missing/icon.svg", load_status="loaded")
+            asset_records = AssetRecords()
+            asset_records.root = before_root
+            source = asset_records.add_local_asset(
+                svg_path,
+                file_type=".svg",
+            )
+            source.add_network_information(
+                "http://127.0.0.1/site/assets/icon.svg",
+                timing=None,
+                resource_type="image",
+                load_status=True,
+            )
 
             element = Element(
                 backend_node_id=10,
@@ -308,6 +355,7 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
 
             _process_external_svg_decoration(
                 session=session,
+                asset_records=asset_records,
                 page_builder=page_builder,
                 element=element,
                 original_ancestor_background_colors=None,
@@ -317,7 +365,10 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
 
             expected = "assets/icon-glow.svg 1x, assets/icon-glow.svg 2x"
             self.assertEqual(expected, element.attributes[0].current_value)
-            self.assertIs(next(iter(source.versions)), element.attributes[0].image_source)
+            self.assertIs(
+                asset_records.find_asset(next(iter(source.versions_of))),
+                element.attributes[0].image_source,
+            )
             self.assertEqual(expected, page_builder.attribute_values[(20, "srcset")])
         finally:
             shutil.rmtree(session.session_dir, ignore_errors=True)

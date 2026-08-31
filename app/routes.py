@@ -90,26 +90,22 @@ def results():
         return redirect(url_for("main.index"))
     context = state.result()
 
-    session = context.session
-    dom_tree = context.dom_tree
-    changed_elements = [
-        element
-        for element in (dom_tree.iter_dfs() if dom_tree is not None else ())
-        if any(property_model.has_changed for property_model in element.properties)
-    ]
-
     return render_template(
         "results.html",
         context=context,
-        session=session,
-        session_dirname=session.session_dir.name,
+        session=context.session,
+        session_dirname=context.session.session_dir.name,
         summary=context.summary,
-        dom_tree=dom_tree,
-        changed_elements=changed_elements,
+        dom_tree=context.dom_tree,
+        changed_elements=[
+            element
+            for element in (context.dom_tree.iter_dfs() if context.dom_tree is not None else ())
+            if any(property_model.has_changed for property_model in element.properties)
+        ],
         color_scheme=context.color_scheme,
         environmental_review=context.summary.environmental_review(),
         download_url=url_for(
             "main.session_after_download",
-            session_id=session.session_dir.name,
+            session_id=context.session.session_dir.name,
         ),
     )
