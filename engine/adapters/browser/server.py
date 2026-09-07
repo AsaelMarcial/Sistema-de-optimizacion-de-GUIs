@@ -32,8 +32,8 @@ class StaticServer:
         try:
             if not self.server:
                 raise RuntimeError("El servidor no ha sido iniciado mediante __enter__.")
-            host, port = self.server.server_address
-            return f"http://[{host}]:{port}" if ":" in host else f"http://{host}:{port}"
+            port = self.server.server_port
+            return f"http://{self.host}:{port}"
         except Exception as e:
             error_nombre = type(e).__name__
             error_desc = str(e)

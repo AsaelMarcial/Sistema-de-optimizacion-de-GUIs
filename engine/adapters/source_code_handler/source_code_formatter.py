@@ -9,6 +9,7 @@ from urllib.parse import unquote, urlsplit
 
 from bs4 import BeautifulSoup, Comment, Doctype, Tag
 from bs4.formatter import HTMLFormatter
+from flask import g
 
 from engine.adapters.browser.page_builder import PageBuilder, _STYLE_MARKER_PREFIX
 
@@ -269,7 +270,7 @@ def process_stylesheets(
     html_path: Path
 ) -> tuple[dict[str, Path], dict[str, str], list[dict[str, str]], str]:
     main_frame_id = page_builder.get_main_frame_id()
-    stylesheets = tuple(page_builder.styles.stylesheets.values())
+    stylesheets = tuple(g.style.stylesheets.values())
     used_paths: set[str] = set()
     stylesheet_paths: dict[str, Path] = {}
     stylesheet_texts: dict[str, str] = {}

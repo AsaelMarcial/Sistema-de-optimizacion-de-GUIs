@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+from flask import g
+
 from engine.adapters.browser.page_builder import PageBuilder
 from engine.adapters.utils.pixel import build_histogram, image_to_array
 from engine.domain.models.color_scheme import Color, ColorScheme
 from engine.domain.models.element import DomTree, Element
-from engine.domain.models.session import Session
+from engine.domain.models.project_context import ProjectContext
 from engine.domain.models.summary import Summary
 from engine.domain.data.web_colors import nearest_web_color
 from engine.domain.utils.css_generator import generate_root_css
@@ -12,7 +16,7 @@ from engine.pipeline.glow_runtime import (
     glow_flow,
     glow_task,
 )
-from prefect.states import Completed, State
+from prefect.states import Completed, State, raise_state_exception
 
 _PREDOMINANT_COLOR_LIMIT = 13
 _HUE_BUCKET_SIZE = 30
@@ -30,85 +34,87 @@ def _summary_ready(summary: Summary | None) -> State:
         "colors_distribution",
         "predominant_colors",
     )
-    if all(
-        summary.overview(name) is not None
-        for name in required_overviews
-    ) and all(
-        isinstance(summary.overview(name).data, dict)
-        for name in (
-            "environmental_color_histogram",
-            "design_color_histogram",
-            "colors_distribution",
+    if (
+        all(summary.overview(name) is not None for name in required_overviews)
+        and all(
+            isinstance(summary.overview(name).data, dict)
+            for name in (
+                "environmental_color_histogram",
+                "design_color_histogram",
+                "colors_distribution",
+            )
         )
-    ) and isinstance(
-        summary.overview("predominant_colors").data,
-        tuple,
+        and isinstance(
+            summary.overview("predominant_colors").data,
+            tuple,
+        )
     ):
         return Completed(message="Summary esta listo.")
     raise RuntimeError("Summary no paso validacion.")
 
 
 @glow_flow
-def data_processor(
-    session: Session,
-    page_builder: PageBuilder,
-    dom_tree: DomTree,
-    color_scheme: ColorScheme,
-    summary: Summary,
-):
-    screenshot_path = session.get_path("before.png", "artifacts", "png")
+def data_processor() -> None:
+    page_builder: PageBuilder = g.page_builder
+    dom_tree: DomTree = g.dom_tree
+    project_context: ProjectContext = g.project_context
+    screenshot_path = project_context.GENERATED_FILES_REGISTRY[
+        Path("before.png")
+    ].absolute_path
 
     pixel_matrix = image_to_array(screenshot_path)
-    excluded_pixels = _process_tree(summary, page_builder, dom_tree)
+    excluded_pixels = _process_tree(g.summary, page_builder, dom_tree)
     environmental_histogram = build_histogram(pixel_matrix)
     design_histogram = build_histogram(
         pixel_matrix,
         excluded_pixels,
     )
     colors_distribution = _colors_distribution(
-        color_scheme,
+        g.color_scheme,
         design_histogram,
     )
     predominant_colors = _predominant_colors(colors_distribution)
-    _build_tonal_palettes(color_scheme, predominant_colors)
-    css_path = _theme_css_path(session)
+    _build_tonal_palettes(g.color_scheme, predominant_colors)
+    css_path = project_context.GENERATED_FILES_REGISTRY[Path("glow.css")].absolute_path
     css_path.write_text(
-        generate_root_css(color_scheme.palettes),
+        generate_root_css(g.color_scheme.palettes),
         encoding="utf-8",
     )
-    session.save_in_before(css_path)
 
-    summary.add_overview(
+    g.summary.add_overview(
         "environmental_color_histogram",
         environmental_histogram,
     )
-    summary.add_overview(
+    g.summary.add_overview(
         "design_color_histogram",
         design_histogram,
     )
-    summary.add_overview(
+    g.summary.add_overview(
         "colors_distribution",
         colors_distribution,
     )
-    summary.add_overview(
+    g.summary.add_overview(
         "predominant_colors",
         predominant_colors,
     )
 
-    print({
-        "data_processor.complete": {
-            "summary_ready": True,
-            "predominant_color_count": len(predominant_colors),
-            "palette_count": len(color_scheme.get_palettes()),
-            "glow_css_path": str(css_path),
+    print(
+        {
+            "data_processor.complete": {
+                "summary_ready": True,
+                "predominant_color_count": len(predominant_colors),
+                "palette_count": len(g.color_scheme.get_palettes()),
+                "glow_css_path": str(css_path),
+            }
         }
-    })
-    _summary_ready(summary)
-
-
-def _theme_css_path(session: Session):
-    html_file = session.find_by_suffix("before", "html")[0]
-    return html_file.parent / "glow.css"
+    )
+    summary_ready = _summary_ready(g.summary, return_state=True)
+    if (
+        summary_ready.is_failed()
+        or summary_ready.is_crashed()
+        or summary_ready.is_cancelled()
+    ):
+        raise_state_exception(summary_ready)
 
 
 def _colors_distribution(
@@ -157,7 +163,7 @@ def _colors_distribution(
             merged_distribution[winner] + percentage,
             4,
         )
-    
+
     return dict(
         sorted(
             merged_distribution.items(),
@@ -178,17 +184,10 @@ def _predominant_colors(
             if color.is_achromatic():
                 continue
 
-            hue, _saturation, _lightness = (
-                color
-                .convert("hsl")
-                .coords(nans=False)
-            )
+            hue, _saturation, _lightness = color.convert("hsl").coords(nans=False)
 
             hue = float(hue)
-            hue_bucket = (
-                int(hue // _HUE_BUCKET_SIZE)
-                * _HUE_BUCKET_SIZE
-            ) % 360
+            hue_bucket = (int(hue // _HUE_BUCKET_SIZE) * _HUE_BUCKET_SIZE) % 360
             percentage = float(percentage)
 
             if hue_bucket not in hue_buckets:
@@ -287,9 +286,7 @@ def _predominant_colors(
             seed_color,
             _seed_percentage,
             _bucket_percentage,
-        ) in predominant_groups[
-            :_PREDOMINANT_COLOR_LIMIT
-        ]
+        ) in predominant_groups[:_PREDOMINANT_COLOR_LIMIT]
     )
 
 
@@ -321,7 +318,11 @@ def _process_tree(
 
     for element in root.iter_dfs():
         try:
-            excluded_pixels = element.category == "media" or element.has_image or element.category == "input"
+            excluded_pixels = (
+                element.category == "media"
+                or element.has_image
+                or element.category == "input"
+            )
 
             if excluded_pixels and element.content is not None:
                 quads.append(element.content)
@@ -329,8 +330,10 @@ def _process_tree(
             if not element.has_text or element.node_id is None:
                 continue
 
-            background_data = page_builder.get_background_colors(element.node_id)
-            background_colors = background_data.get("background_colors") or ()
+            background_colors = (
+                page_builder.get_background_colors(element.node_id) or None
+            )
+
             if not background_colors:
                 summary.add_warning(
                     warning_id=element.backend_node_id,
@@ -341,22 +344,23 @@ def _process_tree(
                 )
                 continue
 
-            actual_color = None
-            current_property_value = getattr(page_builder, "current_property_value", None)
-            if callable(current_property_value):
-                actual_color = current_property_value(element.node_id, "color")
-            if not actual_color:
-                actual_color = page_builder.get_computed_styles_for_node(
-                    element.node_id
-                ).get("color")
-            if not actual_color:
+            property_color = next(
+                (
+                    (property_model.before_value)
+                    for property_model in element.properties
+                    if property_model.name == "color"
+                ),
+                None,
+            )
+
+            if not property_color:
                 continue
 
             contrast = element.get_text_contrast(
-                actual_color,
+                property_color,
                 background_colors=background_colors,
-                font_size=background_data.get("font_size"),
-                font_weight=background_data.get("font_weight"),
+                font_size=background_colors.get("font_size"),
+                font_weight=background_colors.get("font_weight"),
             )
             if contrast is None:
                 continue
@@ -378,8 +382,8 @@ def _process_tree(
                 contrast_ratio=contrast_ratio,
                 required_ratio=required_ratio,
                 is_large_text=is_large_text,
-                foreground=Color(foreground).convert("srgb").to_string(hex=True),
-                background=background.convert("srgb").to_string(hex=True),
+                foreground=Color(property_color),
+                background=background,
             )
             issue_id += 1
         except Exception:

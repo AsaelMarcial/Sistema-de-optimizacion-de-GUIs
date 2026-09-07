@@ -5,6 +5,7 @@ from functools import wraps
 from typing import Any
 
 from prefect import flow, task
+from prefect.cache_policies import NO_CACHE
 from prefect.states import State
 
 
@@ -24,6 +25,8 @@ def glow_task(function: Callable[..., Any]) -> Any:
     return task(
         wrapped,
         name=function.__name__,
+        cache_policy=NO_CACHE,
+        cache_result_in_memory=False,
         on_running=[logger],
         on_completion=[logger],
         on_failure=[logger],

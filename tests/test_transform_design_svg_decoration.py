@@ -2,15 +2,15 @@ import shutil
 import unittest
 from pathlib import Path
 
-from engine.adapters.source_code_handler.local_asset_rewriter import (
-    extract_reference_candidates,
-)
-from engine.domain.models.asset_records import Asset, AssetRecords
-from engine.domain.models.element import Element, Property
-from engine.domain.models.session import Session
+from flask import Flask, g
+
+from engine.domain.models.project_context import ProjectContext, Resource
+from engine.domain.models.element import DomTree, Element, Property
 from engine.domain.models.token import TokenInventory
+from engine.pipeline.context import PipelineContext
 from engine.pipeline.stages.transform_design import (
-    _process_external_svg_decoration,
+    _process_loaded_svg_files,
+    _surface_depth,
 )
 
 
@@ -48,25 +48,42 @@ class FakePageBuilder:
 
 
 class TransformDesignSvgDecorationTest(unittest.TestCase):
-    def test_extract_reference_candidates_handles_attributes_and_css_urls(self) -> None:
-        self.assertEqual(
-            ["icons/large.svg", "icons/small.svg"],
-            sorted(
-                extract_reference_candidates(
-                    "icons/small.svg 1x, icons/large.svg 2x",
-                    "srcset",
-                )
-            ),
+    def test_surface_depth_does_not_depend_on_body_box_model(self) -> None:
+        body = Element(
+            backend_node_id=1,
+            node_id=10,
+            tag_name="body",
+            category="main-surface",
+            node_type=1,
         )
-        self.assertEqual([], extract_reference_candidates("#icon", "href"))
-        self.assertEqual(
-            ["icons/icon.svg"],
-            extract_reference_candidates(
-                'linear-gradient(red, blue), url("icons/icon.svg")'
-            ),
+        parent = Element(
+            backend_node_id=2,
+            node_id=20,
+            tag_name="section",
+            category="container",
+            node_type=1,
+            box_model={"content": []},
+            width=100,
+            height=100,
+        )
+        child = Element(
+            backend_node_id=3,
+            node_id=30,
+            tag_name="article",
+            category="container",
+            node_type=1,
+            box_model={"content": []},
+            width=50,
+            height=50,
         )
 
-    def test_property_tokens_ignore_attribute_image_sources_and_inherited_calculated_values(self) -> None:
+        body.add_child(parent)
+        parent.add_child(child)
+
+        self.assertEqual(1, _surface_depth(parent))
+        self.assertEqual(2, _surface_depth(child))
+
+    def test_property_tokens_ignore_attribute_assets_and_inherited_calculated_values(self) -> None:
         root = Element(
             backend_node_id=1,
             node_id=10,
@@ -77,7 +94,7 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
                 Property(
                     name="srcset",
                     before_value="wide.png 1x",
-                    image_source=Asset(source="wide.png", origin="unknown"),
+                    resource=Resource(url="wide.png"),
                     type="attribute",
                     is_defined=True,
                 ),
@@ -106,272 +123,120 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
 
         self.assertEqual({(10, "background-color")}, token_refs)
 
-    def test_external_svg_decoration_uses_image_source_and_source_versions(self) -> None:
-        session = Session()
+    def test_loaded_svg_updates_every_element_usage(self) -> None:
+        app_context = Flask(__name__).app_context()
+        app_context.push()
+        PipelineContext()
+        session_dir = g.session_dir
+        shutil.rmtree(session_dir, ignore_errors=True)
+        before_root = g.before_root
+        project_dir = before_root / "site"
+        project_dir.mkdir(parents=True, exist_ok=True)
+        g.after_root.mkdir(parents=True, exist_ok=True)
+        g.artifacts_root.mkdir(parents=True, exist_ok=True)
+        (project_dir / "index.html").write_text("<html></html>", encoding="utf-8")
+        (project_dir / "assets").mkdir(parents=True, exist_ok=True)
+        (project_dir / "assets" / "icon.svg").write_bytes(
+            b'<svg xmlns="http://www.w3.org/2000/svg"></svg>'
+        )
+        project_context = ProjectContext(
+            [
+                {"file_name": Path("site/index.html"), "mime_type": "text/html"},
+                {
+                    "file_name": Path("site/assets/icon.svg"),
+                    "mime_type": "image/svg+xml",
+                },
+            ],
+        )
         try:
-            before_root = session.get_area_root("before")
-            project_dir = before_root / "site"
-            svg_path = project_dir / "assets" / "icon.svg"
-            svg_path.parent.mkdir(parents=True, exist_ok=True)
-            svg_path.write_text(
-                '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
-                encoding="utf-8",
-            )
-            session.file_types[svg_path.resolve()] = ".svg"
-            asset_records = AssetRecords()
-            asset_records.root = before_root
-            source = asset_records.add_local_asset(
-                svg_path,
-                file_type=".svg",
-            )
-            source.add_network_information(
-                "http://127.0.0.1/site/assets/icon.svg",
-                timing=None,
+            project_context.page_url = "http://127.0.0.1:8000/site/index.html"
+            svg_file = project_context.project_file("site/assets/icon.svg")
+            self.assertIsNotNone(svg_file)
+            svg_resource = project_context.add_resource(
+                "http://127.0.0.1:8000/site/assets/icon.svg",
                 resource_type="image",
                 load_status=True,
             )
 
-            element = Element(
-                backend_node_id=10,
-                node_id=20,
-                tag_name="div",
-                category="decoration",
+            body = Element(
+                backend_node_id=1,
+                node_id=10,
+                tag_name="body",
+                category="main-surface",
                 node_type=1,
-                properties=[
-                    Property(
-                        name="data-icon",
-                        before_value="missing/icon.svg",
-                        image_source=source,
-                        type="attribute",
-                        is_defined=True,
-                    ),
-                    Property(
-                        name="background-image",
-                        before_value='linear-gradient(red, blue), url("missing/icon.svg")',
-                        image_source=source,
-                        type="matched",
-                        is_defined=True,
-                    )
-                ],
             )
-            page_builder = FakePageBuilder(project_dir)
-
-            _process_external_svg_decoration(
-                session=session,
-                asset_records=asset_records,
-                page_builder=page_builder,
-                element=element,
-                original_ancestor_background_colors=None,
-                actual_ancestor_background_colors=None,
-                color_scheme=None,
-            )
-
-            glow_path = project_dir / "assets" / "icon-glow.svg"
-            self.assertTrue(glow_path.is_file())
-            self.assertEqual(1, len(tuple(source.versions_of)))
-            self.assertEqual(
-                "assets/icon-glow.svg",
-                element.attributes[0].current_value,
-            )
-            self.assertEqual(
-                "assets/icon-glow.svg",
-                page_builder.attribute_values[(20, "data-icon")],
-            )
-            background_image = next(
-                property_model
-                for property_model in element.properties
-                if property_model.name == "background-image"
-            )
-            self.assertIn(
-                "url(assets/icon-glow.svg)",
-                background_image.after_value or "",
-            )
-            self.assertIn(
-                "linear-gradient(red, blue)",
-                background_image.after_value or "",
-            )
-        finally:
-            shutil.rmtree(session.session_dir, ignore_errors=True)
-
-    def test_external_svg_decoration_reuses_existing_source_version(self) -> None:
-        session = Session()
-        try:
-            before_root = session.get_area_root("before")
-            project_dir = before_root / "site"
-            svg_path = project_dir / "assets" / "icon.svg"
-            glow_path = project_dir / "assets" / "icon-glow.svg"
-            svg_path.parent.mkdir(parents=True, exist_ok=True)
-            svg_path.write_text("<svg></svg>", encoding="utf-8")
-            glow_path.write_text("<svg></svg>", encoding="utf-8")
-            session.file_types[svg_path.resolve()] = ".svg"
-
-            asset_records = AssetRecords()
-            asset_records.root = before_root
-            source = asset_records.add_local_asset(
-                svg_path,
-                file_type=".svg",
-            )
-            source.add_network_information(
-                "http://127.0.0.1/site/assets/icon.svg",
-                timing=None,
-                resource_type="image",
-                load_status=True,
-            )
-            version_source = asset_records.add_version(
-                source.source,
-                b"<svg><path fill='white' /></svg>",
-            )
-
-            element = Element(
-                backend_node_id=10,
+            first = Element(
+                backend_node_id=2,
                 node_id=20,
                 tag_name="img",
-                category="decoration",
+                category="media",
                 node_type=1,
                 properties=[
                     Property(
                         name="src",
-                        before_value="missing/icon.svg",
-                        image_source=source,
+                        before_value="assets/icon.svg",
+                        resource=svg_resource,
                         type="attribute",
                         is_defined=True,
                     ),
                 ],
             )
+            second = Element(
+                backend_node_id=3,
+                node_id=30,
+                tag_name="div",
+                category="container",
+                node_type=1,
+                properties=[
+                    Property(
+                        name="background-image",
+                        before_value='url("assets/icon.svg")',
+                        resource=svg_resource,
+                        type="matched",
+                        is_defined=True,
+                    ),
+                ],
+            )
+            body.add_child(first)
+            body.add_child(second)
+            dom_tree = DomTree(
+                html=body,
+                body=body,
+                elements={
+                    body.backend_node_id: body,
+                    first.backend_node_id: first,
+                    second.backend_node_id: second,
+                },
+            )
+            svg_file.add_usage(first.backend_node_id)
+            svg_file.add_usage(second.backend_node_id)
+
             page_builder = FakePageBuilder(project_dir)
 
-            _process_external_svg_decoration(
-                session=session,
-                asset_records=asset_records,
+            _process_loaded_svg_files(
+                project_context=project_context,
                 page_builder=page_builder,
-                element=element,
-                original_ancestor_background_colors=None,
-                actual_ancestor_background_colors=None,
+                dom_tree=dom_tree,
+                original_backgrounds={},
                 color_scheme=None,
             )
 
-            self.assertIs(
-                version_source,
-                asset_records.find_asset(next(iter(source.versions_of))),
-            )
+            versions = svg_file.versions
+            self.assertEqual(1, len(versions))
+            self.assertTrue((project_dir / "assets" / "icon-glow.svg").is_file())
             self.assertEqual(
                 "assets/icon-glow.svg",
                 page_builder.attribute_values[(20, "src")],
             )
+            self.assertIn(
+                "url(assets/icon-glow.svg)",
+                second.properties[0].after_value or "",
+            )
+            self.assertIs(first.properties[0].resource.project_file, versions[0])
+            self.assertIs(second.properties[0].resource.project_file, versions[0])
         finally:
-            shutil.rmtree(session.session_dir, ignore_errors=True)
-
-    def test_external_svg_decoration_skips_unloaded_sources(self) -> None:
-        session = Session()
-        try:
-            before_root = session.get_area_root("before")
-            project_dir = before_root / "site"
-            svg_path = project_dir / "assets" / "icon.svg"
-            svg_path.parent.mkdir(parents=True, exist_ok=True)
-            svg_path.write_text("<svg></svg>", encoding="utf-8")
-            session.file_types[svg_path.resolve()] = ".svg"
-            asset_records = AssetRecords()
-            asset_records.root = before_root
-            source = asset_records.add_local_asset(
-                svg_path,
-                file_type=".svg",
-            )
-
-            element = Element(
-                backend_node_id=10,
-                node_id=20,
-                tag_name="img",
-                category="decoration",
-                node_type=1,
-                properties=[
-                    Property(
-                        name="src",
-                        before_value="missing/icon.svg",
-                        image_source=source,
-                        type="attribute",
-                        is_defined=True,
-                    ),
-                ],
-            )
-            page_builder = FakePageBuilder(project_dir)
-
-            _process_external_svg_decoration(
-                session=session,
-                asset_records=asset_records,
-                page_builder=page_builder,
-                element=element,
-                original_ancestor_background_colors=None,
-                actual_ancestor_background_colors=None,
-                color_scheme=None,
-            )
-
-            self.assertEqual({}, page_builder.attribute_values)
-            self.assertFalse(tuple(source.versions_of))
-        finally:
-            shutil.rmtree(session.session_dir, ignore_errors=True)
-
-    def test_external_svg_decoration_rewrites_srcset_attribute(self) -> None:
-        session = Session()
-        try:
-            before_root = session.get_area_root("before")
-            project_dir = before_root / "site"
-            svg_path = project_dir / "assets" / "icon.svg"
-            svg_path.parent.mkdir(parents=True, exist_ok=True)
-            svg_path.write_text(
-                '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
-                encoding="utf-8",
-            )
-            session.file_types[svg_path.resolve()] = ".svg"
-            asset_records = AssetRecords()
-            asset_records.root = before_root
-            source = asset_records.add_local_asset(
-                svg_path,
-                file_type=".svg",
-            )
-            source.add_network_information(
-                "http://127.0.0.1/site/assets/icon.svg",
-                timing=None,
-                resource_type="image",
-                load_status=True,
-            )
-
-            element = Element(
-                backend_node_id=10,
-                node_id=20,
-                tag_name="source",
-                category="decoration",
-                node_type=1,
-                properties=[
-                    Property(
-                        name="srcset",
-                        before_value="missing/icon.svg 1x, missing/icon.svg 2x",
-                        image_source=source,
-                        type="attribute",
-                        is_defined=True,
-                    ),
-                ],
-            )
-            page_builder = FakePageBuilder(project_dir)
-
-            _process_external_svg_decoration(
-                session=session,
-                asset_records=asset_records,
-                page_builder=page_builder,
-                element=element,
-                original_ancestor_background_colors=None,
-                actual_ancestor_background_colors=None,
-                color_scheme=None,
-            )
-
-            expected = "assets/icon-glow.svg 1x, assets/icon-glow.svg 2x"
-            self.assertEqual(expected, element.attributes[0].current_value)
-            self.assertIs(
-                asset_records.find_asset(next(iter(source.versions_of))),
-                element.attributes[0].image_source,
-            )
-            self.assertEqual(expected, page_builder.attribute_values[(20, "srcset")])
-        finally:
-            shutil.rmtree(session.session_dir, ignore_errors=True)
+            app_context.pop()
+            shutil.rmtree(session_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

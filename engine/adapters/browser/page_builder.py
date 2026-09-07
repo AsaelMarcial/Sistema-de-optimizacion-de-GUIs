@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from contextvars import copy_context
 from itertools import batched
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from flask import g
 from playwright.sync_api import (
     Browser,
     BrowserContext,
@@ -17,8 +19,7 @@ from playwright.sync_api import (
 from typing_extensions import Self
 
 from engine.adapters.browser.server import StaticServer
-from engine.domain.models.asset_records import AssetRecords
-from engine.domain.models.style import Styles, StyleSource
+from engine.domain.models.style import StyleSource
 
 _NAVIGATION_TIMEOUT = 30_000
 _OPERATION_TIMEOUT = 10_000
@@ -28,32 +29,32 @@ _STYLE_MARKER_PREFIX = "GLOW_STYLESHEET:"
 class PageBuilder:
     def __init__(
         self,
-        server: StaticServer | None = None,
-        styles: Styles | None = None,
-        asset_records: AssetRecords | None = None,
-        html_path: str | Path | None = None,
+        server: StaticServer,
     ) -> None:
-        self.html_path: Path | None = Path(html_path).resolve() if html_path is not None else None
-        self.base_path: Path | None = None
-        self.project_root: Path | None = None
+        self.html_path = g.project_context.html.absolute_path
+        self.base_path: Path = self.html_path.parent
+        self.project_root: Path | None = g.before_root
 
-        self._playwright: Playwright | None = None
-        self._browser: Browser | None = None
-        self._context: BrowserContext | None = None
-        self._page: Page | None = None
-        self._cdp: CDPSession | None = None
+        self._playwright: Playwright = sync_playwright().start()
+        self._browser: Browser = self._playwright.chromium.launch(
+            headless=True,
+        )
+
+        desktop_chrome = self._playwright.devices["Desktop Chrome"]
+
+        self._context: BrowserContext = self._browser.new_context(
+            **desktop_chrome,
+        )
+        self._page: Page = self._context.new_page()
+        self._cdp: CDPSession = self._context.new_cdp_session(self._page)
+        self._page.set_default_timeout(_OPERATION_TIMEOUT)
+        self._page.set_default_navigation_timeout(_NAVIGATION_TIMEOUT)
 
         self._document: dict[str, Any] | None = None
         self._stylesheet_change_count = 0
         self._last_stylesheet_change_id: str | None = None
         self._theme_stylesheet_id: str | None = None
-        self._server: StaticServer | None = server
-        self.styles = styles if styles is not None else Styles()
-        self.asset_records = (
-            asset_records
-            if asset_records is not None
-            else AssetRecords()
-        )
+        self._server: StaticServer = server
 
     def __enter__(self) -> Self:
         try:
@@ -62,46 +63,32 @@ class PageBuilder:
             if self.html_path is None:
                 raise RuntimeError("PageBuilder necesita html_path.")
 
-            self.html_path = self.html_path.resolve()
-            self.base_path = self.html_path.parent
-            self.project_root = self._server.root
-            self._theme_stylesheet_id = None
-            self._stylesheet_change_count = 0
-            self._last_stylesheet_change_id = None
-
-            self._playwright = sync_playwright().start()
-            self._browser = self._playwright.chromium.launch(
-                headless=True,
-            )
-
-            desktop_chrome = self._playwright.devices[
-                "Desktop Chrome"
-            ]
-
-            self._context = self._browser.new_context(
-                **desktop_chrome,
-            )
-            self._page = self._context.new_page()
-            self._page.set_default_timeout(
-                _OPERATION_TIMEOUT
-            )
-            self._page.set_default_navigation_timeout(
-                _NAVIGATION_TIMEOUT
-            )
-
-            self._cdp = self._context.new_cdp_session(
-                self._page
-            )
+            flask_context = copy_context()
             self._cdp.on(
                 "CSS.styleSheetAdded",
-                self._on_stylesheet_added,
+                lambda event: flask_context.copy().run(
+                    self._on_stylesheet_added,
+                    event,
+                ),
             )
             self._cdp.on(
                 "CSS.styleSheetChanged",
                 self._on_stylesheet_changed,
             )
-            self._page.on("requestfinished", self._handle_request)
-            self._page.on("requestfailed", self._handle_request)
+            self._page.on(
+                "requestfinished",
+                lambda request: flask_context.copy().run(
+                    self._handle_request,
+                    request,
+                ),
+            )
+            self._page.on(
+                "requestfailed",
+                lambda request: flask_context.copy().run(
+                    self._handle_request,
+                    request,
+                ),
+            )
 
             self._cdp.send(
                 "DOM.enable",
@@ -111,13 +98,18 @@ class PageBuilder:
             )
             self._cdp.send("CSS.enable")
 
+            target_url = self._server.url_for(self.html_path)
+            if g.project_context is not None:
+                g.project_context.page_url = target_url
+
             self._page.goto(
-                self._server.url_for(self.html_path),
+                target_url,
                 wait_until="load",
             )
 
             self.wait_for_render_ready()
-            self.asset_records.page_url = self.page_url
+            if g.project_context is not None:
+                g.project_context.page_url = self.page_url
             self._document = self.get_full_document_node()
             self.cache_stylesheets()
 
@@ -142,9 +134,7 @@ class PageBuilder:
             or self._page.is_closed()
             or self._cdp is None
         ):
-            raise RuntimeError(
-                "PageBuilder está cerrado o no fue inicializado."
-            )
+            raise RuntimeError("PageBuilder está cerrado o no fue inicializado.")
 
     @property
     def page_url(self) -> str:
@@ -155,10 +145,7 @@ class PageBuilder:
     def viewport_size(self) -> dict[str, int]:
         self._ensure_open()
 
-        return self._page.viewport_size or {
-            "width": 0,
-            "height": 0,
-        }
+        return {**self._page.viewport_size}  # type: ignore
 
     @property
     def document_root(self) -> dict[str, Any]:
@@ -172,24 +159,19 @@ class PageBuilder:
     ) -> None:
         header = event.get("header") or {}
 
-        stylesheet = self.styles.register_stylesheet(
-            header
-        )
-        
+        stylesheet = g.style.register_stylesheet(header)
+
         if stylesheet is None:
             return
 
         if urlsplit(stylesheet.source_url).path.endswith("/glow.css"):
-            self._theme_stylesheet_id = (
-                stylesheet.stylesheet_id
-            )
-        
+            self._theme_stylesheet_id = stylesheet.stylesheet_id
+
         if isinstance(stylesheet.owner_node, int):
             self.insert_stylesheet_marker(
                 stylesheet.owner_node,
                 stylesheet.stylesheet_id,
             )
-
 
     def _on_stylesheet_changed(
         self,
@@ -199,29 +181,28 @@ class PageBuilder:
 
         if stylesheet_id:
             self._stylesheet_change_count += 1
-            self._last_stylesheet_change_id = str(
-                stylesheet_id
-            )
+            self._last_stylesheet_change_id = str(stylesheet_id)
 
     def _handle_request(self, request: Request) -> None:
         try:
             response = request.response()
             failure = request.failure
 
-            self.asset_records.add_network_information(
-                url=(
-                    response.url
-                    if response is not None
-                    else request.url
-                ),
-                timing = request.timing.get("startTime"),
+            if g.project_context is None:
+                return
+
+            g.project_context.add_resource(
+                url=(response.url if response is not None else request.url),
+                timing=request.timing.get("startTime"),
                 resource_type=request.resource_type,
                 load_status=(
-                    failure is None
-                    and response is not None
-                    and response.status < 400
+                    failure is None and response is not None and response.status < 400
                 ),
-                message=failure if failure is not None else response.status_text if response is not None else None,
+                message=failure
+                if failure is not None
+                else response.status_text
+                if response is not None
+                else None,
             )
         except Exception as exc:
             raise RuntimeError(
@@ -234,9 +215,7 @@ class PageBuilder:
         try:
             self._page.wait_for_load_state("load")
 
-            self._page.wait_for_function(
-                "() => document.readyState === 'complete'"
-            )
+            self._page.wait_for_function("() => document.readyState === 'complete'")
 
         except Exception as exc:
             raise RuntimeError(
@@ -262,9 +241,7 @@ class PageBuilder:
             ).get("root")
 
             if not root or not root.get("nodeId"):
-                raise RuntimeError(
-                    "DOM.getDocument no devolvió un nodo raíz."
-                )
+                raise RuntimeError("DOM.getDocument no devolvió un nodo raíz.")
 
             self._document = root
 
@@ -322,7 +299,6 @@ class PageBuilder:
                 f"error [{exception_type}]: {exc}"
             ) from exc
 
-
     def extract_raw_snapshot(
         self,
         whitelist_styles: list[str],
@@ -336,7 +312,6 @@ class PageBuilder:
         self._ensure_open()
 
         try:
-
             return self._cdp.send(
                 "DOMSnapshot.captureSnapshot",
                 {
@@ -366,7 +341,6 @@ class PageBuilder:
             return None
 
         try:
-
             node = self._cdp.send(
                 "DOM.describeNode",
                 {
@@ -384,7 +358,6 @@ class PageBuilder:
                 f"[{exception_type}]: {exc}"
             ) from exc
 
-    
     def set_effective_value(
         self,
         backend_node_id: int,
@@ -405,8 +378,6 @@ class PageBuilder:
             return None
 
         try:
-            change_count = self._stylesheet_change_count
-
             self._cdp.send(
                 "CSS.setEffectivePropertyValueForNode",
                 {
@@ -415,59 +386,6 @@ class PageBuilder:
                     "value": value,
                 },
             )
-
-            # Barrera dentro de la misma sesión CDP. Permite procesar los
-            # eventos styleSheetChanged emitidos por la operación anterior.
-            self._cdp.send(
-                "Runtime.evaluate",
-                {
-                    "expression": "void 0",
-                },
-            )
-
-            if (
-                self._stylesheet_change_count
-                != change_count
-                and self._last_stylesheet_change_id
-            ):
-                stylesheet_id = self._last_stylesheet_change_id
-                stylesheet = self.styles.get_stylesheet(
-                    stylesheet_id
-                )
-
-                if stylesheet is None:
-                    return {
-                        "stylesheet_id": stylesheet_id,
-                        "type": "unknown",
-                        "changed": False,
-                    }
-
-                return {
-                    "stylesheet_id": stylesheet_id,
-                    "type": stylesheet.kind,
-                    "changed": stylesheet.changed,
-                }
-
-            inline_styles = self.get_inline_styles_for_node(
-                node_id
-            )
-            actual_property = self._find_inline_property(
-                inline_styles,
-                property_name,
-            )
-
-            if actual_property is not None:
-                return {
-                    "stylesheet_id": None,
-                    "type": "inline",
-                    "changed": True,
-                }
-
-            return {
-                "stylesheet_id": None,
-                "type": "unknown",
-                "changed": False,
-            }
 
         except Exception as exc:
             raise RuntimeError(
@@ -596,9 +514,7 @@ class PageBuilder:
             )
 
             if applied is not True:
-                raise RuntimeError(
-                    "color-scheme no quedó configurado."
-                )
+                raise RuntimeError("color-scheme no quedó configurado.")
 
             return True
 
@@ -607,7 +523,6 @@ class PageBuilder:
                 "Color scheme configuration failed due to an "
                 f"unexpected error [{type(exc).__name__}]: {exc}"
             ) from exc
-
 
     def set_data_theme(self) -> bool:
         self._ensure_open()
@@ -642,9 +557,7 @@ class PageBuilder:
             )
 
             if applied is not True:
-                raise RuntimeError(
-                    "data-theme no quedó configurado."
-                )
+                raise RuntimeError("data-theme no quedó configurado.")
 
             return True
 
@@ -814,27 +727,11 @@ class PageBuilder:
             )
 
             if self._theme_stylesheet_id is None:
-                self._theme_stylesheet_id = next(
-                    (
-                        stylesheet.stylesheet_id
-                        for stylesheet
-                        in self.styles.stylesheets.values()
-                        if stylesheet.source_url
-                        == stylesheet_href
-                    ),
-                    None,
-                )
+                raise RuntimeError("No se pudo localizar el styleSheetId de glow.css.")
 
-            if self._theme_stylesheet_id is None:
-                raise RuntimeError(
-                    "No se pudo localizar el styleSheetId de glow.css."
-                )
+            theme_text = self.get_stylesheet_text(self._theme_stylesheet_id)
 
-            theme_text = self.get_stylesheet_text(
-                self._theme_stylesheet_id
-            )
-
-            self.styles.set_stylesheet_text(
+            g.style.set_stylesheet_text(
                 self._theme_stylesheet_id,
                 theme_text,
                 initialize=True,
@@ -855,9 +752,7 @@ class PageBuilder:
         self._ensure_open()
 
         if self._theme_stylesheet_id is None:
-            raise RuntimeError(
-                "glow.css todavía no tiene styleSheetId."
-            )
+            raise RuntimeError("glow.css todavía no tiene styleSheetId.")
 
         try:
             self.set_stylesheet_text(
@@ -890,7 +785,7 @@ class PageBuilder:
                 },
             )
 
-            self.styles.set_stylesheet_text(
+            g.style.set_stylesheet_text(
                 stylesheet_id,
                 css_content,
             )
@@ -954,7 +849,6 @@ class PageBuilder:
                 f"error [{exception_type}]: {exc}"
             ) from exc
 
-
     def get_box_model(
         self,
         backend_node_id: int,
@@ -970,12 +864,15 @@ class PageBuilder:
             return {}
 
         try:
-            model = self._cdp.send(
-                "DOM.getBoxModel",
-                {
-                    "backendNodeId": int(backend_node_id),
-                },
-            ).get("model") or {}
+            model = (
+                self._cdp.send(
+                    "DOM.getBoxModel",
+                    {
+                        "backendNodeId": int(backend_node_id),
+                    },
+                ).get("model")
+                or {}
+            )
 
             width = float(model.get("width") or 0)
             height = float(model.get("height") or 0)
@@ -984,10 +881,7 @@ class PageBuilder:
 
             for name in ("content", "padding", "border", "margin"):
                 coordinates = model.get(name) or []
-                model[name] = [
-                    (float(x), float(y))
-                    for x, y in batched(coordinates, 2)
-                ]
+                model[name] = [(float(x), float(y)) for x, y in batched(coordinates, 2)]
 
             model["width"] = width
             model["height"] = height
@@ -1007,7 +901,6 @@ class PageBuilder:
                 "DOM.getBoxModel failed due to an unexpected "
                 f"error [{exception_type}]: {exc}"
             ) from exc
-
 
     def get_computed_styles_for_node(
         self,
@@ -1070,7 +963,7 @@ class PageBuilder:
                 full_page=True,
                 animations="disabled",
                 caret="hide",
-                scale="css"
+                scale="css",
             )
 
             return output
@@ -1141,7 +1034,14 @@ class PageBuilder:
                 },
             ).get("attributes", [])
 
-            return next((value for name, value in batched(attributes, 2) if name == attribute_name), None)
+            return next(
+                (
+                    value
+                    for name, value in batched(attributes, 2)
+                    if name == attribute_name
+                ),
+                None,
+            )
 
         except Exception as exc:
             raise RuntimeError(
@@ -1179,9 +1079,7 @@ class PageBuilder:
     ) -> dict[str, Any] | None:
         style = inline_styles.get("inlineStyle") or {}
 
-        for css_property in (
-            style.get("cssProperties") or []
-        ):
+        for css_property in style.get("cssProperties") or []:
             if css_property.get("disabled"):
                 continue
 
@@ -1191,9 +1089,7 @@ class PageBuilder:
             return {
                 "source_type": "inline",
                 "value": css_property.get("value", ""),
-                "important": bool(
-                    css_property.get("important", False)
-                ),
+                "important": bool(css_property.get("important", False)),
                 "range": css_property.get("range"),
                 "style_range": style.get("range"),
             }
@@ -1230,15 +1126,13 @@ class PageBuilder:
         self._ensure_open()
 
         try:
-            for stylesheet in self.styles.stylesheets.values():
+            for stylesheet in g.style.stylesheets.values():
                 try:
-                    text = self.get_stylesheet_text(
-                        stylesheet.stylesheet_id
-                    )
+                    text = self.get_stylesheet_text(stylesheet.stylesheet_id)
                 except RuntimeError:
                     continue
 
-                self.styles.set_stylesheet_text(
+                g.style.set_stylesheet_text(
                     stylesheet.stylesheet_id,
                     text,
                     initialize=True,
@@ -1264,11 +1158,9 @@ class PageBuilder:
         self._ensure_open()
 
         try:
-            matched_styles = self.get_matched_styles(
-                node_id
-            )
+            matched_styles = self.get_matched_styles(node_id)
 
-            return self.styles.register_element_sources(
+            return g.style.register_element_sources(
                 backend_node_id=backend_node_id,
                 matched_styles=matched_styles,
                 property_names=property_names,
@@ -1290,18 +1182,14 @@ class PageBuilder:
         self._ensure_open()
 
         try:
-            response = self._cdp.send(
-                "Page.getFrameTree"
-            )
+            response = self._cdp.send("Page.getFrameTree")
 
             frame_tree = response.get("frameTree") or {}
             frame = frame_tree.get("frame") or {}
             frame_id = str(frame.get("id") or "")
 
             if not frame_id:
-                raise RuntimeError(
-                    "Page.getFrameTree no devolvió el frame principal."
-                )
+                raise RuntimeError("Page.getFrameTree no devolvió el frame principal.")
 
             return frame_id
 
@@ -1310,7 +1198,6 @@ class PageBuilder:
                 "Main frame retrieval failed due to an unexpected "
                 f"error [{type(exc).__name__}]: {exc}"
             ) from exc
-
 
     def get_outer_html(self) -> str:
         """
@@ -1330,9 +1217,7 @@ class PageBuilder:
             ).get("outerHTML", "")
 
             if not str(outer_html).strip():
-                raise RuntimeError(
-                    "DOM.getOuterHTML no devolvió contenido."
-                )
+                raise RuntimeError("DOM.getOuterHTML no devolvió contenido.")
 
             return str(outer_html)
 
@@ -1361,11 +1246,12 @@ class PageBuilder:
             return None
 
         try:
-
             return self._cdp.send(
                 "DOM.querySelector",
                 {
-                    "nodeId": node_id if node_id is not None else self.document_root.get("nodeId", None),
+                    "nodeId": node_id
+                    if node_id is not None
+                    else self.document_root.get("nodeId", None),
                     "selector": selector.strip(),
                 },
             ).get("nodeId", None)
@@ -1435,23 +1321,14 @@ class PageBuilder:
                         }
                     """,
                     "arguments": [
-                        {
-                            "value":
-                                _STYLE_MARKER_PREFIX
-                        },
-                        {
-                            "value": identifier
-                        },
+                        {"value": _STYLE_MARKER_PREFIX},
+                        {"value": identifier},
                     ],
                     "returnByValue": True,
                 },
             )
 
-            return bool(
-                result
-                .get("result", {})
-                .get("value")
-            )
+            return bool(result.get("result", {}).get("value"))
 
         except Exception as exc:
             raise RuntimeError(
@@ -1466,11 +1343,6 @@ class PageBuilder:
         playwright = self._playwright
         close_errors: list[str] = []
 
-        self._cdp = None
-        self._page = None
-        self._context = None
-        self._browser = None
-        self._playwright = None
         self._document = None
         self._theme_stylesheet_id = None
         self._stylesheet_change_count = 0
@@ -1480,9 +1352,7 @@ class PageBuilder:
             try:
                 page.close()
             except Exception as close_exc:
-                close_errors.append(
-                    f"page [{type(close_exc).__name__}]: {close_exc}"
-                )
+                close_errors.append(f"page [{type(close_exc).__name__}]: {close_exc}")
 
         if context is not None:
             try:
@@ -1509,8 +1379,6 @@ class PageBuilder:
                 )
 
         if close_errors and exc_type is None:
-            raise RuntimeError(
-                "PageBuilder close failed: " + "; ".join(close_errors)
-            )
+            raise RuntimeError("PageBuilder close failed: " + "; ".join(close_errors))
 
         return False

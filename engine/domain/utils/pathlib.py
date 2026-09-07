@@ -1,5 +1,4 @@
 from pathlib import Path
-from engine.domain.models.session import Session
 
 def find_by_exact_name(part: str, base_path: str = ".") -> list:
     """

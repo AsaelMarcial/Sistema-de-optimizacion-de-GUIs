@@ -1,6 +1,8 @@
 from __future__ import annotations
 from ast import unparse
+from collections import Counter
 
+from coloraide import color
 from tinycss2 import parse_component_value_list, serialize, parse_declaration_list
 from copy import deepcopy
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -29,6 +31,52 @@ _IMAGE_EXTENSIONS = (
     ".svg",
     ".webp",
 )
+
+
+def search_colors(value: str | None) -> Counter[Color]:
+    if not value is None:
+        founded_colors: Counter[Color] = Counter()
+        start = 0
+        while start < len(value):
+            match = Color.match(value, start=start)
+            if match is None:
+                start += 1
+                continue
+
+            if match.color.alpha(nans=False) > 0:
+                founded_colors[Color(match.color)] += 1
+
+            end = int(getattr(match, "end", start + 1))
+            start = max(end, start + 1)
+
+            return founded_colors
+
+    return Counter()
+
+
+def are_all_colors_transparent(colors: Counter[Color]) -> bool:
+    """
+    Checks if all colors in the given text are completely transparent.
+    Reuses the custom get_colors function.
+    """
+    if not isinstance(colors, Counter) or colors is None:
+        return False
+
+    return all(color_value.alpha(nans=False) == 0.0 for color_value in colors)
+
+
+def are_all_colors_equal(colors: Counter[Color]) -> bool:
+    """
+    Returns True if all colors detected in the text are identical
+    according to ColorAide's mathematical comparison.
+    Returns True if 1 color is found.
+    """
+
+    if not colors:
+        return False
+
+    return len(colors.keys()) == 1
+
 
 def has_gradient(property_value: str) -> bool:
     if not isinstance(property_value, str) or not property_value.strip():
@@ -62,6 +110,7 @@ def has_gradient(property_value: str) -> bool:
             pending.extend(token.content)
 
     return False
+
 
 def has_url_image(property_value: str) -> bool:
     if not isinstance(property_value, str) or not property_value.strip():
@@ -99,6 +148,7 @@ def has_url_image(property_value: str) -> bool:
 
     return urlsplit(raw_value.strip("\"'")).path.lower().endswith(_IMAGE_EXTENSIONS)
 
+
 def extract_url_value(value: str) -> str | None:
     if not isinstance(value, str) or not value.strip():
         return None
@@ -109,6 +159,7 @@ def extract_url_value(value: str) -> str | None:
         return match.group(2).strip()
 
     return text.strip("\"'")
+
 
 def cache_busted_url(value: str, version: str) -> str:
     url = extract_url_value(value) or value
@@ -130,6 +181,7 @@ def cache_busted_url(value: str, version: str) -> str:
         )
     )
 
+
 def has_multiplevalues(property_value: str) -> bool:
     if not isinstance(property_value, str) or not property_value.strip():
         return False
@@ -146,13 +198,11 @@ def has_multiplevalues(property_value: str) -> bool:
         token
         for token in tokens
         if token.type != "whitespace"
-        and not (
-            token.type == "literal"
-            and token.value in {",", "/"}
-        )
+        and not (token.type == "literal" and token.value in {",", "/"})
     ]
 
     return len(values) > 1
+
 
 def get_colors(value: str) -> list[tuple[str, Color]] | None:
     if not isinstance(value, str) or not value:
@@ -171,7 +221,7 @@ def get_colors(value: str) -> list[tuple[str, Color]] | None:
         if match.color:
             colors.append(
                 (
-                    value[match.start:match.end],
+                    value[match.start : match.end],
                     match.color,
                 )
             )
@@ -180,40 +230,6 @@ def get_colors(value: str) -> list[tuple[str, Color]] | None:
 
     return colors or None
 
-def are_all_colors_transparent(css_text: str) -> bool:
-    """
-    Checks if all colors in the given text are completely transparent.
-    Reuses the custom get_colors function.
-    """
-    # Obtenemos la lista de tuplas (texto_color, objeto_color) de tu función.
-    # Si devuelve None o una lista vacía, usamos el cortocircuito 'or []' para evitar errores.
-    detected_colors = get_colors(css_text) or []
-    if not detected_colors:
-        return False
-    
-    # all() devuelve True si CADA UNO de los colores cumple que su alfa es exactamente 0.0.
-    # Si la lista está vacía, all() devuelve True automáticamente (verdad vacua).
-    return all(color.alpha(nans=False) == 0.0 for _, color in detected_colors)
-
-def are_all_colors_equal(css_text: str) -> bool:
-    """
-    Returns True if all colors detected in the text are identical 
-    according to ColorAide's mathematical comparison.
-    Returns True if 0 or 1 colors are found (trivially equal).
-    """
-    # Usamos tu función get_colors. Si da None, el cortocircuito 'or []' evita errores.
-    detected_colors = get_colors(css_text) or []
-    
-    # Si solo hay uno, técnicamente todos son iguales entre sí
-    if not detected_colors:
-        return False
-        
-    # Tomamos el primer objeto Color como nuestra referencia de comparación
-    _, reference_color = detected_colors[0]
-    
-    # Comparamos todos los demás colores contra la referencia usando delta_e
-    # Si la diferencia (Delta E) con respecto al primero es 0.0, son idénticos
-    return all(reference_color.delta_e(color) == 0.0 for _, color in detected_colors)
 
 def replace_property_values(
     property_value: str,
@@ -224,9 +240,7 @@ def replace_property_values(
         raise TypeError("property_value debe ser un string.")
 
     if len(old_values) != len(new_values):
-        raise ValueError(
-            "old_values y new_values deben tener la misma longitud."
-        )
+        raise ValueError("old_values y new_values deben tener la misma longitud.")
 
     tokens = parse_component_value_list(
         property_value,
@@ -246,17 +260,10 @@ def replace_property_values(
         )
 
         if not old_tokens or not new_tokens:
-            raise ValueError(
-                "Los valores viejos y nuevos no pueden estar vacíos."
-            )
+            raise ValueError("Los valores viejos y nuevos no pueden estar vacíos.")
 
-        if any(
-            token.type == "error"
-            for token in [*old_tokens, *new_tokens]
-        ):
-            raise ValueError(
-                f"Valor CSS inválido: {old_value!r} o {new_value!r}."
-            )
+        if any(token.type == "error" for token in [*old_tokens, *new_tokens]):
+            raise ValueError(f"Valor CSS inválido: {old_value!r} o {new_value!r}.")
 
         replacements.append(
             (
@@ -280,17 +287,10 @@ def replace_property_values(
 
         while index < len(current_tokens):
             for old_text, old_length, new_tokens in replacements:
-                candidate = current_tokens[
-                    index:index + old_length
-                ]
+                candidate = current_tokens[index : index + old_length]
 
-                if (
-                    len(candidate) == old_length
-                    and serialize(candidate) == old_text
-                ):
-                    current_tokens[
-                        index:index + old_length
-                    ] = deepcopy(new_tokens)
+                if len(candidate) == old_length and serialize(candidate) == old_text:
+                    current_tokens[index : index + old_length] = deepcopy(new_tokens)
 
                     index += len(new_tokens)
                     break
@@ -309,6 +309,7 @@ def replace_property_values(
                 index += 1
 
     return serialize(tokens)
+
 
 def matches_default_value(
     property_value: str,
@@ -346,61 +347,61 @@ def matches_default_value(
         if len(default_tokens) != 1:
             continue
 
-        normalized_default = (
-            serialize([default_tokens[0]])
-            .strip()
-            .casefold()
-        )
+        normalized_default = serialize([default_tokens[0]]).strip().casefold()
 
         if normalized_default in property_tokens:
             return True
 
     return False
 
+
 def has_important_flag(value_text: str) -> bool:
     """
-    Parses a CSS value string using tinycss2 to robustly check 
+    Parses a CSS value string using tinycss2 to robustly check
     if it contains the !important flag, ignoring format variations.
     """
     # Simulamos una propiedad ficticia 'x:' seguida del valor a evaluar
     dummy_declaration = f"x: {value_text}"
-    
+
     # Parseamos la línea simulada omitiendo comentarios
     declarations = parse_declaration_list(dummy_declaration, skip_comments=True)
-    
+
     # Si la lista está vacía o el elemento no es una declaración válida, no hay bandera
-    if not declarations or declarations[0].type != 'declaration':
+    if not declarations or declarations[0].type != "declaration":
         return False
-        
+
     # tinycss2 evalúa la sintaxis y expone la propiedad booleana .important
     return declarations[0].important
+
 
 def separate_token_terms(value: str) -> list:
     """Función auxiliar para limpiar los guiones y separar por puntos."""
     return value.removeprefix("--").split(".")
 
+
 def get_file_name_and_suffix(path_or_url: str) -> tuple[str, str]:
     """
-    Cleans URL syntax and splits the path from the right side 
+    Cleans URL syntax and splits the path from the right side
     to safely return a tuple of (name, suffix).
     """
     clean_path = extract_url_value(path_or_url) or path_or_url
     clean_path = urlsplit(clean_path).path
-    
+
     # 2. Dividir desde la derecha usando el punto como separador
     # maxsplit=1 asegura que maneje archivos con múltiples puntos (ej: archivo.v2.svg)
     parts = clean_path.rsplit(".", 1)
-    
+
     # Si hay una extensión válida, devolvemos (nombre, extensión)
     if len(parts) > 1:
         return parts[0], parts[1]
-        
+
     # Si no tiene extensión, devolvemos la ruta limpia y un sufijo vacío
     return clean_path, ""
 
+
 def is_css_value_contained(value_in: str, value: str) -> bool:
     """
-    Parses both CSS values into tokens and checks if the token sequence of 
+    Parses both CSS values into tokens and checks if the token sequence of
     'value_in' exists sequentially inside 'value'. Case and whitespace insensitive.
     """
     if not isinstance(value_in, str) or not isinstance(value, str):
@@ -409,12 +410,14 @@ def is_css_value_contained(value_in: str, value: str) -> bool:
     # 1. Convertimos ambos textos en listas de tokens limpios
     # Normalizamos a minúsculas y omitimos comentarios o espacios en blanco puros
     tokens_in = [
-        t for t in parse_component_value_list(value_in.lower())
-        if t.type not in ('comment', 'whitespace')
+        t
+        for t in parse_component_value_list(value_in.lower())
+        if t.type not in ("comment", "whitespace")
     ]
     tokens_container = [
-        t for t in parse_component_value_list(value.lower())
-        if t.type not in ('comment', 'whitespace')
+        t
+        for t in parse_component_value_list(value.lower())
+        if t.type not in ("comment", "whitespace")
     ]
 
     # Si el contenedor está vacío o es más chico que lo buscado, es imposible que lo contenga

@@ -9,8 +9,8 @@ from engine.adapters.utils.pixel import dominant_color_percentages
 from engine.domain.data.web_colors import nearest_web_color
 from engine.domain.models.color import ColorCatalog
 from engine.domain.models.color_scheme import ColorScheme
+from engine.domain.models.project_context import ProjectContext
 from engine.domain.models.prototype_structure import PrototypeStructure
-from engine.domain.models.session import Session
 from engine.domain.models.token import TokenInventoryModel
 from engine.adapters.color_service import color_registry
 from engine.pipeline.context import PipelineContext, RecommendationsPayload
@@ -659,11 +659,14 @@ def _build_results_view(
 
 
 def assemble_results(context: PipelineContext) -> None:
-    session = context.session
-    output_dir = session.get_area_root("after")
-    artifacts_dir = session.get_area_root("artifacts")
-    session_dirname = session.session_dir.name
-    html_file = session.find_by_suffix("after", "html")[0]
+    project_context = context.project_context
+    if not isinstance(project_context, ProjectContext):
+        raise RuntimeError("ProjectContext no fue inicializado.")
+
+    output_dir = context.after_root
+    artifacts_dir = context.artifacts_root
+    session_dirname = project_context.session_dir.name
+    html_file = next(output_dir.rglob("*.html"))
     bundle_name = "glow_design.zip"
     zip_output_path, zip_filename = create_output_bundle(
         source_dir=output_dir,
@@ -707,7 +710,7 @@ def assemble_results(context: PipelineContext) -> None:
         "energy_wh": environmental_review.before_energy_consumption if environmental_review else 0,
         "environmental_energy_wh": environmental_review.after_energy_consumption if environmental_review else 0,
         "environmental_co2eq_per_use": environmental_review.after_carbon_footprint if environmental_review else 0,
-        "session_id": session.session_id,
+        "session_id": project_context.session_id,
         "session_dirname": session_dirname,
         "html_name": html_file.name,
         "heuristics": context.get("transformation_heuristics", []),

@@ -8,14 +8,15 @@ from flask import (
     send_from_directory,
     url_for,
 )
+from pathlib import Path
 
 from engine.adapters.file_system.file_manager import create_output_bundle
-from engine.domain.models.session import Session
 from engine.pipeline.pipeline import pipeline
 from prefect.states import get_state_exception
 
 
 main = Blueprint("main", __name__)
+SESSIONS_ROOT = Path(__file__).resolve().parents[1] / "workspace" / "sessions"
 
 
 @main.route("/")
@@ -30,19 +31,19 @@ def header():
 
 @main.route("/sessions/<session_id>/artifacts/<path:filename>")
 def session_artifact(session_id: str, filename: str):
-    artifacts_dir = (Session.SESSIONS_ROOT / session_id / "artifacts").resolve()
+    artifacts_dir = (SESSIONS_ROOT / session_id / "artifacts").resolve()
     return send_from_directory(artifacts_dir, filename)
 
 
 @main.route("/sessions/<session_id>/after/<path:filename>")
 def session_after(session_id: str, filename: str):
-    after_dir = (Session.SESSIONS_ROOT / session_id / "after").resolve()
+    after_dir = (SESSIONS_ROOT / session_id / "after").resolve()
     return send_from_directory(after_dir, filename)
 
 
 @main.route("/sessions/<session_id>/download")
 def session_after_download(session_id: str):
-    sessions_root = Session.SESSIONS_ROOT.resolve()
+    sessions_root = SESSIONS_ROOT.resolve()
     session_dir = (sessions_root / session_id).resolve()
 
     try:
@@ -89,12 +90,16 @@ def results():
         flash(str(get_state_exception(state)), "error")
         return redirect(url_for("main.index"))
     context = state.result()
+    project_context = context.project_context
+    if project_context is None:
+        flash("ProjectContext no fue inicializado.", "error")
+        return redirect(url_for("main.index"))
 
     return render_template(
         "results.html",
         context=context,
-        session=context.session,
-        session_dirname=context.session.session_dir.name,
+        session=project_context,
+        session_dirname=project_context.session_dir.name,
         summary=context.summary,
         dom_tree=context.dom_tree,
         changed_elements=[
@@ -106,6 +111,6 @@ def results():
         environmental_review=context.summary.environmental_review(),
         download_url=url_for(
             "main.session_after_download",
-            session_id=context.session.session_dir.name,
+            session_id=project_context.session_dir.name,
         ),
     )

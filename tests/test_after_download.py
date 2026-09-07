@@ -4,19 +4,19 @@ import unittest
 import zipfile
 from pathlib import Path
 
+import app.routes as app_routes
 from app import create_app
-from engine.domain.models.session import Session
 
 
 class AfterDownloadTest(unittest.TestCase):
     def test_download_after_folder_as_glow_design_zip_without_after_root(self) -> None:
-        original_sessions_root = Session.SESSIONS_ROOT
+        original_sessions_root = app_routes.SESSIONS_ROOT
 
         try:
             with tempfile.TemporaryDirectory() as temp_dir:
-                Session.SESSIONS_ROOT = Path(temp_dir)
+                app_routes.SESSIONS_ROOT = Path(temp_dir)
                 after_dir = (
-                    Session.SESSIONS_ROOT
+                    app_routes.SESSIONS_ROOT
                     / "session_download_test"
                     / "after"
                 )
@@ -35,8 +35,8 @@ class AfterDownloadTest(unittest.TestCase):
                     jpeg_payload
                 )
 
-                app = create_app()
-                client = app.test_client()
+                flask_app = create_app()
+                client = flask_app.test_client()
                 response = client.get(
                     "/sessions/session_download_test/download"
                 )
@@ -67,7 +67,7 @@ class AfterDownloadTest(unittest.TestCase):
                 finally:
                     response.close()
         finally:
-            Session.SESSIONS_ROOT = original_sessions_root
+            app_routes.SESSIONS_ROOT = original_sessions_root
 
 
 if __name__ == "__main__":

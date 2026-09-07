@@ -10,7 +10,6 @@ from werkzeug.datastructures import FileStorage
 from app.config import SESSION_EXPIRE_MINUTES
 from PIL import Image
 import magic
-from engine.domain.utils.FFmpeg import validate_video
 
 # Bidirectional mapping between MIME types and their standard official extensions
 TYPE_TO_EXTENSION = {
@@ -18,30 +17,35 @@ TYPE_TO_EXTENSION = {
     "text/css": ".css",
     "text/javascript": ".js",
     "application/javascript": ".js",
+    "text/plain": ".txt",
+    "application/xml": ".xml",
+    "text/xml": ".xml",
     "image/png": ".png",
-    "image/jpeg": ".jpg",  # Cubre tanto .jpg como .jpeg
+    "image/jpeg": ".jpg",  # Cubre .jpg y .jpeg
     "image/svg+xml": ".svg",
     "image/svg": ".svg",
     "image/webp": ".webp",
-    "application/zip": ".zip",
-    "application/x-zip-compressed": ".zip",
-    "inode/directory": "directory",
-    "application/xml": ".xml",
-    "text/xml": ".xml",
     "image/gif": ".gif",
     "image/x-icon": ".ico",
     "image/vnd.microsoft.icon": ".ico",
     "image/bmp": ".bmp",
     "image/x-ms-bmp": ".bmp",
-    "text/plain": ".txt",
+    "video/mp4": ".mp4",
+    "video/x-m4v": ".m4v",
+    "video/quicktime": ".mov",
+    "video/webm": ".webm",
+    "video/ogg": ".ogv",
+    "application/zip": ".zip",
+    "application/x-zip-compressed": ".zip",
 }
 
-DANGEROUS_PATTERN = re.compile(
-    r'[\x00-\x1f\x7f\\/:*?"<>|;&$`]'
-)
+DANGEROUS_PATTERN = re.compile(r'[\x00-\x1f\x7f\\/:*?"<>|;&$`]')
 
 WINDOWS_RESERVED_NAMES = {
-    "CON", "PRN", "AUX", "NUL",
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
     *(f"COM{i}" for i in range(1, 10)),
     *(f"LPT{i}" for i in range(1, 10)),
 }
@@ -77,6 +81,7 @@ TEXT_FILE_SUFFIXES = {
     ".xml",
 }
 
+
 def is_path_dangerous(path: str | Path) -> bool:
     """
     Returns True if a relative path contains dangerous components.
@@ -85,15 +90,10 @@ def is_path_dangerous(path: str | Path) -> bool:
         return True
     path = Path(Path(path).as_posix())
 
-    if (
-        path.is_absolute()
-        or not path.parts
-        or len(path.suffixes) > 1
-    ):
+    if path.is_absolute() or not path.parts or len(path.suffixes) > 1:
         return True
 
     for index, part in enumerate(path.parts):
-
         # Directorio padre, actual o vacío
         if part in ("", ".", ".."):
             return True
@@ -120,6 +120,7 @@ def is_path_dangerous(path: str | Path) -> bool:
 
     return False
 
+
 def detect_type(file: FileStorage) -> str:
     """Uses python.magic to detect the real type of the file."""
     if not file.stream or not file.filename:
@@ -128,7 +129,7 @@ def detect_type(file: FileStorage) -> str:
     file.seek(0)
     safe_block = file.read(64 * 1024)
     file.seek(0)  # Reset pointer position
-    
+
     detected_mime = magic.from_buffer(safe_block, mime=True)
     file_suffix = Path(file.filename).suffix.lower()
 
@@ -137,7 +138,7 @@ def detect_type(file: FileStorage) -> str:
         safe_block,
     ):
         return file_suffix
-    
+
     match detected_mime:
         case mime if mime.startswith("video"):
             detected_type = "video"
@@ -150,16 +151,13 @@ def detect_type(file: FileStorage) -> str:
 
 
 def _is_text_mime_or_utf8(detected_mime: str, payload: bytes) -> bool:
-    if (
-        detected_mime.startswith("text/")
-        or detected_mime in {
-            "application/javascript",
-            "application/xml",
-            "image/svg+xml",
-            "image/svg",
-            "text/xml",
-        }
-    ):
+    if detected_mime.startswith("text/") or detected_mime in {
+        "application/javascript",
+        "application/xml",
+        "image/svg+xml",
+        "image/svg",
+        "text/xml",
+    }:
         return True
 
     try:
@@ -169,6 +167,7 @@ def _is_text_mime_or_utf8(detected_mime: str, payload: bytes) -> bool:
 
     return True
 
+
 def is_corrupted(file: FileStorage, detected_type: str) -> tuple[bool, str | None]:
     """
     Analiza la integridad estructural interna de TODO el archivo en memoria.
@@ -177,7 +176,7 @@ def is_corrupted(file: FileStorage, detected_type: str) -> tuple[bool, str | Non
 
     if not file.stream or not file.filename:
         return True, f"Target object is not a valid file: {file.filename}"
-    
+
     try:
         file.seek(0)
 
@@ -188,7 +187,7 @@ def is_corrupted(file: FileStorage, detected_type: str) -> tuple[bool, str | Non
                 return False, None
 
             case ".html" | ".css" | ".js" | ".svg" | ".txt" | ".xml":
-                contenido = file.read().decode('utf-8', errors='strict')
+                contenido = file.read().decode("utf-8", errors="strict")
                 file.seek(0)  # Restaurar puntero tras leer texto
                 if not contenido.strip():
                     return True, "Is an empty file"
@@ -199,26 +198,34 @@ def is_corrupted(file: FileStorage, detected_type: str) -> tuple[bool, str | Non
                     return True, "Is not a valid zip file"
                 file.seek(0)
                 with zipfile.ZipFile(file.stream) as zf:
-                    if zf.testzip() is not None: 
+                    if zf.testzip() is not None:
                         return True, "Is not a valid zip file"
                 return False, None
-                
+
             case "directory":
                 return False, None
 
             case "video":
+                # Video thumbnail/validation is disabled in the current upload flow.
+                # Previously this delegated to FFmpeg/PyAV-style validation before
+                # generating a JPEG thumbnail.
+                from engine.domain.utils.FFmpeg import validate_video
+
                 payload = file.read()
                 file.seek(0)
                 if validate_video(payload):
                     return True, "Video file is corrupted or unreadable."
                 return False, None
-                
+
             case _:
                 return True, f"File type not allowed: {detected_type}"
 
     except Exception as exc:
         exception_type = type(exc).__name__
-        return True, f"Operation failed due to an unexpected error [{exception_type}]: {exc}"
+        return (
+            True,
+            f"Operation failed due to an unexpected error [{exception_type}]: {exc}",
+        )
     finally:
         try:
             file.seek(0)
@@ -253,6 +260,7 @@ def scan_files(root: str | Path) -> tuple[Path, ...]:
 def ensure_parent_dir(path: str | Path) -> None:
     Path(path).resolve().parent.mkdir(parents=True, exist_ok=True)
 
+
 def safe_rmtree(path: str | Path) -> bool:
     target = Path(path).resolve()
     if not target.exists():
@@ -280,7 +288,7 @@ def clean_old_sessions(
     for path in base.iterdir():
         if not path.is_dir() or not path.name.startswith("session_"):
             continue
-        session_id = path.name[len("session_"):]
+        session_id = path.name[len("session_") :]
         if session_id in protected_session_ids or path.name in protected_session_ids:
             continue
         age_minutes = (now - path.stat().st_mtime) / 60.0
@@ -304,7 +312,9 @@ def create_output_bundle(
         try:
             final_zip_path.unlink()
         except OSError as exc:
-            raise OSError(f"No se pudo reemplazar el ZIP existente: {final_zip_path}") from exc
+            raise OSError(
+                f"No se pudo reemplazar el ZIP existente: {final_zip_path}"
+            ) from exc
     shutil.make_archive(str(bundle_base), "zip", source)
     return str(final_zip_path), final_zip_path.name
 
@@ -314,5 +324,5 @@ def _protected_session_ids(active_session_id: str | None) -> set[str]:
     if not value:
         return set()
     if value.startswith("session_"):
-        return {value, value[len("session_"):]}
+        return {value, value[len("session_") :]}
     return {value, f"session_{value}"}

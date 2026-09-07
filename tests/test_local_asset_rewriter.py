@@ -1,261 +1,177 @@
+import shutil
 import unittest
 from pathlib import Path
-import shutil
+
+from flask import Flask
 
 from engine.adapters.source_code_handler.local_asset_rewriter import (
-    _rewrite_css_urls,
-    rewrite_local_asset_references,
+    extract_reference_candidates,
+    rewrite_reference_candidates,
 )
-from engine.domain.models.asset_records import AssetRecords, LocalAsset
-from engine.domain.models.session import Session
+from engine.domain.models.project_context import ProjectContext, ProjectFile, ProjectSource
+from engine.pipeline.context import PipelineContext
 
 
-def register_local_assets(session: Session, asset_records: AssetRecords) -> None:
-    before_root = session.get_area_root("before").resolve()
-    asset_records.root = before_root
-    session.update_area_root_paths("before")
-    session.file_types = {
-        path.resolve(): path.suffix.lower() or "unknown"
-        for path in before_root.rglob("*")
-        if path.is_file()
-    }
-    for path, file_type in session.file_types.items():
-        asset_records.add_local_asset(
-            path.relative_to(before_root),
-            file_type=file_type,
-            origin="local",
+def project_context_for(*paths: str):
+    app_context = Flask(__name__).app_context()
+    app_context.push()
+    PipelineContext()
+    from flask import g
+
+    session_dir = g.session_dir
+    before_root = g.before_root
+    before_root.mkdir(parents=True, exist_ok=True)
+    g.after_root.mkdir(parents=True, exist_ok=True)
+    g.artifacts_root.mkdir(parents=True, exist_ok=True)
+
+    project_files = [
+        {"file_name": Path("site/index.html"), "mime_type": "text/html"}
+    ]
+    html_path = before_root / "site" / "index.html"
+    html_path.parent.mkdir(parents=True, exist_ok=True)
+    html_path.write_text("<html></html>", encoding="utf-8")
+
+    for path in paths:
+        file_path = before_root / path
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_bytes(b"asset")
+        mime_type = {
+            ".css": "text/css",
+            ".js": "application/javascript",
+            ".svg": "image/svg+xml",
+            ".html": "text/html",
+        }.get(file_path.suffix.lower(), "image/png")
+        project_files.append(
+            {
+                "file_name": Path(path),
+                "mime_type": mime_type,
+            }
         )
+    return app_context, ProjectContext(project_files)
 
 
 class LocalAssetRewriterTest(unittest.TestCase):
-    def test_rewrites_path_attrs_without_losing_html_document(self) -> None:
-        session = Session()
-        asset_records = AssetRecords()
+    def test_extract_reference_candidates_handles_attributes_and_css_urls(self) -> None:
+        self.assertEqual(
+            ["icons/large.svg", "icons/small.svg"],
+            sorted(
+                extract_reference_candidates(
+                    "icons/small.svg 1x, icons/large.svg 2x",
+                    "srcset",
+                )
+            ),
+        )
+        self.assertEqual([], extract_reference_candidates("#icon", "href"))
+        self.assertEqual(
+            ["icons/icon.svg"],
+            extract_reference_candidates(
+                'linear-gradient(red, blue), url("icons/icon.svg")'
+            ),
+        )
+
+    def test_rewrite_reference_candidates_preserves_srcset_descriptors(self) -> None:
+        self.assertEqual(
+            "assets/icon-glow.svg 1x, assets/icon-glow.svg 2x",
+            rewrite_reference_candidates(
+                "assets/icon.svg 1x, assets/icon.svg 2x",
+                "assets/icon-glow.svg",
+                "srcset",
+            ),
+        )
+
+    def test_rewrite_reference_candidates_can_target_one_css_url(self) -> None:
+        self.assertEqual(
+            'url(assets/icon-glow.svg), url("assets/other.svg")',
+            rewrite_reference_candidates(
+                'url("assets/icon.svg"), url("assets/other.svg")',
+                "assets/icon-glow.svg",
+                old_path="assets/icon.svg",
+            ),
+        )
+
+    def test_project_context_find_relative_asset_from_page_url_base(self) -> None:
+        app_context, project_context = project_context_for(
+            "assets/logo.png",
+            "site/assets/logo.png",
+        )
         try:
-            before_root = session.get_area_root("before")
-            assets_dir = before_root / "assets"
-            assets_dir.mkdir(parents=True)
-            (assets_dir / "logo.png").write_bytes(b"logo")
-            (assets_dir / "small.png").write_bytes(b"small")
-            (assets_dir / "large.png").write_bytes(b"large")
-
-            html_path = before_root / "index.html"
-            html_path.write_text(
-                """
-                <html>
-                  <head><title>Keep me</title></head>
-                  <body>
-                    <p>Body text</p>
-                    <img src="missing/logo.png?ver=1#hero">
-                    <img alt="No path attr">
-                    <source srcset="missing/small.png 1x, missing/large.png 2x">
-                  </body>
-                </html>
-                """,
-                encoding="utf-8",
-            )
-            register_local_assets(session, asset_records)
-
-            result = rewrite_local_asset_references(
-                html_path,
-                session,
-                asset_records,
-            )
-            rewritten_html = html_path.read_text(encoding="utf-8")
+            project_context.page_url = "http://127.0.0.1:8000/site/index.html"
 
             self.assertEqual(
-                [
-                    "assets/logo.png?ver=1#hero",
-                    "assets/small.png",
-                    "assets/large.png",
-                ],
-                result,
+                Path("site/assets/logo.png"),
+                project_context.project_file("assets/logo.png").path,
             )
-            self.assertIn("<title>Keep me</title>", rewritten_html)
-            self.assertIn("<p>Body text</p>", rewritten_html)
-            self.assertIn(
-                'src="assets/logo.png?ver=1#hero"',
-                rewritten_html,
-            )
-            self.assertIn(
-                'srcset="assets/small.png 1x, assets/large.png 2x"',
-                rewritten_html,
-            )
-        finally:
-            shutil.rmtree(session.session_dir, ignore_errors=True)
-
-    def test_rewrites_css_urls_with_tinycss2_tokens(self) -> None:
-        session = Session()
-        asset_records = AssetRecords()
-        try:
-            before_root = session.get_area_root("before")
-            assets_dir = before_root / "assets"
-            assets_dir.mkdir(parents=True)
-            (assets_dir / "logo.png").write_bytes(b"logo")
-            (assets_dir / "small.png").write_bytes(b"small")
-            (assets_dir / "large.png").write_bytes(b"large")
-            register_local_assets(session, asset_records)
-
-            rewritten_css = _rewrite_css_urls(
-                (
-                    "background: url(missing/logo.png), "
-                    'image-set(url("missing/small.png") 1x, '
-                    "url(missing/large.png) 2x);"
-                ),
-                session,
-                asset_records,
-                before_root,
-                before_root,
-            )
-
-            self.assertIn("url(assets/logo.png)", rewritten_css)
-            self.assertIn("url(assets/small.png)", rewritten_css)
-            self.assertIn("url(assets/large.png)", rewritten_css)
-        finally:
-            shutil.rmtree(session.session_dir, ignore_errors=True)
-
-    def test_rewrites_any_attribute_or_style_value_with_local_path(self) -> None:
-        session = Session()
-        asset_records = AssetRecords()
-        try:
-            before_root = session.get_area_root("before")
-            assets_dir = before_root / "assets"
-            assets_dir.mkdir(parents=True)
-            (assets_dir / "logo.png").write_bytes(b"logo")
-            (assets_dir / "hero.png").write_bytes(b"hero")
-            (assets_dir / "panel.png").write_bytes(b"panel")
-
-            html_path = before_root / "index.html"
-            html_path.write_text(
-                """
-                <html>
-                  <head>
-                    <style>.hero { background: url(missing/hero.png); }</style>
-                  </head>
-                  <body>
-                    <div data-icon="missing/logo.png"></div>
-                    <section style='background-image: url("missing/panel.png")'></section>
-                  </body>
-                </html>
-                """,
-                encoding="utf-8",
-            )
-            register_local_assets(session, asset_records)
-
-            result = rewrite_local_asset_references(html_path, session, asset_records)
-            rewritten_html = html_path.read_text(encoding="utf-8")
-
             self.assertEqual(
-                [
-                    "assets/hero.png",
-                    "assets/logo.png",
-                    "assets/panel.png",
-                ],
-                result,
+                Path("assets/logo.png"),
+                project_context.project_file("/assets/logo.png").path,
             )
-            self.assertIn('data-icon="assets/logo.png"', rewritten_html)
-            self.assertIn("url(assets/hero.png)", rewritten_html)
-            self.assertIn("url(assets/panel.png)", rewritten_html)
-        finally:
-            shutil.rmtree(session.session_dir, ignore_errors=True)
+            local_resource = project_context.add_resource(
+                "http://127.0.0.1:8000/site/assets/logo.png?ver=1",
+                resource_type="image",
+                load_status=True,
+            )
+            local_file = project_context.project_file("site/assets/logo.png")
 
-    def test_keeps_existing_relative_path_inside_nested_project(self) -> None:
-        session = Session()
-        asset_records = AssetRecords()
+            self.assertIsInstance(local_file, ProjectFile)
+            self.assertIs(local_resource, local_file.runtime_information)
+            self.assertTrue(local_file.is_loaded)
+        finally:
+            session_dir = project_context.session_dir
+            app_context.pop()
+            shutil.rmtree(session_dir, ignore_errors=True)
+
+    def test_project_source_adds_dependency_from_owner_file(self) -> None:
+        app_context, project_context = project_context_for(
+            "site/css/main.css",
+            "site/assets/icon.svg",
+        )
         try:
-            before_root = session.get_area_root("before")
-            project_dir = before_root / "Pagina de prueba 7"
-            css_path = project_dir / "css" / "estilos.css"
-            css_path.parent.mkdir(parents=True, exist_ok=True)
-            css_path.write_text("body { color: black; }", encoding="utf-8")
+            css_file = project_context.project_file("site/css/main.css")
+            self.assertIsNotNone(css_file)
+            self.assertIsInstance(css_file, ProjectSource)
 
-            html_path = project_dir / "index.html"
-            html_path.write_text(
-                '<html><head><link rel="stylesheet" href="css/estilos.css"></head></html>',
-                encoding="utf-8",
-            )
-            register_local_assets(session, asset_records)
+            related_file = project_context.project_file("../assets/icon", css_file)
+            self.assertIsNotNone(related_file)
+            reference = "../assets/icon"
+            css_file.add_dependency(related_file, reference)
 
-            result = rewrite_local_asset_references(html_path, session, asset_records)
-            rewritten_html = html_path.read_text(encoding="utf-8")
-
-            self.assertEqual([], result)
-            self.assertIn('href="css/estilos.css"', rewritten_html)
-            self.assertNotIn(
-                "Pagina%20de%20prueba%207/Pagina%20de%20prueba%207",
-                rewritten_html,
-            )
+            self.assertEqual(Path("site/assets/icon.svg"), related_file.path)
+            self.assertEqual("../assets/icon", reference)
+            self.assertEqual(((reference, related_file),), tuple(css_file.resources))
         finally:
-            shutil.rmtree(session.session_dir, ignore_errors=True)
+            session_dir = project_context.session_dir
+            app_context.pop()
+            shutil.rmtree(session_dir, ignore_errors=True)
 
-    def test_rewrites_missing_nested_path_relative_to_html_base(self) -> None:
-        session = Session()
-        asset_records = AssetRecords()
+    def test_project_context_loaded_svgs_require_successful_runtime_usage(self) -> None:
+        app_context, project_context = project_context_for(
+            "site/assets/icon.svg",
+            "site/assets/unused.svg",
+        )
         try:
-            before_root = session.get_area_root("before")
-            project_dir = before_root / "Pagina de prueba 7"
-            css_path = project_dir / "css" / "estilos.css"
-            css_path.parent.mkdir(parents=True, exist_ok=True)
-            css_path.write_text("body { color: black; }", encoding="utf-8")
+            project_context.page_url = "http://127.0.0.1:8000/site/index.html"
+            icon = project_context.project_file("site/assets/icon.svg")
+            unused = project_context.project_file("site/assets/unused.svg")
+            self.assertIsNotNone(icon)
+            self.assertIsNotNone(unused)
 
-            html_path = project_dir / "index.html"
-            html_path.write_text(
-                '<html><head><link rel="stylesheet" href="missing/estilos.css"></head></html>',
-                encoding="utf-8",
+            project_context.add_resource(
+                "http://127.0.0.1:8000/site/assets/icon.svg",
+                resource_type="image",
+                load_status=True,
             )
-            register_local_assets(session, asset_records)
-
-            result = rewrite_local_asset_references(html_path, session, asset_records)
-            rewritten_html = html_path.read_text(encoding="utf-8")
-
-            self.assertEqual(["css/estilos.css"], result)
-            self.assertIn('href="css/estilos.css"', rewritten_html)
-            self.assertNotIn(
-                "Pagina%20de%20prueba%207/Pagina%20de%20prueba%207",
-                rewritten_html,
+            icon.add_usage(10)
+            project_context.add_resource(
+                "http://127.0.0.1:8000/site/assets/unused.svg",
+                resource_type="image",
+                load_status=True,
             )
+
+            self.assertEqual((icon,), project_context.loaded_svgs())
         finally:
-            shutil.rmtree(session.session_dir, ignore_errors=True)
-
-    def test_rewrites_urls_inside_external_css_files(self) -> None:
-        session = Session()
-        asset_records = AssetRecords()
-        try:
-            before_root = session.get_area_root("before")
-            project_dir = before_root / "project"
-            css_path = project_dir / "css" / "main.css"
-            image_path = project_dir / "assets" / "hero.png"
-            css_path.parent.mkdir(parents=True, exist_ok=True)
-            image_path.parent.mkdir(parents=True, exist_ok=True)
-            css_path.write_text(
-                ".hero { background-image: url(missing/hero.png); }",
-                encoding="utf-8",
-            )
-            image_path.write_bytes(b"hero")
-
-            html_path = project_dir / "index.html"
-            html_path.write_text(
-                '<html><head><link rel="stylesheet" href="css/main.css"></head></html>',
-                encoding="utf-8",
-            )
-            register_local_assets(session, asset_records)
-
-            result = rewrite_local_asset_references(html_path, session, asset_records)
-
-            self.assertEqual(["../assets/hero.png"], result)
-            self.assertIn(
-                "url(../assets/hero.png)",
-                css_path.read_text(encoding="utf-8"),
-            )
-            source = asset_records.find_asset(Path("project/assets/hero.png"))
-            self.assertIsNotNone(source)
-            self.assertEqual("project/assets/hero.png", source.source)
-            css_asset = asset_records.find_asset(Path("project/css/main.css"))
-            self.assertIsNotNone(css_asset)
-            self.assertIsInstance(css_asset, LocalAsset)
-            self.assertEqual("../assets/hero.png", css_asset.resource(source))
-        finally:
-            shutil.rmtree(session.session_dir, ignore_errors=True)
+            session_dir = project_context.session_dir
+            app_context.pop()
+            shutil.rmtree(session_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

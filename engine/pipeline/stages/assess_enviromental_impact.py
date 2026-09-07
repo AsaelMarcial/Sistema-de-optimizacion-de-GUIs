@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from pathlib import Path
 from typing import Any
+
+from flask import g
 
 from engine.adapters.utils.pixel import build_histogram, image_to_array
 from engine.domain.models.color_scheme import Color
@@ -14,13 +17,13 @@ from engine.domain.models.environmental_assessment.carbon_footprint import (
     assess_interface,
 )
 from engine.domain.models.environmental_assessment.energy_consumption import EnergyModel
-from engine.domain.models.session import Session
+from engine.domain.models.project_context import ProjectContext
 from engine.domain.models.summary import Summary
 from engine.pipeline.glow_runtime import (
     glow_flow,
     glow_task,
 )
-from prefect.states import Completed, State
+from prefect.states import Completed, State, raise_state_exception
 
 _ENERGY_MODEL = EnergyModel.build_default()
 _CARBON_MODEL = CarbonFootprintModel.build_default()
@@ -108,11 +111,12 @@ def _rgb_channels(color_value: object) -> tuple[int, int, int]:
 
 
 @glow_flow
-def assess_enviromental_impact(
-    session: Session,
-    summary: Summary,
-):
-    screenshot_path = session.get_path("after.png", "artifacts", "png")
+def assess_enviromental_impact() -> None:
+    project_context: ProjectContext = g.project_context
+    summary: Summary = g.summary
+    screenshot_path = project_context.GENERATED_FILES_REGISTRY[
+        Path("after.png")
+    ].absolute_path
     pixel_matrix = image_to_array(screenshot_path)
     environmental_histogram = build_histogram(pixel_matrix)
     summary.add_overview(
@@ -152,4 +156,13 @@ def assess_enviromental_impact(
             "co2eq_per_use_savings": savings.co2eq_per_use,
         }
     })
-    _summary_has_environmental_assessment(summary)
+    environmental_assessment_ready = _summary_has_environmental_assessment(
+        summary,
+        return_state=True,
+    )
+    if (
+        environmental_assessment_ready.is_failed()
+        or environmental_assessment_ready.is_crashed()
+        or environmental_assessment_ready.is_cancelled()
+    ):
+        raise_state_exception(environmental_assessment_ready)

@@ -1,32 +1,32 @@
 from __future__ import annotations
 
-from engine.adapters.browser.page_builder import PageBuilder
+from pathlib import Path
+
+from flask import g
+from prefect.states import Completed, State, raise_state_exception
+
 from engine.adapters.file_system.file_manager import create_output_bundle
 from engine.adapters.source_code_handler.source_code_formatter import (
     export_runtime_sources,
 )
 from engine.adapters.utils.palette_preview import render_palette_preview
-from engine.domain.models.color_scheme import ColorScheme
-from engine.domain.models.session import Session
+from engine.domain.models.project_context import ProjectContext
 from engine.pipeline.glow_runtime import (
     glow_flow,
     glow_task,
 )
-from prefect.states import Completed, State
 
 
 @glow_task
-def _results_ready(session: Session | None) -> State:
-    if session is None:
-        raise RuntimeError("No hay sesion para validar resultados.")
+def _results_ready(project_context: ProjectContext | None) -> State:
+    if project_context is None:
+        raise RuntimeError("No hay ProjectContext para validar resultados.")
 
-    palette_preview = session.get_path(
-        "palette_preview.png",
-        "artifacts",
-        "png",
-    )
-    after_html = session.find_by_suffix("after", "html")
-    bundle = session.get_path("glow_design.zip", "artifacts", "zip")
+    palette_preview = project_context.GENERATED_FILES_REGISTRY[
+        Path("palette_preview.png")
+    ].absolute_path
+    after_html = tuple(g.after_root.rglob("*.html"))
+    bundle = g.artifacts_root / "glow_design.zip"
     if (
         palette_preview.is_file()
         and palette_preview.stat().st_size > 0
@@ -39,52 +39,47 @@ def _results_ready(session: Session | None) -> State:
 
 
 @glow_flow
-def build_results(
-    session: Session,
-    page_builder: PageBuilder,
-    color_scheme: ColorScheme,
-):
-    palette_preview_path = session.get_path(
-        "palette_preview.png",
-        "artifacts",
-        "png",
-    )
+def build_results() -> None:
+    palette_preview_path = g.project_context.GENERATED_FILES_REGISTRY[
+        Path("palette_preview.png")
+    ].absolute_path
     render_palette_preview(
-        color_scheme.get_palettes(),
+        g.color_scheme.get_palettes(),
         palette_preview_path,
     )
 
-    copied_after_paths = session.copy_area_files("before", "after")
-    before_html = session.find_by_suffix("before", "html")[0]
-    before_root = session.get_area_root("before")
-    after_root = session.get_area_root("after")
+    copied_after_paths = g.project_context.copy_area_files()
+    before_html = g.project_context.html.absolute_path
 
     source_export = export_runtime_sources(
-        page_builder=page_builder,
-        output_directory=after_root,
-        html_filename=before_html.relative_to(before_root).as_posix(),
+        page_builder=g.page_builder,
+        output_directory=g.after_root,
+        html_filename=before_html.relative_to(g.before_root).as_posix(),
     )
-    session.save_in_after(source_export.html_path)
-    for path in source_export.stylesheet_paths.values():
-        session.save_in_after(path)
 
     zip_path, zip_filename = create_output_bundle(
-        source_dir=after_root,
-        bundle_dir=session.get_area_root("artifacts"),
+        source_dir=g.after_root,
+        bundle_dir=g.artifacts_root,
         bundle_name="glow_design.zip",
     )
-    session.save_in_artifacts(session.get_area_root("artifacts") / zip_filename)
 
-    print({
-        "build_results.complete": {
-            "palette_preview_path": str(palette_preview_path),
-            "copied_after_file_count": len(copied_after_paths),
-            "after_html_path": str(source_export.html_path),
-            "after_css_paths": [
-                str(path)
-                for path in source_export.stylesheet_paths.values()
-            ],
-            "bundle_path": zip_path,
+    print(
+        {
+            "build_results.complete": {
+                "palette_preview_path": str(palette_preview_path),
+                "copied_after_file_count": len(copied_after_paths),
+                "after_html_path": str(source_export.html_path),
+                "after_css_paths": [
+                    str(path) for path in source_export.stylesheet_paths.values()
+                ],
+                "bundle_path": zip_path,
+            }
         }
-    })
-    _results_ready(session)
+    )
+    results_ready = _results_ready(g.project_context, return_state=True)
+    if (
+        results_ready.is_failed()
+        or results_ready.is_crashed()
+        or results_ready.is_cancelled()
+    ):
+        raise_state_exception(results_ready)

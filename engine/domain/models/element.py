@@ -7,11 +7,20 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from engine.domain.data.scope_css import get_font_weight
-from engine.domain.models.asset_records import Asset
+from engine.domain.models.project_context import Resource
 from engine.domain.models.color_scheme import Color
 from engine.domain.utils.parsers import are_all_colors_transparent, get_colors
 
-SVG_PAINT_TAGS = ("svg", "circle", "rect", "ellipse", "line", "polyline", "polygon", "path")
+SVG_PAINT_TAGS = (
+    "svg",
+    "circle",
+    "rect",
+    "ellipse",
+    "line",
+    "polyline",
+    "polygon",
+    "path",
+)
 BoxQuad = list[tuple[float, float]]
 
 PropertyType = Literal[
@@ -21,16 +30,27 @@ PropertyType = Literal[
     "attribute",
 ]
 
+
 @dataclass(slots=True)
 class Property:
     name: str
-    before_value: str| None = field(default="")
+    before_value: str | None = field(default="")
+    value_tokens: tuple[Any, ...] = field(
+        default_factory=tuple,
+        repr=False,
+        hash=False,
+        compare=False,
+    )
     after_value: str | None = field(default=None)
     calculated_value: str | None = field(default=None)
-    image_source: Asset | None = field(default=None)
+    resource: Resource | None = field(default=None, repr=False, hash=False, compare=False)
     has_color: bool = False
     type: PropertyType = field(default="matched")
     is_defined: bool = field(default=False)
+
+    @property
+    def resource_loaded(self) -> bool:
+        return self.resource is not None and self.resource.is_loaded
 
     @property
     def current_value(self) -> str:
@@ -40,6 +60,7 @@ class Property:
     def has_changed(self) -> bool:
         return self.after_value is not None and self.before_value != self.after_value
 
+
 @dataclass(slots=True, eq=False)
 class Element:
     backend_node_id: int
@@ -48,21 +69,18 @@ class Element:
     category: str | None
     node_type: int
     node_value: str | None = None
-    parent: Element | None = field(default=None, repr=False, compare=False)
+    parent: Element | None = field(default=None, repr=False, hash=False, compare=False)
     box_model: dict[str, BoxQuad] = field(default_factory=dict)
     width: float | None = None
     height: float | None = None
     properties: list[Property] = field(default_factory=list)
     children: list[Element] = field(
-        default_factory=list, 
-        repr=False,
-        compare=False
+        default_factory=list, repr=False, hash=False, compare=False
     )
 
     def __eq__(self, other: object) -> bool:
         return (
-            isinstance(other, Element)
-            and self.backend_node_id == other.backend_node_id
+            isinstance(other, Element) and self.backend_node_id == other.backend_node_id
         )
 
     def __hash__(self) -> int:
@@ -83,11 +101,7 @@ class Element:
 
     @property
     def is_visible(self) -> bool:
-        return bool(
-            self.box_model
-            and (self.width or 0) > 0
-            and (self.height or 0) > 0
-        )
+        return bool(self.box_model and (self.width or 0) > 0 and (self.height or 0) > 0)
 
     @property
     def depth(self) -> int:
@@ -103,11 +117,10 @@ class Element:
     @property
     def has_text(self) -> bool:
         return any(
-            child.tag_name == "#text"
-            and bool(str(child.node_value or "").strip())
+            child.tag_name == "#text" and bool(str(child.node_value or "").strip())
             for child in self.children
         )
-    
+
     @property
     def has_image(self) -> bool:
         return bool(self.image_references())
@@ -137,14 +150,17 @@ class Element:
         return self.box_model.get("margin")
 
     def image_references(self) -> list[Property]:
-        return [property_model for property_model in self.properties if property_model.image_source is not None]
+        return [
+            property_model
+            for property_model in self.properties
+            if property_model.resource is not None
+        ]
 
     def add_child(self, child: Element) -> None:
         if child is self:
             raise ValueError("An Element cannot be a child of itself.")
         if not any(
-            item.backend_node_id == child.backend_node_id
-            for item in self.children
+            item.backend_node_id == child.backend_node_id for item in self.children
         ):
             child.parent = self
             self.children.append(child)
@@ -164,10 +180,10 @@ class Element:
     def attribute(self, name: str) -> Property | None:
         normalized = str(name).strip()
         return next((attr for attr in self.attributes if attr.name == normalized), None)
-        
+
     def property(self, name: str) -> dict[str, Any]:
         """
-        Busca una propiedad por su nombre y devuelve un diccionario con 
+        Busca una propiedad por su nombre y devuelve un diccionario con
         todos sus atributos. Si no existe, devuelve valores seguros por defecto.
         """
         normalized = str(name).strip().lower() if name is not None else ""
@@ -179,18 +195,20 @@ class Element:
             ),
             None,
         )
-        
+
         return {
             "name": prop.name if prop is not None else "",
-            "before_value": prop.before_value if prop is not None and prop.before_value is not None else "",
+            "before_value": prop.before_value
+            if prop is not None and prop.before_value is not None
+            else "",
             "after_value": prop.after_value if prop is not None else None,
             "calculated_value": prop.calculated_value if prop is not None else None,
-            "image_source": prop.image_source if prop is not None else None,
+            "resource": prop.resource if prop is not None else None,
             "has_color": prop.has_color if prop is not None else False,
             "is_defined": prop.is_defined if prop is not None else False,
             "type": prop.type if prop is not None else "inherited",
             "current_value": prop.current_value if prop is not None else "",
-            "has_changed": prop.has_changed if prop is not None else False
+            "has_changed": prop.has_changed if prop is not None else False,
         }
 
     def remove_property(self, name: str) -> None:
@@ -222,7 +240,7 @@ class Element:
             ),
             key=lambda item: item[1],
         )
-        
+
         try:
             font_size = float(str(font_size).removesuffix("px"))
         except (TypeError, ValueError):
@@ -230,20 +248,18 @@ class Element:
             return None
 
         font_weight = get_font_weight(str(font_weight)) or 400
-        is_large_text = (
-            font_size >= 24
-            or font_size >= 56 / 3 and font_weight >= 700
-        )
+        is_large_text = font_size >= 24 or font_size >= 56 / 3 and font_weight >= 700
         required_ratio = 3.0 if is_large_text else 4.5
 
         return (
-            foreground.convert("srgb").to_string(comma=True, alpha=True, rounding="decimal", precision=0),
+            foreground.convert("srgb").to_string(
+                comma=True, alpha=True, rounding="decimal", precision=0
+            ),
             background,
             float(contrast_ratio),
             required_ratio,
             is_large_text,
         )
-
 
     @builtins.property
     def effective_background(self) -> dict[str, Any]:
@@ -251,26 +267,39 @@ class Element:
         Determina y devuelve el diccionario de la propiedad de fondo
         efectiva del elemento, resolviendo transparencias y contenidos.
         """
-        for property_name in ("fill", "background", "background-image", "background-color"):
+        for property_name in (
+            "fill",
+            "background",
+            "background-image",
+            "background-color",
+        ):
             # Almacenamos el diccionario de la propiedad una sola vez para mejorar rendimiento
             prop = self.property(property_name)
-            prop_value = prop["current_value"]  # Coincide exactamente con tu nueva clave
+            prop_value = prop[
+                "current_value"
+            ]  # Coincide exactamente con tu nueva clave
 
             match prop["name"]:
                 case "background":
                     bg_image_name = self.property("background-image")["name"]
-                    
+
                     if self.has_image and bg_image_name != "":
                         continue
                     return prop
 
                 case "fill":
-                    if self.tag_name in SVG_PAINT_TAGS and get_colors(prop_value) is not None and not are_all_colors_transparent(prop_value):
+                    if (
+                        self.tag_name in SVG_PAINT_TAGS
+                        and get_colors(prop_value) is not None
+                        and not are_all_colors_transparent(prop_value)
+                    ):
                         return prop
 
                 case "background-image":
                     # Usamos las banderas booleanas seguras de tu propio diccionario
-                    if (not self.has_image and not prop["has_color"]) or (prop["has_color"] and are_all_colors_transparent(prop_value)):
+                    if (not self.has_image and not prop["has_color"]) or (
+                        prop["has_color"] and are_all_colors_transparent(prop_value)
+                    ):
                         continue
                     return prop
 
@@ -289,15 +318,21 @@ class Element:
         for ancestor in self.ancestors:
             if ancestor.tag_name == "body" or ancestor.has_image:
                 return ancestor
-                
+
             bg_prop = ancestor.effective_background
             bg_value = bg_prop["current_value"]
 
-            if bg_prop["name"] and ancestor.tag_name not in SVG_PAINT_TAGS and get_colors(bg_value) is not None and not are_all_colors_transparent(bg_value):
-                    return ancestor
+            if (
+                bg_prop["name"]
+                and ancestor.tag_name not in SVG_PAINT_TAGS
+                and get_colors(bg_value) is not None
+                and not are_all_colors_transparent(bg_value)
+            ):
+                return ancestor
 
         # Retorno de cortocircuito seguro si ningún ancestro aportó color
         return root
+
 
 def iter_elements(root: Element | None) -> Iterable[Element]:
     return () if root is None else root.iter_dfs()
@@ -344,11 +379,7 @@ class DomTree:
 
     def find(self, condition: Callable[[Element], bool]) -> Element | None:
         return next(
-            (
-                element
-                for element in self.elements.values()
-                if condition(element)
-            ),
+            (element for element in self.elements.values() if condition(element)),
             None,
         )
 

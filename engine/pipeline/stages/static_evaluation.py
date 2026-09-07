@@ -1,43 +1,117 @@
 from __future__ import annotations
 
+from bs4 import BeautifulSoup, Tag
+from flask import g
+import tinycss2
+
 from engine.adapters.source_code_handler.local_asset_rewriter import (
-    rewrite_local_asset_references,
+    extract_reference_candidates,
 )
-from engine.domain.models.asset_records import AssetRecords
-from engine.domain.models.session import Session
-from engine.domain.models.style import Styles
+from engine.domain.models.project_context import ProjectFile, ProjectSource
 from engine.pipeline.glow_runtime import glow_flow
 
 
 @glow_flow
-def static_evaluation(
-    session: Session,
-    style: Styles,
-    asset_records: AssetRecords,
-):
-    html_files = tuple(session.get_by_type(".html"))
-    before_root = session.get_area_root("before")
+def static_evaluation() -> None:
+    g.style.clear()
+    evaluated_files = _register_project_file_references()
 
-    html_file = html_files[0]
-    rewritten_values = rewrite_local_asset_references(
-        html_file,
-        session,
-        asset_records,
-    )
-    if rewritten_values:
-        print({
-            "html.asset_paths_rewritten": {
-                "rewrite_count": len(rewritten_values),
-                "html_path": str(html_file),
+    print(
+        {
+            "static_evaluation.complete": {
+                "html_path": str(g.project_context.html.path),
+                "asset_count": len(g.project_context),
+                "evaluated_files": evaluated_files,
             }
-        })
-
-    style.clear()
-
-    print({
-        "static_evaluation.complete": {
-            "html_path": str(html_file),
-            "before_root": str(before_root),
-            "asset_count": len(asset_records),
         }
-    })
+    )
+
+
+def _register_project_file_references() -> int:
+    pending = [g.project_context.html]
+    evaluated: set[ProjectFile] = set()
+
+    while pending:
+        project_file = pending.pop(0)
+        if project_file in evaluated or project_file.file_type not in {"html", "css"}:
+            continue
+
+        evaluated.add(project_file)
+        for reference in _references_from_project_file(project_file):
+            if not isinstance(project_file, ProjectSource):
+                continue
+
+            related_file = g.project_context.project_file(reference, project_file)
+            if related_file is not None:
+                project_file.add_dependency(related_file, reference)
+
+            if related_file is not None and related_file.file_type == "css":
+                pending.append(related_file)
+
+    return len(evaluated)
+
+
+def _references_from_project_file(
+    project_file: ProjectFile,
+) -> tuple[str, ...]:
+    path = project_file.absolute_path
+    if not path.is_file():
+        return ()
+
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return ()
+
+    if project_file.file_type == "css":
+        references: list[str] = []
+        for rule in tinycss2.parse_stylesheet(
+            text,
+            skip_comments=True,
+            skip_whitespace=True,
+        ):
+            prelude = getattr(rule, "prelude", None)
+            if prelude:
+                references.extend(
+                    extract_reference_candidates(tinycss2.serialize(prelude))
+                )
+
+                if (
+                    getattr(rule, "type", "") == "at-rule"
+                    and getattr(rule, "lower_at_keyword", "") == "import"
+                ):
+                    references.extend(
+                        str(token.value).strip()
+                        for token in prelude
+                        if getattr(token, "type", "") == "string"
+                        and str(token.value).strip()
+                    )
+
+            content = getattr(rule, "content", None)
+            if content:
+                references.extend(
+                    extract_reference_candidates(tinycss2.serialize(content))
+                )
+
+        return tuple(dict.fromkeys(references))
+
+    soup = BeautifulSoup(text, "html.parser")
+    references: list[str] = []
+    for tag in soup.find_all(True):
+        if not isinstance(tag, Tag):
+            continue
+
+        for attr_name, attr_value in tag.attrs.items():
+            values = attr_value if isinstance(attr_value, list) else [attr_value]
+            for value in values:
+                references.extend(
+                    extract_reference_candidates(
+                        str(value),
+                        attribute_name=attr_name,
+                    )
+                )
+
+        if tag.name and tag.name.casefold() == "style" and tag.string is not None:
+            references.extend(extract_reference_candidates(str(tag.string)))
+
+    return tuple(references)

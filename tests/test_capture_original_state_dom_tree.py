@@ -47,6 +47,26 @@ class CaptureOriginalStateDomTreeTest(unittest.TestCase):
         self.assertEqual("matched", element.properties[0].type)
         self.assertTrue(element.properties[0].is_defined)
 
+    def test_filter_properties_keeps_asset_references(self):
+        element = Element(
+            backend_node_id=1,
+            node_id=101,
+            tag_name="div",
+            category="container",
+            node_type=1,
+            properties=[
+                Property(
+                    name="background-image",
+                    before_value='url("imagenes/icono-de-prueba.svg")',
+                ),
+            ],
+        )
+
+        _filter_properties(element, "")
+
+        self.assertEqual(1, len(element.properties))
+        self.assertEqual("background-image", element.properties[0].name)
+
     def test_approves_text_and_pseudo_nodes_without_orphan_html(self):
         text = {
             "backendNodeId": 7,
