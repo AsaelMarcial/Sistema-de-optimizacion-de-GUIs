@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import re
 from collections import Counter, deque
-from itertools import batched, chain
+from itertools import batched
 from pathlib import Path
 from typing import Any
 
-import tinycss2
 from flask import g
 
 from engine.adapters.browser.page_builder import PageBuilder
@@ -16,7 +15,7 @@ from engine.adapters.source_code_handler.local_asset_rewriter import (
 from engine.domain.data.scope_css import CSSPROPERTIES, get_default_values
 from engine.domain.data.scope_html_elements import get_html_element_category
 from engine.domain.models.color_scheme import Color
-from engine.domain.models.element import Element, Property
+from engine.domain.models.element import Element, Property, SVG_PAINT_TAGS
 from engine.domain.utils.parsers import matches_default_value
 from engine.pipeline.glow_runtime import (
     glow_flow,
@@ -47,10 +46,7 @@ def process_dom_snapshot(
         document = snapshot["documents"][0]
         nodes = document["nodes"]
         layout = document["layout"]
-        classified_strings = tuple(
-            classify_value(str(item))
-            for item in strings
-        )
+        classified_strings = tuple(classify_value(str(item)) for item in strings)
 
         layout_nodes = {
             int(backend_node_id): {
@@ -64,8 +60,7 @@ def process_dom_snapshot(
                         whitelist_styles,
                         layout["styles"][layout_index],
                     )
-                    if isinstance(value_index, int)
-                    and 0 <= value_index < len(strings)
+                    if isinstance(value_index, int) and 0 <= value_index < len(strings)
                 },
             }
             for layout_index, node_index in enumerate(layout.get("nodeIndex", ()))
@@ -130,6 +125,9 @@ def approve_elements(
                 ),
                 node_value=current_node.get("nodeValue"),
             )
+            if element.tag_name in SVG_PAINT_TAGS:
+                element.category = "decoration"
+
             if element.backend_node_id in layout_nodes:
                 box_model = page_builder.get_box_model(element.backend_node_id)
                 element.height = box_model.pop("height", None)
@@ -155,7 +153,7 @@ def approve_elements(
                     element.properties.append(
                         Property(
                             name=str(name).strip().casefold(),
-                            before_value=str(value).strip().casefold(),
+                            before_value=str(value).strip(),
                             type="attribute",
                             is_defined=True,
                         )
@@ -294,14 +292,31 @@ def capture_original_state() -> None:
     viewport_size = g.page_builder.viewport_size
     g.dom_tree.page_width = int(viewport_size.get("width") or 0)
     g.dom_tree.page_height = int(viewport_size.get("height") or 0)
-    matched_style_cache: dict[
-        tuple[Any, ...],
-        dict[str, set[tuple[tuple[str, str], ...]]],
-    ] = {}
-    value_signature_cache: dict[str, tuple[tuple[str, str], ...]] = {}
 
     for element in g.dom_tree.iter_full_dfs():
-        matched_properties: dict[str, set[tuple[tuple[str, str], ...]]] = {}
+        for property_model in element.properties:
+            attribute_name = (
+                property_model.name if property_model.type == "attribute" else None
+            )
+            for reference in extract_reference_candidates(
+                property_model.before_value,
+                attribute_name=attribute_name,
+            ):
+                project_file = g.project_context.project_file(reference)
+                if project_file is None:
+                    continue
+
+                if project_file.file_type == "svg":
+                    element.category = "decoration"
+
+                if project_file.runtime_information is None:
+                    continue
+
+                property_model.resource = project_file.runtime_information
+                project_file.add_usage(element.backend_node_id)
+                break
+
+        matched_properties: dict[str, list[Any]] = {}
         property_names = {
             property_model.name.strip().lower()
             for property_model in element.properties
@@ -315,101 +330,11 @@ def capture_original_state() -> None:
             and not element.tag_name.startswith("::")
         ):
             matched_styles = g.page_builder.get_matched_styles(element.node_id)
-            matched_rule_styles = (
-                rule.get("style") or {}
-                for rulematch in matched_styles.get("matchedCSSRules") or ()
-                if (rule := rulematch.get("rule") or {})
-                and rule.get("styleSheetId") is not None
-                and rule.get("origin") == "regular"
+            matched_properties = g.style.register_element_sources(
+                element.backend_node_id,
+                matched_styles,
+                property_names,
             )
-            inherited_styles = chain.from_iterable(
-                chain(
-                    (inherited_entry.get("inlineStyle") or {},),
-                    (
-                        rule.get("style") or {}
-                        for rulematch in inherited_entry.get("matchedCSSRules") or ()
-                        if (rule := rulematch.get("rule") or {})
-                        and rule.get("styleSheetId") is not None
-                        and rule.get("origin") == "regular"
-                    ),
-                )
-                for inherited_entry in matched_styles.get("inherited") or ()
-            )
-
-            for style in chain(
-                (
-                    matched_styles.get("inlineStyle") or {},
-                    matched_styles.get("attributesStyle") or {},
-                ),
-                matched_rule_styles,
-                inherited_styles,
-            ):
-                if not style:
-                    continue
-
-                style_range = style.get("range") or {}
-                style_cache_key = (
-                    style.get("styleSheetId"),
-                    style_range.get("startLine"),
-                    style_range.get("startColumn"),
-                    style_range.get("endLine"),
-                    style_range.get("endColumn"),
-                    style.get("cssText", ""),
-                    tuple(sorted(property_names)),
-                )
-                style_matches = matched_style_cache.get(style_cache_key)
-
-                if style_matches is None:
-                    style_matches = {}
-
-                    for css_property in style.get("cssProperties") or ():
-                        if css_property.get("disabled", False):
-                            continue
-                        if css_property.get("parsedOk") is False:
-                            continue
-
-                        for declared_property in chain(
-                            (css_property,),
-                            css_property.get("longhandProperties") or (),
-                        ):
-                            property_name = (
-                                str(declared_property.get("name") or "")
-                                .strip()
-                                .lower()
-                            )
-                            property_value = str(
-                                declared_property.get("value") or ""
-                            ).strip()
-                            if not property_name or not property_value:
-                                continue
-
-                            target_names = {property_name}
-                            property_data = CSSPROPERTIES.get(property_name)
-                            if property_data is not None:
-                                target_names.update(property_data.longhands or ())
-
-                            target_names &= property_names
-                            if not target_names:
-                                continue
-
-                            signature = value_signature_cache.get(property_value)
-                            if signature is None:
-                                signature = _value_signature(
-                                    classify_value(property_value)
-                                )
-                                value_signature_cache[property_value] = signature
-
-                            for target_name in target_names:
-                                style_matches.setdefault(target_name, set()).add(
-                                    signature
-                                )
-
-                    matched_style_cache[style_cache_key] = style_matches
-
-                for property_name, signatures in style_matches.items():
-                    matched_properties.setdefault(property_name, set()).update(
-                        signatures
-                    )
 
         _filter_properties(element, matched_properties)
 
@@ -435,94 +360,34 @@ def capture_original_state() -> None:
 
 def _filter_properties(
     element: Element,
-    matched_properties: dict[str, set[tuple[tuple[str, str], ...]]] | str,
+    matched_properties: dict[str, list[Any]],
 ) -> None:
-    if isinstance(matched_properties, str):
-        raw_nodes = tinycss2.parse_declaration_list(
-            matched_properties,
-            skip_comments=True,
-        )
-        parsed_properties: dict[str, set[tuple[tuple[str, str], ...]]] = {}
+    for property_model in tuple(element.properties):
+        if property_model.type == "attribute":
+            continue
 
-        for node in raw_nodes:
-            if node.type != "declaration":
-                continue
+        property_name = property_model.name.strip().lower()
+        property_value = str(property_model.before_value or "").strip().casefold()
+        is_default = matches_default_value(
+            property_model.before_value,
+            get_default_values(property_model.name),
+        ) or property_value == "none"
 
-            name = node.name.strip().lower()
-            raw_value = tinycss2.serialize(node.value).strip()
-            parsed_properties.setdefault(name, set()).add(
-                _value_signature(classify_value(raw_value))
-            )
+        if is_default and property_model.resource is None:
+            element.remove_property(property_model.name)
+            continue
 
-        matched_properties = parsed_properties
-
-    if (
-        matched_properties
-        and not element.tag_name.startswith("#")
-        and not element.tag_name.startswith("::")
-    ):
-
-        not_matched = []
-
-        for property_model in element.properties:
-            if property_model.type == "attribute":
-                continue
-
-            search_name = property_model.name.strip().lower()
-            search_value = _value_signature(
-                property_model.value_tokens
-                or classify_value(property_model.before_value or "")
-            )
+        if matched_properties.get(property_name):
             property_model.is_defined = True
             property_model.type = "matched"
-            if matches_default_value(
-                property_model.before_value, get_default_values(property_model.name)
-            ) or str(property_model.before_value).strip().casefold() in {"none"}:
-                not_matched.append(property_model)
-                continue
+            continue
 
-            if search_value not in matched_properties.get(search_name, set()):
-                if _should_keep_unmatched_property(element, property_model):
-                    property_model.is_defined = False
-                    property_model.type = "inherited"
-                    continue
-                else:
-                    not_matched.append(property_model)
+        if _should_keep_unmatched_property(element, property_model):
+            property_model.is_defined = False
+            property_model.type = "inherited"
+            continue
 
-        for name in [property_model.name for property_model in not_matched]:
-            element.remove_property(name)
-
-    elif not matched_properties:
-        for property_model in tuple(element.properties):
-            if property_model.type == "attribute":
-                continue
-
-            if _should_keep_unmatched_property(element, property_model):
-                property_model.is_defined = False
-                property_model.type = "inherited"
-                continue
-
-            element.remove_property(property_model.name)
-
-
-def _value_signature(tokens: tuple[Any, ...]) -> tuple[tuple[str, str], ...]:
-    signature: list[tuple[str, str]] = []
-
-    for token in tokens:
-        token_value = token.value
-        if hasattr(token_value, "convert") and hasattr(token_value, "to_string"):
-            token_value = token_value.convert("srgb").to_string(
-                comma=True,
-                alpha=True,
-                rounding="decimal",
-                precision=0,
-            )
-        else:
-            token_value = str(token_value).strip().casefold()
-
-        signature.append((str(token.type), str(token_value)))
-
-    return tuple(signature)
+        element.remove_property(property_model.name)
 
 
 def _should_keep_unmatched_property(element: Element, property: Property) -> bool:
@@ -540,6 +405,16 @@ def _should_keep_unmatched_property(element: Element, property: Property) -> boo
             and property.name in ("color", "background-color")
         )
         or (property.name in ("fill", "stroke") and element.category == "decoration")
+        or (
+            property.name
+            in (
+                "background-image",
+                "border-image-source",
+                "mask-image",
+                "list-style-image",
+            )
+            and element.category == "decoration"
+        )
     )
 
 

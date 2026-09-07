@@ -27,7 +27,7 @@ class FakePageBuilder:
 
 
 class CaptureOriginalStateDomTreeTest(unittest.TestCase):
-    def test_filter_properties_uses_hashable_color_signatures(self):
+    def test_filter_properties_marks_registered_sources_as_defined(self):
         element = Element(
             backend_node_id=1,
             node_id=101,
@@ -42,7 +42,7 @@ class CaptureOriginalStateDomTreeTest(unittest.TestCase):
             ],
         )
 
-        _filter_properties(element, "color: rgb(255, 0, 0);")
+        _filter_properties(element, {"color": [object()]})
 
         self.assertEqual("matched", element.properties[0].type)
         self.assertTrue(element.properties[0].is_defined)
@@ -62,7 +62,7 @@ class CaptureOriginalStateDomTreeTest(unittest.TestCase):
             ],
         )
 
-        _filter_properties(element, "")
+        _filter_properties(element, {})
 
         self.assertEqual(1, len(element.properties))
         self.assertEqual("background-image", element.properties[0].name)
