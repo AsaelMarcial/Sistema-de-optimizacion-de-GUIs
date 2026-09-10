@@ -1,0 +1,14 @@
+# Python bytecode / execution artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# Runtime/session/temp artifacts
+tmp/
+workspace/sessions/*
+!workspace/sessions/.gitkeep

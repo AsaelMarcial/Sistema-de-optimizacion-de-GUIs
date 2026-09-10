@@ -1,0 +1,1104 @@
+from __future__ import annotations
+
+import re
+from collections import defaultdict
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlsplit, urlunsplit
+
+from flask import g
+from prefect.states import Completed, State, raise_state_exception
+
+from engine.adapters.browser.page_builder import PageBuilder
+from engine.adapters.source_code_handler.local_asset_rewriter import (
+    extract_reference_candidates,
+    rewrite_reference_candidates,
+)
+from engine.domain.data.scope_css import get_role
+from engine.domain.data.scope_html_elements import get_html_elements_by_category
+from engine.domain.models.color_scheme import (
+    NEUTRAL_TONAL_STEPS,
+    Color,
+    ColorScheme,
+    Tone,
+)
+from engine.domain.models.element import DomTree, Element, Property
+from engine.domain.models.project_context import ProjectContext
+from engine.domain.models.token import TokenInventory
+from engine.domain.utils.css_generator import generate_theme_css
+from engine.domain.utils.parsers import (
+    get_colors,
+    has_gradient,
+    is_css_value_contained,
+    replace_property_values,
+)
+from engine.pipeline.glow_runtime import (
+    glow_flow,
+    glow_task,
+)
+
+_SVG_PAINT_RE = re.compile(
+    r"(?i)(?P<head>\b(?P<name>fill|stroke|stop-color|flood-color|lighting-color|color)\s*(?:=|:)\s*[\"']?)(?P<value>[^;\"']+)"
+)
+DECORATION_TAGS = get_html_elements_by_category("decoration")
+
+
+@glow_task
+def _transform_design_ready(
+    color_scheme_ready: bool,
+    theme_link_ready: bool,
+    data_theme_ready: bool,
+    after_screenshot_path: str | Path | None,
+) -> State:
+    screenshot_path = (
+        Path(after_screenshot_path) if after_screenshot_path is not None else None
+    )
+    if (
+        color_scheme_ready
+        and theme_link_ready
+        and data_theme_ready
+        and screenshot_path is not None
+        and screenshot_path.is_file()
+    ):
+        return Completed(message="Transformacion lista.")
+    raise RuntimeError("La transformacion no paso validacion.")
+
+
+@glow_flow
+def transform_design() -> None:
+    page_builder: PageBuilder = g.page_builder
+    dom_tree: DomTree = g.dom_tree
+    color_scheme: ColorScheme = g.color_scheme
+    token_inventory: TokenInventory = g.token_inventory
+    project_context: ProjectContext = g.project_context
+    root = dom_tree.require_body()
+    color_scheme_ready = page_builder.set_color_scheme()
+    theme_link_ready = page_builder.set_theme_link()
+
+    original_backgrounds = {
+        backend_node_id: (
+            original_ancestor_background_colors,
+            original_inner_background_colors,
+            original_background_data,
+        )
+        for (
+            backend_node_id,
+            original_ancestor_background_colors,
+            original_inner_background_colors,
+            original_background_data,
+        ) in _original_backgrounds(root, page_builder)
+    }
+
+    for element in root.iter_dfs():
+        if (
+            not element.node_id
+            or element.tag_name.startswith("#")
+            or element.tag_name.startswith("::")
+        ):
+            continue
+
+        _update_properties(page_builder, element)
+
+        (
+            original_ancestor_background_colors,
+            original_inner_background_colors,
+            original_background_data,
+        ) = original_backgrounds.get(element.backend_node_id, (None, None, {}))
+
+        for css_property in tuple(element.properties):
+            if css_property.type in ("attribute", "inherited"):
+                continue
+
+            actual_value = css_property.current_value
+            before_colors = get_colors(css_property.before_value)
+
+            match element.category, get_role(css_property.name):
+                case "main-surface", "background":
+                    if css_property.name == "background-image" or element.has_image:
+                        _transform_property(
+                            page_builder, element, css_property, "unset"
+                        )
+
+                    if not is_css_value_contained(
+                        "rgb(0, 0, 0)", actual_value
+                    ) and not is_css_value_contained("rgba(0, 0, 0, 1)", actual_value):
+                        _transform_property(
+                            page_builder, element, css_property, "var(--Neutral-0)"
+                        )
+
+                case "container", "background":
+                    if element.has_image:
+                        continue
+                    if (
+                        has_gradient(css_property.current_value)
+                        or before_colors is None
+                        or len(before_colors) > 1
+                    ):
+                        _transform_property(
+                            page_builder, element, css_property, "unset"
+                        )
+                        continue
+
+                    neutral_palette = color_scheme.get_palette("Neutral")
+                    color = before_colors[0][1].convert("hct")
+
+                    if element.tag_name in ("footer", "header"):
+                        _transform_property(
+                            page_builder, element, css_property, "unset"
+                        )
+                        continue
+
+                    palette, tone, _steps = color_scheme.find_closest(color, "palettes")
+
+                    if color["t"] <= 40 and palette.name == "Neutral":
+                        continue
+
+                    target_tone = None
+
+                    if element.tag_name == "nav":
+                        if color["t"] > 40:
+                            actual_ancestor_background_colors, _ = _actual_backgrounds(
+                                root, element
+                            )
+                            target_tones = _differences(
+                                css_property.name,
+                                [("", color)],
+                                original_ancestor_background_colors,
+                                None,
+                                actual_ancestor_background_colors,
+                                None,
+                                element.tag_name,
+                                color_scheme,
+                                None,
+                                30,
+                            )
+                            target_tone = target_tones[0] if target_tones else None
+                    else:
+                        surface_depth = element.depth
+
+                        elevation_tones = tuple(
+                            tone
+                            for tone in (NEUTRAL_TONAL_STEPS)
+                            if 10 <= int(tone) <= 50
+                        )
+
+                        best_tone = elevation_tones[
+                            min(
+                                max(surface_depth, 1) - 1,
+                                len(elevation_tones) - 1,
+                            )
+                        ]
+
+                        target_tone = neutral_palette.tone(best_tone)
+
+                    if target_tone is not None:
+                        _transform_property(
+                            page_builder,
+                            element,
+                            css_property,
+                            target_tone.to_var
+                            if isinstance(target_tone, Tone)
+                            else target_tone,
+                        )
+
+                case "input", "foreground" | "background":
+                    user_agent_source = next(
+                        (
+                            source
+                            for source in g.style.get_sources(
+                                element.backend_node_id,
+                                css_property.name,
+                            )
+                            if source.origin == "user-agent"
+                        ),
+                        None,
+                    )
+                    if user_agent_source is not None:
+                        _transform_property(
+                            page_builder,
+                            element,
+                            css_property,
+                            user_agent_source.value,
+                        )
+                    continue
+
+                case "composed" | "typography", "background":
+                    if element.has_image:
+                        continue
+
+                    actual_ancestor_background_colors, _ = _actual_backgrounds(
+                        root, element
+                    )
+
+                    target_tones = _differences(
+                        css_property.name,
+                        before_colors,
+                        original_ancestor_background_colors,
+                        None,
+                        actual_ancestor_background_colors,
+                        None,
+                        element.tag_name,
+                        color_scheme,
+                        None,
+                        None,
+                    )
+
+                    if target_tones:
+                        for tone in target_tones:
+                            if isinstance(tone, Tone):
+                                tone.color["t"] = tone.color["t"] - 10
+                        calculated_value = replace_property_values(
+                            css_property.before_value,
+                            [value for value, _color in before_colors],
+                            [
+                                tone.to_var if isinstance(tone, Tone) else tone
+                                for tone in target_tones
+                            ],
+                        )
+
+                        _transform_property(
+                            page_builder, element, css_property, calculated_value
+                        )
+
+                case (
+                    "main-surface" | "container" | "composed" | "typography" | "media",
+                    "foreground",
+                ):
+                    if before_colors is None:
+                        continue
+
+                    (
+                        actual_ancestor_background_colors,
+                        actual_inner_background_colors,
+                    ) = _actual_backgrounds(root, element)
+                    if (
+                        element.category == "main-surface"
+                        and css_property.name == "color"
+                        and not is_css_value_contained(
+                            "rgb(255, 255, 255)", css_property.before_value
+                        )
+                        and not is_css_value_contained(
+                            "rgba(255, 255, 255, 1)", css_property.before_value
+                        )
+                    ):
+                        _transform_property(
+                            page_builder, element, css_property, "var(--Neutral-100)"
+                        )
+                        continue
+
+                    if css_property.name in (
+                        "text-shadow",
+                        "box-shadow",
+                    ) and _should_clean_shadow(before_colors):
+                        _transform_property(
+                            page_builder, element, css_property, "unset"
+                        )
+                        continue
+
+                    if css_property.name == "color":
+                        continue
+
+                    target_calculated_values = []
+
+                    for value, color in before_colors:
+                        if color.get("alpha") == 0 or is_css_value_contained(
+                            "transparent", value
+                        ):
+                            target_calculated_values.append(value)
+                            continue
+                        elif color.convert("hct").get("t") >= 60:
+                            palette, tone, _steps = color_scheme.find_closest(
+                                color, "palettes"
+                            ) or (None, None, None)
+                            if palette is None or tone is None:
+                                target_calculated_values.append(_serialize_color(color))
+                                continue
+
+                            target_calculated_values.append(tone.to_var)
+                        else:
+                            target_tones = _differences(
+                                css_property.name,
+                                [("", color)],
+                                original_ancestor_background_colors,
+                                original_inner_background_colors,
+                                actual_ancestor_background_colors,
+                                actual_inner_background_colors,
+                                element.tag_name,
+                                color_scheme,
+                                60,
+                                None,
+                            )
+                            if target_tones:
+                                target_calculated_values.append(
+                                    target_tones[0].to_var
+                                    if isinstance(target_tones[0], Tone)
+                                    else target_tones[0]
+                                )
+                            else:
+                                target_calculated_values.append(_serialize_color(color))
+
+                    calculated_value = replace_property_values(
+                        css_property.before_value,
+                        [value for value, _color in before_colors],
+                        target_calculated_values,
+                    )
+
+                    _transform_property(
+                        page_builder, element, css_property, calculated_value
+                    )
+
+                case "decoration", "foreground" | "background":
+                    if before_colors is None:
+                        continue
+
+                    if element.tag_name in DECORATION_TAGS:
+                        (
+                            actual_ancestor_background_colors,
+                            actual_inner_background_colors,
+                        ) = _actual_backgrounds(root, element)
+                        target_values = _differences(
+                            css_property.name,
+                            get_colors(actual_value),
+                            original_ancestor_background_colors,
+                            None,
+                            actual_ancestor_background_colors,
+                            None,
+                            element.tag_name,
+                            color_scheme,
+                            None,
+                            None,
+                        )
+                        if target_values:
+                            calculated_value = replace_property_values(
+                                css_property.before_value,
+                                [value for value, _color in before_colors],
+                                [
+                                    tone.to_var if isinstance(tone, Tone) else tone
+                                    for tone in target_values
+                                ],
+                            )
+                            _transform_property(
+                                page_builder, element, css_property, calculated_value
+                            )
+
+                case _, _:
+                    continue
+        if element.has_text and element.tag_name != "body":
+            # print(str(element.tag_name))
+            actual_background_data = (
+                page_builder.get_background_colors(element.node_id) or {}
+            )
+
+            color_property = element.property("color")
+            # print("propiedad" + str(color_property))
+            size_property = element.property("font-size")
+            weight_property = element.property("font-weight")
+            if color_property["name"] and actual_background_data:
+                original_contrast_data = (
+                    element.get_text_contrast(
+                        color_property["before_value"],
+                        original_background_data.get("background_colors"),
+                        original_background_data.get("font-size")
+                        or size_property["before_value"],
+                        original_background_data.get("font_weight")
+                        or weight_property["before_value"],
+                    )
+                    if original_background_data is not None
+                    else None
+                )
+                actual_contrast_data = (
+                    element.get_text_contrast(
+                        color_property["current_value"],
+                        actual_background_data.get("background_colors"),
+                        actual_background_data.get("font-size")
+                        or size_property["before_value"],
+                        actual_background_data.get("font_weight")
+                        or weight_property["before_value"],
+                    )
+                    if actual_background_data is not None
+                    else None
+                )
+                # print("original_background_data " +str(original_background_data))
+                # print("actual_background_data " +str(actual_contrast_data))
+                # print("font " +str(size_property) +str(weight_property))
+
+                if actual_contrast_data is not None and not (
+                    color_property["has_changed"]
+                    and actual_contrast_data[2] >= actual_contrast_data[3]
+                ):
+                    target_tone = _text_contrast_target_tone(
+                        color_scheme,
+                        Color(color_property["current_value"]),
+                        actual_contrast_data,
+                        actual_background_data,
+                        original_contrast_data,
+                        original_background_data,
+                    )
+                    # print("target_tone " + str(target_tone))
+                    if target_tone is not None:
+                        property_model = next(
+                            (
+                                property_model
+                                for property_model in element.properties
+                                if property_model.name == color_property["name"]
+                            ),
+                            None,
+                        )
+                        if property_model is None:
+                            continue
+
+                        _transform_property(
+                            page_builder, element, property_model, target_tone.to_var
+                        )
+        _update_properties(page_builder, element)
+        # print("->>>>>"+element.tag_name)
+        # for property in element.properties:
+        # print(str(property.name) + ": " + str(property.before_value) + " -> " + str(property.after_value)+ " -> " + str(property.calculated_value))
+        # pass
+
+    _process_loaded_svg_files(
+        project_context,
+        page_builder,
+        dom_tree,
+        original_backgrounds,
+        color_scheme,
+    )
+
+    css_path = project_context.GENERATED_FILES_REGISTRY[Path("glow.css")].absolute_path
+    token_inventory.generate_property_tokens(root)
+    root_css = css_path.read_text(encoding="utf-8") if css_path.is_file() else ""
+    theme_css = (
+        root_css.rstrip() + "\n\n" + generate_theme_css(token_inventory.property_tokens)
+    )
+    css_path.write_text(theme_css, encoding="utf-8")
+    data_theme_ready = page_builder.set_data_theme()
+    theme_link_ready = page_builder.set_theme_link()
+    page_builder.set_theme_stylesheet_text(theme_css)
+    # print(str(theme_link_ready))
+
+    elements_by_node_id = {
+        element.node_id: element
+        for element in root.iter_dfs()
+        if element.node_id is not None
+    }
+    for token in token_inventory.property_tokens.values():
+        for element_id, property_name in token.element_ids:
+            token_element = elements_by_node_id.get(element_id)
+            if token_element is None:
+                continue
+
+            page_builder.set_effective_value(
+                token_element.backend_node_id,
+                token_element.node_id,
+                property_name,
+                token.to_var,
+                token_element.tag_name,
+            )
+
+    page_builder.wait_for_style_ready()
+
+    after_screenshot = project_context.GENERATED_FILES_REGISTRY[
+        Path("after.png")
+    ].absolute_path
+    after_screenshot_path = page_builder.capture_fullpage_screenshot(
+        output_path=after_screenshot
+    )
+    print(
+        {
+            "transform_design.complete": {
+                "after_screenshot_path": after_screenshot_path,
+                "data_theme_ready": data_theme_ready,
+                "theme_link_ready": theme_link_ready,
+            }
+        }
+    )
+
+    transform_design_ready = _transform_design_ready(
+        color_scheme_ready,
+        theme_link_ready,
+        data_theme_ready,
+        after_screenshot_path,
+        return_state=True,
+    )
+    if (
+        transform_design_ready.is_failed()
+        or transform_design_ready.is_crashed()
+        or transform_design_ready.is_cancelled()
+    ):
+        raise_state_exception(transform_design_ready)
+
+
+def _process_loaded_svg_files(
+    project_context: ProjectContext,
+    page_builder: PageBuilder,
+    dom_tree: DomTree,
+    original_backgrounds: dict[int, tuple[Any, Any, dict[str, Any]]],
+    color_scheme: ColorScheme,
+) -> None:
+    root = dom_tree.require_body()
+
+    for svg_file in project_context.loaded_svgs():
+        usages_by_background = defaultdict(list)
+        resource = svg_file.runtime_information
+
+        for backend_node_id in () if resource is None else resource.element_usages:
+            element = dom_tree.elements.get(backend_node_id)
+            if element is None or element.node_id is None:
+                continue
+
+            references = [
+                reference
+                for reference in element.image_references
+                if reference.resource is not None
+                and reference.resource.project_file == svg_file
+            ]
+            if not references:
+                continue
+
+            original_colors = original_backgrounds.get(
+                element.backend_node_id,
+                (None, None, {}),
+            )[0]
+            actual_colors = _actual_backgrounds(root, element)[0]
+            usages_by_background[
+                (_colors_key(original_colors), _colors_key(actual_colors))
+            ].append((element, references, original_colors, actual_colors))
+
+        for usages in usages_by_background.values():
+            _element, _references, original_colors, actual_colors = usages[0]
+            version_file = svg_file.add_version(
+                _rewrite_svg_file(
+                    svg_file.absolute_path,
+                    original_colors,
+                    actual_colors,
+                    color_scheme,
+                )
+            )
+
+            for element, references, _original_colors, _actual_colors in usages:
+                for image_reference in references:
+                    attribute_name = (
+                        image_reference.name
+                        if image_reference.type == "attribute"
+                        else None
+                    )
+                    candidates = extract_reference_candidates(
+                        image_reference.current_value,
+                        attribute_name=attribute_name,
+                    )
+                    original_reference = next(
+                        (
+                            candidate
+                            for candidate in candidates
+                            if project_context.project_file(candidate) == svg_file
+                            or (candidate_path := Path(urlsplit(candidate).path)).name
+                            == svg_file.path.name
+                            or (
+                                not candidate_path.suffix
+                                and candidate_path.stem == svg_file.path.stem
+                            )
+                        ),
+                        candidates[0]
+                        if len(candidates) == 1
+                        else svg_file.path.as_posix(),
+                    )
+                    parsed_reference = urlsplit(original_reference)
+                    new_reference = (
+                        urlunsplit(
+                            (
+                                parsed_reference.scheme,
+                                parsed_reference.netloc,
+                                Path(parsed_reference.path)
+                                .with_name(version_file.path.name)
+                                .as_posix(),
+                                parsed_reference.query,
+                                "",
+                            )
+                        )
+                        if parsed_reference.scheme and parsed_reference.netloc
+                        else Path(original_reference.replace("\\", "/"))
+                        .with_name(version_file.path.name)
+                        .as_posix()
+                    )
+                    new_value = rewrite_reference_candidates(
+                        image_reference.current_value,
+                        new_reference,
+                        attribute_name,
+                        old_path=original_reference,
+                    )
+                    if new_value == image_reference.current_value:
+                        continue
+
+                    if image_reference.type == "attribute":
+                        image_reference.after_value = page_builder.set_attribute_value(
+                            element.node_id,
+                            image_reference.name,
+                            new_value,
+                        )
+                    else:
+                        _transform_property(
+                            page_builder,
+                            element,
+                            image_reference,
+                            new_value,
+                        )
+
+                    image_reference.resource = project_context.add_resource(
+                        new_reference,
+                        resource_type="image",
+                        load_status=True,
+                    )
+
+
+def _colors_key(colors: Any) -> tuple[str, ...]:
+    return tuple(
+        color.convert("srgb").to_string(
+            comma=True,
+            alpha=True,
+            rounding="decimal",
+            precision=0,
+        )
+        for _value, color in colors or ()
+    )
+
+
+def _rewrite_svg_file(
+    svg_path: Path,
+    original_ancestor_background_colors: Any,
+    actual_ancestor_background_colors: Any,
+    color_scheme: ColorScheme,
+) -> bytes:
+    try:
+        svg_content = svg_path.read_text(encoding="utf-8")
+        rewritten: list[str] = []
+        cursor = 0
+
+        for match in _SVG_PAINT_RE.finditer(svg_content):
+            value = match.group("value")
+            colors = get_colors(value)
+            new_values = _differences(
+                match.group("name").lower(),
+                colors,
+                original_ancestor_background_colors,
+                None,
+                actual_ancestor_background_colors,
+                None,
+                None,
+                color_scheme,
+                None,
+                None,
+            )
+            if not colors or not new_values:
+                continue
+
+            rewritten.append(svg_content[cursor : match.start("value")])
+            rewritten.append(
+                replace_property_values(
+                    value,
+                    [color_value for color_value, _color in colors],
+                    [
+                        tone.to_var if isinstance(tone, Tone) else str(tone)
+                        for tone in new_values
+                    ],
+                )
+            )
+            cursor = match.end("value")
+
+        if not rewritten:
+            return svg_content.encode("utf-8")
+
+        rewritten.append(svg_content[cursor:])
+        return "".join(rewritten).encode("utf-8")
+    except Exception as exc:
+        exception_type = type(exc).__name__
+
+        raise RuntimeError(
+            f"Operation failed due to an unexpected error [{exception_type}]: {exc}"
+        ) from exc
+
+
+def _transform_property(
+    page_builder: PageBuilder,
+    element: Element,
+    property: Property | str,
+    calculated_value: str,
+) -> None:
+    if not element.node_id:
+        return
+
+    property_model = (
+        property
+        if isinstance(property, Property)
+        else next(
+            (
+                item
+                for item in element.properties
+                if item.name == property and item.type not in ("attribute", "inherited")
+            ),
+            None,
+        )
+    )
+
+    if property_model is None or property_model.type in ("attribute", "inherited"):
+        return
+
+    if property_model.before_value != calculated_value:
+        page_builder.set_effective_value(
+            element.backend_node_id,
+            element.node_id,
+            property_model.name,
+            calculated_value,
+            element.tag_name,
+        )
+        changed_value = page_builder.current_property_value(
+            element.node_id,
+            property_model.name,
+        )
+        property_model.after_value = changed_value
+        property_model.calculated_value = calculated_value
+        property_model.has_color = bool(
+            changed_value and get_colors(changed_value) is not None
+        )
+
+
+def _update_properties(
+    page_builder: PageBuilder,
+    element: Element,
+) -> None:
+    updated_properties = page_builder.get_computed_styles_for_node(
+        element.node_id,
+    )
+
+    for property_model in element.properties:
+        if property_model.type in ("attribute", "inherited"):
+            continue
+
+        updated_value = updated_properties.get(property_model.name)
+        property_model.after_value = (
+            updated_value if updated_value != property_model.before_value else None
+        )
+
+
+def _text_contrast_target_tone(
+    color_scheme: ColorScheme,
+    actual_color: Color,
+    actual_contrast_data: Any,
+    actual_background_data: Any,
+    original_contrast_data: Any,
+    original_background_data: Any,
+) -> Tone | None:
+    palette, tone, _ = color_scheme.find_closest(actual_color, "palettes") or (
+        None,
+        None,
+        None,
+    )
+    if palette is None or tone is None:
+        return None
+    # print("1")
+
+    original_palette = None
+    if original_contrast_data is not None:
+        original_palette, _, _ = color_scheme.find_closest(
+            original_contrast_data[1],
+            "palettes",
+        ) or (None, None, None)
+    actual_palette, _, _ = color_scheme.find_closest(
+        actual_contrast_data[1],
+        "palettes",
+    ) or (None, None, None)
+
+    preserve_original_contrast = (
+        original_contrast_data is not None
+        and original_palette is not None
+        and actual_palette is not None
+        and original_contrast_data[2] >= original_contrast_data[3]
+        and actual_palette.name == original_palette.name
+    )
+    # print(str(preserve_original_contrast))
+    # print(str(actual_palette.name if actual_palette is not None else None))
+    # print(str(original_palette.name if original_palette is not None else None))
+    # print(str(original_palette.name if original_palette is not None else None))
+
+    if (
+        actual_contrast_data[2] >= actual_contrast_data[3]
+        and not preserve_original_contrast
+    ):
+        # print("entró")
+        return None
+    # print("2")
+
+    def valid_candidate(candidate_tone: Tone):
+        contrast_ratio = candidate_tone.color.contrast(actual_contrast_data[1])
+        if contrast_ratio <= actual_contrast_data[3]:
+            return None
+
+        return candidate_tone, contrast_ratio
+
+    candidates = []
+    candidate_tones = list(palette.tones)
+
+    if palette.name == "Neutral":
+        candidate_tones = [
+            tone
+            for tone in (
+                palette.get_lowest_tone(),
+                palette.get_highest_tone(),
+            )
+            if tone is not None
+        ]
+
+    # print("candidate_tones=" + str([(tone.name, tone.value) for tone in candidate_tones]))
+
+    target_contrast_ratio = (
+        original_contrast_data[2]
+        if original_contrast_data is not None
+        else actual_contrast_data[3]
+    )
+
+    for candidate_tone in candidate_tones:
+        # print("3")
+
+        candidate = valid_candidate(candidate_tone)
+        if candidate is None:
+            # print(
+            #         "candidate_rejected="
+            #         + str(candidate_tone.name)
+            #         + " contrast="
+            #         + str(candidate_tone.color.contrast(actual_contrast_data[1]))
+            #         + " required="
+            #         + str(actual_contrast_data[3])
+            #     )
+            continue
+        # print("4")
+
+        candidate_tone, contrast_ratio = candidate
+        candidates.append(
+            (
+                abs(target_contrast_ratio - contrast_ratio),
+                candidate_tone,
+            )
+        )
+
+    if candidates:
+        candidates.sort(key=lambda item: item[0])
+        # print(str(candidates))
+        return candidates[0][1]
+
+    # print("5")
+    return None
+
+    return None
+
+
+def _tone(color: Color) -> float:
+    return float(color.convert("hct")["t"])
+
+
+def _should_clean_shadow(colors: list[tuple[str, Color]] | None) -> bool:
+    if not colors:
+        return False
+
+    return any(
+        color.alpha(nans=False) < 0.5 or _tone(color) < 50 for _value, color in colors
+    )
+
+
+def _serialize_color(color: Color) -> str:
+    return color.convert("srgb").to_string(
+        fit={"method": "raytrace", "pspace": "hct"},
+        comma=True,
+        alpha=True,
+        rounding="decimal",
+        precision=0,
+    )
+
+
+def _get_maximum_contrast(
+    foreground_colors: tuple[tuple[str, Color], ...],
+    background_colors: tuple[tuple[str, Color], ...],
+) -> float | None:
+    """
+    Calcula todos los contrastes posibles entre los colores del foreground
+    y los colores del background.
+
+    Devuelve el contraste máximo encontrado o None cuando alguna de las
+    colecciones está vacía.
+    """
+    if not foreground_colors or not background_colors:
+        return None
+
+    return max(
+        foreground.contrast(background)
+        for _, foreground in foreground_colors
+        for _, background in background_colors
+    )
+
+
+def _differences(
+    property_name: str,
+    property_colors: Any,
+    original_ancestor_background_colors: Any,
+    original_inner_background_colors: Any,
+    actual_ancestor_background_colors: Any,
+    actual_inner_background_colors: Any,
+    tag_name: str | None,
+    color_scheme: ColorScheme,
+    start_range: Any,
+    end_range: Any,
+) -> list[Tone | str]:
+    original_contrast = None
+    target_values = []
+
+    if (
+        property_colors is None
+        or property_name is None
+        or get_role(property_name) not in ("foreground", "background")
+    ):
+        return target_values
+
+    original_contrast = _get_maximum_contrast(
+        property_colors,
+        original_inner_background_colors
+        if (
+            original_inner_background_colors is not None
+            and get_role(property_name) == "foreground"
+        )
+        else original_ancestor_background_colors,
+    )
+
+    if original_contrast is not None:
+        for value, color in property_colors:
+            if not color.is_nan("alpha") and (
+                color.get("alpha") == 0
+                or is_css_value_contained("rgba(0, 0, 0, 0)", value)
+            ):
+                target_values.append(value)
+                continue
+
+            palette, tone, _steps = color_scheme.find_closest(color, "palettes") or (
+                None,
+                None,
+                None,
+            )
+            if (
+                palette is None
+                or tone is None
+                or (
+                    palette.name == "Neutral"
+                    and get_role(property_name) == "background"
+                    and tone.value <= 40
+                    and tag_name not in DECORATION_TAGS
+                    and tag_name is not None
+                )
+            ):
+                target_values.append(value)
+                continue
+
+            differences = []
+
+            lowest_tone = palette.get_lowest_tone()
+            highest_tone = palette.get_highest_tone()
+            lowest_value = (
+                int(start_range)
+                if isinstance(start_range, int)
+                else int(lowest_tone.value)
+            )
+            highest_value = (
+                int(end_range)
+                if isinstance(end_range, int)
+                else int(highest_tone.value)
+            )
+
+            for tone in palette.tones:
+                if lowest_value <= int(tone.value) <= highest_value:
+                    actual_external_contrast = _get_maximum_contrast(
+                        [("", tone.color)],
+                        actual_inner_background_colors
+                        if (
+                            actual_inner_background_colors is not None
+                            and get_role(property_name) == "foreground"
+                        )
+                        else actual_ancestor_background_colors,
+                    )
+                    difference = (
+                        abs(actual_external_contrast - original_contrast)
+                        if actual_external_contrast is not None
+                        else None
+                    )
+                    if difference is not None:
+                        differences.append((difference, tone))
+
+            if not differences:
+                target_values.append(_serialize_color(color))
+                continue
+
+            differences.sort(key=lambda item: item[0])
+            target_tone = differences[0][1]
+            target_values.append(
+                target_tone
+                if tag_name is not None
+                else _serialize_color(target_tone.color)
+            )
+
+    return target_values
+
+
+def _original_backgrounds(
+    root: Element, page_builder: PageBuilder
+) -> list[tuple[int, Any, Any, dict[str, Any]]]:
+    original_backgrounds: list[tuple[int, Any, Any, dict[str, Any]]] = []
+    background_data: dict[str, Any] = {}
+
+    for element in root.iter_dfs():
+        if element.has_text and element.tag_name != "body":
+            background_data = page_builder.get_background_colors(element.node_id) or {}
+        ancestor_background_property = None
+        if element.category != "main-surface":
+            effective_parent = element.get_effective_parent_background(root)
+            ancestor_background_property = effective_parent.effective_background
+
+        element_background_property = element.effective_background
+        inner_background_property = (
+            element_background_property
+            if element_background_property["name"]
+            else ancestor_background_property
+        )
+        original_backgrounds.append(
+            (
+                element.backend_node_id,
+                get_colors(ancestor_background_property["before_value"])
+                if ancestor_background_property is not None
+                and ancestor_background_property["name"]
+                else None,
+                get_colors(inner_background_property["before_value"])
+                if inner_background_property is not None
+                and inner_background_property["name"]
+                else None,
+                dict(background_data),
+            )
+        )
+
+    return original_backgrounds
+
+
+def _actual_backgrounds(root: Element, element: Element) -> Any:
+    ancestor_background_property = None
+    if element.category != "main-surface":
+        effective_parent = element.get_effective_parent_background(root)
+        ancestor_background_property = effective_parent.effective_background
+
+    ancestor_value = (
+        ancestor_background_property["current_value"]
+        if ancestor_background_property is not None
+        and ancestor_background_property["name"]
+        else None
+    )
+
+    element_background_property = element.effective_background
+    inner_value = (
+        element_background_property["current_value"]
+        if element_background_property["name"]
+        else ancestor_value
+    )
+
+    return get_colors(ancestor_value), get_colors(inner_value)

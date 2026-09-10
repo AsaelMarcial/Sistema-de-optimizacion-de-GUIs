@@ -1,0 +1,162 @@
+Cosas que tienes que saber antes:
+. has pip install -r requirements.txt en consola
+- la conversación de la refactorización con chatgpt está en Tesis - Desarrollo -> funcionamiento de codex, la neta no se si te sirva, todavía no le había dado contexto sobre los cambios que te comento según yo pero igual y sabe cosas del proyecto actual
+- cuando subas una carpeta va a tardar en cargar, no pasa nada, es por que se tarda analizando
+- El proceso principal donde viene todo es routes / main_routes
+- Empecé a intentar acomodar el proyecto pero no terminé, no me dio tiempo de borrar lo que no se usa, ojalá no tengas tssnto pedo con eso, comenté algunas cosas pero ya tengo sueñito y no pude seguir
+-La mera neta el código de heuristic.evaluator - donde tu entras- que es el que analiza, transforma y aplica los cambios es una basurota, esta revueltisimo, no es nada modular, y tiene 3 procesos separados donde cada uno cambia inline, external y embedded, y no tengo idea no recuerdo para que funcionaban los splits, y cosas así peeero pues creo que funcionan bien, tendrás que ver el flujo :(
+*En results.html:
+	* Los resultados de las heurísticas se generan con una iteración, no necesitas borrar nada desde ahí, la información que se muestra viene de la ultima linea de main_routes pero perdón ya no me da para checar como se construye todo todo, solo sé que main_routes lo consigue de heuristic_evaluator y al final están como que los bloques de cada objeto o "heurística" y las oraciones que se muestran en las listas de detalle se generan durante las iteraciones
+- Hay cosas mal referenciadas como contrast_radio que está en color_math pero en heuristic_evaluator se hace import con con color_utils, así que no sé si se usa o no 
+- Hay cosas que seguro notas que hice mal pero si sirven o no importan no las toques como:
+	* que se guardan dos diferentes carpetas mada queverientas el .zip o HTML analizado de manera temporal, la versión original se guarda en data/input/sesionxxxxx y la sustainable en static/corrected/xxxxxx, ni siquiera se guardan con el mismo nombre del archivo o de la sesión, lol no necesitas corregir esto, solo es para que lo sepas por si quieres ver en algún momento
+	* no se guardan temporalmente lol, se borran los archivos pero no las carpetas
+	* seguro el blueprint 
+*al probar la subida de archivos funciona bien pero hay un bug en que si no te deja subir nada, reinicia la página y ya problema resuelto :(
+* en inspeccionar siempre marca un error que no se que es pero no necesitas hacerle caso, seguro se relaciona con lo de arriba ptm jaja
+*marca error en results.html pero solo es por el debug que quitaré después y si corre bien, ignóralo
+* Me falta cambiar el nombre de ciertas cosas en la GUI pero eso lo haré después, no creo que lo necesites ahorita
+* Hay bastante dummy datam casi nada de color_utils, color_math, o del mismo heuristic_evaluator es real o esta basado en cosas oficiales, ese es el meollo del asunto :( pero las correcciones de eso te las describo abajo
+* Conforme a lo anterior, habrá muchas funciones que de plano no vas a usar y vas a tener que quitar :(
+* De lo de lo energético tu no te preocupes, yo lo tendre que checar
+* alch no se como funciona el debug logger con sus trace y si se muestra, eso lo puse hace unos días y en este momento no tengo cerebro
+* hay un parse_html en html_parser que identifica tipos de componentes y se le llama en main_routes pero nunca se usa para nada lol, creo que fue algo que deje inconcluso hace mucho
+
+Archivos como input para que pruebas (en la carpeta GUIs para usar como prueba):
+*El bueno 1
+*El bueno 2
+Estos fueron con los que estuve probando, uno tiene una interfaz "real" otro tiene diferentes cosas feas para probar, los demás no se que tienen pro igual te los mande
+
+Checalo, si no logras implementar tal cual lo de percepción que al menos se acerque 
+
+Cosas en donde necesito ayuda:
+De diccionario de datos (solo pido consultas plis en donde dice importante, por si sabes como le podría hacer)
+1.- Diccionario de datos 
+	*Generar todos los colores a probar
+	*Checar lo de potencia/consumo
+	*Agregar lo de mínimos cuadrados
+	*Buscar si hay un valor de cpu idle que pueda poner estático :( o ver si se puede justificar su omisión por que no me dará tiempo de implementarlo
+	*¡IMPORTANTE! Como guardarlo para saber los rangos de cada valor r - g - b los cuales son múltiplos de 16 empezando desde 0
+	*Que guarde en .json
+	*¡IMPORTANTE! Conectarlo con el sistema guardándolo localmente y generando el algoritmo de consulta para procesar la información que ya se saca que es el la frecuencia de pixeles por color RGB, o sea, n pixeles usan x color (en valor rgb) -> 1000 pixeles en 255,555,555 el problema es hacer el matching con el diccionario y encontrar la línea del diccionario de datos que tenga el rango donde cae el color consultado por ejemplo el color 0,16,0 debería de caer en uno que tuviera de rangos 0-15,16-31,0-15-
+
+De GLOW (aquí si necesito ayuda total, lo primero es lo que considero mas fácil pero no sé si si sea, después cosas importantes y sencillas, luego lo que sí es que cambio del color es lo más más importante y luego del color va lo que estaría padre pero puede ser más pedo ahí si considera lo que quieras, si uno o ninguno o todos, no sé pero ya serían extras)
+3.- Agregar la recomendación de verificación de tipos de imágenes -> no se transforma la imagen, solo se enlistan las imagenes que no pasen el check y ahí mismo antes de la lista se le recomienda al usuario que use los tipos WebP or AVIF. -> Referencia https://www.mightybytes.com/insights/how-to-optimize-images/   
+	* ¡ SI SE PUEDE....! Considerar agregar un check de peso y también enlistar las imágenes que pesen más de 50KB -> Referencia https://www.nngroup.com/articles/guidelines-for-multimedia-on-the-web/
+	* Considerar hacer checks de peso/tipo en vídeos, gifs, audios
+4.- ¡Importante! Hay que quitar todo  lo que tenga que ver con cambiar el tamaño de los componentes 
+5.- ¡Importante! Hay que juntar lo del color del body con los colores para que se reflejen en un único componente y borrar el que dice modo oscuro
+6.- ¡LO MÁS IMPORTANTE! Cambiar como se hacen las recomendaciones de color 
+
+* Fondo:
+	* Forma fácil - Fondo forzoso a -> The recommended dark theme surface color is #121212. -> ya lo hace alguna parte del código pero falta ajustar el color a #121212 no se cual es el equivalente rgb
+
+	* Si se pudiera... -> To create branded dark surfaces, overlay the primary brand color at a low opacity over the recommended dark theme surface color (#121212). The color #1F1B24 is the result of combining the dark theme surface color #121212 and the 8% Primary color. Yo entiendo que:
+		* habla solamente sobre el color primario pero , le aplicas color.luminance de Chroma.js con chroma('colorOriginal').luminance(0.08)
+		* y lo combinas con #121212 
+		*Esto se ajustaría más a la parte de no querer perder la identidad de la GUI y conservar la percepción 
+		* Referencia https://m2.material.io/design/color/dark-theme.html#properties -> Accessibility and contrast
+
+*Estilos en general:
+	*Pasos en teoría (lógica aquí,implementación y explicación de parámetros abajo):
+		1.- En iteración: Es color claro? (Se describe esto abajp)
+			*Si no es -> Se sale, no se hace nada
+			*Si es -> Sigue, 
+				* declara un colorDarked = colorOriginal
+				* declara un counter=1
+				* declarar un colorDifference 
+		2.-En iteración(lo describo por iteración): Do while (colorDifference <= 40) 
+			3.1 A counter restale 0.01 o 0.001 para más precisión 
+			3.2 Usa color.luminance de Chroma.js para oscurecerlo con el contador como parámetro -> colorDarked=chroma(colorDarked).luminance(counter);
+			3.3 Obtener la diferencia entre colores (métrica de percepción) con Chroma.js -> colorDifference = chroma.deltaE('colorOscurecido','colorOriginal')
+		3.- Y ya, en teoría obtendriamos en colorDarked el color que se debe de aplicar en el código fuente de la GUI analizada
+	*Implementación 			
+		*Para saber si es color claro: relative luminance -> 0 for darkest black and 1 for lightest White -> Referencia https://www.w3.org/TR/WCAG20/#relativeluminancedef
+		*Secciones con funciones que pueden servir de Culori (este sería más para formatos, conversiones, etc. si lo llegaras a necesitar, también esta color.js que creo que es más completo):
+			*Parsing and conversión  				
+			*Formatting 
+			*Culori repo -> https://github.com/evercoder/culori/blob/main/src/difference.js
+			*Culori Api https://chromedevtools.github.io/devtools-protocol/tot/CSS/#method-getBackgroundColors
+		*Metrica de percepción 
+			* se basa en (CIE) in 2000 donde -> 0 (no difference) to 100 (maximum difference)
+			* se aplica con Chroma.deltaE de Chroma.js
+				- Chroma Api -> https://gka.github.io/chroma.js/#chroma-deltae
+		* Método de oscurecimiento 
+			* Ejemplo (supongo que se puede usar RGB o parámetros en vez de el nombre del color)
+				*Para oscurecer el color 50% -> chroma('white').luminance(0.5);
+			* Chroma Api -> https://gka.github.io/chroma.js/#color-luminance
+		* Chroma repo -> https://github.com/gka/chroma.js/blob/main/readme.md
+
+7.- ¡ SI SE PUEDE....! Agregar accesibilidad después de implementar el cambio de colores - el pedo aquí es que no se como se usan las Chromedevtools dentro del proceso de render  -
+	* Solo se aplica si se oscureció el color
+	* Recorriendo nodos del DOM, por cada uno:
+		* CSS.getBackgroundColors para obtener el color de fondo de un texto si hay
+			*Checa lo que devuelve en https://chromedevtools.github.io/devtools-protocol/tot/CSS/#method-getBackgroundColors por que en unos casos devuelve:
+				* undefined (si no hay texto)
+				* en otros devuelve varios colores (si es gradiente)
+				* si es imagen la documentación solo dice que la ignora, no sé que devuelva 
+			*Por lo que igual y hay que hacer validaciones y con ello poner una nota de que no se pudo (esto era lo que te comentaba de los warnings que quería implementar por lo que sería un pedote) PEROOOO si no mejor no te preocupes por las validaciones, no hay que probar esos casos en las pruebas je je 
+		* Se hace lo mismo que la lógica para oscurecer un color pero en este caso se aclara hasta que el contraste sea mayor o igual a 4.5 
+			* verificando el contraste con contrast = chroma.contrast(colorLighted, Color original)
+			* Iniciando counter=0
+			* usando colorLighted = chroma('colorLighted').luminance(counter); e ir sumando 0.01 o 0.00 como lo hayas utilizado arriba para ir aclarando el color
+
+8.- Si puedes mejorar como se reflejan los cambios en la pantalla estaría increíble, hasta ahora en los colores solo dice colorOriginal -> colorCambiado e indica si es embedded|inline|external, si es estilo inline si dice su tag y propiedad que se cambió pero si es embedded o external no y si estaría padre poder poner el nombre del estilo del que viene - no se si también se le pueda decir tag o sea class - y la propiedad que cambia, no sé por que no lo implementé ahí. Si es gradiente ya lo indica tmb.
+
+9.- Junto con el punto anterior, si se pudieeeeran agrupar las propiedades cambiadas por estilos (en el caso de embedded y external) o elementos del mismo componente (en el caso inline) también estaría increíble, cualquier punto 8 o 9 ya sea por separado estaría increible
+
+cOMENTARIOS: Lo de cambio de colores y accesibilidad solo aplican para colores planos, quería considerar también gradientes pero ahí en hay que usar un switch con 2 cases, en el de accesibilidad sería para revisar el fondo, no probaré los casos donde letras tengan gradientes ya seria mucha mamada, en el de oscurecer colores habría que buscar una forma de hacer lo mismo pero con los N colores de un gradiente :( y ahí si no sé como se podría hacer, el sistema actual como que le vale, agarra un solo color del gradiente, lo oscurece y pone ese color como color plano, el otro pedo con los gradientes es que según yo no tengo código para cambiar n valores del gradiente en el código fuente para la GUI sustainable. Todo esto solo te lo comento para que lo sepas, si terminas lo de arriba del caso normal con colore planos y de milagro dices "se cómo se hace y se hace fácil" eres bienvenido pero si no mejor no hay que tocarlo y solo usa el cambio que ya hace el sistema y de favor modifica como lo oscurece utilizando 1 color del gradiente aunque sea random (no recuerdo como se hacia pero si se puede hay que poner que se use el más claro para oscurecer ese y usar ese) + el mismo proceso de oscurecimiento y para las letras si lo llegas a implementar, estaría bien utilizar el color más oscuro como background 
+
+
+
+attrs==25.4.0
+beautifulsoup4==4.14.3
+blinker==1.9.0
+certifi==2025.11.12
+cffi==2.0.0
+chromedriver-autoinstaller==0.6.4
+click==8.3.1
+colorama==0.4.6
+Flask==3.1.2
+greenlet==3.3.0
+h11==0.16.0
+idna==3.11
+itsdangerous==2.2.0
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+numpy==2.3.5
+outcome==1.3.0.post0
+packaging==25.0
+pillow==12.0.0
+playwright==1.57.0
+pycparser==2.23
+pyee==13.0.0
+PySocks==1.7.1
+selenium==4.39.0
+setuptools==80.9.0
+sniffio==1.3.1
+sortedcontainers==2.4.0
+soupsieve==2.8
+trio==0.32.0
+trio-websocket==0.12.2
+typing_extensions==4.15.0
+urllib3==2.6.2
+websocket-client==1.9.0
+Werkzeug==3.1.4
+wheel==0.45.1
+wsproto==1.3.2
+(venv) PS C:\Users\llmes\OneDrive\Documentos\Git Projects\Sistema-de-optimizacion-de-GUIs> python -m pip list --not-required
+Package                    Version
+-------------------------- -------
+beautifulsoup4             4.14.3
+chromedriver-autoinstaller 0.6.4
+Flask                      3.1.2
+numpy                      2.3.5
+pillow                     12.0.0
+pip                        25.3
+playwright                 1.57.0
+PySocks                    1.7.1
+selenium                   4.39.0
+setuptools                 80.9.0
+wheel                      0.45.1
+
