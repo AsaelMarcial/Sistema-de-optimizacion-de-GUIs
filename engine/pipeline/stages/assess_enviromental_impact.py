@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from flask import g
+from prefect.states import Completed, State, raise_state_exception
 
 from engine.adapters.utils.pixel import build_histogram, image_to_array
 from engine.domain.models.color_scheme import Color
@@ -23,7 +24,6 @@ from engine.pipeline.glow_runtime import (
     glow_flow,
     glow_task,
 )
-from prefect.states import Completed, State, raise_state_exception
 
 _ENERGY_MODEL = EnergyModel.build_default()
 _CARBON_MODEL = CarbonFootprintModel.build_default()
@@ -54,7 +54,9 @@ def _build_savings(
         after_value = float(getattr(after, key) or 0.0)
         delta = round(before_value - after_value, 6)
         savings[key] = delta
-        savings[f"{key}_percent"] = round((delta / before_value) * 100, 4) if before_value else 0.0
+        savings[f"{key}_percent"] = (
+            round((delta / before_value) * 100, 4) if before_value else 0.0
+        )
     return EnvironmentalSavingsModel.build(savings)
 
 
@@ -126,7 +128,9 @@ def assess_enviromental_impact() -> None:
 
     before_assessment = EnvironmentalAssessmentModel.build(
         assess_interface(
-            _histogram_records(_overview_data(summary, "environmental_color_histogram")),
+            _histogram_records(
+                _overview_data(summary, "environmental_color_histogram")
+            ),
             energy_model=_ENERGY_MODEL,
             carbon_model=_CARBON_MODEL,
             time_hours=1,
@@ -134,7 +138,9 @@ def assess_enviromental_impact() -> None:
     )
     after_assessment = EnvironmentalAssessmentModel.build(
         assess_interface(
-            _histogram_records(_overview_data(summary, "environmental_color_histogram_after")),
+            _histogram_records(
+                _overview_data(summary, "environmental_color_histogram_after")
+            ),
             energy_model=_ENERGY_MODEL,
             carbon_model=_CARBON_MODEL,
             time_hours=1,
@@ -149,13 +155,15 @@ def assess_enviromental_impact() -> None:
         after_carbon_footprint=after_assessment.co2eq_per_use,
         carbon_footprint_reduction=savings.co2eq_per_use,
     )
-    print({
-        "assess_enviromental_impact.complete": {
-            "before_co2eq_per_use": before_assessment.co2eq_per_use,
-            "after_co2eq_per_use": after_assessment.co2eq_per_use,
-            "co2eq_per_use_savings": savings.co2eq_per_use,
+    print(
+        {
+            "assess_enviromental_impact.complete": {
+                "before_co2eq_per_use": before_assessment.co2eq_per_use,
+                "after_co2eq_per_use": after_assessment.co2eq_per_use,
+                "co2eq_per_use_savings": savings.co2eq_per_use,
+            }
         }
-    })
+    )
     environmental_assessment_ready = _summary_has_environmental_assessment(
         summary,
         return_state=True,

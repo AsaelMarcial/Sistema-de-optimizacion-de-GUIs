@@ -7,20 +7,11 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from engine.domain.data.scope_css import get_font_weight
-from engine.domain.models.project_context import Resource
+from engine.domain.data.scope_html_elements import get_html_elements_by_category
 from engine.domain.models.color_scheme import Color
+from engine.domain.models.project_context import Resource
 from engine.domain.utils.parsers import are_all_colors_transparent, get_colors
 
-SVG_PAINT_TAGS = (
-    "svg",
-    "circle",
-    "rect",
-    "ellipse",
-    "line",
-    "polyline",
-    "polygon",
-    "path",
-)
 BoxQuad = list[tuple[float, float]]
 
 PropertyType = Literal[
@@ -43,7 +34,9 @@ class Property:
     )
     after_value: str | None = field(default=None)
     calculated_value: str | None = field(default=None)
-    resource: Resource | None = field(default=None, repr=False, hash=False, compare=False)
+    resource: Resource | None = field(
+        default=None, repr=False, hash=False, compare=False
+    )
     has_color: bool = False
     type: PropertyType = field(default="matched")
     is_defined: bool = field(default=False)
@@ -69,11 +62,19 @@ class Element:
     category: str | None
     node_type: int
     node_value: str | None = None
-    parent: Element | None = field(default=None, repr=False, hash=False, compare=False)
-    box_model: dict[str, BoxQuad] = field(default_factory=dict)
-    width: float | None = None
-    height: float | None = None
+    parent: Element | None = field(
+        default=None, init=False, repr=False, hash=False, compare=False
+    )
+    box_model: dict[str, BoxQuad] | None = field(default=None)
+    width: float | None = field(default=None)
+    height: float | None = field(default=None)
+    attributes: list[Property] = field(
+        default_factory=list, repr=False, hash=False, compare=False
+    )
     properties: list[Property] = field(default_factory=list)
+    image_references: list[Property] = field(
+        default_factory=list, repr=False, hash=False, compare=False
+    )
     children: list[Element] = field(
         default_factory=list, repr=False, hash=False, compare=False
     )
@@ -108,11 +109,13 @@ class Element:
         return self.depth_for()
 
     def depth_for(self, only_visible_ancestors: bool = True) -> int:
-        return sum(
-            1
-            for ancestor in self.ancestors
-            if not only_visible_ancestors or ancestor.is_visible
-        )
+        depth = 1
+        for ancestor in self.ancestors:
+            if ancestor.tag_name == "body":
+                break
+            if not only_visible_ancestors or ancestor.is_visible:
+                depth += 1
+        return depth
 
     @property
     def has_text(self) -> bool:
@@ -123,38 +126,23 @@ class Element:
 
     @property
     def has_image(self) -> bool:
-        return bool(self.image_references())
-
-    @property
-    def attributes(self) -> list[Property]:
-        return [
-            property_model
-            for property_model in self.properties
-            if property_model.type == "attribute"
-        ]
+        return bool(self.image_references)
 
     @property
     def content(self) -> BoxQuad | None:
-        return self.box_model.get("content")
+        return None if self.box_model is None else self.box_model.get("content")
 
     @property
     def padding(self) -> BoxQuad | None:
-        return self.box_model.get("padding")
+        return None if self.box_model is None else self.box_model.get("padding")
 
     @property
     def border(self) -> BoxQuad | None:
-        return self.box_model.get("border")
+        return None if self.box_model is None else self.box_model.get("border")
 
     @property
     def margin(self) -> BoxQuad | None:
-        return self.box_model.get("margin")
-
-    def image_references(self) -> list[Property]:
-        return [
-            property_model
-            for property_model in self.properties
-            if property_model.resource is not None
-        ]
+        return None if self.box_model is None else self.box_model.get("margin")
 
     def add_child(self, child: Element) -> None:
         if child is self:
@@ -289,7 +277,7 @@ class Element:
 
                 case "fill":
                     if (
-                        self.tag_name in SVG_PAINT_TAGS
+                        self.tag_name in get_html_elements_by_category("decoration")
                         and get_colors(prop_value) is not None
                         and not are_all_colors_transparent(prop_value)
                     ):
@@ -324,7 +312,7 @@ class Element:
 
             if (
                 bg_prop["name"]
-                and ancestor.tag_name not in SVG_PAINT_TAGS
+                and ancestor.tag_name not in get_html_elements_by_category("decoration")
                 and get_colors(bg_value) is not None
                 and not are_all_colors_transparent(bg_value)
             ):
@@ -332,10 +320,6 @@ class Element:
 
         # Retorno de cortocircuito seguro si ningún ancestro aportó color
         return root
-
-
-def iter_elements(root: Element | None) -> Iterable[Element]:
-    return () if root is None else root.iter_dfs()
 
 
 @dataclass(slots=True)

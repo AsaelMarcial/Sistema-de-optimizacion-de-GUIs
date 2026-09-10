@@ -3,20 +3,20 @@ from __future__ import annotations
 from pathlib import Path
 
 from flask import g
+from prefect.states import Completed, State, raise_state_exception
 
 from engine.adapters.browser.page_builder import PageBuilder
 from engine.adapters.utils.pixel import build_histogram, image_to_array
+from engine.domain.data.web_colors import nearest_web_color
 from engine.domain.models.color_scheme import Color, ColorScheme
-from engine.domain.models.element import DomTree, Element
+from engine.domain.models.element import DomTree
 from engine.domain.models.project_context import ProjectContext
 from engine.domain.models.summary import Summary
-from engine.domain.data.web_colors import nearest_web_color
 from engine.domain.utils.css_generator import generate_root_css
 from engine.pipeline.glow_runtime import (
     glow_flow,
     glow_task,
 )
-from prefect.states import Completed, State, raise_state_exception
 
 _PREDOMINANT_COLOR_LIMIT = 13
 _HUE_BUCKET_SIZE = 30

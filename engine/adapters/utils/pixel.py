@@ -4,6 +4,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 from pathlib import Path
 
+
 def image_to_array(image_source: str | Path) -> np.ndarray:
     """Load an image from a path and convert it into a clean RGB NumPy array.
 
@@ -29,19 +30,19 @@ def image_to_array(image_source: str | Path) -> np.ndarray:
             f"No se pudo procesar o decodificar la imagen '{image_source}': {exc}"
         ) from exc
 
+
 def build_histogram(
-    image_rgb: np.ndarray,
-    excluded_quads: list[list[tuple[float, float]]] | None = None
+    image_rgb: np.ndarray, excluded_quads: list[list[tuple[float, float]]] | None = None
 ) -> dict[str, int]:
     """Calculate the frequency of unique RGB colors from an image matrix.
 
     Args:
         image_rgb: A 3D NumPy array representing the RGB pixel matrix.
-        excluded_quads: Optional list of structured quads, where each quad 
+        excluded_quads: Optional list of structured quads, where each quad
           contains 4 coordinate tuples [(x1,y1), (x2,y2), (x3,y3), (x4,y4)].
 
     Returns:
-        A dictionary mapping color strings to their pixel counts, 
+        A dictionary mapping color strings to their pixel counts,
         ordered from highest to lowest frequency.
     """
     height, width = image_rgb.shape[:2]
@@ -70,7 +71,7 @@ def build_histogram(
     # 5. Zip and sort the raw arrays directly before allocating Python objects
     # Esto es mucho más eficiente que meter todo a listas y luego ordenarlas
     sorted_indices = np.argsort(-counts)  # El signo menos fuerza orden descendente
-    
+
     unique_colors = unique_colors[sorted_indices]
     counts = counts[sorted_indices]
 
@@ -81,3 +82,26 @@ def build_histogram(
         color_frequencies[rgb_string] = int(count)
 
     return color_frequencies
+
+
+def get_rgb_matrix(path: Path) -> np.ndarray:
+    with Image.open(path) as image:
+        return np.asarray(
+            image.convert("RGB"),
+            dtype=np.uint8,
+        )
+
+
+def print_ansi_color_blocks(title, color_data, is_matrix=False):
+    """Prints actual visual color blocks directly in the console using ANSI."""
+    print(f"--- {title} ---")
+    for item in color_data:
+        if is_matrix:
+            r, g, b = item[0]
+            extra_text = f"Pixels: {item[1]}"
+        else:
+            r, g, b = item["rgb"]
+            extra_text = f"Coverage: {item['percentage']}% ({item['count']} px)"
+
+        color_block = f"\033[48;2;{r};{g};{b}m      \033[0m"
+        print(f"  {color_block}  RGB: ({r:>3}, {g:>3}, {b:>3}) | {extra_text}")

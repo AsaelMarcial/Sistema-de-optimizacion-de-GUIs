@@ -133,6 +133,11 @@ HTMLELEMENTS = MappingProxyType(
 
 
 def get_html_element_category(element_name: object) -> str | None:
-    normalized_name = str(element_name or "").strip().lower()
-    element_data = HTMLELEMENTS.get(normalized_name)
+    element_data = HTMLELEMENTS.get(str(element_name or "").strip().lower())
     return element_data.category if element_data is not None else None
+
+def get_html_elements_by_category(category: str) -> tuple[str, ...]:
+    normalized = str(category or "").strip().lower()
+    return tuple(
+        tag for tag, data in HTMLELEMENTS.items() if data.category == normalized
+    )

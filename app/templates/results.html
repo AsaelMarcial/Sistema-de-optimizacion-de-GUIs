@@ -318,7 +318,7 @@
 
           <div class="change-history">
             {% for element in changed_elements %}
-            {% set changed_properties = element.properties | selectattr('has_changed') | list %}
+            {% set changed_properties = (element.properties + element.attributes + element.image_references) | selectattr('has_changed') | list %}
             <details class="card card--soft change-group">
               <summary class="change-group__head">
                 <span class="change-group__title">

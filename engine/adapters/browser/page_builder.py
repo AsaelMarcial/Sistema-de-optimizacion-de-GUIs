@@ -237,6 +237,7 @@ class PageBuilder:
                 "DOM.getDocument",
                 {
                     "depth": -1,
+                    "pierce": True,
                 },
             ).get("root")
 

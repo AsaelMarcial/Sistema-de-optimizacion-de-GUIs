@@ -676,5 +676,3 @@ class ColorScheme:
             return self.palettes[palette_name]
         else:
             return existing_palette      
-
-

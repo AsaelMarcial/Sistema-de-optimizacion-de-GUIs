@@ -105,7 +105,14 @@ def results():
         changed_elements=[
             element
             for element in (context.dom_tree.iter_dfs() if context.dom_tree is not None else ())
-            if any(property_model.has_changed for property_model in element.properties)
+            if any(
+                property_model.has_changed
+                for property_model in (
+                    *element.properties,
+                    *element.attributes,
+                    *element.image_references,
+                )
+            )
         ],
         color_scheme=context.color_scheme,
         environmental_review=context.summary.environmental_review(),

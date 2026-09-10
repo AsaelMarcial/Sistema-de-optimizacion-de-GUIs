@@ -1,53 +1,46 @@
 from __future__ import annotations
 
+import re
+from collections import defaultdict
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlsplit, urlunsplit
+
 from flask import g
+from prefect.states import Completed, State, raise_state_exception
 
 from engine.adapters.browser.page_builder import PageBuilder
 from engine.adapters.source_code_handler.local_asset_rewriter import (
     extract_reference_candidates,
     rewrite_reference_candidates,
 )
-from engine.domain.data.scope_css import CSSPROPERTIES, get_role, is_valid_name
+from engine.domain.data.scope_css import get_role
+from engine.domain.data.scope_html_elements import get_html_elements_by_category
 from engine.domain.models.color_scheme import (
+    NEUTRAL_TONAL_STEPS,
     Color,
     ColorScheme,
-    NEUTRAL_TONAL_STEPS,
     Tone,
 )
+from engine.domain.models.element import DomTree, Element, Property
 from engine.domain.models.project_context import ProjectContext
-from engine.domain.models.element import DomTree, Element, Property, SVG_PAINT_TAGS
 from engine.domain.models.token import TokenInventory
 from engine.domain.utils.css_generator import generate_theme_css
 from engine.domain.utils.parsers import (
     get_colors,
     has_gradient,
-    are_all_colors_transparent,
-    are_all_colors_equal,
-    replace_property_values,
     is_css_value_contained,
+    replace_property_values,
 )
 from engine.pipeline.glow_runtime import (
     glow_flow,
     glow_task,
 )
-import xml.etree.ElementTree as ET
-from pathlib import Path
-from typing import Any
-import re
-import io
-from urllib.parse import urlsplit, urlunsplit
-from prefect.states import Completed, State, raise_state_exception
 
-SVG_DEFAULT_FILL_TAGS = (
-    "path",
-    "circle",
-    "rect",
-    "ellipse",
-    "polygon",
-    "polyline",
-    "text",
-    "use",
+_SVG_PAINT_RE = re.compile(
+    r"(?i)(?P<head>\b(?P<name>fill|stroke|stop-color|flood-color|lighting-color|color)\s*(?:=|:)\s*[\"']?)(?P<value>[^;\"']+)"
 )
+DECORATION_TAGS = get_html_elements_by_category("decoration")
 
 
 @glow_task
@@ -181,7 +174,7 @@ def transform_design() -> None:
                             )
                             target_tone = target_tones[0] if target_tones else None
                     else:
-                        surface_depth = _surface_depth(element)
+                        surface_depth = element.depth
 
                         elevation_tones = tuple(
                             tone
@@ -209,23 +202,24 @@ def transform_design() -> None:
                         )
 
                 case "input", "foreground" | "background":
-                    matched_rules = page_builder.get_matched_styles(
-                        element.node_id
-                    ).get("matchedCSSRules")
-                    for rulematch in matched_rules:
-                        rule = rulematch.get("rule") or {}
-                        if rule.get("origin") == "user-agent":
-                            for property in rule.get("style").get("cssProperties"):
-                                if (
-                                    property.get("name") == css_property.name
-                                    and property
-                                ):
-                                    _transform_property(
-                                        page_builder,
-                                        element,
-                                        css_property,
-                                        property.get("value"),
-                                    )
+                    user_agent_source = next(
+                        (
+                            source
+                            for source in g.style.get_sources(
+                                element.backend_node_id,
+                                css_property.name,
+                            )
+                            if source.origin == "user-agent"
+                        ),
+                        None,
+                    )
+                    if user_agent_source is not None:
+                        _transform_property(
+                            page_builder,
+                            element,
+                            css_property,
+                            user_agent_source.value,
+                        )
                     continue
 
                 case "composed" | "typography", "background":
@@ -357,7 +351,7 @@ def transform_design() -> None:
                     if before_colors is None:
                         continue
 
-                    if element.tag_name in SVG_PAINT_TAGS:
+                    if element.tag_name in DECORATION_TAGS:
                         (
                             actual_ancestor_background_colors,
                             actual_inner_background_colors,
@@ -541,167 +535,130 @@ def _process_loaded_svg_files(
     original_backgrounds: dict[int, tuple[Any, Any, dict[str, Any]]],
     color_scheme: ColorScheme,
 ) -> None:
-    try:
-        root = dom_tree.require_body()
-        svg_usages_by_background = {}
-        for svg_file in project_context.loaded_svgs():
-            if svg_file._resource is None:
+    root = dom_tree.require_body()
+
+    for svg_file in project_context.loaded_svgs():
+        usages_by_background = defaultdict(list)
+        resource = svg_file.runtime_information
+
+        for backend_node_id in () if resource is None else resource.element_usages:
+            element = dom_tree.elements.get(backend_node_id)
+            if element is None or element.node_id is None:
                 continue
 
-            for backend_node_id in svg_file.runtime_information.element_usages:
-                element = dom_tree.elements.get(backend_node_id)
-                if element is None or element.node_id is None:
-                    continue
-
-                image_references = [
-                    image_reference
-                    for image_reference in element.image_references()
-                    if image_reference.resource is not None
-                    and image_reference.resource.project_file == svg_file
-                ]
-                if not image_references:
-                    continue
-
-                (
-                    original_ancestor_background_colors,
-                    _original_inner_background_colors,
-                    _original_background_data,
-                ) = original_backgrounds.get(
-                    element.backend_node_id,
-                    (None, None, {}),
-                )
-                actual_ancestor_background_colors, _actual_inner_colors = (
-                    _actual_backgrounds(root, element)
-                )
-                background_key = (
-                    _colors_key(original_ancestor_background_colors),
-                    _colors_key(actual_ancestor_background_colors),
-                )
-
-                for image_reference in image_references:
-                    svg_usages_by_background.setdefault(
-                        (svg_file, background_key),
-                        [],
-                    ).append(
-                        (
-                            element,
-                            image_reference,
-                            original_ancestor_background_colors,
-                            actual_ancestor_background_colors,
-                        )
-                    )
-
-        for (svg_file, _background_key), usages in svg_usages_by_background.items():
-            if not usages:
+            references = [
+                reference
+                for reference in element.image_references
+                if reference.resource is not None
+                and reference.resource.project_file == svg_file
+            ]
+            if not references:
                 continue
 
-            (
-                _first_element,
-                _first_reference,
-                original_ancestor_background_colors,
-                actual_ancestor_background_colors,
-            ) = usages[0]
+            original_colors = original_backgrounds.get(
+                element.backend_node_id,
+                (None, None, {}),
+            )[0]
+            actual_colors = _actual_backgrounds(root, element)[0]
+            usages_by_background[
+                (_colors_key(original_colors), _colors_key(actual_colors))
+            ].append((element, references, original_colors, actual_colors))
+
+        for usages in usages_by_background.values():
+            _element, _references, original_colors, actual_colors = usages[0]
             version_file = svg_file.add_version(
                 _rewrite_svg_file(
                     svg_file.absolute_path,
-                    original_ancestor_background_colors,
-                    actual_ancestor_background_colors,
+                    original_colors,
+                    actual_colors,
                     color_scheme,
-                ),
+                )
             )
 
-            for (
-                element,
-                image_reference,
-                _original_colors,
-                _actual_colors,
-            ) in usages:
-                if element.node_id is None:
-                    continue
-
-                attribute_name = (
-                    image_reference.name
-                    if image_reference.type == "attribute"
-                    else None
-                )
-                original_reference = next(
-                    (
-                        candidate
-                        for candidate in extract_reference_candidates(
-                            image_reference.current_value,
-                            attribute_name=attribute_name,
-                        )
-                        if project_context.project_file(candidate) == svg_file
-                    ),
-                    svg_file.path.as_posix(),
-                )
-                parsed_reference = urlsplit(original_reference)
-                if parsed_reference.scheme and parsed_reference.netloc:
-                    new_reference = urlunsplit(
-                        (
-                            parsed_reference.scheme,
-                            parsed_reference.netloc,
-                            Path(parsed_reference.path)
-                            .with_name(version_file.path.name)
-                            .as_posix(),
-                            parsed_reference.query,
-                            "",
-                        )
+            for element, references, _original_colors, _actual_colors in usages:
+                for image_reference in references:
+                    attribute_name = (
+                        image_reference.name
+                        if image_reference.type == "attribute"
+                        else None
                     )
-                else:
+                    candidates = extract_reference_candidates(
+                        image_reference.current_value,
+                        attribute_name=attribute_name,
+                    )
+                    original_reference = next(
+                        (
+                            candidate
+                            for candidate in candidates
+                            if project_context.project_file(candidate) == svg_file
+                            or (candidate_path := Path(urlsplit(candidate).path)).name
+                            == svg_file.path.name
+                            or (
+                                not candidate_path.suffix
+                                and candidate_path.stem == svg_file.path.stem
+                            )
+                        ),
+                        candidates[0]
+                        if len(candidates) == 1
+                        else svg_file.path.as_posix(),
+                    )
+                    parsed_reference = urlsplit(original_reference)
                     new_reference = (
-                        Path(original_reference.replace("\\", "/"))
+                        urlunsplit(
+                            (
+                                parsed_reference.scheme,
+                                parsed_reference.netloc,
+                                Path(parsed_reference.path)
+                                .with_name(version_file.path.name)
+                                .as_posix(),
+                                parsed_reference.query,
+                                "",
+                            )
+                        )
+                        if parsed_reference.scheme and parsed_reference.netloc
+                        else Path(original_reference.replace("\\", "/"))
                         .with_name(version_file.path.name)
                         .as_posix()
                     )
-
-                new_value = rewrite_reference_candidates(
-                    image_reference.current_value,
-                    new_reference,
-                    attribute_name,
-                    old_path=original_reference,
-                )
-                if new_value == image_reference.current_value:
-                    continue
-
-                if image_reference.type == "attribute":
-                    image_reference.after_value = page_builder.set_attribute_value(
-                        element.node_id,
-                        image_reference.name,
-                        new_value,
+                    new_value = rewrite_reference_candidates(
+                        image_reference.current_value,
+                        new_reference,
+                        attribute_name,
+                        old_path=original_reference,
                     )
-                else:
-                    _transform_property(
-                        page_builder,
-                        element,
-                        image_reference,
-                        new_value,
-                    )
-                image_reference.resource = project_context.add_resource(
-                    new_reference,
-                    resource_type="image",
-                    load_status=True,
-                )
-    except Exception as exc:
-        exception_type = type(exc).__name__
+                    if new_value == image_reference.current_value:
+                        continue
 
-        raise RuntimeError(
-            "SVG asset processing failed due to an unexpected "
-            f"error [{exception_type}]: {exc}"
-        ) from exc
+                    if image_reference.type == "attribute":
+                        image_reference.after_value = page_builder.set_attribute_value(
+                            element.node_id,
+                            image_reference.name,
+                            new_value,
+                        )
+                    else:
+                        _transform_property(
+                            page_builder,
+                            element,
+                            image_reference,
+                            new_value,
+                        )
+
+                    image_reference.resource = project_context.add_resource(
+                        new_reference,
+                        resource_type="image",
+                        load_status=True,
+                    )
 
 
 def _colors_key(colors: Any) -> tuple[str, ...]:
     return tuple(
-        sorted(
-            color.convert("srgb").to_string(
-                comma=True,
-                alpha=True,
-                rounding="decimal",
-                precision=0,
-            )
-            for _value, color in colors or ()
+        color.convert("srgb").to_string(
+            comma=True,
+            alpha=True,
+            rounding="decimal",
+            precision=0,
         )
+        for _value, color in colors or ()
     )
 
 
@@ -713,159 +670,45 @@ def _rewrite_svg_file(
 ) -> bytes:
     try:
         svg_content = svg_path.read_text(encoding="utf-8")
-        clean_content = re.sub(r'xmlns="[^"]+"', "", svg_content, count=1)
-        svg_root = ET.fromstring(clean_content)
-        style_tag = svg_root.find(".//style")
-        global_style = (
-            style_tag.text if style_tag is not None and style_tag.text else ""
-        )
+        rewritten: list[str] = []
+        cursor = 0
 
-        for elem in svg_root.iter():
-            tag_name = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
-            if tag_name in ("svg", "style", "defs", "metadata"):
+        for match in _SVG_PAINT_RE.finditer(svg_content):
+            value = match.group("value")
+            colors = get_colors(value)
+            new_values = _differences(
+                match.group("name").lower(),
+                colors,
+                original_ancestor_background_colors,
+                None,
+                actual_ancestor_background_colors,
+                None,
+                None,
+                color_scheme,
+                None,
+                None,
+            )
+            if not colors or not new_values:
                 continue
 
-            fill_defined = elem.get("fill") is not None
-
-            for attr in ("fill", "stroke"):
-                current_value = elem.get(attr)
-                if not current_value or current_value.lower() == "none":
-                    continue
-
-                new_values = _differences(
-                    attr,
-                    get_colors(current_value),
-                    original_ancestor_background_colors,
-                    None,
-                    actual_ancestor_background_colors,
-                    None,
-                    None,
-                    color_scheme,
-                    None,
-                    None,
+            rewritten.append(svg_content[cursor : match.start("value")])
+            rewritten.append(
+                replace_property_values(
+                    value,
+                    [color_value for color_value, _color in colors],
+                    [
+                        tone.to_var if isinstance(tone, Tone) else str(tone)
+                        for tone in new_values
+                    ],
                 )
-                if new_values:
-                    elem.set(attr, str(new_values[0]))
-
-            inline_style = elem.get("style", "")
-            if inline_style:
-                updated_style_parts = []
-                for part in inline_style.split(";"):
-                    if not part.strip() or ":" not in part:
-                        if part.strip():
-                            updated_style_parts.append(part.strip())
-                        continue
-
-                    prop, val = part.split(":", 1)
-                    prop = prop.strip().lower()
-                    val = val.strip()
-
-                    if prop == "fill":
-                        fill_defined = True
-
-                    if prop in ("fill", "stroke") and val.lower() != "none":
-                        new_values = _differences(
-                            prop,
-                            get_colors(val),
-                            original_ancestor_background_colors,
-                            None,
-                            actual_ancestor_background_colors,
-                            None,
-                            None,
-                            color_scheme,
-                            None,
-                            None,
-                        )
-                        if new_values:
-                            val = str(new_values[0])
-
-                    updated_style_parts.append(f"{prop}: {val}")
-
-                elem.set("style", "; ".join(updated_style_parts) + ";")
-
-            selectors = [f".{c}" for c in (elem.get("class") or "").split()]
-            if elem.get("id"):
-                selectors.append(f"#{elem.get('id')}")
-
-            for selector in selectors:
-                if selector not in global_style:
-                    continue
-
-                block_match = re.search(rf"{selector}\s*\{{([^}}]+)\}}", global_style)
-                if not block_match:
-                    continue
-
-                block_text = block_match.group(1)
-                for prop in ("fill", "stroke"):
-                    prop_match = re.search(rf"{prop}\s*:\s*([^;]+)", block_text)
-                    if not prop_match:
-                        continue
-
-                    val = prop_match.group(1).strip()
-                    if prop == "fill":
-                        fill_defined = True
-
-                    if val.lower() == "none":
-                        continue
-
-                    new_values = _differences(
-                        prop,
-                        get_colors(val),
-                        original_ancestor_background_colors,
-                        None,
-                        actual_ancestor_background_colors,
-                        None,
-                        None,
-                        color_scheme,
-                        None,
-                        None,
-                    )
-                    if new_values:
-                        global_style = global_style.replace(
-                            prop_match.group(0),
-                            f"{prop}: {new_values[0]}",
-                        )
-
-            if not fill_defined and tag_name in SVG_DEFAULT_FILL_TAGS:
-                new_values = _differences(
-                    "fill",
-                    get_colors("rgb(0, 0, 0)"),
-                    original_ancestor_background_colors,
-                    None,
-                    actual_ancestor_background_colors,
-                    None,
-                    None,
-                    color_scheme,
-                    None,
-                    None,
-                )
-
-                if new_values:
-                    elem.set("fill", str(new_values[0]))
-
-        if style_tag is not None and global_style:
-            style_tag.text = global_style
-
-        namespaces = dict(
-            node
-            for _, node in ET.iterparse(io.StringIO(svg_content), events=["start-ns"])
-        )
-
-        for prefix, uri in namespaces.items():
-            ET.register_namespace(prefix, uri)
-        ET.register_namespace("", "http://www.w3.org/2000/svg")
-
-        if svg_root.tag == "svg" and "xmlns" not in svg_root.attrib:
-            svg_root.set("xmlns", "http://www.w3.org/2000/svg")
-
-        return (
-            "<?xml version='1.0' encoding='utf-8'?>\n"
-            + ET.tostring(
-                svg_root,
-                encoding="unicode",
-                short_empty_elements=True,
             )
-        ).encode("utf-8")
+            cursor = match.end("value")
+
+        if not rewritten:
+            return svg_content.encode("utf-8")
+
+        rewritten.append(svg_content[cursor:])
+        return "".join(rewritten).encode("utf-8")
     except Exception as exc:
         exception_type = type(exc).__name__
 
@@ -1144,7 +987,7 @@ def _differences(
                     palette.name == "Neutral"
                     and get_role(property_name) == "background"
                     and tone.value <= 40
-                    and tag_name not in SVG_PAINT_TAGS
+                    and tag_name not in DECORATION_TAGS
                     and tag_name is not None
                 )
             ):
@@ -1259,16 +1102,3 @@ def _actual_backgrounds(root: Element, element: Element) -> Any:
     )
 
     return get_colors(ancestor_value), get_colors(inner_value)
-
-
-def _surface_depth(element: Element) -> int:
-    depth = 1
-
-    for ancestor in element.ancestors:
-        if ancestor.tag_name == "body":
-            break
-
-        if ancestor.is_visible:
-            depth += 1
-
-    return depth

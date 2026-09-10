@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from collections import defaultdict
 import re
+from collections import defaultdict
 from typing import Iterable
 
-from engine.adapters.color_service import color_registry
 from engine.domain.data.tokens import TRANSFORMATION_ORDER, TRANSFORMATION_RULES
 from engine.domain.models.color import Color
+from engine.domain.utils.token import resolve_initial_contrast, select_same_palette_tone
+
+from engine.adapters.color_service import color_registry
 from engine.domain.models.token import (
     Token,
     TokenInventory,
@@ -14,7 +16,6 @@ from engine.domain.models.token import (
     TokenValidationModel,
     TokenValidationStatus,
 )
-from engine.domain.utils.token import resolve_initial_contrast, select_same_palette_tone
 
 _COLOR_FRAGMENT_RE = re.compile(
     r"(#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]+\)|\b[a-zA-Z][a-zA-Z-]*\b)",

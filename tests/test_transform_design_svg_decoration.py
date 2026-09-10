@@ -10,7 +10,6 @@ from engine.domain.models.token import TokenInventory
 from engine.pipeline.context import PipelineContext
 from engine.pipeline.stages.transform_design import (
     _process_loaded_svg_files,
-    _surface_depth,
 )
 
 
@@ -48,7 +47,7 @@ class FakePageBuilder:
 
 
 class TransformDesignSvgDecorationTest(unittest.TestCase):
-    def test_surface_depth_does_not_depend_on_body_box_model(self) -> None:
+    def test_element_depth_does_not_depend_on_body_box_model(self) -> None:
         body = Element(
             backend_node_id=1,
             node_id=10,
@@ -80,8 +79,8 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
         body.add_child(parent)
         parent.add_child(child)
 
-        self.assertEqual(1, _surface_depth(parent))
-        self.assertEqual(2, _surface_depth(child))
+        self.assertEqual(1, parent.depth)
+        self.assertEqual(2, child.depth)
 
     def test_property_tokens_ignore_attribute_assets_and_inherited_calculated_values(self) -> None:
         root = Element(
@@ -171,7 +170,7 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
                 tag_name="img",
                 category="media",
                 node_type=1,
-                properties=[
+                image_references=[
                     Property(
                         name="src",
                         before_value="assets/icon.svg",
@@ -187,7 +186,7 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
                 tag_name="div",
                 category="container",
                 node_type=1,
-                properties=[
+                image_references=[
                     Property(
                         name="background-image",
                         before_value='url("assets/icon.svg")',
@@ -230,10 +229,10 @@ class TransformDesignSvgDecorationTest(unittest.TestCase):
             )
             self.assertIn(
                 "url(assets/icon-glow.svg)",
-                second.properties[0].after_value or "",
+                second.image_references[0].after_value or "",
             )
-            self.assertIs(first.properties[0].resource.project_file, versions[0])
-            self.assertIs(second.properties[0].resource.project_file, versions[0])
+            self.assertIs(first.image_references[0].resource.project_file, versions[0])
+            self.assertIs(second.image_references[0].resource.project_file, versions[0])
         finally:
             app_context.pop()
             shutil.rmtree(session_dir, ignore_errors=True)

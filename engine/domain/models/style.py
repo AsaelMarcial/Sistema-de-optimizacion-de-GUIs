@@ -237,6 +237,18 @@ class StyleSource:
     disabled: bool = False
     declaration_range: dict[str, int] | None = None
     style_range: dict[str, int] | None = None
+    classification: tuple[Value, ...] = field(
+        init=False,
+        repr=False,
+        hash=False,
+        compare=False,
+    )
+
+    def __post_init__(self) -> None:
+        self.target_property = self.target_property.strip().lower()
+        self.declaration_name = self.declaration_name.strip().lower()
+        self.value = str(self.value or "").strip()
+        self.classification = classify_value(self.value)
 
 
 class Styles:
@@ -331,11 +343,13 @@ class Styles:
         matched_styles: dict[str, Any],
         property_names: set[str],
         *,
+        include_user_agent: bool = False,
         include_inspector: bool = False,
     ) -> dict[str, list[StyleSource]]:
         sources = self.extract_property_sources(
             matched_styles=matched_styles,
             property_names=property_names,
+            include_user_agent=include_user_agent,
             include_inspector=include_inspector,
         )
 
@@ -360,6 +374,7 @@ class Styles:
         matched_styles: dict[str, Any],
         property_names: set[str],
         *,
+        include_user_agent: bool = False,
         include_inspector: bool = False,
     ) -> dict[str, list[StyleSource]]:
         sources: dict[str, list[StyleSource]] = {
@@ -367,6 +382,9 @@ class Styles:
             for property_name in property_names
         }
         allowed_origins = {"regular"}
+
+        if include_user_agent:
+            allowed_origins.add("user-agent")
 
         if include_inspector:
             allowed_origins.add("inspector")

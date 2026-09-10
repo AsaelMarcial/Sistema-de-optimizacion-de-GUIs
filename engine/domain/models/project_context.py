@@ -467,85 +467,80 @@ class ProjectContext:
         return sorted(path for path in target_root.rglob("*") if path.is_file())
 
     def project_file(
-        self,
-        path: str | Path,
-        source: ProjectSource | None = None,
+        self, path: str | Path, source: ProjectSource | None = None
     ) -> ProjectFile | None:
-        value = str(path or "").strip()
-        match = re.compile(
+        URL_CLEAN_RE = re.compile(
             r"""^(?:url\(\s*)?(?P<quote>["'])?(?P<value>.*?)(?P=quote)?(?:\s*\))?$""",
             re.IGNORECASE,
-        ).fullmatch(value)
-        if match is None:
-            return None
-        value = urlsplit(unquote(match.group("value")))
-        if value.scheme in {"http", "https"} and value.hostname not in _LOCAL_HOSTS:
-            return None
-
-        if not value.path:
-            return None
-
-        reference_path = Path(
-            value.path.lstrip("/")
-            if value.netloc or value.path.startswith("/")
-            else value.path
         )
-        candidates: list[Path] = []
+        # 1. Guardián Inicial: Limpieza y extracción rápida de la URL
+        if not (match := URL_CLEAN_RE.fullmatch(str(path or "").strip())):
+            return None
 
-        if not value.netloc and not str(value.path).startswith("/"):
+        url = urlsplit(unquote(match.group("value")))
+        if (
+            url.scheme in {"http", "https"} and url.hostname not in _LOCAL_HOSTS
+        ) or not url.path:
+            return None
+
+        # 2. Determinar la ruta base de referencia (Quitamos variables de texto extra)
+        ref_path = Path(
+            url.path.lstrip("/") if url.netloc or url.path.startswith("/") else url.path
+        )
+
+        # 3. Construcción del flujo de candidatos directo (In-place y sin duplicar lógica)
+        candidates = []
+        if not url.netloc and not url.path.startswith("/"):
             if source is not None:
-                candidates.append(source.path.parent / reference_path)
+                candidates.append(source.path.parent / ref_path)
             if self.page_url:
-                page_path = Path(urlsplit(self.page_url).path.lstrip("/"))
-                candidates.append(page_path.parent / reference_path)
+                candidates.append(
+                    Path(urlsplit(self.page_url).path.lstrip("/")).parent / ref_path
+                )
+        candidates.append(ref_path)
 
-        candidates.append(reference_path)
+        # 4. Cachés Rápidos en Memoria para búsquedas O(1)
+        # Agrupamos por (parent, stem) para resolver archivos sin extensión sin hacer bucles
+        stem_registry = {
+            (r_path.parent, r_path.stem): p_file
+            for r_path, p_file in self.FILES_REGISTRY.items()
+        }
+        abs_registry = {}
+        for p_file in self.FILES_REGISTRY.values():
+            try:
+                abs_registry[p_file.absolute_path.resolve()] = p_file
+            except OSError:
+                continue
 
-        for candidate_path in candidates:
-            if candidate_path in self.FILES_REGISTRY:
-                return self.FILES_REGISTRY[candidate_path]
+        # 5. Resolución en cascada (Un solo bucle compacto)
+        for cand in candidates:
+            if cand in self.FILES_REGISTRY:
+                return self.FILES_REGISTRY[cand]
 
-            if not candidate_path.suffix:
-                for registry_path, project_file in self.FILES_REGISTRY.items():
-                    if (
-                        registry_path.parent == candidate_path.parent
-                        and registry_path.stem == candidate_path.name
-                    ):
-                        return project_file
+            if not cand.suffix and (
+                match_file := stem_registry.get((cand.parent, cand.name))
+            ):
+                return match_file
 
-            candidate_absolute = g.before_root.joinpath(candidate_path)
-            for project_file in self.FILES_REGISTRY.values():
-                try:
-                    if (
-                        candidate_absolute.is_file()
-                        and candidate_absolute.samefile(project_file.absolute_path)
-                    ):
-                        return project_file
-                except OSError:
-                    continue
+            try:
+                if (cand_abs := g.before_root.joinpath(cand).resolve()) in abs_registry:
+                    return abs_registry[cand_abs]
+                if not cand.suffix:
+                    for p_file in self.FILES_REGISTRY.values():
+                        if p_file.absolute_path.with_suffix("") == cand_abs:
+                            return p_file
+            except OSError:
+                pass
 
-            if candidate_absolute.parent.is_dir() and not candidate_path.suffix:
-                for found in candidate_absolute.parent.glob(f"{candidate_path.name}.*"):
-                    for project_file in self.FILES_REGISTRY.values():
-                        try:
-                            if found.samefile(project_file.absolute_path):
-                                return project_file
-                        except OSError:
-                            continue
+        # 6. Fallback final: Búsqueda difusa en memoria si es un nombre suelto en el directorio raíz
+        if ref_path.parent == Path("."):
+            for r_path, p_file in self.FILES_REGISTRY.items():
+                if (ref_path.suffix and r_path.name == ref_path.name) or (
+                    not ref_path.suffix and r_path.stem == ref_path.stem
+                ):
+                    return p_file
 
-        if reference_path.parent == Path("."):
-            pattern = (
-                reference_path.name
-                if reference_path.suffix
-                else f"{reference_path.name}.*"
-            )
-            for found in g.before_root.rglob(pattern):
-                for project_file in self.FILES_REGISTRY.values():
-                    try:
-                        if found.samefile(project_file.absolute_path):
-                            return project_file
-                    except OSError:
-                        continue
+        return None
 
     def find_file_by_path(self, path: Path | str) -> ProjectFile | None:
         return self.project_file(path)
